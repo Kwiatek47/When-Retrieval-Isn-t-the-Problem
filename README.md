@@ -5,6 +5,23 @@ https://moja.pg.edu.pl/auth/appjs/research-projects/project-topics?tab=contribut
 
 Minimalistyczny fundament chatbota medycznego oparty o FastAPI, asynchroniczny provider pattern i lokalne modele Ollama.
 
+### Struktura
+
+```text
+.
+├── app/
+│   ├── api/              # Routery i dependency injection
+│   ├── core/             # Konfiguracja aplikacji
+│   ├── providers/        # Protokol LLMProvider i implementacje providerow
+│   ├── services/         # Logika domenowa gotowa pod RAG
+│   ├── main.py           # Fabryka aplikacji FastAPI
+│   └── schemas.py        # Modele request/response
+├── main.py               # Entry point dla uvicorn main:app
+└── static/
+    ├── index.html        # Widok aplikacji
+    └── app.js            # Logika UI
+```
+
 ### Uruchomienie
 
 ```bash
