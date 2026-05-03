@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MedChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="h-screen overflow-hidden bg-white font-sans text-zinc-950 antialiased">
+    <div class="flex h-screen flex-col">
+      <header class="shrink-0 border-b border-zinc-100 bg-white">
+        <div class="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+          <a href="/" class="flex items-center gap-3" aria-label="MedChat home">
+            <span class="grid h-8 w-8 place-items-center rounded-full bg-teal-600 text-sm font-bold text-white">M</span>
+            <span class="text-lg font-semibold tracking-normal text-zinc-950">MedChat</span>
+          </a>
+
+          <div class="flex min-w-0 items-center justify-end gap-2">
+            <span
+              id="medicalModelBadge"
+              class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-700"
+              title="Medical LLM"
+              aria-label="Medical LLM"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+              </svg>
+              <span class="hidden sm:inline">Medical LLM</span>
+            </span>
+
+            <label class="sr-only" for="modelSelect">Model</label>
+            <select
+              id="modelSelect"
+              class="h-10 w-40 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-sm outline-none transition hover:border-zinc-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 sm:w-52"
+            >
+              <optgroup label="Medical LLMs">
+                <option value="medgemma" data-medical="true" selected>MedGemma</option>
+                <option value="medgemma:27b" data-medical="true">MedGemma 27B</option>
+                <option value="meditron" data-medical="true">Meditron</option>
+                <option value="medllama2" data-medical="true">MedLlama2</option>
+                <option value="m/biomistral" data-medical="true">BioMistral</option>
+              </optgroup>
+              <optgroup label="General LLMs">
+                <option value="llama3.1">llama3.1</option>
+                <option value="llama3.2">llama3.2</option>
+                <option value="mistral">mistral</option>
+                <option value="qwen2.5">qwen2.5</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <main id="chatViewport" class="flex-1 overflow-y-auto">
+        <section id="messages" class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-36 pt-8 sm:px-6">
+          <article class="max-w-2xl text-[15px] leading-7 text-zinc-700">
+            Hello, I am MedChat. Ask a health question and I will keep the answer concise.
+          </article>
+        </section>
+      </main>
+
+      <div class="pointer-events-none fixed inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/95 to-white/0 pb-4 pt-10">
+        <form id="chatForm" class="pointer-events-auto mx-auto w-full max-w-3xl px-4 sm:px-6">
+          <div class="flex items-end gap-2 rounded-[28px] border border-zinc-200 bg-white px-3 py-2 shadow-lg shadow-zinc-200/70">
+            <button
+              type="button"
+              class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-4 focus:ring-teal-600/10"
+              aria-label="Add attachment"
+              title="Add attachment"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+
+            <textarea
+              id="promptInput"
+              rows="1"
+              class="max-h-44 min-h-10 flex-1 resize-none bg-transparent px-1 py-2.5 text-[15px] leading-6 text-zinc-950 outline-none placeholder:text-zinc-400"
+              placeholder="Ask a medical question"
+              autocomplete="off"
+            ></textarea>
+
+            <button
+              id="sendButton"
+              type="submit"
+              class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-zinc-950 text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-950/10 disabled:cursor-not-allowed disabled:bg-zinc-300"
+              aria-label="Send message"
+              title="Send message"
+              disabled
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const chatForm = document.querySelector("#chatForm");
+      const chatViewport = document.querySelector("#chatViewport");
+      const messagesEl = document.querySelector("#messages");
+      const medicalModelBadge = document.querySelector("#medicalModelBadge");
+      const modelSelect = document.querySelector("#modelSelect");
+      const promptInput = document.querySelector("#promptInput");
+      const sendButton = document.querySelector("#sendButton");
+
+      const messages = [];
+      let isSending = false;
+
+      function scrollToBottom() {
+        requestAnimationFrame(() => {
+          chatViewport.scrollTop = chatViewport.scrollHeight;
+        });
+      }
+
+      function autoResizeTextarea() {
+        promptInput.style.height = "auto";
+        promptInput.style.height = `${Math.min(promptInput.scrollHeight, 176)}px`;
+      }
+
+      function syncSendButton() {
+        sendButton.disabled = isSending || promptInput.value.trim().length === 0;
+      }
+
+      function syncMedicalBadge() {
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        const isMedicalModel = selectedOption?.dataset.medical === "true";
+        medicalModelBadge.classList.toggle("hidden", !isMedicalModel);
+        medicalModelBadge.classList.toggle("inline-flex", isMedicalModel);
+      }
+
+      function appendMessage(role, content, loading = false) {
+        const row = document.createElement("div");
+        row.className = role === "user" ? "flex justify-end" : "flex justify-start";
+
+        const message = document.createElement(role === "user" ? "div" : "article");
+        message.textContent = content;
+        message.className =
+          role === "user"
+            ? "max-w-[82%] whitespace-pre-wrap rounded-[24px] bg-zinc-100 px-4 py-3 text-[15px] leading-6 text-zinc-950"
+            : "w-full whitespace-pre-wrap text-[15px] leading-7 text-zinc-800";
+
+        if (loading) {
+          message.classList.add("animate-pulse", "text-zinc-400");
+        }
+
+        row.appendChild(message);
+        messagesEl.appendChild(row);
+        scrollToBottom();
+        return row;
+      }
+
+      async function sendMessage(content) {
+        isSending = true;
+        syncSendButton();
+
+        messages.push({ role: "user", content });
+        appendMessage("user", content);
+        const loadingRow = appendMessage("assistant", "...", true);
+
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: modelSelect.value,
+              messages,
+              temperature: 0.2,
+            }),
+          });
+
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.detail || "The assistant is unavailable.");
+          }
+
+          const assistantMessage = data.message?.content || "I could not generate a response.";
+          loadingRow.remove();
+          messages.push({ role: "assistant", content: assistantMessage });
+          appendMessage("assistant", assistantMessage);
+        } catch (error) {
+          loadingRow.remove();
+          appendMessage("assistant", error.message || "Something went wrong.");
+        } finally {
+          isSending = false;
+          syncSendButton();
+          promptInput.focus();
+        }
+      }
+
+      promptInput.addEventListener("input", () => {
+        autoResizeTextarea();
+        syncSendButton();
+      });
+
+      promptInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          chatForm.requestSubmit();
+        }
+      });
+
+      modelSelect.addEventListener("change", syncMedicalBadge);
+
+      chatForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const content = promptInput.value.trim();
+        if (!content || isSending) {
+          return;
+        }
+
+        promptInput.value = "";
+        autoResizeTextarea();
+        await sendMessage(content);
+      });
+
+      autoResizeTextarea();
+      syncMedicalBadge();
+      syncSendButton();
+    </script>
+  </body>
+</html>
