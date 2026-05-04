@@ -14,6 +14,8 @@ class Settings:
     default_model: str
     ollama_base_url: str
     ollama_timeout: float
+    rag_top_k: int
+    rag_max_context_chars: int
     static_dir: Path
     system_prompt: str
 
@@ -26,6 +28,8 @@ def get_settings() -> Settings:
         default_model=os.getenv("OLLAMA_MODEL", "medgemma"),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_timeout=float(os.getenv("OLLAMA_TIMEOUT", "60")),
+        rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
+        rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
         static_dir=PROJECT_ROOT / "static",
         system_prompt=(
             "You are a professional medical assistant. Provide concise, helpful information. "

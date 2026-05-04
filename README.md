@@ -13,6 +13,7 @@ Minimalistyczny fundament chatbota medycznego oparty o FastAPI, asynchroniczny p
 │   ├── api/              # Routery i dependency injection
 │   ├── core/             # Konfiguracja aplikacji
 │   ├── providers/        # Protokol LLMProvider i implementacje providerow
+│   ├── rag/              # Sekwencyjny pipeline Pre-retrieval -> Retrieval -> Post-retrieval
 │   ├── services/         # Logika domenowa gotowa pod RAG
 │   ├── main.py           # Fabryka aplikacji FastAPI
 │   └── schemas.py        # Modele request/response
@@ -39,4 +40,28 @@ Modele medyczne w Ollamie można pobrać przykładowo:
 ollama pull medgemma
 ollama pull meditron
 ollama pull medllama2
+```
+
+### RAG pipeline
+
+Endpoint `POST /api/chat` przechodzi przez trzy kroki przed wywolaniem modelu:
+
+1. `PreRetriever` (`app/rag/pre_retrieval.py`) normalizuje ostatnie pytanie uzytkownika, rozwija podstawowe skroty medyczne, wykrywa proste przypadki bez potrzeby retrieval i wyciaga wstepne filtry, np. kody ICD.
+2. `MedicalKnowledgeRetriever` (`app/rag/retrieval.py`) jest kontraktem pod baze wektorowa. Aktualnie podpiety jest `EmptyMedicalKnowledgeRetriever`, ktory zwraca brak dokumentow do czasu integracji VectorDB.
+3. `PostRetriever` (`app/rag/post_retrieval.py`) sortuje i deduplikuje dokumenty, buduje blok kontekstu `MEDICAL_KNOWLEDGE_BASE`, dokleja instrukcje cytowania i zwraca metadane `citations` oraz `retrieval`.
+
+Osoba implementujaca VectorDB powinna podmienic `get_medical_knowledge_retriever()` w `app/api/dependencies.py` na klase implementujaca:
+
+```python
+async def retrieve(query: PreRetrievalResult, *, limit: int) -> RetrievalResult:
+    ...
+```
+
+Zwrocone dokumenty powinny miec typ `RetrievedDocument` z polami `id`, `title`, `content`, `source`, `score` i opcjonalnym `metadata`.
+
+Konfiguracja srodowiskowa:
+
+```bash
+RAG_TOP_K=5
+RAG_MAX_CONTEXT_CHARS=8000
 ```
