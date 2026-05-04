@@ -1,4 +1,5 @@
 from typing import Literal
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +17,25 @@ class ChatRequest(BaseModel):
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
 
 
+class Citation(BaseModel):
+    id: str
+    title: str
+    source: str
+    score: float
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class RetrievalInfo(BaseModel):
+    enabled: bool
+    status: Literal["skipped", "grounded", "no_sources"]
+    provider: str
+    query: str
+    documents_count: int
+
+
 class ChatResponse(BaseModel):
     model: str
     message: ChatMessage
     done: bool
+    citations: list[Citation] = Field(default_factory=list)
+    retrieval: Optional[RetrievalInfo] = None

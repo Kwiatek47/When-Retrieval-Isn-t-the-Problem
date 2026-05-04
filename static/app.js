@@ -31,7 +31,7 @@ function syncMedicalBadge() {
   medicalModelBadge.classList.toggle("inline-flex", isMedicalModel);
 }
 
-function appendMessage(role, content, loading = false) {
+function appendMessage(role, content, loading = false, citations = []) {
   const row = document.createElement("div");
   row.className = role === "user" ? "flex justify-end" : "flex justify-start";
 
@@ -44,6 +44,21 @@ function appendMessage(role, content, loading = false) {
 
   if (loading) {
     message.classList.add("animate-pulse", "text-zinc-400");
+  }
+
+  if (role === "assistant" && citations.length > 0) {
+    const citationsEl = document.createElement("div");
+    citationsEl.className = "mt-4 flex flex-wrap gap-2 text-xs text-zinc-500";
+
+    citations.forEach((citation) => {
+      const item = document.createElement("span");
+      item.className = "rounded-full border border-zinc-200 px-3 py-1";
+      item.textContent = `[${citation.id}] ${citation.title}`;
+      item.title = citation.source;
+      citationsEl.appendChild(item);
+    });
+
+    message.appendChild(citationsEl);
   }
 
   row.appendChild(message);
@@ -79,7 +94,7 @@ async function sendMessage(content) {
     const assistantMessage = data.message?.content || "I could not generate a response.";
     loadingRow.remove();
     messages.push({ role: "assistant", content: assistantMessage });
-    appendMessage("assistant", assistantMessage);
+    appendMessage("assistant", assistantMessage, false, data.citations || []);
   } catch (error) {
     loadingRow.remove();
     appendMessage("assistant", error.message || "Something went wrong.");
