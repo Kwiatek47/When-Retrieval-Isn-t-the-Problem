@@ -20,47 +20,28 @@ services:
       retries: 5
       start_period: 180s
 
-  weaviate:
-    image: cr.weaviate.io/semitechnologies/weaviate:1.30.0
-    command:
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --scheme
-      - http
-    environment:
-      QUERY_DEFAULTS_LIMIT: "25"
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
-      PERSISTENCE_DATA_PATH: /var/lib/weaviate
-      DEFAULT_VECTORIZER_MODULE: none
-      ENABLE_MODULES: ""
-      CLUSTER_HOSTNAME: node1
+  qdrant:
+    image: qdrant/qdrant:latest
     ports:
-      - "8080:8080"
-      - "50051:50051"
+      - "6333:6333"
+      - "6334:6334"
     volumes:
-      - weaviate-data:/var/lib/weaviate
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/v1/.well-known/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+      - qdrant-data:/qdrant/storage
 
-  weaviate-schema:
+  qdrant-init:
     build:
-      context: ./weaviate
+      context: ./qdrant
     environment:
-      WEAVIATE_HTTP_HOST: weaviate
-      WEAVIATE_HTTP_PORT: "8080"
-      WEAVIATE_GRPC_HOST: weaviate
-      WEAVIATE_GRPC_PORT: "50051"
-      WEAVIATE_COLLECTION: MedicalChunk
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_VECTOR_NAME: medcpt_dense
+      QDRANT_VECTOR_SIZE: "768"
     depends_on:
-      weaviate:
-        condition: service_healthy
+      qdrant:
+        condition: service_started
     restart: "no"
 
 volumes:
   huggingface-cache:
-  weaviate-data:
+  qdrant-data:
