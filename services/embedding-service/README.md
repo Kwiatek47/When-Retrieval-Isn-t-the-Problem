@@ -48,7 +48,7 @@ EMBEDDING_DEVICE=cpu
 HF_HOME=/models/huggingface
 ```
 
-`EMBEDDING_MODEL_NAME` jest stabilnym identyfikatorem pary encoderów i powinien trafiać do metadanych Weaviate jako `embeddingModel`.
+`EMBEDDING_MODEL_NAME` jest stabilnym identyfikatorem pary encoderów i powinien trafiać do metadanych Qdrant jako `embeddingModel`.
 
 Wymiar embeddingu jest stały:
 
@@ -56,7 +56,7 @@ Wymiar embeddingu jest stały:
 768
 ```
 
-Nie należy mieszać embeddingów z różnych modeli albo różnych wymiarów w jednej kolekcji Weaviate.
+Nie należy mieszać embeddingów z różnych modeli albo różnych wymiarów w jednej kolekcji Qdrant.
 
 ## Healthcheck
 
@@ -170,14 +170,14 @@ Response:
 1. sparsować dokument,
 2. podzielić tekst na chunki,
 3. wysłać chunki do `POST /embed/documents`,
-4. zapisać do Weaviate tekst chunku, metadane i zwrócony vector,
+4. zapisać do Qdrant tekst chunku, metadane i zwrócony vector,
 5. zapisać wartość `model` z odpowiedzi jako `embeddingModel`.
 
 `rag-api` powinno:
 
 1. przyjąć pytanie użytkownika,
 2. wysłać pytanie do `POST /embed/query`,
-3. wysłać otrzymany vector do Weaviate jako zapytanie near-vector,
+3. wysłać otrzymany vector do Qdrant jako zapytanie po named vectorze `medcpt_dense`,
 4. opcjonalnie przekazać kandydatów do rerankera,
 5. zbudować odpowiedź na podstawie znalezionych chunków.
 
@@ -189,4 +189,4 @@ Aktualnie serwis działa CPU-only. To jest poprawne dla MVP, ale przy większym 
 EMBEDDING_DEVICE=cuda
 ```
 
-Po zmianie encoderów trzeba utworzyć nową kolekcję Weaviate albo przeprowadzić pełną reindeksację korpusu. Nie dopisujemy embeddingów z nowej przestrzeni do starej kolekcji.
+Po zmianie encoderów trzeba utworzyć nową kolekcję Qdrant albo przeprowadzić pełną reindeksację korpusu. Nie dopisujemy embeddingów z nowej przestrzeni do starej kolekcji.
