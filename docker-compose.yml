@@ -1,0 +1,66 @@
+services:
+  embedding-service:
+    build:
+      context: ./services/embedding-service
+    environment:
+      EMBEDDING_MODEL_NAME: medcpt-ncbi-v1
+      MEDCPT_QUERY_MODEL: ncbi/MedCPT-Query-Encoder
+      MEDCPT_DOCUMENT_MODEL: ncbi/MedCPT-Article-Encoder
+      EMBEDDING_DEVICE: cpu
+      EMBEDDING_BATCH_SIZE: "16"
+      HF_HOME: /models/huggingface
+    ports:
+      - "8081:8080"
+    volumes:
+      - huggingface-cache:/models/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.30.0
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --scheme
+      - http
+    environment:
+      QUERY_DEFAULTS_LIMIT: "25"
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  weaviate-schema:
+    build:
+      context: ./weaviate
+    environment:
+      WEAVIATE_HTTP_HOST: weaviate
+      WEAVIATE_HTTP_PORT: "8080"
+      WEAVIATE_GRPC_HOST: weaviate
+      WEAVIATE_GRPC_PORT: "50051"
+      WEAVIATE_COLLECTION: MedicalChunk
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  huggingface-cache:
+  weaviate-data:

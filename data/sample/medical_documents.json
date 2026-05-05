@@ -1,0 +1,36 @@
+[
+  {
+    "document_id": "sample-pubmed-1",
+    "pmid": "10000001",
+    "title": "Aspirin and fever reduction",
+    "journal": "Sample Medical Journal",
+    "year": 2024,
+    "authors": ["A. Kowalski", "B. Nowak"],
+    "mesh_terms": ["Aspirin", "Fever", "Analgesics"],
+    "source": "sample-json",
+    "corpus_version": "sample-v1",
+    "sections": [
+      {
+        "section": "abstract",
+        "text": "Aspirin is an analgesic and antipyretic medication. It can reduce fever and mild pain, but it may increase bleeding risk and is not appropriate for all patients."
+      }
+    ]
+  },
+  {
+    "document_id": "sample-pubmed-2",
+    "pmid": "10000002",
+    "title": "Blood pressure monitoring in hypertension",
+    "journal": "Example Cardiology Reports",
+    "year": 2023,
+    "authors": ["C. Zielinska"],
+    "mesh_terms": ["Hypertension", "Blood Pressure Monitoring"],
+    "source": "sample-json",
+    "corpus_version": "sample-v1",
+    "sections": [
+      {
+        "section": "abstract",
+        "text": "Hypertension management requires repeated blood pressure measurement, lifestyle intervention, and medication selection based on patient risk factors."
+      }
+    ]
+  }
+]
