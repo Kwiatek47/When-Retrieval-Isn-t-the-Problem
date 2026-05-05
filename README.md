@@ -46,8 +46,8 @@ ollama pull medllama2
 
 Endpoint `POST /api/chat` przechodzi przez trzy kroki przed wywolaniem modelu:
 
-1. `PreRetriever` (`app/rag/pre_retrieval.py`) normalizuje ostatnie pytanie uzytkownika, rozwija podstawowe skroty medyczne, wykrywa proste przypadki bez potrzeby retrieval i wyciaga wstepne filtry, np. kody ICD.
-2. `MedicalKnowledgeRetriever` (`app/rag/retrieval.py`) jest kontraktem pod baze wektorowa. Aktualnie podpiety jest `EmptyMedicalKnowledgeRetriever`, ktory zwraca brak dokumentow do czasu integracji VectorDB.
+1. `PreRetriever` (`app/rag/pre_retrieval.py`) normalizuje ostatnie pytanie uzytkownika, przepisuje je przez maly model jezykowy `llama3.2:3b` pod wyszukiwanie semantyczne, wykrywa proste przypadki bez potrzeby retrieval i wyciaga wstepne filtry, np. kody ICD.
+2. `MedicalKnowledgeRetriever` (`app/rag/retrieval.py`) jest kontraktem pod baze wektorowa. Aktualnie podpiety jest `WeaviateMedicalKnowledgeRetriever`, ktory pobiera embedding zapytania z `embedding-service` i wykonuje `near_vector` w kolekcji `MedicalChunk`.
 3. `PostRetriever` (`app/rag/post_retrieval.py`) sortuje i deduplikuje dokumenty, buduje blok kontekstu `MEDICAL_KNOWLEDGE_BASE`, dokleja instrukcje cytowania i zwraca metadane `citations` oraz `retrieval`.
 
 Osoba implementujaca VectorDB powinna podmienic `get_medical_knowledge_retriever()` w `app/api/dependencies.py` na klase implementujaca:
@@ -64,4 +64,6 @@ Konfiguracja srodowiskowa:
 ```bash
 RAG_TOP_K=5
 RAG_MAX_CONTEXT_CHARS=8000
+QUERY_REWRITE_MODEL=llama3.2:3b
+QUERY_REWRITE_TIMEOUT=15
 ```

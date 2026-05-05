@@ -24,7 +24,12 @@ def get_llm_provider() -> LLMProvider:
 
 @lru_cache
 def get_pre_retriever() -> PreRetriever:
-    return PreRetriever()
+    settings = get_settings()
+    return PreRetriever(
+        ollama_base_url=settings.ollama_base_url,
+        rewrite_model=settings.query_rewrite_model,
+        rewrite_timeout=settings.query_rewrite_timeout,
+    )
 
 
 @lru_cache

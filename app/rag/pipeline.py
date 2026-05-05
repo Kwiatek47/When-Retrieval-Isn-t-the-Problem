@@ -20,7 +20,7 @@ class RagPipeline:
         self.retrieval_limit = retrieval_limit
 
     async def run(self, *, messages: list[ChatMessage], system_prompt: str) -> PostRetrievalResult:
-        pre_retrieval = self.pre_retriever.prepare(messages)
+        pre_retrieval = await self.pre_retriever.prepare(messages)
         if pre_retrieval.requires_retrieval:
             retrieval = await self.retriever.retrieve(pre_retrieval, limit=self.retrieval_limit)
         else:
@@ -32,4 +32,3 @@ class RagPipeline:
             pre_retrieval=pre_retrieval,
             retrieval=retrieval,
         )
-

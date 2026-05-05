@@ -14,6 +14,8 @@ class Settings:
     default_model: str
     ollama_base_url: str
     ollama_timeout: float
+    query_rewrite_model: str
+    query_rewrite_timeout: float
     embedding_service_url: str
     embedding_timeout: float
     embedding_dimension: int
@@ -36,6 +38,8 @@ def get_settings() -> Settings:
         default_model=os.getenv("OLLAMA_MODEL", "medgemma"),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_timeout=float(os.getenv("OLLAMA_TIMEOUT", "60")),
+        query_rewrite_model=os.getenv("QUERY_REWRITE_MODEL", "llama3.2:3b"),
+        query_rewrite_timeout=float(os.getenv("QUERY_REWRITE_TIMEOUT", "15")),
         embedding_service_url=os.getenv("EMBEDDING_SERVICE_URL", "http://embedding-service:8080"),
         embedding_timeout=float(os.getenv("EMBEDDING_TIMEOUT", "30")),
         embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "768")),

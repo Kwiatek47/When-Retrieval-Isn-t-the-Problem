@@ -1,5 +1,7 @@
 import re
 
+import httpx
+
 from app.rag.models import PreRetrievalResult
 from app.schemas import ChatMessage
 
@@ -11,34 +13,34 @@ class PreRetriever:
         re.compile(r"^\s*(hi|hello|hey|czesc|cześć|dzień dobry|dzien dobry)\s*[!.]?\s*$", re.IGNORECASE),
         re.compile(r"^\s*(thanks|thank you|dzieki|dzięki|ok|okay)\s*[!.]?\s*$", re.IGNORECASE),
     )
-    _ABBREVIATIONS = {
-        "bp": "blood pressure",
-        "hr": "heart rate",
-        "mi": "myocardial infarction",
-        "pad": "peripheral artery disease",
-        "pe": "pulmonary embolism",
-        "dm": "diabetes mellitus",
-        "t2dm": "type 2 diabetes mellitus",
-        "ckd": "chronic kidney disease",
-        "copd": "chronic obstructive pulmonary disease",
-        "nsaid": "nonsteroidal anti-inflammatory drug",
-        "nsaids": "nonsteroidal anti-inflammatory drugs",
-    }
+    _QUERY_REWRITE_SYSTEM_PROMPT = (
+        "Przetłumacz skrótowe zapytanie medyczne użytkownika na profesjonalne, "
+        "rozbudowane zapytanie optymalne dla semantycznej wyszukiwarki bazy danych. "
+        "Rozwiń skróty i dodaj synonimy. "
+        "ZWRÓĆ TYLKO POPRAWIONE ZAPYTANIE. BEZ WSTĘPU I ZAKOŃCZENIA."
+    )
 
-    def prepare(self, messages: list[ChatMessage]) -> PreRetrievalResult:
+    def __init__(self, *, ollama_base_url: str, rewrite_model: str, rewrite_timeout: float) -> None:
+        self.ollama_base_url = ollama_base_url.rstrip("/")
+        self.rewrite_model = rewrite_model
+        self.rewrite_timeout = rewrite_timeout
+
+    async def prepare(self, messages: list[ChatMessage]) -> PreRetrievalResult:
         query = self._latest_user_message(messages)
         normalized_query = self._normalize(query)
-        expanded_query = self._expand_abbreviations(normalized_query)
         requires_retrieval = self._requires_retrieval(normalized_query)
 
         search_queries = [normalized_query]
-        if expanded_query != normalized_query:
-            search_queries.append(expanded_query)
-
-        filters = self._extract_filters(normalized_query)
         notes = []
-        if expanded_query != normalized_query:
-            notes.append("Medical abbreviations expanded for retrieval.")
+
+        if requires_retrieval:
+            rewritten_query = await self._rewrite_query(normalized_query)
+            if rewritten_query and rewritten_query.lower() != normalized_query.lower():
+                search_queries.append(rewritten_query)
+                notes.append(f"Query rewritten for semantic retrieval with {self.rewrite_model}.")
+            elif not rewritten_query:
+                notes.append("Query rewriting unavailable; using normalized query.")
+
         if not requires_retrieval:
             notes.append("Retrieval skipped for simple conversational input.")
 
@@ -47,7 +49,7 @@ class PreRetriever:
             normalized_query=normalized_query,
             search_queries=search_queries,
             requires_retrieval=requires_retrieval,
-            filters=filters,
+            filters=self._extract_filters(normalized_query),
             notes=notes,
         )
 
@@ -60,12 +62,47 @@ class PreRetriever:
     def _normalize(self, query: str) -> str:
         return re.sub(r"\s+", " ", query).strip()
 
-    def _expand_abbreviations(self, query: str) -> str:
-        expanded = query
-        for abbreviation, full_name in self._ABBREVIATIONS.items():
-            pattern = re.compile(rf"\b{re.escape(abbreviation)}\b", re.IGNORECASE)
-            expanded = pattern.sub(f"{abbreviation.upper()} ({full_name})", expanded)
-        return expanded
+    async def _rewrite_query(self, query: str) -> str | None:
+        payload = {
+            "model": self.rewrite_model,
+            "messages": [
+                {"role": "system", "content": self._QUERY_REWRITE_SYSTEM_PROMPT},
+                {"role": "user", "content": "leki na PAD"},
+                {
+                    "role": "assistant",
+                    "content": "leczenie symptomatic peripheral artery disease choroba tętnic obwodowych",
+                },
+                {"role": "user", "content": "powikłania T2DM"},
+                {
+                    "role": "assistant",
+                    "content": "powikłania type 2 diabetes mellitus cukrzyca typu 2",
+                },
+                {"role": "user", "content": query},
+            ],
+            "stream": False,
+            "options": {"temperature": 0.0, "num_predict": 64},
+        }
+
+        try:
+            async with httpx.AsyncClient(base_url=self.ollama_base_url, timeout=self.rewrite_timeout) as client:
+                response = await client.post("/api/chat", json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        content = str((data.get("message") or {}).get("content") or "")
+        return self._sanitize_rewritten_query(content)
+
+    def _sanitize_rewritten_query(self, query: str) -> str | None:
+        sanitized = self._normalize(query).strip("\"'` ")
+        if not sanitized:
+            return None
+        prefixes = ("Output:", "Assistant:", "Odpowiedz:", "Wynik:")
+        for prefix in prefixes:
+            if sanitized.lower().startswith(prefix.lower()):
+                sanitized = sanitized[len(prefix) :].strip()
+        return sanitized or None
 
     def _requires_retrieval(self, query: str) -> bool:
         if not query:
@@ -78,4 +115,3 @@ class PreRetriever:
         if icd_codes:
             filters["icd_code"] = ",".join(sorted(set(icd_codes)))
         return filters
-
