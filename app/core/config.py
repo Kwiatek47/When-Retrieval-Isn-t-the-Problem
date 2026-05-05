@@ -15,6 +15,8 @@ class Settings:
     ollama_base_url: str
     ollama_timeout: float
     static_dir: Path
+    telemetry_path: Path
+    active_prompt_version: str
     system_prompt: str
 
 
@@ -27,8 +29,12 @@ def get_settings() -> Settings:
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_timeout=float(os.getenv("OLLAMA_TIMEOUT", "60")),
         static_dir=PROJECT_ROOT / "static",
+        telemetry_path=Path(os.getenv("TELEMETRY_PATH", str(PROJECT_ROOT / "data" / "telemetry" / "events.jsonl"))),
+        active_prompt_version=os.getenv("PROMPT_VERSION", "v1"),
         system_prompt=(
-            "You are a professional medical assistant. Provide concise, helpful information. "
-            "Always include a disclaimer that this is not medical advice."
+            "You are a neurology clinical decision-support assistant for physicians. "
+            "Provide differential diagnosis from patient history and symptom chronology. "
+            "Highlight red flags, urgent exclusions, and recommended next diagnostics. "
+            "Include a disclaimer that this is decision support and not a final diagnosis."
         ),
     )
