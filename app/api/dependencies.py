@@ -1,12 +1,18 @@
 from functools import lru_cache
 
+import httpx
+
 from app.core.config import get_settings
 from app.providers.base import LLMProvider
 from app.providers.ollama import OllamaProvider
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
-from app.rag.retrieval import EmbeddingServiceHybridRetriever, MedicalKnowledgeRetriever
+from app.rag.retrieval import (
+    EmbeddingServiceHybridRetriever,
+    MedicalKnowledgeRetriever,
+    QdrantHybridKnowledgeRetriever,
+)
 
 
 @lru_cache
@@ -35,6 +41,26 @@ def get_pre_retriever() -> PreRetriever:
 @lru_cache
 def get_medical_knowledge_retriever() -> MedicalKnowledgeRetriever:
     settings = get_settings()
+    if settings.rag_retriever == "qdrant_hybrid":
+        from qdrant_client import QdrantClient
+
+        return QdrantHybridKnowledgeRetriever(
+            qdrant_client=QdrantClient(
+                host=settings.qdrant_host,
+                port=settings.qdrant_port,
+                timeout=settings.qdrant_timeout,
+            ),
+            embedding_http_client=httpx.AsyncClient(
+                base_url=settings.embedding_service_url,
+                timeout=settings.embedding_timeout,
+            ),
+            collection_name=settings.qdrant_collection,
+            dense_vector_name=settings.qdrant_vector_name,
+            sparse_vector_name=settings.qdrant_sparse_vector_name,
+            embedding_dimension=settings.embedding_dimension,
+            bm25_stats_path=settings.bm25_stats_path,
+        )
+
     return EmbeddingServiceHybridRetriever(
         embedding_service_url=settings.embedding_service_url,
         embedding_timeout=settings.embedding_timeout,

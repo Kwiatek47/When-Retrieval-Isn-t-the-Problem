@@ -1,3 +1,5 @@
+import logging
+from time import perf_counter
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +12,7 @@ from app.schemas import ChatMessage, ChatRequest, ChatResponse
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -19,9 +22,20 @@ async def chat(
     rag_pipeline: Annotated[RagPipeline, Depends(get_rag_pipeline)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ChatResponse:
+    request_started_at = perf_counter()
     try:
         rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=settings.system_prompt)
+        rag_done_at = perf_counter()
         if rag_result.retrieval and rag_result.retrieval.status == "no_sources":
+            logger.info(
+                "chat_request timing rag_total=%.3fs llm_total=0.000s total=%.3fs model=%s "
+                "retrieval_status=%s documents=%d",
+                rag_done_at - request_started_at,
+                perf_counter() - request_started_at,
+                request.model,
+                rag_result.retrieval.status,
+                rag_result.retrieval.documents_count,
+            )
             return ChatResponse(
                 model=request.model,
                 message=ChatMessage(
@@ -41,6 +55,17 @@ async def chat(
             model=request.model,
             messages=rag_result.messages,
             temperature=request.temperature,
+        )
+        llm_done_at = perf_counter()
+        logger.info(
+            "chat_request timing rag_total=%.3fs llm_total=%.3fs total=%.3fs model=%s "
+            "retrieval_status=%s documents=%d",
+            rag_done_at - request_started_at,
+            llm_done_at - rag_done_at,
+            llm_done_at - request_started_at,
+            llm_response.model,
+            rag_result.retrieval.status if rag_result.retrieval else "none",
+            rag_result.retrieval.documents_count if rag_result.retrieval else 0,
         )
         return ChatResponse(
             model=llm_response.model,

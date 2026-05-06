@@ -13,6 +13,7 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: MedicalChunk
       QDRANT_VECTOR_NAME: medcpt_dense
+      QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
     ports:
       - "8081:8080"
     volumes:
@@ -40,6 +41,7 @@ services:
       QDRANT_PORT: "6333"
       QDRANT_COLLECTION: MedicalChunk
       QDRANT_VECTOR_NAME: medcpt_dense
+      QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
       QDRANT_VECTOR_SIZE: "768"
     depends_on:
       qdrant:

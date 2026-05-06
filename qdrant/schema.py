@@ -11,6 +11,8 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 VECTOR_NAME = os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense")
 VECTOR_SIZE = int(os.getenv("QDRANT_VECTOR_SIZE", "768"))
+SPARSE_VECTOR_NAME = os.getenv("QDRANT_SPARSE_VECTOR_NAME", "bm25_sparse")
+RECREATE_COLLECTION = os.getenv("QDRANT_RECREATE_COLLECTION", "").lower() in {"1", "true", "yes"}
 
 
 PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
@@ -45,6 +47,9 @@ def connect_with_retry() -> QdrantClient:
 
 
 def ensure_medical_chunk_collection(client: QdrantClient) -> None:
+    if RECREATE_COLLECTION and client.collection_exists(collection_name=COLLECTION_NAME):
+        client.delete_collection(collection_name=COLLECTION_NAME)
+
     if not client.collection_exists(collection_name=COLLECTION_NAME):
         client.create_collection(
             collection_name=COLLECTION_NAME,
@@ -56,8 +61,19 @@ def ensure_medical_chunk_collection(client: QdrantClient) -> None:
                     on_disk=True,
                 )
             },
+            sparse_vectors_config={
+                SPARSE_VECTOR_NAME: models.SparseVectorParams(),
+            },
             hnsw_config=models.HnswConfigDiff(on_disk=True),
         )
+    else:
+        collection = client.get_collection(collection_name=COLLECTION_NAME)
+        sparse_vectors = getattr(collection.config.params, "sparse_vectors", None) or {}
+        if SPARSE_VECTOR_NAME not in sparse_vectors:
+            raise RuntimeError(
+                f"Collection {COLLECTION_NAME} exists without sparse vector {SPARSE_VECTOR_NAME}. "
+                "Set QDRANT_RECREATE_COLLECTION=true to recreate it with hybrid search support."
+            )
 
     for field_name, field_schema in PAYLOAD_INDEXES.items():
         try:

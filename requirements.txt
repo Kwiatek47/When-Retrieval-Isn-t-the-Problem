@@ -1,4 +1,5 @@
 fastapi
 httpx
 packaging
+qdrant-client>=1.14,<2
 uvicorn

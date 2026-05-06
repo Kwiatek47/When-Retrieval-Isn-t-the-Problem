@@ -1,8 +1,13 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router as api_router
 from app.core.config import get_settings
+
+
+logging.getLogger("app").setLevel(logging.INFO)
 
 
 def create_app() -> FastAPI:

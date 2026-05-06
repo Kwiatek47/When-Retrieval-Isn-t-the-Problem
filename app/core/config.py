@@ -19,6 +19,14 @@ class Settings:
     embedding_service_url: str
     embedding_timeout: float
     embedding_dimension: int
+    qdrant_host: str
+    qdrant_port: int
+    qdrant_timeout: float
+    qdrant_collection: str
+    qdrant_vector_name: str
+    qdrant_sparse_vector_name: str
+    bm25_stats_path: Path
+    rag_retriever: str
     rag_top_k: int
     rag_max_context_chars: int
     static_dir: Path
@@ -38,6 +46,14 @@ def get_settings() -> Settings:
         embedding_service_url=os.getenv("EMBEDDING_SERVICE_URL", "http://embedding-service:8080"),
         embedding_timeout=float(os.getenv("EMBEDDING_TIMEOUT", "30")),
         embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "768")),
+        qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
+        qdrant_port=int(os.getenv("QDRANT_PORT", "6333")),
+        qdrant_timeout=float(os.getenv("QDRANT_TIMEOUT", "10")),
+        qdrant_collection=os.getenv("QDRANT_COLLECTION", "MedicalChunk"),
+        qdrant_vector_name=os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense"),
+        qdrant_sparse_vector_name=os.getenv("QDRANT_SPARSE_VECTOR_NAME", "bm25_sparse"),
+        bm25_stats_path=Path(os.getenv("BM25_STATS_PATH", PROJECT_ROOT / "data" / "bm25_stats.json")),
+        rag_retriever=os.getenv("RAG_RETRIEVER", "embedding_service"),
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
         static_dir=PROJECT_ROOT / "static",
