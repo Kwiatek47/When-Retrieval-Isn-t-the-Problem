@@ -101,15 +101,17 @@ class PostRetriever:
 
     def _build_system_prompt(self, *, system_prompt: str, context_block: str, has_documents: bool) -> str:
         source_policy = (
-            "Use the MEDICAL_KNOWLEDGE_BASE context as the primary evidence source. "
-            "When a medical claim is based on retrieved context, cite it inline with labels like [S1]. "
+            "Answer only from the MEDICAL_KNOWLEDGE_BASE context. "
+            "Every medical claim must include an inline citation with labels like [S1]. "
+            "Do not use prior knowledge, training data, or assumptions to add medical facts. "
             "Do not invent citations."
         )
         if not has_documents:
             source_policy = (
                 "No verified medical knowledge-base context is available for this answer. "
-                "Say that the knowledge base did not return sources. "
-                "Keep the response general and avoid definitive diagnosis, dosing, or treatment instructions."
+                "Do not answer the user's medical question from prior knowledge. "
+                "Say that the knowledge base did not return sources, so you cannot provide a grounded answer. "
+                "You may only advise consulting a qualified clinician for personal medical decisions."
             )
 
         return "\n\n".join(

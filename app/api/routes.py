@@ -6,7 +6,7 @@ from app.api.dependencies import get_llm_provider, get_rag_pipeline
 from app.core.config import Settings, get_settings
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
 from app.rag.pipeline import RagPipeline
-from app.schemas import ChatRequest, ChatResponse
+from app.schemas import ChatMessage, ChatRequest, ChatResponse
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -21,6 +21,22 @@ async def chat(
 ) -> ChatResponse:
     try:
         rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=settings.system_prompt)
+        if rag_result.retrieval and rag_result.retrieval.status == "no_sources":
+            return ChatResponse(
+                model=request.model,
+                message=ChatMessage(
+                    role="assistant",
+                    content=(
+                        "Baza wiedzy nie zwróciła źródeł dla tego pytania, "
+                        "więc nie mogę udzielić odpowiedzi opartej na cytowanych danych. "
+                        "Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
+                    ),
+                ),
+                done=True,
+                citations=rag_result.citations,
+                retrieval=rag_result.retrieval,
+            )
+
         llm_response = await llm_provider.chat(
             model=request.model,
             messages=rag_result.messages,
