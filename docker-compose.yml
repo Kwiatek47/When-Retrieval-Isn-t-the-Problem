@@ -9,6 +9,10 @@ services:
       EMBEDDING_DEVICE: cpu
       EMBEDDING_BATCH_SIZE: "16"
       HF_HOME: /models/huggingface
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_VECTOR_NAME: medcpt_dense
     ports:
       - "8081:8080"
     volumes:

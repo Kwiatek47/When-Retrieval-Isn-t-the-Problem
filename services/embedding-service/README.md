@@ -46,6 +46,11 @@ MEDCPT_DOCUMENT_MAX_LENGTH=512
 EMBEDDING_BATCH_SIZE=16
 EMBEDDING_DEVICE=cpu
 HF_HOME=/models/huggingface
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+QDRANT_TIMEOUT=10
+QDRANT_COLLECTION=MedicalChunk
+QDRANT_VECTOR_NAME=medcpt_dense
 ```
 
 `EMBEDDING_MODEL_NAME` jest stabilnym identyfikatorem pary encoderów i powinien trafiać do metadanych Qdrant jako `embeddingModel`.
@@ -134,7 +139,7 @@ W tym wariancie tytuł dokumentu jest pusty. Dla danych PubMed/PMC lepiej używa
 
 ## Embedding zapytania
 
-Endpoint dla `rag-api`.
+Niskopoziomowy endpoint do samego policzenia embeddingu zapytania.
 
 ```http
 POST /embed/query
@@ -163,6 +168,54 @@ Response:
 }
 ```
 
+## Hybrydowe zapytanie do Qdrant
+
+Endpoint dla `rag-api`. Liczy embedding zapytania przez MedCPT Query Encoder i od razu odpytuje Qdrant po named vectorze `medcpt_dense`.
+
+```http
+POST /embed/hybrid/query
+Content-Type: application/json
+```
+
+Request:
+
+```json
+{
+  "text": "What reduces fever?",
+  "limit": 5
+}
+```
+
+Response:
+
+```json
+{
+  "model": "medcpt-ncbi-v1",
+  "encoder": "query",
+  "encoder_model": "ncbi/MedCPT-Query-Encoder",
+  "dimension": 768,
+  "collection": "MedicalChunk",
+  "vector_name": "medcpt_dense",
+  "documents": [
+    {
+      "id": "sample-pubmed-1:0",
+      "title": "Aspirin and fever reduction",
+      "content": "Aspirin is an analgesic and antipyretic medication.",
+      "source": "sample-json: PMID 10000001",
+      "score": 0.91,
+      "metadata": {
+        "pmid": "10000001",
+        "year": 2024,
+        "documentId": "sample-pubmed-1",
+        "embeddingModel": "medcpt-ncbi-v1"
+      }
+    }
+  ]
+}
+```
+
+Nazwa endpointu zostaje `hybrid`, ale aktualny MVP wykonuje dense retrieval. Hybrydowe laczenie wynikow mozna rozszerzyc wewnatrz tego endpointu bez zmiany kontraktu `rag-api`.
+
 ## Kontrakt dla innych serwisów
 
 `ingestion-worker` powinien:
@@ -176,10 +229,9 @@ Response:
 `rag-api` powinno:
 
 1. przyjąć pytanie użytkownika,
-2. wysłać pytanie do `POST /embed/query`,
-3. wysłać otrzymany vector do Qdrant jako zapytanie po named vectorze `medcpt_dense`,
-4. opcjonalnie przekazać kandydatów do rerankera,
-5. zbudować odpowiedź na podstawie znalezionych chunków.
+2. wysłać pytanie do `POST /embed/hybrid/query`,
+3. opcjonalnie przekazać kandydatów do rerankera,
+4. zbudować odpowiedź na podstawie znalezionych chunków.
 
 ## Uwagi produkcyjne
 

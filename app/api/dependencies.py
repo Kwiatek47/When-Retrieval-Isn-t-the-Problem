@@ -6,7 +6,7 @@ from app.providers.ollama import OllamaProvider
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
-from app.rag.retrieval import MedicalKnowledgeRetriever, WeaviateMedicalKnowledgeRetriever
+from app.rag.retrieval import EmbeddingServiceHybridRetriever, MedicalKnowledgeRetriever
 
 
 @lru_cache
@@ -35,15 +35,10 @@ def get_pre_retriever() -> PreRetriever:
 @lru_cache
 def get_medical_knowledge_retriever() -> MedicalKnowledgeRetriever:
     settings = get_settings()
-    return WeaviateMedicalKnowledgeRetriever(
+    return EmbeddingServiceHybridRetriever(
         embedding_service_url=settings.embedding_service_url,
         embedding_timeout=settings.embedding_timeout,
         embedding_dimension=settings.embedding_dimension,
-        weaviate_http_host=settings.weaviate_http_host,
-        weaviate_http_port=settings.weaviate_http_port,
-        weaviate_grpc_host=settings.weaviate_grpc_host,
-        weaviate_grpc_port=settings.weaviate_grpc_port,
-        collection_name=settings.weaviate_collection,
     )
 
 

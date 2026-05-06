@@ -2,4 +2,3 @@ fastapi
 httpx
 packaging
 uvicorn
-weaviate-client

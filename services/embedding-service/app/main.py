@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import AsyncIterator
@@ -6,7 +7,15 @@ from fastapi import Depends, FastAPI
 
 from app.config import get_settings
 from app.embedder import DocumentInput, MedCPTEmbedder
-from app.schemas import EmbedDocumentsRequest, EmbedQueryRequest, EmbedResponse, HealthResponse
+from app.qdrant_retrieval import QdrantMedicalRetriever
+from app.schemas import (
+    EmbedDocumentsRequest,
+    EmbedQueryRequest,
+    EmbedResponse,
+    HealthResponse,
+    HybridQueryRequest,
+    HybridQueryResponse,
+)
 
 
 @lru_cache
@@ -21,6 +30,18 @@ def get_embedder() -> MedCPTEmbedder:
         document_max_length=settings.document_max_length,
         batch_size=settings.embedding_batch_size,
         device=settings.embedding_device,
+    )
+
+
+@lru_cache
+def get_qdrant_retriever() -> QdrantMedicalRetriever:
+    settings = get_settings()
+    return QdrantMedicalRetriever(
+        host=settings.qdrant_host,
+        port=settings.qdrant_port,
+        timeout=settings.qdrant_timeout,
+        collection_name=settings.qdrant_collection,
+        vector_name=settings.qdrant_vector_name,
     )
 
 
@@ -79,6 +100,28 @@ def create_app() -> FastAPI:
             encoder_model=embedder.query_model_name,
             dimension=embedder.dimension,
             embeddings=[embedding],
+        )
+
+    @application.post("/embed/hybrid/query", response_model=HybridQueryResponse)
+    async def hybrid_query(
+        request: HybridQueryRequest,
+        embedder: MedCPTEmbedder = Depends(get_embedder),
+        retriever: QdrantMedicalRetriever = Depends(get_qdrant_retriever),
+    ) -> HybridQueryResponse:
+        embedding = embedder.embed_query(request.text)
+        documents = await asyncio.to_thread(
+            retriever.search,
+            embedding,
+            limit=request.limit,
+        )
+        return HybridQueryResponse(
+            model=embedder.model_name,
+            encoder="query",
+            encoder_model=embedder.query_model_name,
+            dimension=embedder.dimension,
+            collection=retriever.collection_name,
+            vector_name=retriever.vector_name,
+            documents=documents,
         )
 
     return application

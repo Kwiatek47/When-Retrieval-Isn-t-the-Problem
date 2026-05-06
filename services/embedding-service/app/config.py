@@ -15,6 +15,11 @@ class Settings(BaseModel):
     document_max_length: int = int(os.getenv("MEDCPT_DOCUMENT_MAX_LENGTH", "512"))
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))
     embedding_device: str = os.getenv("EMBEDDING_DEVICE", "cpu")
+    qdrant_host: str = os.getenv("QDRANT_HOST", "qdrant")
+    qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
+    qdrant_timeout: float = float(os.getenv("QDRANT_TIMEOUT", "10"))
+    qdrant_collection: str = os.getenv("QDRANT_COLLECTION", "MedicalChunk")
+    qdrant_vector_name: str = os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense")
 
 
 @lru_cache

@@ -19,11 +19,6 @@ class Settings:
     embedding_service_url: str
     embedding_timeout: float
     embedding_dimension: int
-    weaviate_http_host: str
-    weaviate_http_port: int
-    weaviate_grpc_host: str
-    weaviate_grpc_port: int
-    weaviate_collection: str
     rag_top_k: int
     rag_max_context_chars: int
     static_dir: Path
@@ -43,11 +38,6 @@ def get_settings() -> Settings:
         embedding_service_url=os.getenv("EMBEDDING_SERVICE_URL", "http://embedding-service:8080"),
         embedding_timeout=float(os.getenv("EMBEDDING_TIMEOUT", "30")),
         embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "768")),
-        weaviate_http_host=os.getenv("WEAVIATE_HTTP_HOST", "weaviate"),
-        weaviate_http_port=int(os.getenv("WEAVIATE_HTTP_PORT", "8080")),
-        weaviate_grpc_host=os.getenv("WEAVIATE_GRPC_HOST", os.getenv("WEAVIATE_HTTP_HOST", "weaviate")),
-        weaviate_grpc_port=int(os.getenv("WEAVIATE_GRPC_PORT", "50051")),
-        weaviate_collection=os.getenv("WEAVIATE_COLLECTION", "MedicalChunk"),
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
         static_dir=PROJECT_ROOT / "static",
