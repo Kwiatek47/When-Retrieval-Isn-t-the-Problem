@@ -106,6 +106,15 @@ class PostRetriever:
             "Do not use prior knowledge, training data, or assumptions to add medical facts. "
             "Do not invent citations."
         )
+        reasoning_policy = (
+            "Before writing the final response, think step-by-step privately. "
+            "Analyze the user's query, identify relevant symptoms, conditions, interventions, or outcomes, "
+            "and cross-reference them only with cited MEDICAL_KNOWLEDGE_BASE entries. "
+            "Do not reveal hidden chain-of-thought or uncited reasoning. "
+            "If you need to show your evidence check, keep it brief inside <thinking> tags and include only "
+            "the relevant citation labels and whether the evidence is sufficient. "
+            "Put the final concise user-facing response inside <answer> tags."
+        )
         if not has_documents:
             source_policy = (
                 "No verified medical knowledge-base context is available for this answer. "
@@ -113,12 +122,18 @@ class PostRetriever:
                 "Say that the knowledge base did not return sources, so you cannot provide a grounded answer. "
                 "You may only advise consulting a qualified clinician for personal medical decisions."
             )
+            reasoning_policy = (
+                "Do not perform or output step-by-step reasoning because there are no sources to reason from. "
+                "Return only a concise refusal inside <answer> tags."
+            )
 
         return "\n\n".join(
             [
                 system_prompt,
                 "RAG instructions:",
                 source_policy,
+                "Reasoning and output format:",
+                reasoning_policy,
                 "If retrieved evidence is insufficient or conflicting, say so explicitly.",
                 "Always advise consulting a qualified clinician for personal medical decisions.",
                 "MEDICAL_KNOWLEDGE_BASE:",
