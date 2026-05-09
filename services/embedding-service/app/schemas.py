@@ -59,6 +59,8 @@ class HybridQueryResponse(BaseModel):
     dimension: int
     collection: str
     vector_name: str
+    sparse_vector_name: str | None = None
+    fusion: str | None = None
     documents: list[HybridQueryDocument]
 
 

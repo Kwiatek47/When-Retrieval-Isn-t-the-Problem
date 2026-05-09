@@ -57,6 +57,8 @@ QDRANT_PORT=6333
 QDRANT_TIMEOUT=10
 QDRANT_COLLECTION=MedicalChunk
 QDRANT_VECTOR_NAME=medcpt_dense
+QDRANT_SPARSE_VECTOR_NAME=bm25_sparse
+BM25_STATS_PATH=/data/bm25_stats.json
 ```
 
 `EMBEDDING_MODEL_NAME` jest stabilnym identyfikatorem pary encoderów i powinien trafiać do metadanych Qdrant jako `embeddingModel`.
@@ -176,7 +178,7 @@ Response:
 
 ## Hybrydowe zapytanie do Qdrant
 
-Endpoint dla `rag-api`. Liczy embedding zapytania przez MedCPT Query Encoder i od razu odpytuje Qdrant po named vectorze `medcpt_dense`.
+Endpoint dla `rag-api`. Liczy dense embedding zapytania przez MedCPT Query Encoder, koduje zapytanie do sparse vectora BM25 na podstawie `BM25_STATS_PATH`, a nastepnie odpytuje Qdrant przez dense+sparse RRF.
 
 ```http
 POST /embed/hybrid/query
@@ -202,6 +204,8 @@ Response:
   "dimension": 768,
   "collection": "MedicalChunk",
   "vector_name": "medcpt_dense",
+  "sparse_vector_name": "bm25_sparse",
+  "fusion": "rrf",
   "documents": [
     {
       "id": "sample-pubmed-1:0",
@@ -220,7 +224,7 @@ Response:
 }
 ```
 
-Nazwa endpointu zostaje `hybrid`, ale aktualny MVP wykonuje dense retrieval. Hybrydowe laczenie wynikow mozna rozszerzyc wewnatrz tego endpointu bez zmiany kontraktu `rag-api`.
+Jesli zapytanie nie zawiera zadnych tokenow obecnych w slowniku BM25, serwis wraca do dense retrieval. W normalnym przypadku po zaludnieniu bazy endpoint wykonuje fuzje `medcpt_dense` + `bm25_sparse`.
 
 ## Kontrakt dla innych serwisów
 

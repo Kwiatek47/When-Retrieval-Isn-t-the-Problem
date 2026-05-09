@@ -3,8 +3,9 @@ import logging
 from time import perf_counter
 from typing import Any
 
+from app.rag.conflict_detection import detect_evidence_conflicts
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
-from app.schemas import ChatMessage, Citation, RetrievalInfo
+from app.schemas import ChatMessage, Citation, EvidenceConflictInfo, RetrievalInfo
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,11 @@ class PostRetriever:
     ) -> PostRetrievalResult:
         documents = self._rank_documents(retrieval.documents, pre_retrieval)
         context_block, citations = self._build_context(documents)
+        evidence_conflicts = detect_evidence_conflicts(
+            documents=documents,
+            citations=citations,
+            query=pre_retrieval.normalized_query,
+        )
 
         system_message = ChatMessage(
             role="system",
@@ -35,6 +41,7 @@ class PostRetriever:
                 system_prompt=system_prompt,
                 context_block=context_block,
                 has_documents=bool(documents),
+                conflict_block=self._build_conflict_block(evidence_conflicts),
             ),
         )
         user_visible_messages = [message for message in messages if message.role != "system"]
@@ -50,6 +57,8 @@ class PostRetriever:
             messages=[system_message, *user_visible_messages],
             citations=citations,
             retrieval=retrieval_info,
+            evidence_conflicts=evidence_conflicts,
+            source_documents=documents[: len(citations)],
         )
 
     def _rank_documents(
@@ -157,7 +166,14 @@ class PostRetriever:
 
         return "\n\n".join(context_parts), citations
 
-    def _build_system_prompt(self, *, system_prompt: str, context_block: str, has_documents: bool) -> str:
+    def _build_system_prompt(
+        self,
+        *,
+        system_prompt: str,
+        context_block: str,
+        has_documents: bool,
+        conflict_block: str,
+    ) -> str:
         source_policy = (
             "Answer only from the MEDICAL_KNOWLEDGE_BASE context. "
             "Every medical claim must include an inline citation with labels like [S1]. "
@@ -193,11 +209,29 @@ class PostRetriever:
                 "Reasoning and output format:",
                 reasoning_policy,
                 "If retrieved evidence is insufficient or conflicting, say so explicitly.",
+                "If CONFLICTING_EVIDENCE_FLAG is present, do not blend competing recommendations. "
+                "Present both positions with citations and abstain from a specific directive unless the "
+                "retrieved sources establish a clear priority.",
                 "Always advise consulting a qualified clinician for personal medical decisions.",
+                "CONFLICTING_EVIDENCE_FLAG:",
+                conflict_block,
                 "MEDICAL_KNOWLEDGE_BASE:",
                 context_block,
             ]
         )
+
+    def _build_conflict_block(self, evidence_conflicts: EvidenceConflictInfo) -> str:
+        if not evidence_conflicts.detected:
+            return "No source-level recommendation conflicts detected."
+
+        lines = [evidence_conflicts.instruction]
+        for pair in evidence_conflicts.pairs:
+            newer = f"; newer source: {pair.newer_source_id}" if pair.newer_source_id else ""
+            terms = ", ".join(pair.shared_terms) or "overlapping clinical terms"
+            lines.append(
+                f"- {', '.join(pair.source_ids)} conflict on {terms}{newer}. Reason: {pair.reason}"
+            )
+        return "\n".join(lines)
 
     def _status(self, pre_retrieval: PreRetrievalResult, documents: list[RetrievedDocument]) -> str:
         if not pre_retrieval.requires_retrieval:

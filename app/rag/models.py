@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.schemas import ChatMessage, Citation, RetrievalInfo
+from app.schemas import ChatMessage, Citation, EvidenceConflictInfo, RetrievalInfo
 
 
 @dataclass(frozen=True)
@@ -36,4 +36,5 @@ class PostRetrievalResult:
     messages: list[ChatMessage]
     citations: list[Citation]
     retrieval: RetrievalInfo
-
+    evidence_conflicts: EvidenceConflictInfo
+    source_documents: list[RetrievedDocument] = field(default_factory=list)

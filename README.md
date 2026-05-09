@@ -12,6 +12,8 @@ MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacj
 - Qdrant jako Vector DB
 - sample ingest do Qdranta z `data/pubmed_sample.json`
 - opcjonalny reranking przez cross-encoder
+- walidacja cytowan w odpowiedzi modelu
+- flaga konfliktow zrodel dla sprzecznych rekomendacji
 
 ## Architektura
 
@@ -60,7 +62,6 @@ Na koncu Ollama dostaje rozmowe z wstrzyknietym kontekstem i generuje odpowiedz.
 ## Ograniczenia obecnego MVP
 
 - to nie jest jeszcze pelny system multiagentowy
-- domyslny endpoint `/embed/hybrid/query` wykonuje dense retrieval, mimo nazwy `hybrid`
 - korpus danych jest demonstracyjny i bardzo maly
 - nie ma jeszcze pelnej ewaluacji retrievalu ani testow end-to-end
 
@@ -194,6 +195,9 @@ Przykladowa odpowiedz zawiera:
 - `message`
 - `citations`
 - `retrieval`
+- `citation_validation`
+- `evidence_conflicts`
+- `answer_quality`
 
 ## Konfiguracja
 
@@ -222,6 +226,8 @@ EMBEDDING_DEVICE=cuda
 MEDCPT_QUERY_MODEL=ncbi/MedCPT-Query-Encoder
 MEDCPT_DOCUMENT_MODEL=ncbi/MedCPT-Article-Encoder
 EMBEDDING_BATCH_SIZE=16
+QDRANT_SPARSE_VECTOR_NAME=bm25_sparse
+BM25_STATS_PATH=/data/bm25_stats.json
 ```
 
 ## Tryby retrievalu
@@ -229,11 +235,82 @@ EMBEDDING_BATCH_SIZE=16
 W kodzie sa dwie glowne sciezki retrievalu:
 
 - `EmbeddingServiceHybridRetriever`
-  obecnie domyslna sciezka aplikacji; aplikacja pyta `embedding-service`, a ten robi dense retrieval w Qdrancie
+  obecnie domyslna sciezka aplikacji; aplikacja pyta `embedding-service`, a ten robi dense+sparse retrieval w Qdrancie przez RRF
 - `QdrantHybridKnowledgeRetriever`
-  alternatywa po stronie aplikacji; laczy dense i sparse retrieval przez RRF, jesli ustawisz `RAG_RETRIEVER=qdrant_hybrid`
+  alternatywa po stronie aplikacji; wykonuje podobna fuzje po stronie glownego API, jesli ustawisz `RAG_RETRIEVER=qdrant_hybrid`
 
-To oznacza, ze aktualny system ma podstawy pod hybryde, ale domyslnie nie wykonuje jeszcze pelnego hybrid search w endpointzie `embedding-service`.
+Domyslny endpoint `/embed/hybrid/query` wykonuje hybrid search po `medcpt_dense` i `bm25_sparse`. Jesli zapytanie nie ma tokenow obecnych w slowniku BM25, serwis wraca do dense retrieval.
+
+## Walidacja cytowan
+
+Po odpowiedzi modelu API sprawdza, czy tekst zawiera cytowania w formacie `[S1]`, `[S2]` oraz czy wszystkie uzyte identyfikatory istnieja w aktualnie zwroconej liscie `citations`.
+
+Pole `citation_validation` zawiera:
+
+- `passed`, czyli wynik walidacji
+- `cited_ids`, czyli cytowania znalezione w odpowiedzi
+- `missing_citation_ids`, czyli cytowania nieznane dla aktualnej odpowiedzi
+- `unused_citation_ids`, czyli zrodla pobrane przez RAG, ale niewykorzystane przez model
+- `issues`, czyli kody problemow diagnostycznych
+
+## Metryki odpowiedzi real-time
+
+Kazda odpowiedz chatbota zawiera pole `answer_quality`. API liczy je po wygenerowaniu odpowiedzi, uzywajac tych samych zrodel, ktore zostaly wstrzykniete do promptu.
+
+Pole `answer_quality` zawiera:
+
+- `groundedness`, czyli odsetek zdan odpowiedzi wspartych pobranym kontekstem
+- `hallucination_rate`, czyli odsetek zdan niewspartych pobranym kontekstem
+- `unsupported_statements`, czyli zdania uznane za niewystarczajaco ugruntowane
+- `evaluated_statements_count`, czyli liczbe ocenionych zdan
+- `method`, obecnie `token_overlap_with_retrieved_context`
+
+To jest szybka heurystyka real-time, a nie certyfikowana ocena medyczna. Ma wykrywac regresje i odpowiedzi slabo ugruntowane, nie rozstrzygac prawdziwosci klinicznej.
+
+## Konflikty zrodel
+
+Post-retrieval wykonuje heurystyczne wykrywanie konfliktow rekomendacji miedzy pobranymi zrodlami. Mechanizm jest inspirowany podejsciem z raportu: zamiast uśredniac sprzeczne wytyczne, system oznacza `Conflicting Evidence Flag`, pokazuje konkurujace zrodla i instruuje model, aby jawnie opisal konflikt albo powstrzymal sie od jednoznacznej rekomendacji.
+
+Pole `evidence_conflicts` zawiera:
+
+- `detected`, czyli czy wykryto potencjalny konflikt
+- `strategy`, obecnie `conflicting_evidence_flag`
+- `pairs`, czyli pary zrodel i wspolne terminy kliniczne
+- `newer_source_id`, jesli z metadanych da sie wskazac nowsze zrodlo
+- `instruction`, czyli zasade przekazana do promptu
+
+To jest warstwa MVP. Nie jest to jeszcze pelny ContRAG-Med z formalna logika satysfakcjonowalnosci; taki mechanizm powinien dojsc pozniej dla twardych konfliktow dawkowania, populacji pacjentow i przeciwwskazan.
+
+## Ewaluacja RAG
+
+Repo zawiera tez lekki skrypt ewaluacyjny offline inspirowany metrykami z raportu:
+
+- `recall@k`, czyli jaki odsetek oczekiwanych dokumentow znalazl sie w top-k
+- `precision@k`, czyli jaki odsetek wynikow top-k jest oczekiwanym dokumentem
+- `groundedness`, czyli jaki odsetek zdan odpowiedzi jest wsparty pobranym kontekstem
+- `hallucination_rate`, czyli odsetek zdan odpowiedzi niewspartych pobranym kontekstem
+
+Dataset ewaluacyjny znajduje sie w:
+
+```text
+data/eval_retrieval_sample.json
+```
+
+Uruchomienie:
+
+```bash
+EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/evaluate_rag.py
+```
+
+Opcjonalne zmienne:
+
+```bash
+EVAL_DATASET_PATH=data/eval_retrieval_sample.json
+EVAL_TOP_K=1,3,5
+GROUNDING_OVERLAP_THRESHOLD=0.35
+```
+
+Metryki `groundedness` i `hallucination_rate` sa heurystyczne: skrypt dzieli pole `answer` na zdania, sprawdza cytowania `[S1]`, `[S2]` i mierzy pokrycie tokenow zdania przez tekst pobranych zrodel. To nie zastapi oceny eksperckiej, ale daje powtarzalny test regresji dla zmian w retrievalu i promptach.
 
 ## Typowy workflow developerski
 
@@ -248,8 +325,8 @@ EMBEDDING_SERVICE_URL=http://localhost:8081 uvicorn main:app --reload
 
 ## Co warto zrobic dalej
 
-- wlaczyc prawdziwy hybrid retrieval jako domyslny
 - dodac lepszy chunking i wiekszy korpus
 - dodac testy integracyjne
-- dodac walidacje cytowan i ewaluacje retrievalu
+- rozbudowac ewaluacje o prywatny zestaw pytan i ocene ekspercka
+- rozbudowac konflikty zrodel o formalne reguly dla dawkowania, populacji i przeciwwskazan
 - dopiero potem budowac warstwe multiagentowa

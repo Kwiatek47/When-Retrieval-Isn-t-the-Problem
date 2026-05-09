@@ -18,10 +18,12 @@ services:
       QDRANT_COLLECTION: MedicalChunk
       QDRANT_VECTOR_NAME: medcpt_dense
       QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
+      BM25_STATS_PATH: /data/bm25_stats.json
     ports:
       - "8081:8080"
     volumes:
       - huggingface-cache:/models/huggingface
+      - ./data:/data:ro
     gpus: all
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]

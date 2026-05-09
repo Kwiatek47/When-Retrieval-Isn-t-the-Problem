@@ -42,6 +42,8 @@ def get_qdrant_retriever() -> QdrantMedicalRetriever:
         timeout=settings.qdrant_timeout,
         collection_name=settings.qdrant_collection,
         vector_name=settings.qdrant_vector_name,
+        sparse_vector_name=settings.qdrant_sparse_vector_name,
+        bm25_stats_path=settings.bm25_stats_path,
     )
 
 
@@ -112,6 +114,7 @@ def create_app() -> FastAPI:
         documents = await asyncio.to_thread(
             retriever.search,
             embedding,
+            query_text=request.text,
             limit=request.limit,
         )
         return HybridQueryResponse(
@@ -121,6 +124,8 @@ def create_app() -> FastAPI:
             dimension=embedder.dimension,
             collection=retriever.collection_name,
             vector_name=retriever.vector_name,
+            sparse_vector_name=retriever.sparse_vector_name,
+            fusion="rrf",
             documents=documents,
         )
 
