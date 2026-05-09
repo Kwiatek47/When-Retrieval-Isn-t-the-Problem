@@ -9,7 +9,13 @@ Aktualna implementacja używa MedCPT:
 
 Oba encodery pracują w tej samej przestrzeni retrievalowej i zwracają embeddingi o wymiarze `768`.
 
-## Uruchomienie
+## Uruchomienie na GPU
+
+Domyslny obraz Dockera instaluje PyTorch z CUDA i uruchamia MedCPT na GPU. Host musi miec:
+
+- sterownik NVIDIA widoczny przez `nvidia-smi`,
+- Docker z NVIDIA Container Toolkit,
+- Compose obslugujacy `gpus: all`.
 
 Z katalogu głównego projektu:
 
@@ -44,7 +50,7 @@ MEDCPT_DOCUMENT_MODEL=ncbi/MedCPT-Article-Encoder
 MEDCPT_QUERY_MAX_LENGTH=64
 MEDCPT_DOCUMENT_MAX_LENGTH=512
 EMBEDDING_BATCH_SIZE=16
-EMBEDDING_DEVICE=cpu
+EMBEDDING_DEVICE=cuda
 HF_HOME=/models/huggingface
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
@@ -78,7 +84,7 @@ Przykładowa odpowiedź:
   "query_model": "ncbi/MedCPT-Query-Encoder",
   "document_model": "ncbi/MedCPT-Article-Encoder",
   "dimension": 768,
-  "device": "cpu"
+  "device": "cuda"
 }
 ```
 
@@ -235,10 +241,22 @@ Nazwa endpointu zostaje `hybrid`, ale aktualny MVP wykonuje dense retrieval. Hyb
 
 ## Uwagi produkcyjne
 
-Aktualnie serwis działa CPU-only. To jest poprawne dla MVP, ale przy większym ingestowaniu PubMed/PMC będzie wolne. Przejście na GPU powinno wymagać głównie zmiany obrazu Dockera, instalacji odpowiedniego PyTorch i ustawienia:
+Mozna szybko sprawdzic, czy Docker widzi GPU:
 
-```text
-EMBEDDING_DEVICE=cuda
+```bash
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+```
+
+Jesli trzeba tymczasowo wrocic na CPU, zmien w `docker-compose.yml`:
+
+```yaml
+EMBEDDING_DEVICE: cpu
+```
+
+oraz zbuduj obraz z CPU-only PyTorch:
+
+```bash
+docker compose build --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu embedding-service
 ```
 
 Po zmianie encoderów trzeba utworzyć nową kolekcję Qdrant albo przeprowadzić pełną reindeksację korpusu. Nie dopisujemy embeddingów z nowej przestrzeni do starej kolekcji.

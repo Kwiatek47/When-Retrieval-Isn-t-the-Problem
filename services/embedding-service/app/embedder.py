@@ -34,6 +34,11 @@ class MedCPTEmbedder:
         self.query_max_length = query_max_length
         self.document_max_length = document_max_length
         self.batch_size = batch_size
+        if device.startswith("cuda") and not torch.cuda.is_available():
+            raise RuntimeError(
+                "EMBEDDING_DEVICE is set to CUDA, but PyTorch cannot access a CUDA GPU. "
+                "Check NVIDIA drivers, NVIDIA Container Toolkit, and Docker GPU passthrough."
+            )
         self.device = torch.device(device)
 
         self.query_tokenizer = AutoTokenizer.from_pretrained(query_model_name)
