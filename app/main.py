@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -7,7 +8,20 @@ from app.api.routes import router as api_router
 from app.core.config import get_settings
 
 
-logging.getLogger("app").setLevel(logging.INFO)
+def configure_logging() -> None:
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(logging.INFO)
+    app_logger.propagate = False
+    if app_logger.handlers:
+        return
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    app_logger.addHandler(handler)
+
+
+configure_logging()
 
 
 def create_app() -> FastAPI:

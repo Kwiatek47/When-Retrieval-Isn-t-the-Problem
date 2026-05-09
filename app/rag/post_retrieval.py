@@ -1,14 +1,22 @@
+from dataclasses import replace
+import logging
+from time import perf_counter
 from typing import Any
 
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.schemas import ChatMessage, Citation, RetrievalInfo
 
 
+logger = logging.getLogger(__name__)
+
+
 class PostRetriever:
     """Rank retrieved documents and assemble the grounded LLM prompt."""
 
-    def __init__(self, max_context_chars: int) -> None:
+    def __init__(self, max_context_chars: int, cross_encoder_model_name: str | None = None) -> None:
         self.max_context_chars = max_context_chars
+        self.cross_encoder_model_name = cross_encoder_model_name
+        self.cross_encoder = self._load_cross_encoder(cross_encoder_model_name)
 
     def assemble(
         self,
@@ -18,7 +26,7 @@ class PostRetriever:
         pre_retrieval: PreRetrievalResult,
         retrieval: RetrievalResult,
     ) -> PostRetrievalResult:
-        documents = self._rank_documents(retrieval.documents)
+        documents = self._rank_documents(retrieval.documents, pre_retrieval)
         context_block, citations = self._build_context(documents)
 
         system_message = ChatMessage(
@@ -44,7 +52,12 @@ class PostRetriever:
             retrieval=retrieval_info,
         )
 
-    def _rank_documents(self, documents: list[RetrievedDocument]) -> list[RetrievedDocument]:
+    def _rank_documents(
+        self,
+        documents: list[RetrievedDocument],
+        pre_retrieval: PreRetrievalResult,
+    ) -> list[RetrievedDocument]:
+        documents = self._score_documents_with_cross_encoder(documents, pre_retrieval)
         deduplicated = {}
         for document in sorted(documents, key=lambda item: item.score, reverse=True):
             if not document.content.strip():
@@ -52,6 +65,51 @@ class PostRetriever:
             key = document.id or f"{document.source}:{document.title}"
             deduplicated.setdefault(key, document)
         return list(deduplicated.values())
+
+    def _score_documents_with_cross_encoder(
+        self,
+        documents: list[RetrievedDocument],
+        pre_retrieval: PreRetrievalResult,
+    ) -> list[RetrievedDocument]:
+        if self.cross_encoder is None or not documents:
+            return documents
+
+        query = pre_retrieval.normalized_query
+        pairs = [(query, document.content) for document in documents]
+        started_at = perf_counter()
+        scores = self.cross_encoder.predict(pairs)
+        finished_at = perf_counter()
+
+        logger.info(
+            "post_retrieval rerank timing cross_encoder=%.3fs documents=%d model=%s",
+            finished_at - started_at,
+            len(documents),
+            self.cross_encoder_model_name,
+        )
+
+        return [
+            replace(document, score=float(score))
+            for document, score in zip(documents, scores, strict=True)
+        ]
+
+    def _load_cross_encoder(self, model_name: str | None) -> Any | None:
+        if not model_name:
+            return None
+        try:
+            from sentence_transformers import CrossEncoder
+        except ImportError as exc:
+            raise RuntimeError(
+                "Cross-encoder reranking requires sentence-transformers. "
+                "Install dependencies with `pip install -r requirements.txt`."
+            ) from exc
+        started_at = perf_counter()
+        model = CrossEncoder(model_name)
+        logger.info(
+            "post_retrieval cross_encoder loaded model=%s load=%.3fs",
+            model_name,
+            perf_counter() - started_at,
+        )
+        return model
 
     def _build_context(self, documents: list[RetrievedDocument]) -> tuple[str, list[Citation]]:
         if not documents:

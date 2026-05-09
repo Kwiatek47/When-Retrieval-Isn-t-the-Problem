@@ -71,7 +71,10 @@ def get_medical_knowledge_retriever() -> MedicalKnowledgeRetriever:
 @lru_cache
 def get_post_retriever() -> PostRetriever:
     settings = get_settings()
-    return PostRetriever(max_context_chars=settings.rag_max_context_chars)
+    return PostRetriever(
+        max_context_chars=settings.rag_max_context_chars,
+        cross_encoder_model_name=settings.cross_encoder_model_name,
+    )
 
 
 @lru_cache

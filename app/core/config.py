@@ -27,6 +27,7 @@ class Settings:
     qdrant_sparse_vector_name: str
     bm25_stats_path: Path
     rag_retriever: str
+    cross_encoder_model_name: str | None
     rag_top_k: int
     rag_max_context_chars: int
     static_dir: Path
@@ -54,6 +55,7 @@ def get_settings() -> Settings:
         qdrant_sparse_vector_name=os.getenv("QDRANT_SPARSE_VECTOR_NAME", "bm25_sparse"),
         bm25_stats_path=Path(os.getenv("BM25_STATS_PATH", PROJECT_ROOT / "data" / "bm25_stats.json")),
         rag_retriever=os.getenv("RAG_RETRIEVER", "embedding_service"),
+        cross_encoder_model_name=os.getenv("CROSS_ENCODER_MODEL") or None,
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
         static_dir=PROJECT_ROOT / "static",
