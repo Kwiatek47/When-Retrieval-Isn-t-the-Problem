@@ -11,6 +11,7 @@ MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacj
 - embeddings biomedyczne MedCPT
 - Qdrant jako Vector DB
 - sample ingest do Qdranta z `data/pubmed_sample.json`
+- indeksowanie docelowych `data/processed/chunks.parquet` do Qdranta
 - opcjonalny reranking przez cross-encoder
 - walidacja cytowan w odpowiedzi modelu
 - flaga konfliktow zrodel dla sprzecznych rekomendacji
@@ -128,6 +129,53 @@ Skrypt:
 - zapisuje punkty do kolekcji `MedicalChunk`
 - buduje `data/bm25_stats.json`
 
+Jesli masz juz docelowy plik od osoby od danych, czyli:
+
+```text
+data/processed/chunks.parquet
+```
+
+zbuduj indeks RAG komenda:
+
+```bash
+source .venv/bin/activate
+EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/rag/01_build_index.py \
+  --chunks data/processed/chunks.parquet \
+  --collection MedicalChunk \
+  --qdrant-url http://localhost:6333 \
+  --recreate
+```
+
+Skrypt wymaga kolumn `chunk_id` i `text`. Pozostale pola z kontraktu zespolowego, np. `doc_id`, `pmid`, `title`, `doi`, `year`, `source`, `journal`, `publication_types`, sa zapisywane jako payload Qdranta, jesli istnieja.
+
+Jesli osoba od embeddingow przekaze gotowe embeddingi:
+
+```text
+data/embeddings/embeddings.parquet
+```
+
+uruchom:
+
+```bash
+python3 scripts/rag/01_build_index.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings.parquet \
+  --collection MedicalChunk \
+  --qdrant-url http://localhost:6333 \
+  --recreate
+```
+
+W tym trybie skrypt nie liczy embeddingow sam, tylko waliduje `chunk_id`, staly wymiar embeddingow, brak pustych/zerowych wektorow i mapowanie kazdego chunku na embedding.
+
+Po przebudowie indeksu skrypt zapisuje:
+
+```text
+data/bm25_stats.json
+data/indexes/qdrant/index_manifest.json
+```
+
+Jesli `embedding-service` byl juz uruchomiony i obslugiwal zapytania, zrestartuj go po przebudowie `data/bm25_stats.json`, bo encoder BM25 jest cache'owany w procesie serwisu.
+
 ### 3. Uruchom Ollame
 
 Przykladowe modele:
@@ -173,6 +221,24 @@ Mozesz:
 
 ### API
 
+Sam retrieval bez LLM:
+
+```bash
+curl "http://127.0.0.1:8000/search?q=hypertension%20treatment&top_k=5"
+```
+
+Endpoint zwraca liste wynikow z polami:
+
+```text
+chunk_id, score, pmid, title, text, doi, year, source, url, metadata
+```
+
+Ten sam endpoint jest dostepny rowniez jako:
+
+```text
+/api/search
+```
+
 Przykladowe zapytanie:
 
 ```bash
@@ -207,8 +273,10 @@ Najwazniejsze zmienne srodowiskowe aplikacji:
 OLLAMA_MODEL=medgemma
 OLLAMA_BASE_URL=http://localhost:11434
 RAG_RETRIEVER=embedding_service
+RAG_CANDIDATE_K=50
 RAG_TOP_K=5
 RAG_MAX_CONTEXT_CHARS=8000
+CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 QUERY_REWRITE_MODEL=llama3.2:3b
 QUERY_REWRITE_TIMEOUT=15
 EMBEDDING_SERVICE_URL=http://localhost:8081
@@ -240,6 +308,57 @@ W kodzie sa dwie glowne sciezki retrievalu:
   alternatywa po stronie aplikacji; wykonuje podobna fuzje po stronie glownego API, jesli ustawisz `RAG_RETRIEVER=qdrant_hybrid`
 
 Domyslny endpoint `/embed/hybrid/query` wykonuje hybrid search po `medcpt_dense` i `bm25_sparse`. Jesli zapytanie nie ma tokenow obecnych w slowniku BM25, serwis wraca do dense retrieval.
+
+## Reranking top50 -> top5
+
+Dla odpowiedzi chatbota retrieval dziala dwuetapowo:
+
+```text
+hybrid search BM25 + dense -> top 50 kandydatow
+cross-encoder reranker -> top 5 zrodel do promptu
+```
+
+Kontroluja to zmienne:
+
+```bash
+RAG_CANDIDATE_K=50
+RAG_TOP_K=5
+CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
+```
+
+`RAG_CANDIDATE_K` okresla, ile dokumentow pobrac z Qdranta przed rerankingiem. `RAG_TOP_K` okresla, ile najlepszych dokumentow po rerankingu trafi do `MEDICAL_KNOWLEDGE_BASE` i cytowan `[S1]`, `[S2]`.
+
+Jesli `CROSS_ENCODER_MODEL` jest pusty, aplikacja nadal pobiera `RAG_CANDIDATE_K`, ale wybiera finalne `RAG_TOP_K` wedlug score z hybrid search.
+
+## Raport jakości retrievalu
+
+Po uruchomieniu API i zaludnieniu Qdranta mozesz wygenerowac raport jakości samego search:
+
+```bash
+source .venv/bin/activate
+python3 scripts/rag/03_evaluate_retrieval.py \
+  --dataset data/eval_retrieval_sample.json \
+  --api-url http://127.0.0.1:8000 \
+  --top-k 5,10,50
+```
+
+Skrypt odpytuje publiczny endpoint `/search` i zapisuje:
+
+```text
+reports/retrieval_quality_report.json
+reports/retrieval_quality_report.md
+```
+
+Raport zawiera:
+
+```text
+Recall@k
+Precision@k
+nDCG@k
+MRR
+sredni czas search
+konfiguracje RAG_CANDIDATE_K, RAG_TOP_K, CROSS_ENCODER_MODEL
+```
 
 ## Walidacja cytowan
 

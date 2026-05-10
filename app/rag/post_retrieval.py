@@ -14,8 +14,14 @@ logger = logging.getLogger(__name__)
 class PostRetriever:
     """Rank retrieved documents and assemble the grounded LLM prompt."""
 
-    def __init__(self, max_context_chars: int, cross_encoder_model_name: str | None = None) -> None:
+    def __init__(
+        self,
+        max_context_chars: int,
+        final_documents_limit: int,
+        cross_encoder_model_name: str | None = None,
+    ) -> None:
         self.max_context_chars = max_context_chars
+        self.final_documents_limit = final_documents_limit
         self.cross_encoder_model_name = cross_encoder_model_name
         self.cross_encoder = self._load_cross_encoder(cross_encoder_model_name)
 
@@ -73,7 +79,10 @@ class PostRetriever:
                 continue
             key = document.id or f"{document.source}:{document.title}"
             deduplicated.setdefault(key, document)
-        return list(deduplicated.values())
+        ranked_documents = list(deduplicated.values())
+        if self.final_documents_limit <= 0:
+            return ranked_documents
+        return ranked_documents[: self.final_documents_limit]
 
     def _score_documents_with_cross_encoder(
         self,

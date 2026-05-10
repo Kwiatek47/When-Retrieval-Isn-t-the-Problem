@@ -16,7 +16,10 @@ RECREATE_COLLECTION = os.getenv("QDRANT_RECREATE_COLLECTION", "").lower() in {"1
 
 
 PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
+    "chunkId": models.PayloadSchemaType.KEYWORD,
+    "documentId": models.PayloadSchemaType.KEYWORD,
     "pmid": models.PayloadSchemaType.KEYWORD,
+    "doi": models.PayloadSchemaType.KEYWORD,
     "title": models.PayloadSchemaType.TEXT,
     "journal": models.PayloadSchemaType.KEYWORD,
     "year": models.PayloadSchemaType.INTEGER,
@@ -24,10 +27,12 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
     "meshTerms": models.PayloadSchemaType.KEYWORD,
     "section": models.PayloadSchemaType.KEYWORD,
     "source": models.PayloadSchemaType.KEYWORD,
+    "url": models.PayloadSchemaType.KEYWORD,
     "chunkIndex": models.PayloadSchemaType.INTEGER,
-    "documentId": models.PayloadSchemaType.KEYWORD,
+    "publicationTypes": models.PayloadSchemaType.KEYWORD,
     "embeddingModel": models.PayloadSchemaType.KEYWORD,
     "corpusVersion": models.PayloadSchemaType.KEYWORD,
+    "textHash": models.PayloadSchemaType.KEYWORD,
 }
 
 

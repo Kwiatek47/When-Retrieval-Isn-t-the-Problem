@@ -2,18 +2,22 @@ import logging
 from time import perf_counter
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.dependencies import get_llm_provider, get_rag_pipeline
+from app.api.dependencies import get_llm_provider, get_medical_knowledge_retriever, get_rag_pipeline
 from app.core.config import Settings, get_settings
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
+from app.rag.answer_extraction import extract_answer_content
 from app.rag.answer_quality import evaluate_answer_quality
 from app.rag.citation_validation import validate_citations
+from app.rag.models import PreRetrievalResult, RetrievedDocument
 from app.rag.pipeline import RagPipeline
-from app.schemas import ChatMessage, ChatRequest, ChatResponse
+from app.rag.retrieval import MedicalKnowledgeRetriever
+from app.schemas import ChatMessage, ChatRequest, ChatResponse, SearchResponse, SearchResult
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
+search_router = APIRouter(tags=["search"])
 logger = logging.getLogger(__name__)
 
 
@@ -62,8 +66,10 @@ async def chat(
             temperature=request.temperature,
         )
         llm_done_at = perf_counter()
-        citation_validation = validate_citations(llm_response.message.content, rag_result.citations)
-        answer_quality = evaluate_answer_quality(llm_response.message.content, rag_result.source_documents)
+        answer_content = extract_answer_content(llm_response.message.content)
+        answer_message = ChatMessage(role=llm_response.message.role, content=answer_content)
+        citation_validation = validate_citations(answer_content, rag_result.citations)
+        answer_quality = evaluate_answer_quality(answer_content, rag_result.source_documents)
         logger.info(
             "chat_request timing rag_total=%.3fs llm_total=%.3fs total=%.3fs model=%s "
             "retrieval_status=%s documents=%d citation_validation=%s groundedness=%s hallucination_rate=%s",
@@ -79,7 +85,7 @@ async def chat(
         )
         return ChatResponse(
             model=llm_response.model,
-            message=llm_response.message,
+            message=answer_message,
             done=llm_response.done,
             citations=rag_result.citations,
             retrieval=rag_result.retrieval,
@@ -97,3 +103,70 @@ async def chat(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
         ) from exc
+
+
+@router.get("/search", response_model=SearchResponse)
+async def api_search(
+    q: Annotated[str, Query(min_length=1)],
+    retriever: Annotated[MedicalKnowledgeRetriever, Depends(get_medical_knowledge_retriever)],
+    top_k: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> SearchResponse:
+    return await _search(q=q, top_k=top_k, retriever=retriever)
+
+
+@search_router.get("/search", response_model=SearchResponse)
+async def search(
+    q: Annotated[str, Query(min_length=1)],
+    retriever: Annotated[MedicalKnowledgeRetriever, Depends(get_medical_knowledge_retriever)],
+    top_k: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> SearchResponse:
+    return await _search(q=q, top_k=top_k, retriever=retriever)
+
+
+async def _search(
+    *,
+    q: str,
+    top_k: int,
+    retriever: MedicalKnowledgeRetriever,
+) -> SearchResponse:
+    normalized_query = " ".join(q.split())
+    if not normalized_query:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Search query cannot be blank.")
+    retrieval = await retriever.retrieve(
+        PreRetrievalResult(
+            original_query=q,
+            normalized_query=normalized_query,
+            search_queries=[normalized_query],
+            requires_retrieval=True,
+        ),
+        limit=top_k,
+    )
+    return SearchResponse(
+        query=normalized_query,
+        top_k=top_k,
+        provider=retrieval.provider,
+        results=[_search_result(document) for document in retrieval.documents],
+    )
+
+
+def _search_result(document: RetrievedDocument) -> SearchResult:
+    metadata = {str(key): str(value) for key, value in document.metadata.items()}
+    return SearchResult(
+        chunk_id=metadata.get("chunkId") or metadata.get("chunk_id") or metadata.get("documentId") or document.id,
+        score=document.score,
+        pmid=metadata.get("pmid"),
+        title=document.title,
+        text=document.content,
+        doi=metadata.get("doi"),
+        year=_optional_int(metadata.get("year")),
+        source=document.source,
+        url=metadata.get("url"),
+        metadata=metadata,
+    )
+
+
+def _optional_int(value: str | None) -> int | None:
+    try:
+        return int(value) if value else None
+    except ValueError:
+        return None

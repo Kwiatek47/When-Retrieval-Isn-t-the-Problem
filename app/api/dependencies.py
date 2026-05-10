@@ -73,6 +73,7 @@ def get_post_retriever() -> PostRetriever:
     settings = get_settings()
     return PostRetriever(
         max_context_chars=settings.rag_max_context_chars,
+        final_documents_limit=settings.rag_top_k,
         cross_encoder_model_name=settings.cross_encoder_model_name,
     )
 
@@ -84,5 +85,5 @@ def get_rag_pipeline() -> RagPipeline:
         pre_retriever=get_pre_retriever(),
         retriever=get_medical_knowledge_retriever(),
         post_retriever=get_post_retriever(),
-        retrieval_limit=settings.rag_top_k,
+        retrieval_candidate_limit=max(settings.rag_candidate_k, settings.rag_top_k),
     )

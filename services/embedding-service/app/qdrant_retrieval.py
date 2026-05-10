@@ -115,7 +115,9 @@ class QdrantMedicalRetriever:
 
     def _metadata_from_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         metadata_keys = (
+            "chunkId",
             "pmid",
+            "doi",
             "journal",
             "year",
             "authors",
@@ -123,6 +125,13 @@ class QdrantMedicalRetriever:
             "section",
             "chunkIndex",
             "documentId",
+            "url",
+            "publicationDate",
+            "publicationTypes",
+            "isReview",
+            "isSystematicReview",
+            "wordCount",
+            "textHash",
             "embeddingModel",
             "corpusVersion",
         )

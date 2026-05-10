@@ -33,6 +33,26 @@ class RetrievalInfo(BaseModel):
     documents_count: int
 
 
+class SearchResult(BaseModel):
+    chunk_id: str
+    score: float
+    pmid: Optional[str] = None
+    title: str
+    text: str
+    doi: Optional[str] = None
+    year: Optional[int] = None
+    source: str
+    url: Optional[str] = None
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class SearchResponse(BaseModel):
+    query: str
+    top_k: int
+    provider: str
+    results: list[SearchResult] = Field(default_factory=list)
+
+
 class CitationValidation(BaseModel):
     passed: bool
     cited_ids: list[str] = Field(default_factory=list)
