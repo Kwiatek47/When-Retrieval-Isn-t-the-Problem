@@ -1,68 +1,77 @@
 # Qdrant Vector Store
 
-Osobna baza wektorowa dla pipeline RAG. Qdrant nie liczy embeddingów MedCPT. Działa w trybie bring your own vectors, więc inne serwisy muszą dostarczać gotowe wektory.
+Qdrant jest baza wektorowa dla pipeline RAG. Dziala w trybie bring-your-own-vectors: embeddingi MedCPT i sparse BM25 liczymy poza Qdrantem, a Qdrant przechowuje punkty i wykonuje hybrid search.
 
-Aktualny MVP używa tylko dense retrievalu:
+Aktualny MVP uzywa:
 
 ```text
 collection: MedicalChunk
-vector name: medcpt_dense
-vector size: 768
-distance: cosine
-datatype: float16
-vector storage: on disk
-HNSW index: on disk
+dense vector name: medcpt_dense
+dense vector size: 768
+dense distance: cosine
+dense datatype: float16
+dense vector storage: on disk
+dense HNSW index: on disk
+sparse vector name: bm25_sparse
+sparse encoder: corpus-aware BM25
+fusion: RRF
 ```
 
-`float16` i on-disk storage zmniejszają narzut pamięci względem trzymania pełnych `float32` w RAM. Kosztem może być niższa precyzja i większa latencja.
+`float16` i on-disk storage zmniejszaja narzut RAM. Kosztem moze byc nizsza precyzja i wieksza latencja.
 
 ## Uruchomienie
 
-Z katalogu głównego projektu:
+GPU jest priorytetowym trybem dla `embedding-service`, ale sam Qdrant uruchamiasz tak samo:
 
 ```bash
 docker compose up --build qdrant qdrant-init
 ```
 
-Lokalne adresy:
+Pelny wariant GPU:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build qdrant qdrant-init embedding-service
+```
+
+Fallback CPU:
+
+```bash
+docker compose up --build qdrant qdrant-init embedding-service
+```
+
+Adresy:
 
 ```text
 HTTP/REST: http://localhost:6333
 gRPC: localhost:6334
 ```
 
-W sieci Docker Compose inne kontenery powinny używać:
+## Inicjalizacja Kolekcji
 
-```text
-QDRANT_HOST=qdrant
-QDRANT_PORT=6333
-```
-
-## Inicjalizacja kolekcji
-
-Kolekcję inicjalizuje jednorazowy serwis:
+Kolekcje inicjalizuje jednorazowy serwis:
 
 ```text
 qdrant-init
 ```
 
-Kod definicji znajduje się w:
+Kod definicji jest w:
 
 ```text
 qdrant/schema.py
 ```
 
-Jeśli kolekcja `MedicalChunk` już istnieje, skrypt jej nie usuwa i nie nadpisuje. Dodatkowo tworzy indeksy payload dla pól metadanych.
+Jesli kolekcja `MedicalChunk` juz istnieje bez sparse vectora `bm25_sparse`, ustaw `QDRANT_RECREATE_COLLECTION=true` albo uzyj `--recreate` w `scripts/rag/01_build_index.py`.
 
 ## Payload MedicalChunk
 
-Jeden punkt Qdrant odpowiada jednemu chunkowi tekstu.
-
-Payload:
+Jeden punkt Qdrant odpowiada jednemu chunkowi tekstu. Payload pozostaje w camelCase:
 
 ```text
 text: string
+chunkId: keyword
+documentId: keyword
 pmid: keyword
+doi: keyword
 title: text
 journal: keyword
 year: integer
@@ -70,30 +79,56 @@ authors: keyword[]
 meshTerms: keyword[]
 section: keyword
 source: keyword
+url: keyword
 chunkIndex: integer
-documentId: keyword
+publicationDate: keyword
+publicationTypes: keyword[]
+isReview: bool
+isSystematicReview: bool
+wordCount: integer
 embeddingModel: keyword
 corpusVersion: keyword
+textHash: keyword
 ```
 
-W polu `embeddingModel` zapisujemy wartość `model` zwróconą przez `embedding-service`, obecnie:
+`chunks.parquet` i `embeddings.parquet` uzywaja snake_case zgodnie z kontraktem zespolu. Mapowanie do camelCase dzieje sie podczas budowy indeksu.
+
+## Budowanie Indeksu
+
+Preferowany workflow:
+
+```bash
+python3 scripts/embeddings/01_embed_chunks.py \
+  --chunks data/processed/chunks.parquet \
+  --embedding-service-url http://localhost:8081 \
+  --out data/embeddings/embeddings.parquet
+
+python3 scripts/embeddings/02_validate_embeddings.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings.parquet
+
+python3 scripts/rag/01_build_index.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings.parquet \
+  --collection MedicalChunk \
+  --qdrant-url http://localhost:6333 \
+  --recreate
+```
+
+`01_build_index.py` moze tez policzyc embeddingi w locie, jesli nie podasz `--embeddings`, ale kontrakt zespolowy preferuje osobny plik `data/embeddings/embeddings.parquet`.
+
+Skrypt zapisuje:
 
 ```text
-medcpt-ncbi-v1
+data/bm25_stats.json
+data/indexes/qdrant/index_manifest.json
 ```
 
-## Kontrakt zapisu dla ingestion-worker
+Po przebudowie `data/bm25_stats.json` zrestartuj `embedding-service`, bo BM25 encoder jest cache'owany w procesie.
 
-`ingestion-worker` powinien zapisywać jeden punkt na jeden chunk.
+## Kontrakt Zapisu
 
-Minimalny przepływ:
-
-1. sparsuj dokument PubMed/PMC,
-2. zbuduj chunki,
-3. wyślij chunki do `embedding-service` przez `/embed/documents`,
-4. zapisz do Qdrant payload chunku i named vector `medcpt_dense`.
-
-Przykład:
+Punkt Qdrant powinien zawierac dense i sparse vector:
 
 ```python
 from qdrant_client import QdrantClient, models
@@ -105,117 +140,78 @@ client.upsert(
     collection_name="MedicalChunk",
     points=[
         models.PointStruct(
-            id="sample-pubmed-1:0",
+            id="stable-uuid-from-chunk-id",
             vector={
                 "medcpt_dense": dense_vector,
+                "bm25_sparse": models.SparseVector(
+                    indices=sparse_indices,
+                    values=sparse_values,
+                ),
             },
             payload={
-                "text": "Aspirin is an analgesic and antipyretic medication.",
+                "text": "Title: ... Abstract: ...",
+                "chunkId": "pubmed:10000001:abstract:v1",
+                "documentId": "pubmed:10000001",
                 "pmid": "10000001",
+                "doi": "10.example/sample",
                 "title": "Aspirin and fever reduction",
                 "journal": "Sample Medical Journal",
                 "year": 2024,
-                "authors": ["A. Kowalski", "B. Nowak"],
-                "meshTerms": ["Aspirin", "Fever", "Analgesics"],
                 "section": "abstract",
-                "source": "sample-json",
+                "source": "pubmed",
+                "url": "https://pubmed.ncbi.nlm.nih.gov/10000001/",
                 "chunkIndex": 0,
-                "documentId": "sample-pubmed-1",
+                "publicationDate": "2024-01-01",
+                "publicationTypes": ["Review"],
+                "isReview": True,
+                "isSystematicReview": False,
+                "wordCount": 120,
                 "embeddingModel": "medcpt-ncbi-v1",
-                "corpusVersion": "sample-v1",
+                "corpusVersion": "pubmed-rag-v1",
+                "textHash": "source-text-hash",
             },
         )
     ],
 )
 ```
 
-## Kontrakt odczytu dla rag-api
+## Kontrakt Odczytu
 
-`rag-api` powinno:
+RAG API powinno zwracac znalezione chunki wraz ze zrodlami:
 
-1. przyjąć pytanie użytkownika,
-2. wysłać pytanie do `embedding-service` przez `/embed/query`,
-3. wysłać otrzymany vector do Qdrant jako query po named vectorze `medcpt_dense`,
-4. opcjonalnie przekazać kandydatów do rerankera,
-5. zwrócić znalezione chunki wraz ze źródłami.
-
-Przykład:
-
-```python
-from qdrant_client import QdrantClient
-
-
-client = QdrantClient(host="qdrant", port=6333)
-
-result = client.query_points(
-    collection_name="MedicalChunk",
-    query=query_vector,
-    using="medcpt_dense",
-    limit=10,
-    with_payload=True,
-)
-
-for point in result.points:
-    print(point.payload["title"], point.payload["pmid"], point.score)
+```text
+chunk_id
+score
+pmid
+title
+text
+doi
+year
+source
+url
+metadata
 ```
 
-## Hybrydowe wyszukiwanie
+Publiczne endpointy:
 
-Qdrant nie wygeneruje za nas ani embeddingu MedCPT, ani klasycznego BM25. Ma natomiast mechanizmy, które pozwalają zbudować hybrydę:
-
-- dense vector search,
-- sparse vectors,
-- payload full-text indexes,
-- Query API z fuzją wyników, np. RRF albo DBSF.
-
-Są dwa sensowne warianty.
-
-### Wariant 1: hybryda wewnątrz Qdrant
-
-Ten wariant trzyma dense i sparse vector w tym samym punkcie Qdrant.
-
-Kolekcja musi mieć dwa wektory:
-
-```python
-from qdrant_client import models
-
-
-client.create_collection(
-    collection_name="MedicalChunk",
-    vectors_config={
-        "medcpt_dense": models.VectorParams(
-            size=768,
-            distance=models.Distance.COSINE,
-        ),
-    },
-    sparse_vectors_config={
-        "bm25_sparse": models.SparseVectorParams(),
-    },
-)
+```text
+GET /search?q=...&top_k=10
+GET /api/search?q=...&top_k=10
 ```
 
-`ingestion-worker` musi wtedy policzyć dwie reprezentacje:
+Smoke test:
 
-- dense: `embedding-service` / MedCPT Article Encoder,
-- sparse: osobny lexical encoder, np. BM25/SPLADE/fastembed sparse.
-
-Zapis punktu:
-
-```python
-models.PointStruct(
-    id="sample-pubmed-1:0",
-    vector={
-        "medcpt_dense": dense_vector,
-        "bm25_sparse": models.SparseVector(
-            indices=sparse_indices,
-            values=sparse_values,
-        ),
-    },
-    payload={...},
-)
+```bash
+python3 scripts/rag/02_search.py \
+  --query "hypertension treatment" \
+  --top-k 5 \
+  --api-url http://127.0.0.1:8000 \
+  --require-results
 ```
 
-`rag-api` liczy dense embedding pytania oraz sparse vector pytania, a potem odpytuje Qdrant przez Query API z fuzją:
+## Hybrid Search
+
+Qdrant wykonuje RRF po dense i sparse prefetch:
 
 ```python
 result = client.query_points(
@@ -241,38 +237,10 @@ result = client.query_points(
 )
 ```
 
-To jest najprostszy wariant operacyjnie, bo fuzję wyników robi Qdrant. Nadal trzeba samemu policzyć sparse vectors.
+Dense embedding zapytania liczy MedCPT Query Encoder. Sparse query vector powstaje z `data/bm25_stats.json`.
 
-### Wariant 2: lexical search poza Qdrant
+## Zasady Produkcyjne
 
-Ten wariant jest bardziej klasyczny dla dużych korpusów.
+Nie mieszaj roznych modeli embeddingowych w jednej kolekcji. Jesli zmieniasz model, utworz nowa kolekcje albo przeprowadz pelna reindeksacje.
 
-Architektura:
-
-```text
-rag-api
-  -> embedding-service -> MedCPT dense query vector
-  -> qdrant -> dense top 100
-  -> lexical-service/OpenSearch/Tantivy/Postgres FTS -> BM25 top 100
-  -> RRF/weighted fusion w rag-api
-  -> opcjonalnie reranker-service
-```
-
-Prosty RRF:
-
-```python
-def rrf(result_lists: list[list[str]], k: int = 60) -> dict[str, float]:
-    scores: dict[str, float] = {}
-    for results in result_lists:
-        for rank, point_id in enumerate(results, start=1):
-            scores[point_id] = scores.get(point_id, 0.0) + 1.0 / (k + rank)
-    return scores
-```
-
-Ten wariant daje większą kontrolę nad BM25, analizatorami językowymi, synonymami MeSH i rankingiem lexical, ale wymaga utrzymania drugiego indeksu.
-
-## Zasady produkcyjne
-
-Nie mieszać różnych modeli embeddingowych w jednej kolekcji. Jeśli zmieniasz model, utwórz nową kolekcję albo przeprowadź pełną reindeksację.
-
-Oryginalne dokumenty mogą być poza Qdrant, np. filesystem, S3 albo MinIO. Qdrant powinien trzymać chunki, wektory i metadane potrzebne do retrievalu oraz cytowań.
+Oryginalne dokumenty moga byc poza Qdrant, np. filesystem, S3 albo MinIO. Qdrant powinien trzymac chunki, wektory i metadane potrzebne do retrievalu oraz cytowan.

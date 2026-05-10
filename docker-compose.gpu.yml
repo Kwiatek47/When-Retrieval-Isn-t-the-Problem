@@ -1,0 +1,11 @@
+services:
+  embedding-service:
+    build:
+      context: ./services/embedding-service
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu121
+    environment:
+      EMBEDDING_DEVICE: cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    gpus: all

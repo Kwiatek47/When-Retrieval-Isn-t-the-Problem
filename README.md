@@ -11,6 +11,7 @@ MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacj
 - embeddings biomedyczne MedCPT
 - Qdrant jako Vector DB
 - sample ingest do Qdranta z `data/pubmed_sample.json`
+- kontraktowy pipeline `chunks.parquet -> embeddings.parquet`
 - indeksowanie docelowych `data/processed/chunks.parquet` do Qdranta
 - opcjonalny reranking przez cross-encoder
 - walidacja cytowan w odpowiedzi modelu
@@ -64,16 +65,16 @@ Na koncu Ollama dostaje rozmowe z wstrzyknietym kontekstem i generuje odpowiedz.
 
 - to nie jest jeszcze pelny system multiagentowy
 - korpus danych jest demonstracyjny i bardzo maly
-- nie ma jeszcze pelnej ewaluacji retrievalu ani testow end-to-end
+- ewaluacja retrievalu jest automatyczna, ale dataset demonstracyjny jest maly
 
 ## Wymagania
 
 - Python 3.10+
 - Docker i Docker Compose
 - Ollama
-- GPU NVIDIA dla `embedding-service` w trybie CUDA
+- GPU NVIDIA rekomendowane dla `embedding-service`; CPU jest fallbackiem
 
-Jesli chcesz uzywac GPU w Dockerze, host musi miec:
+Priorytetowy tryb dla `embedding-service` to GPU. Jesli chcesz uzywac GPU w Dockerze, host musi miec:
 
 - dzialajace `nvidia-smi`
 - NVIDIA Container Toolkit
@@ -83,7 +84,13 @@ Jesli chcesz uzywac GPU w Dockerze, host musi miec:
 
 ### 1. Uruchom infrastrukture RAG
 
-Z katalogu glownego projektu:
+Z katalogu glownego projektu uruchom wariant GPU:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build qdrant qdrant-init embedding-service
+```
+
+Fallback CPU, jesli host nie ma GPU:
 
 ```bash
 docker compose up --build qdrant qdrant-init embedding-service
@@ -135,12 +142,37 @@ Jesli masz juz docelowy plik od osoby od danych, czyli:
 data/processed/chunks.parquet
 ```
 
-zbuduj indeks RAG komenda:
+mozesz najpierw wygenerowac kontraktowy plik embeddingow:
+
+```bash
+source .venv/bin/activate
+python3 scripts/embeddings/00_inspect_chunks.py \
+  --chunks data/processed/chunks.parquet
+python3 scripts/embeddings/01_embed_chunks.py \
+  --chunks data/processed/chunks.parquet \
+  --embedding-service-url http://localhost:8081 \
+  --out data/embeddings/embeddings.parquet
+python3 scripts/embeddings/02_validate_embeddings.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings.parquet
+```
+
+Te skrypty zapisuja:
+
+```text
+data/embeddings/embeddings.parquet
+data/embeddings/embedding_manifest.json
+data/embeddings/embedding_quality_report.md
+data/embeddings/chunks_inspection_report.md
+```
+
+Nastepnie zbuduj indeks RAG:
 
 ```bash
 source .venv/bin/activate
 EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/rag/01_build_index.py \
   --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings.parquet \
   --collection MedicalChunk \
   --qdrant-url http://localhost:6333 \
   --recreate
@@ -148,21 +180,10 @@ EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/rag/01_build_index.p
 
 Skrypt wymaga kolumn `chunk_id` i `text`. Pozostale pola z kontraktu zespolowego, np. `doc_id`, `pmid`, `title`, `doi`, `year`, `source`, `journal`, `publication_types`, sa zapisywane jako payload Qdranta, jesli istnieja.
 
-Jesli osoba od embeddingow przekaze gotowe embeddingi:
+Mozesz tez pominac etap `embeddings.parquet` i pozwolic `01_build_index.py` policzyc embeddingi w locie, ale preferowany kontrakt zespolowy to osobny plik:
 
 ```text
 data/embeddings/embeddings.parquet
-```
-
-uruchom:
-
-```bash
-python3 scripts/rag/01_build_index.py \
-  --chunks data/processed/chunks.parquet \
-  --embeddings data/embeddings/embeddings.parquet \
-  --collection MedicalChunk \
-  --qdrant-url http://localhost:6333 \
-  --recreate
 ```
 
 W tym trybie skrypt nie liczy embeddingow sam, tylko waliduje `chunk_id`, staly wymiar embeddingow, brak pustych/zerowych wektorow i mapowanie kazdego chunku na embedding.
@@ -298,6 +319,8 @@ QDRANT_SPARSE_VECTOR_NAME=bm25_sparse
 BM25_STATS_PATH=/data/bm25_stats.json
 ```
 
+Priorytetowy tryb GPU ustawia `EMBEDDING_DEVICE=cuda` przez `docker-compose.gpu.yml`. Fallback CPU z bazowego `docker-compose.yml` ustawia `EMBEDDING_DEVICE=cpu`.
+
 ## Tryby retrievalu
 
 W kodzie sa dwie glowne sciezki retrievalu:
@@ -358,6 +381,16 @@ nDCG@k
 MRR
 sredni czas search
 konfiguracje RAG_CANDIDATE_K, RAG_TOP_K, CROSS_ENCODER_MODEL
+```
+
+Szybki smoke test pojedynczego search:
+
+```bash
+python3 scripts/rag/02_search.py \
+  --query "hypertension treatment" \
+  --top-k 5 \
+  --api-url http://127.0.0.1:8000 \
+  --require-results
 ```
 
 ## Walidacja cytowan
@@ -434,7 +467,7 @@ Metryki `groundedness` i `hallucination_rate` sa heurystyczne: skrypt dzieli pol
 ## Typowy workflow developerski
 
 ```bash
-docker compose up --build qdrant qdrant-init embedding-service
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build qdrant qdrant-init embedding-service
 curl http://localhost:8081/health
 source .venv/bin/activate
 EMBEDDING_SERVICE_URL=http://localhost:8081 QDRANT_URL=http://localhost:6333 python3 scripts/ingest_pubmed_sample.py
@@ -445,7 +478,6 @@ EMBEDDING_SERVICE_URL=http://localhost:8081 uvicorn main:app --reload
 ## Co warto zrobic dalej
 
 - dodac lepszy chunking i wiekszy korpus
-- dodac testy integracyjne
 - rozbudowac ewaluacje o prywatny zestaw pytan i ocene ekspercka
 - rozbudowac konflikty zrodel o formalne reguly dla dawkowania, populacji i przeciwwskazan
 - dopiero potem budowac warstwe multiagentowa

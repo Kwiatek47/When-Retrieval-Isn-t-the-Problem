@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -39,7 +40,11 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
     "source": models.PayloadSchemaType.KEYWORD,
     "url": models.PayloadSchemaType.KEYWORD,
     "section": models.PayloadSchemaType.KEYWORD,
+    "publicationDate": models.PayloadSchemaType.KEYWORD,
     "publicationTypes": models.PayloadSchemaType.KEYWORD,
+    "isReview": models.PayloadSchemaType.BOOL,
+    "isSystematicReview": models.PayloadSchemaType.BOOL,
+    "wordCount": models.PayloadSchemaType.INTEGER,
     "embeddingModel": models.PayloadSchemaType.KEYWORD,
     "corpusVersion": models.PayloadSchemaType.KEYWORD,
     "textHash": models.PayloadSchemaType.KEYWORD,
@@ -395,11 +400,18 @@ def _write_manifest(
         "qdrant_url": args.qdrant_url,
         "chunk_count": len(chunks),
         "chunks_path": str(args.chunks),
+        "chunks_sha256": _sha256(args.chunks),
         "embeddings_path": str(args.embeddings) if args.embeddings else None,
+        "embeddings_sha256": _sha256(args.embeddings) if args.embeddings else None,
         "embedding_model": embedding_model,
         "embedding_dimension": args.embedding_dimension,
         "dense_vector_name": args.dense_vector_name,
         "sparse_vector_name": args.sparse_vector_name,
+        "dense_distance": "cosine",
+        "dense_datatype": "float16",
+        "dense_on_disk": True,
+        "sparse_encoder": "bm25",
+        "fusion": "rrf",
         "bm25_stats_path": str(args.bm25_stats_out),
         "corpus_version": args.corpus_version,
     }
@@ -427,6 +439,16 @@ def _source_url(chunk: dict[str, Any]) -> str:
     if chunk["pmid"]:
         return f"https://pubmed.ncbi.nlm.nih.gov/{chunk['pmid']}/"
     return chunk["source"]
+
+
+def _sha256(path: Path | None) -> str | None:
+    if path is None or not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _has_payload_value(value: Any) -> bool:
