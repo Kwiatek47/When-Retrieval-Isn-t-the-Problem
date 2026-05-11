@@ -5,16 +5,36 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.dependencies import get_llm_provider, get_telemetry_logger
+from app.api.dependencies import get_llm_provider, get_ollama_provider, get_telemetry_logger
 from app.core.config import Settings, get_settings
 from app.core.prompt_registry import resolve_prompt
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
+from app.providers.ollama import OllamaProvider
 from app.schemas import ChatRequest, ChatResponse, FeedbackRequest, FeedbackResponse
 from app.services.chat_service import build_messages
 from app.services.telemetry_service import TelemetryLogger
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+
+@router.get("/health")
+async def health(
+    ollama: Annotated[OllamaProvider, Depends(get_ollama_provider)],
+) -> dict:
+    try:
+        tags = await ollama.ping()
+        return {"status": "ok", "ollama": tags}
+    except ProviderUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -12,6 +12,9 @@ def get_ollama_provider() -> OllamaProvider:
     return OllamaProvider(
         base_url=settings.ollama_base_url,
         timeout=settings.ollama_timeout,
+        keep_alive=settings.ollama_keep_alive,
+        num_predict=settings.ollama_num_predict,
+        num_ctx=settings.ollama_num_ctx,
     )
 
 

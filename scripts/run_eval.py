@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+import time
 from statistics import mean
 from typing import Any
 from urllib import error, request
@@ -38,6 +39,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--output-dir", default="eval/reports")
     parser.add_argument("--timeout", type=float, default=90.0)
+    parser.add_argument("--max-retries", type=int, default=4)
+    parser.add_argument("--retry-backoff", type=float, default=1.5)
     return parser.parse_args()
 
 
@@ -61,6 +64,8 @@ def call_chat(
     prompt_version: str,
     question: str,
     timeout: float,
+    max_retries: int,
+    retry_backoff: float,
 ) -> dict[str, Any]:
     payload = {
         "model": model,
@@ -75,12 +80,41 @@ def call_chat(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with request.urlopen(req, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-    except error.URLError as exc:
-        raise RuntimeError(f"API request failed: {exc}") from exc
-    return json.loads(raw)
+
+    def format_http_error(exc: error.HTTPError) -> str:
+        details = [f"HTTP {exc.code}"]
+        try:
+            body = exc.read().decode("utf-8").strip()
+        except Exception:
+            body = ""
+        if body:
+            try:
+                parsed = json.loads(body)
+                detail = parsed.get("detail")
+                if detail:
+                    details.append(str(detail))
+                else:
+                    details.append(body)
+            except json.JSONDecodeError:
+                details.append(body)
+        return ": ".join(details)
+    attempt = 0
+    while True:
+        try:
+            with request.urlopen(req, timeout=timeout) as response:
+                raw = response.read().decode("utf-8")
+            return json.loads(raw)
+        except (error.HTTPError, error.URLError) as exc:
+            attempt += 1
+            is_http_error = isinstance(exc, error.HTTPError)
+            status = getattr(exc, "code", None) if is_http_error else None
+            retryable_statuses = {429, 500, 502, 503, 504}
+            retryable = (status in retryable_statuses) if is_http_error else True
+            if attempt > max_retries or not retryable:
+                message = format_http_error(exc) if is_http_error else str(exc)
+                raise RuntimeError(f"API request failed after {attempt} attempt(s): {message}") from exc
+            delay = retry_backoff ** attempt
+            time.sleep(delay)
 
 
 def compute_case_score(case: dict[str, Any], answer: str) -> tuple[float, float, float, float]:
@@ -114,6 +148,8 @@ def run_version(
     model: str,
     prompt_version: str,
     timeout: float,
+    max_retries: int,
+    retry_backoff: float,
 ) -> list[CaseResult]:
     results: list[CaseResult] = []
     for case in cases:
@@ -123,6 +159,8 @@ def run_version(
             prompt_version=prompt_version,
             question=case["question"],
             timeout=timeout,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
         )
         response_text = str((output.get("message") or {}).get("content") or "").strip()
         total, disclaimer, keywords, forbidden = compute_case_score(case, response_text)
@@ -227,6 +265,8 @@ def main() -> None:
         model=args.model,
         prompt_version=args.baseline,
         timeout=args.timeout,
+        max_retries=args.max_retries,
+        retry_backoff=args.retry_backoff,
     )
     candidate_results = run_version(
         cases=cases,
@@ -234,6 +274,8 @@ def main() -> None:
         model=args.model,
         prompt_version=args.candidate,
         timeout=args.timeout,
+        max_retries=args.max_retries,
+        retry_backoff=args.retry_backoff,
     )
     write_report(
         output_dir=output_dir,
