@@ -31,7 +31,15 @@ function syncMedicalBadge() {
   medicalModelBadge.classList.toggle("inline-flex", isMedicalModel);
 }
 
-function appendMessage(role, content, loading = false) {
+function appendMessage(
+  role,
+  content,
+  loading = false,
+  citations = [],
+  citationValidation = null,
+  evidenceConflicts = null,
+  answerQuality = null
+) {
   const row = document.createElement("div");
   row.className = role === "user" ? "flex justify-end" : "flex justify-start";
 
@@ -46,93 +54,60 @@ function appendMessage(role, content, loading = false) {
     message.classList.add("animate-pulse", "text-zinc-400");
   }
 
+  if (role === "assistant" && citations.length > 0) {
+    const citationsEl = document.createElement("div");
+    citationsEl.className = "mt-4 flex flex-wrap gap-2 text-xs text-zinc-500";
+
+    citations.forEach((citation) => {
+      const item = document.createElement("span");
+      item.className = "rounded-full border border-zinc-200 px-3 py-1";
+      item.textContent = `[${citation.id}] ${citation.title}`;
+      item.title = citation.source;
+      citationsEl.appendChild(item);
+    });
+
+    message.appendChild(citationsEl);
+  }
+
+  if (role === "assistant" && citationValidation && !citationValidation.passed) {
+    const validationEl = document.createElement("div");
+    validationEl.className = "mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800";
+    validationEl.textContent = "Citation validation failed: the response is missing required inline citations or cites an unknown source.";
+    message.appendChild(validationEl);
+  }
+
+  if (role === "assistant" && evidenceConflicts?.detected) {
+    const conflictEl = document.createElement("div");
+    conflictEl.className = "mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800";
+    conflictEl.textContent = `Conflicting evidence detected across ${evidenceConflicts.conflict_count} source pair(s).`;
+    message.appendChild(conflictEl);
+  }
+
+  if (role === "assistant" && answerQuality?.groundedness !== null && answerQuality?.groundedness !== undefined) {
+    const qualityEl = document.createElement("div");
+    const groundedness = Math.round(answerQuality.groundedness * 100);
+    const hallucinationRate = Math.round((answerQuality.hallucination_rate || 0) * 100);
+    qualityEl.className = "mt-3 flex flex-wrap gap-2 text-xs text-zinc-500";
+
+    const groundednessEl = document.createElement("span");
+    groundednessEl.className = "rounded-full border border-zinc-200 px-3 py-1";
+    groundednessEl.textContent = `Groundedness ${groundedness}%`;
+    qualityEl.appendChild(groundednessEl);
+
+    const hallucinationEl = document.createElement("span");
+    hallucinationEl.className = hallucinationRate > 0
+      ? "rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-800"
+      : "rounded-full border border-zinc-200 px-3 py-1";
+    hallucinationEl.textContent = `Unsupported ${hallucinationRate}%`;
+    qualityEl.appendChild(hallucinationEl);
+
+    message.appendChild(qualityEl);
+  }
+
   row.appendChild(message);
   messagesEl.appendChild(row);
   scrollToBottom();
   return row;
-}
-
-function appendFeedbackComposer(meta) {
-  if (!meta?.requestId) {
-    return;
-  }
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "flex justify-start";
-
-  const panel = document.createElement("div");
-  panel.className =
-    "mt-2 flex w-full max-w-2xl items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2";
-
-  const label = document.createElement("span");
-  label.className = "text-xs text-zinc-600";
-  label.textContent = "Feedback:";
-
-  const commentInput = document.createElement("input");
-  commentInput.type = "text";
-  commentInput.maxLength = 240;
-  commentInput.placeholder = "Optional comment";
-  commentInput.className =
-    "h-8 flex-1 rounded-lg border border-zinc-200 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-teal-600";
-
-  const upButton = document.createElement("button");
-  upButton.type = "button";
-  upButton.textContent = "Correct";
-  upButton.className =
-    "h-8 rounded-lg border border-teal-200 bg-teal-50 px-2 text-xs font-medium text-teal-700 hover:bg-teal-100";
-
-  const downButton = document.createElement("button");
-  downButton.type = "button";
-  downButton.textContent = "Incorrect";
-  downButton.className =
-    "h-8 rounded-lg border border-rose-200 bg-rose-50 px-2 text-xs font-medium text-rose-700 hover:bg-rose-100";
-
-  const status = document.createElement("span");
-  status.className = "text-xs text-zinc-500";
-  status.textContent = "";
-
-  async function sendFeedback(rating) {
-    upButton.disabled = true;
-    downButton.disabled = true;
-    commentInput.disabled = true;
-    status.textContent = "Saving...";
-
-    try {
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request_id: meta.requestId,
-          rating,
-          comment: commentInput.value.trim(),
-          model: meta.model,
-          prompt_version: meta.promptVersion,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Feedback could not be saved.");
-      }
-      status.textContent = "Saved";
-    } catch (error) {
-      status.textContent = error.message || "Save failed";
-      upButton.disabled = false;
-      downButton.disabled = false;
-      commentInput.disabled = false;
-    }
-  }
-
-  upButton.addEventListener("click", () => sendFeedback("up"));
-  downButton.addEventListener("click", () => sendFeedback("down"));
-
-  panel.appendChild(label);
-  panel.appendChild(commentInput);
-  panel.appendChild(upButton);
-  panel.appendChild(downButton);
-  panel.appendChild(status);
-  wrapper.appendChild(panel);
-  messagesEl.appendChild(wrapper);
-  scrollToBottom();
 }
 
 async function sendMessage(content) {
@@ -162,12 +137,15 @@ async function sendMessage(content) {
     const assistantMessage = data.message?.content || "I could not generate a response.";
     loadingRow.remove();
     messages.push({ role: "assistant", content: assistantMessage });
-    appendMessage("assistant", assistantMessage);
-    appendFeedbackComposer({
-      requestId: data.request_id,
-      model: data.model || modelSelect.value,
-      promptVersion: data.prompt_version || "",
-    });
+    appendMessage(
+      "assistant",
+      assistantMessage,
+      false,
+      data.citations || [],
+      data.citation_validation || null,
+      data.evidence_conflicts || null,
+      data.answer_quality || null
+    );
   } catch (error) {
     loadingRow.remove();
     appendMessage("assistant", error.message || "Something went wrong.");

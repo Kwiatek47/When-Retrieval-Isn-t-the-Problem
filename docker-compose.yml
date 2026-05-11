@@ -1,0 +1,60 @@
+services:
+  embedding-service:
+    build:
+      context: ./services/embedding-service
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu121
+    environment:
+      EMBEDDING_MODEL_NAME: medcpt-ncbi-v1
+      MEDCPT_QUERY_MODEL: ncbi/MedCPT-Query-Encoder
+      MEDCPT_DOCUMENT_MODEL: ncbi/MedCPT-Article-Encoder
+      EMBEDDING_DEVICE: cuda
+      EMBEDDING_BATCH_SIZE: "16"
+      HF_HOME: /models/huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_VECTOR_NAME: medcpt_dense
+      QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
+      BM25_STATS_PATH: /data/bm25_stats.json
+    ports:
+      - "8081:8080"
+    volumes:
+      - huggingface-cache:/models/huggingface
+      - ./data:/data:ro
+    gpus: all
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  qdrant-init:
+    build:
+      context: ./qdrant
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_VECTOR_NAME: medcpt_dense
+      QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
+      QDRANT_VECTOR_SIZE: "768"
+    depends_on:
+      qdrant:
+        condition: service_started
+    restart: "no"
+
+volumes:
+  huggingface-cache:
+  qdrant-data:
