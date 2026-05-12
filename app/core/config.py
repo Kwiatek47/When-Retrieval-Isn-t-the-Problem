@@ -70,7 +70,7 @@ def get_settings() -> Settings:
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
         static_dir=PROJECT_ROOT / "static",
         telemetry_path=Path(os.getenv("TELEMETRY_PATH", str(PROJECT_ROOT / "data" / "telemetry" / "events.jsonl"))),
-        active_prompt_version=os.getenv("PROMPT_VERSION", "v3"),
+        active_prompt_version=os.getenv("PROMPT_VERSION", "v4"),
         system_prompt=(
             "You are a neurology clinical decision-support assistant for physicians. "
             "Provide differential diagnosis from patient history and symptom chronology. "

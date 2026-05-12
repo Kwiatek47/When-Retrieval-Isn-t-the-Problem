@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+import sys
 import time
 from statistics import mean
 from typing import Any
+
+from tqdm import tqdm
 from urllib import error, request
 
 
@@ -37,6 +40,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="medgemma")
     parser.add_argument("--baseline", default="v1")
     parser.add_argument("--candidate", required=True)
+    parser.add_argument(
+        "--reuse-baseline-report",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "JSON report from a previous run (e.g. eval/reports/latest.json). "
+            "Skips baseline API calls; baseline metrics are taken from the file. "
+            "Must match --baseline against the report's baseline name."
+        ),
+    )
     parser.add_argument("--output-dir", default="eval/reports")
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--max-retries", type=int, default=4)
@@ -150,6 +164,7 @@ def run_version(
     timeout: float,
     max_retries: int,
     retry_backoff: float,
+    progress: tqdm | None = None,
 ) -> list[CaseResult]:
     results: list[CaseResult] = []
     for case in cases:
@@ -175,6 +190,9 @@ def run_version(
                 response=response_text,
             )
         )
+        if progress is not None:
+            progress.update(1)
+            progress.set_postfix(case=case.get("id", "?"))
     return results
 
 
@@ -185,6 +203,75 @@ def summarize(results: list[CaseResult]) -> dict[str, float]:
         "keyword_score_avg": mean(result.keyword_score for result in results),
         "forbidden_penalty_avg": mean(result.forbidden_penalty for result in results),
     }
+
+
+def load_baseline_from_report(
+    path: Path,
+    *,
+    expected_baseline_name: str,
+    cases: list[dict[str, Any]],
+) -> list[CaseResult]:
+    """Rebuild baseline CaseResult list from a prior report JSON (skips re-querying the API)."""
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    stored_name = str((raw.get("baseline") or {}).get("name") or "").strip()
+    if not stored_name:
+        raise ValueError(f"No baseline.name in report: {path}")
+    if stored_name != expected_baseline_name:
+        raise ValueError(
+            f"Report baseline is {stored_name!r} but --baseline is {expected_baseline_name!r}. "
+            "Use matching names or omit --reuse-baseline-report."
+        )
+
+    rows = raw.get("cases") or []
+    by_id: dict[str, dict[str, Any]] = {str(row["case_id"]): row for row in rows}
+    results: list[CaseResult] = []
+
+    for case in cases:
+        cid = str(case["id"])
+        if cid not in by_id:
+            raise ValueError(f"Case id {cid!r} missing in baseline report {path}")
+        row = by_id[cid]
+
+        answer_text = str(row.get("baseline_response") or "").strip()
+        if answer_text:
+            total, disclaimer, keywords, forbidden = compute_case_score(case, answer_text)
+            results.append(
+                CaseResult(
+                    case_id=cid,
+                    prompt_version=stored_name,
+                    total_score=total,
+                    disclaimer_score=disclaimer,
+                    keyword_score=keywords,
+                    forbidden_penalty=forbidden,
+                    response=answer_text,
+                )
+            )
+            continue
+
+        if "baseline_total" not in row:
+            raise ValueError(f"Case {cid!r} in {path} has no baseline_response and no baseline_total")
+        total_score = float(row["baseline_total"])
+        results.append(
+            CaseResult(
+                case_id=cid,
+                prompt_version=stored_name,
+                total_score=total_score,
+                disclaimer_score=float(row.get("baseline_disclaimer_score", 0.0)),
+                keyword_score=float(row.get("baseline_keyword_score", 0.0)),
+                forbidden_penalty=float(row.get("baseline_forbidden_penalty", 0.0)),
+                response="",
+            )
+        )
+
+    if rows and not any(str(r.get("baseline_response") or "").strip() for r in rows):
+        print(
+            "Note: reuse report has no baseline_response text; baseline disclaimer/keyword averages "
+            "may be zeroed. Run a full eval once without --reuse-baseline-report to refresh metrics.",
+            file=sys.stderr,
+        )
+
+    return results
 
 
 def write_report(
@@ -215,7 +302,14 @@ def write_report(
             {
                 "case_id": candidate.case_id,
                 "baseline_total": baseline.total_score,
+                "baseline_disclaimer_score": baseline.disclaimer_score,
+                "baseline_keyword_score": baseline.keyword_score,
+                "baseline_forbidden_penalty": baseline.forbidden_penalty,
+                "baseline_response": baseline.response,
                 "candidate_total": candidate.total_score,
+                "candidate_disclaimer_score": candidate.disclaimer_score,
+                "candidate_keyword_score": candidate.keyword_score,
+                "candidate_forbidden_penalty": candidate.forbidden_penalty,
                 "delta_total": candidate.total_score - baseline.total_score,
                 "candidate_response": candidate.response,
             }
@@ -259,24 +353,48 @@ def main() -> None:
     output_dir = Path(args.output_dir)
 
     cases = load_dataset(dataset_path)
-    baseline_results = run_version(
-        cases=cases,
-        api_url=args.api_url,
-        model=args.model,
-        prompt_version=args.baseline,
-        timeout=args.timeout,
-        max_retries=args.max_retries,
-        retry_backoff=args.retry_backoff,
-    )
-    candidate_results = run_version(
-        cases=cases,
-        api_url=args.api_url,
-        model=args.model,
-        prompt_version=args.candidate,
-        timeout=args.timeout,
-        max_retries=args.max_retries,
-        retry_backoff=args.retry_backoff,
-    )
+    n = len(cases)
+
+    if args.reuse_baseline_report is not None:
+        baseline_results = load_baseline_from_report(
+            args.reuse_baseline_report,
+            expected_baseline_name=args.baseline,
+            cases=cases,
+        )
+        print(f"Baseline loaded from {args.reuse_baseline_report} ({args.baseline}); skipping API baseline run.")
+    else:
+        with tqdm(
+            total=n,
+            desc=f"Baseline ({args.baseline})",
+            unit="case",
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+        ) as pbar_base:
+            baseline_results = run_version(
+                cases=cases,
+                api_url=args.api_url,
+                model=args.model,
+                prompt_version=args.baseline,
+                timeout=args.timeout,
+                max_retries=args.max_retries,
+                retry_backoff=args.retry_backoff,
+                progress=pbar_base,
+            )
+    with tqdm(
+        total=n,
+        desc=f"Candidate ({args.candidate})",
+        unit="case",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+    ) as pbar_cand:
+        candidate_results = run_version(
+            cases=cases,
+            api_url=args.api_url,
+            model=args.model,
+            prompt_version=args.candidate,
+            timeout=args.timeout,
+            max_retries=args.max_retries,
+            retry_backoff=args.retry_backoff,
+            progress=pbar_cand,
+        )
     write_report(
         output_dir=output_dir,
         baseline_name=args.baseline,
