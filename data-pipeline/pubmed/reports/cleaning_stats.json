@@ -1,0 +1,19 @@
+{
+  "input_rows": 982019,
+  "cleaned_rows": 979499,
+  "dedupe_pmid_rows": 979499,
+  "dedupe_doi_rows": 979442,
+  "dedupe_title_rows": 977777,
+  "final_documents": 977777,
+  "final_chunks": 977777,
+  "reject_stats": {
+    "removed_by_cleaning_filters": 2520
+  },
+  "duplicate_stats": {
+    "duplicates_by_pmid": 0,
+    "duplicates_by_doi": 57,
+    "duplicates_by_title_hash": 1665,
+    "duplicates_by_content_hash": 0
+  }
+}
+

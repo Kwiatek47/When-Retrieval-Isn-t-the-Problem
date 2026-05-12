@@ -1,0 +1,19 @@
+{
+  "schema_version": "chunks_schema_v1",
+  "primary_key": "chunk_id",
+  "embedding_column": "text",
+  "columns": [
+    {"name": "chunk_id", "type": "string", "description": "Stable chunk identifier"},
+    {"name": "pmid", "type": "string", "description": "PubMed identifier"},
+    {"name": "title", "type": "string", "description": "Article title"},
+    {"name": "abstract", "type": "string", "description": "PubMed abstract text"},
+    {"name": "text", "type": "string", "description": "Title and abstract joined for embedding"},
+    {"name": "doi", "type": "string", "description": "Digital Object Identifier when available"},
+    {"name": "journal", "type": "string", "description": "Journal name"},
+    {"name": "year", "type": "integer", "description": "Publication year"},
+    {"name": "publication_types", "type": "list<string>", "description": "PubMed publication type labels"},
+    {"name": "is_review", "type": "boolean", "description": "Whether PMID came from review query"},
+    {"name": "is_systematic", "type": "boolean", "description": "Whether PMID came from systematic review query"}
+  ]
+}
+
