@@ -1,3 +1,7 @@
+# Optional overlay: embedding-service on CPU (machines without NVIDIA GPU).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
+
 services:
   embedding-service:
     build:

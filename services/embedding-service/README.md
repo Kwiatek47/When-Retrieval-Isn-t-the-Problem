@@ -11,9 +11,11 @@ Oba encodery pracują w tej samej przestrzeni retrievalowej i zwracają embeddin
 
 ## Uruchomienie na GPU
 
-Domyslny obraz Dockera instaluje PyTorch z CUDA i uruchamia MedCPT na GPU. Host musi miec:
+Domyslny obraz Dockera instaluje PyTorch z **CUDA 12.8** (`cu128`) i uruchamia MedCPT na GPU. 
 
-- sterownik NVIDIA widoczny przez `nvidia-smi`,
+Host musi miec:
+
+- sterownik NVIDIA widoczny przez `nvidia-smi`
 - Docker z NVIDIA Container Toolkit,
 - Compose obslugujacy `gpus: all`.
 
@@ -248,16 +250,16 @@ Jesli zapytanie nie zawiera zadnych tokenow obecnych w slowniku BM25, serwis wra
 Mozna szybko sprawdzic, czy Docker widzi GPU:
 
 ```bash
-docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu22.04 nvidia-smi
 ```
 
-Jesli trzeba tymczasowo wrocic na CPU, zmien w `docker-compose.yml`:
+Jesli trzeba tymczasowo wrocic na CPU, uzyj pliku `docker-compose.cpu.yml` w katalogu glownym projektu (nadpisuje build CPU i wylacza GPU):
 
-```yaml
-EMBEDDING_DEVICE: cpu
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
 ```
 
-oraz zbuduj obraz z CPU-only PyTorch:
+Alternatywnie recznie zbuduj obraz z CPU-only PyTorch:
 
 ```bash
 docker compose build --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu embedding-service

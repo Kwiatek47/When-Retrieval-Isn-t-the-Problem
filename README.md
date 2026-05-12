@@ -76,11 +76,19 @@ Na koncu Ollama dostaje rozmowe z wstrzyknietym kontekstem i generuje odpowiedz.
 - Ollama
 - GPU NVIDIA dla `embedding-service` w trybie CUDA
 
+Domyslny obraz `embedding-service` buduje PyTorch z **CUDA 12.8** (`cu128`), zeby obslugiwac architekture **Blackwell (RTX 50xx, np. RTX 5070, sm_120)**. Starsze buildy (`cu121`) nie zawieraja kerneli dla tych kart i koncza sie bledem `no kernel image is available for execution on the device`.
+
 Jesli chcesz uzywac GPU w Dockerze, host musi miec:
 
-- dzialajace `nvidia-smi`
+- dzialajace `nvidia-smi` oraz sterownik NVIDIA zgodny z CUDA 12.8 (typowo nowszy pakiet dla RTX 50)
 - NVIDIA Container Toolkit
 - Docker skonfigurowany do pracy z `--gpus all`
+
+Na maszynie **bez** GPU mozesz zbudowac i uruchomic serwis na CPU:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
+```
 
 ## Szybki start
 

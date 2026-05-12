@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu121
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
