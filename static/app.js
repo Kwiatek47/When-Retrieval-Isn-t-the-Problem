@@ -87,6 +87,9 @@ function appendMessage(
     const qualityEl = document.createElement("div");
     const groundedness = Math.round(answerQuality.groundedness * 100);
     const hallucinationRate = Math.round((answerQuality.hallucination_rate || 0) * 100);
+    const averageSimilarity = answerQuality.average_similarity === null || answerQuality.average_similarity === undefined
+      ? null
+      : Math.round(answerQuality.average_similarity * 100);
     qualityEl.className = "mt-3 flex flex-wrap gap-2 text-xs text-zinc-500";
 
     const groundednessEl = document.createElement("span");
@@ -100,6 +103,13 @@ function appendMessage(
       : "rounded-full border border-zinc-200 px-3 py-1";
     hallucinationEl.textContent = `Unsupported ${hallucinationRate}%`;
     qualityEl.appendChild(hallucinationEl);
+
+    if (averageSimilarity !== null) {
+      const similarityEl = document.createElement("span");
+      similarityEl.className = "rounded-full border border-zinc-200 px-3 py-1";
+      similarityEl.textContent = `Similarity ${averageSimilarity}%`;
+      qualityEl.appendChild(similarityEl);
+    }
 
     message.appendChild(qualityEl);
   }

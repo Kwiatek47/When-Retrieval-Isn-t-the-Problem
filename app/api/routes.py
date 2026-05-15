@@ -57,7 +57,13 @@ async def chat(
                 retrieval=rag_result.retrieval,
                 citation_validation=validate_citations("", rag_result.citations),
                 evidence_conflicts=rag_result.evidence_conflicts,
-                answer_quality=evaluate_answer_quality("", rag_result.source_documents),
+                answer_quality=evaluate_answer_quality(
+                    "",
+                    rag_result.source_documents,
+                    method=settings.answer_quality_method,
+                    model_name=settings.answer_quality_model_name,
+                    similarity_threshold=settings.answer_quality_similarity_threshold,
+                ),
             )
 
         llm_response = await llm_provider.chat(
@@ -69,7 +75,13 @@ async def chat(
         answer_content = extract_answer_content(llm_response.message.content)
         answer_message = ChatMessage(role=llm_response.message.role, content=answer_content)
         citation_validation = validate_citations(answer_content, rag_result.citations)
-        answer_quality = evaluate_answer_quality(answer_content, rag_result.source_documents)
+        answer_quality = evaluate_answer_quality(
+            answer_content,
+            rag_result.source_documents,
+            method=settings.answer_quality_method,
+            model_name=settings.answer_quality_model_name,
+            similarity_threshold=settings.answer_quality_similarity_threshold,
+        )
         logger.info(
             "chat_request timing rag_total=%.3fs llm_total=%.3fs total=%.3fs model=%s "
             "retrieval_status=%s documents=%d citation_validation=%s groundedness=%s hallucination_rate=%s",

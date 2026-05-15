@@ -277,6 +277,9 @@ RAG_CANDIDATE_K=50
 RAG_TOP_K=5
 RAG_MAX_CONTEXT_CHARS=8000
 CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
+ANSWER_QUALITY_METHOD=semantic_similarity
+ANSWER_QUALITY_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+ANSWER_QUALITY_SIMILARITY_THRESHOLD=0.45
 QUERY_REWRITE_MODEL=llama3.2:3b
 QUERY_REWRITE_TIMEOUT=15
 EMBEDDING_SERVICE_URL=http://localhost:8081
@@ -382,9 +385,20 @@ Pole `answer_quality` zawiera:
 - `hallucination_rate`, czyli odsetek zdan niewspartych pobranym kontekstem
 - `unsupported_statements`, czyli zdania uznane za niewystarczajaco ugruntowane
 - `evaluated_statements_count`, czyli liczbe ocenionych zdan
-- `method`, obecnie `token_overlap_with_retrieved_context`
+- `average_similarity`, czyli sredni wynik podobienstwa semantycznego zdan do zrodel
+- `method`, domyslnie `semantic_similarity`
 
-To jest szybka heurystyka real-time, a nie certyfikowana ocena medyczna. Ma wykrywac regresje i odpowiedzi slabo ugruntowane, nie rozstrzygac prawdziwosci klinicznej.
+Domyslna metoda uzywa wielojezycznego modelu sentence-transformers:
+
+```bash
+ANSWER_QUALITY_METHOD=semantic_similarity
+ANSWER_QUALITY_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+ANSWER_QUALITY_SIMILARITY_THRESHOLD=0.45
+```
+
+Dzieki temu odpowiedz po polsku moze byc porownana semantycznie ze zrodlem po angielsku. Jesli model semantyczny nie zaladuje sie lokalnie, API spada do starszej heurystyki `token_overlap_with_retrieved_context_fallback`.
+
+To nadal jest heurystyka real-time, a nie certyfikowana ocena medyczna. Ma wykrywac regresje i odpowiedzi slabo ugruntowane, nie rozstrzygac prawdziwosci klinicznej.
 
 ## Konflikty zrodel
 
