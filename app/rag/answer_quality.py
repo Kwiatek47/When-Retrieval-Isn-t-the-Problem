@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 import re
 
 from app.rag.models import RetrievedDocument
@@ -31,6 +32,9 @@ def evaluate_answer_quality(
     answer: str,
     source_documents: list[RetrievedDocument],
     *,
+    method: str = "semantic_similarity",
+    model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    similarity_threshold: float = 0.45,
     overlap_threshold: float = 0.35,
 ) -> AnswerQuality:
     source_text_by_id = {
@@ -49,22 +53,68 @@ def evaluate_answer_quality(
             hallucination_rate=None,
             unsupported_statements=[],
             evaluated_statements_count=0,
-            method="token_overlap_with_retrieved_context",
+            average_similarity=None,
+            method=method,
         )
 
+    if method == "semantic_similarity":
+        try:
+            return _evaluate_semantic_similarity(
+                statements=statements,
+                source_text_by_id=source_text_by_id,
+                all_context=all_context,
+                model_name=model_name,
+                similarity_threshold=similarity_threshold,
+            )
+        except Exception:
+            return _evaluate_token_overlap(
+                statements=statements,
+                source_text_by_id=source_text_by_id,
+                all_context=all_context,
+                overlap_threshold=overlap_threshold,
+                method="token_overlap_with_retrieved_context_fallback",
+            )
+
+    return _evaluate_token_overlap(
+        statements=statements,
+        source_text_by_id=source_text_by_id,
+        all_context=all_context,
+        overlap_threshold=overlap_threshold,
+        method="token_overlap_with_retrieved_context",
+    )
+
+
+def _evaluate_semantic_similarity(
+    *,
+    statements: list[str],
+    source_text_by_id: dict[str, str],
+    all_context: str,
+    model_name: str,
+    similarity_threshold: float,
+) -> AnswerQuality:
+    model = _load_sentence_transformer(model_name)
     unsupported = []
     supported_count = 0
+    similarities = []
+
     for statement in statements:
         cited_ids = [f"S{match}" for match in _CITATION_PATTERN.findall(statement)]
-        context = " ".join(
+        statement_without_citations = _strip_citations(statement)
+        candidate_texts = [
             source_text_by_id[source_id]
             for source_id in cited_ids
             if source_id in source_text_by_id
-        )
-        if not context:
-            context = all_context
+        ]
+        if not candidate_texts and all_context:
+            candidate_texts = [all_context]
+        if not candidate_texts:
+            unsupported.append(statement)
+            similarities.append(0.0)
+            continue
 
-        if _is_supported(statement, context, overlap_threshold=overlap_threshold):
+        similarity = _max_semantic_similarity(model, statement_without_citations, candidate_texts)
+        similarities.append(similarity)
+        if similarity >= similarity_threshold:
             supported_count += 1
         else:
             unsupported.append(statement)
@@ -74,11 +124,82 @@ def evaluate_answer_quality(
         hallucination_rate=len(unsupported) / len(statements),
         unsupported_statements=unsupported,
         evaluated_statements_count=len(statements),
-        method="token_overlap_with_retrieved_context",
+        average_similarity=sum(similarities) / len(similarities) if similarities else None,
+        method=f"semantic_similarity:{model_name}",
     )
 
 
-def _is_supported(statement: str, context: str, *, overlap_threshold: float) -> bool:
+def _evaluate_token_overlap(
+    *,
+    statements: list[str],
+    source_text_by_id: dict[str, str],
+    all_context: str,
+    overlap_threshold: float,
+    method: str,
+) -> AnswerQuality:
+    unsupported = []
+    supported_count = 0
+    for statement in statements:
+        cited_ids = [f"S{match}" for match in _CITATION_PATTERN.findall(statement)]
+        statement_without_citations = _strip_citations(statement)
+        context = " ".join(
+            source_text_by_id[source_id]
+            for source_id in cited_ids
+            if source_id in source_text_by_id
+        )
+        if not context:
+            context = all_context
+
+        if _is_supported_by_token_overlap(
+            statement_without_citations,
+            context,
+            overlap_threshold=overlap_threshold,
+        ):
+            supported_count += 1
+        else:
+            unsupported.append(statement)
+
+    return AnswerQuality(
+        groundedness=supported_count / len(statements),
+        hallucination_rate=len(unsupported) / len(statements),
+        unsupported_statements=unsupported,
+        evaluated_statements_count=len(statements),
+        average_similarity=None,
+        method=method,
+    )
+
+
+@lru_cache(maxsize=2)
+def _load_sentence_transformer(model_name: str):
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError as exc:
+        raise RuntimeError("Semantic answer quality requires sentence-transformers.") from exc
+    return SentenceTransformer(model_name)
+
+
+def _max_semantic_similarity(model, statement: str, candidate_texts: list[str]) -> float:
+    statement_embedding = model.encode(
+        [statement],
+        convert_to_tensor=True,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+    )
+    candidate_embeddings = model.encode(
+        candidate_texts,
+        convert_to_tensor=True,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+    )
+    similarities = statement_embedding @ candidate_embeddings.T
+    return float(similarities.max().item())
+
+
+def _strip_citations(statement: str) -> str:
+    return _CITATION_PATTERN.sub("", statement).strip()
+
+
+def _is_supported_by_token_overlap(statement: str, context: str, *, overlap_threshold: float) -> bool:
     statement_tokens = _content_tokens(statement)
     if not statement_tokens:
         return True

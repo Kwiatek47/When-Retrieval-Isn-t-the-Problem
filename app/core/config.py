@@ -31,6 +31,9 @@ class Settings:
     rag_candidate_k: int
     rag_top_k: int
     rag_max_context_chars: int
+    answer_quality_method: str
+    answer_quality_model_name: str
+    answer_quality_similarity_threshold: float
     static_dir: Path
     system_prompt: str
 
@@ -60,6 +63,12 @@ def get_settings() -> Settings:
         rag_candidate_k=int(os.getenv("RAG_CANDIDATE_K", "50")),
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
+        answer_quality_method=os.getenv("ANSWER_QUALITY_METHOD", "semantic_similarity"),
+        answer_quality_model_name=os.getenv(
+            "ANSWER_QUALITY_MODEL",
+            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        ),
+        answer_quality_similarity_threshold=float(os.getenv("ANSWER_QUALITY_SIMILARITY_THRESHOLD", "0.45")),
         static_dir=PROJECT_ROOT / "static",
         system_prompt=(
             "You are a professional medical assistant. Provide concise, helpful information. "
