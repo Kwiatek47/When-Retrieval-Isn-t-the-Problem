@@ -491,6 +491,51 @@ python scripts/run_eval.py --candidate v2
 
 Raporty trafiaja do `eval/reports/` (`latest.md`, `latest.json` oraz wersje timestampowane).
 
+## MedQA -> SFT (Unsloth)
+
+Jesli chcesz wytrenowac model SFT na MedQA (MCQ), uzyj gotowych skryptow:
+
+1. Konwersja surowych plikow MedQA JSONL do formatu chat JSONL:
+
+```bash
+python scripts/prepare_medqa_for_sft.py \
+  --input-glob "data/raw/medqa/**/*.jsonl" \
+  --out-dir data/sft/medqa \
+  --include-rationale-if-present
+```
+
+Skrypt zapisze:
+
+```text
+data/sft/medqa/train.jsonl
+data/sft/medqa/dev.jsonl
+data/sft/medqa/test.jsonl
+data/sft/medqa/manifest.json
+```
+
+2. Trening LoRA/QLoRA przez Unsloth:
+
+```bash
+pip install unsloth transformers datasets trl peft accelerate bitsandbytes sentencepiece
+python scripts/train_sft_unsloth.py \
+  --train-file data/sft/medqa/train.jsonl \
+  --eval-file data/sft/medqa/dev.jsonl \
+  --base-model unsloth/Llama-3.1-8B-bnb-4bit \
+  --output-dir artifacts/sft-medqa-lora
+```
+
+3. Ewaluacja MCQ accuracy przez lokalne API:
+
+```bash
+python scripts/eval_medqa_mcq.py \
+  --dataset data/sft/medqa/test.jsonl \
+  --api-url http://127.0.0.1:8000/api/chat \
+  --model medgemma \
+  --prompt-version v3
+```
+
+Raporty trafia do `eval/reports/` jako `medqa_mcq_latest.json` i `medqa_mcq_latest.md`.
+
 ### Profil specjalistyczny: neurologia
 
 - Prompty `v1-v3` sa ukierunkowane na: roznicowanie neurologiczne, lokalizacje, czerwone flagi i kolejnosc badan.

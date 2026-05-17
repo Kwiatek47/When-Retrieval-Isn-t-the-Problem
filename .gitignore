@@ -6,3 +6,11 @@ __pycache__/
 .codex
 .idea/
 reports/*
+
+# Training and model artifacts
+artifacts/
+unsloth_compiled_cache/
+
+# Local/large datasets generated during SFT prep
+data/raw/medqa/
+data/sft/
