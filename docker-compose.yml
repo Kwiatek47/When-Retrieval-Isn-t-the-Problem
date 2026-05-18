@@ -11,7 +11,7 @@ services:
       HF_HOME: /models/huggingface
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
-      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_COLLECTION: MedicalChunk_pubmed_reviews_v1_medcpt_20260518
       QDRANT_VECTOR_NAME: medcpt_dense
       QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
       BM25_STATS_PATH: /data/bm25_stats.json
@@ -41,7 +41,7 @@ services:
     environment:
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
-      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_COLLECTION: MedicalChunk_pubmed_reviews_v1_medcpt_20260518
       QDRANT_VECTOR_NAME: medcpt_dense
       QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
       QDRANT_VECTOR_SIZE: "768"

@@ -12,24 +12,67 @@ MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacj
 - Qdrant jako Vector DB
 - sample ingest do Qdranta z `data/pubmed_sample.json`
 - kontraktowy pipeline `chunks.parquet -> embeddings.parquet`
-- indeksowanie docelowych `data/processed/chunks.parquet` do Qdranta
+- streamingowe indeksowanie docelowych `data/processed/chunks.parquet` i wielu shardow embeddingow do Qdranta
+- multi-query retrieval: oryginalne pytanie + rewrite, scalane wazonym RRF
+- metadata filtering i evidence filtering przed wyborem kontekstu
+- extractive excerpt compression dla dlugich chunkow
 - opcjonalny reranking przez cross-encoder
 - walidacja cytowan w odpowiedzi modelu
 - flaga konfliktow zrodel dla sprzecznych rekomendacji
 
 ## Architektura
 
-```text
-Uzytkownik
-  -> UI / static
-  -> FastAPI /api/chat
-  -> PreRetriever
-  -> Retriever
-     -> embedding-service
-     -> Qdrant
-  -> PostRetriever
-  -> Ollama
-  -> odpowiedz z cytowaniami
+MedChat sklada sie z czterech warstw:
+
+- `static/` - proste UI czatu, wybor modelu i prezentacja zrodel,
+- `app/` - FastAPI, provider Ollama i orkiestracja RAG,
+- `services/embedding-service/` - MedCPT query encoder oraz hybrid search,
+- `qdrant` - baza wektorowa z dense MedCPT i sparse BM25.
+
+```mermaid
+flowchart LR
+    user["Uzytkownik"] --> ui["UI static/index.html"]
+    ui --> api["FastAPI /api/chat"]
+
+    subgraph rag["app/rag"]
+        pre["PreRetriever"]
+        ret["MedicalKnowledgeRetriever"]
+        post["PostRetriever"]
+    end
+
+    api --> pre
+    pre --> ret
+    ret --> emb["embedding-service"]
+    emb --> qdrant["Qdrant collection"]
+    qdrant --> emb
+    emb --> ret
+    ret --> post
+    post --> ollama["Ollama LLM"]
+    ollama --> api
+    api --> ui
+```
+
+Wariant wdrozenia testowany na EC2:
+
+```mermaid
+flowchart TB
+    browser["Browser"] --> ec2["EC2 public port 8000"]
+
+    subgraph host["EC2 host"]
+        api["FastAPI + static UI"]
+        ollama["Ollama"]
+        docker["Docker"]
+
+        subgraph containers["Docker containers"]
+            emb["embedding-service"]
+            qdrant["Qdrant"]
+        end
+    end
+
+    api --> ollama
+    api --> emb
+    emb --> qdrant
+    s3["S3 corpus and embeddings"] -. "download before indexing" .-> host
 ```
 
 Najwazniejsze katalogi:
@@ -51,21 +94,118 @@ Najwazniejsze katalogi:
 └── static/                     # frontend
 ```
 
-## Jak to dziala
+## Jak dziala runtime RAG
 
 Endpoint `POST /api/chat` wykonuje trzy etapy przed wywolaniem glownego modelu:
 
-1. `PreRetriever` normalizuje ostatnie pytanie uzytkownika, opcjonalnie je przepisuje przez mniejszy model i wyciaga proste filtry, np. kody ICD.
-2. `MedicalKnowledgeRetriever` pobiera dokumenty z bazy wiedzy. Domyslnie aplikacja uderza do `embedding-service`, ktory liczy embedding MedCPT i odpytuje Qdrant.
-3. `PostRetriever` deduplikuje wyniki, buduje blok `MEDICAL_KNOWLEDGE_BASE`, dolacza instrukcje cytowania i zwraca metadane `citations` oraz `retrieval`.
+1. `PreRetriever` normalizuje ostatnie pytanie uzytkownika, klasyfikuje intent, wyznacza preferowane typy publikacji, opcjonalnie robi query rewrite i zachowuje wszystkie wersje query.
+2. `MedicalKnowledgeRetriever` pobiera kandydatow dla kazdego query, a potem scala wyniki wazonym RRF. Domyslnie aplikacja uderza do `embedding-service`, ktory liczy embedding MedCPT i odpytuje Qdrant.
+3. `PostRetriever` deduplikuje wyniki, stosuje metadata/evidence scoring, wycina najlepsze fragmenty zrodel, buduje blok `MEDICAL_KNOWLEDGE_BASE`, dolacza instrukcje cytowania i zwraca metadane `citations` oraz `retrieval`.
 
 Na koncu Ollama dostaje rozmowe z wstrzyknietym kontekstem i generuje odpowiedz.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as UI
+    participant A as FastAPI
+    participant P as PreRetriever
+    participant R as Retriever
+    participant E as embedding-service
+    participant Q as Qdrant
+    participant T as PostRetriever
+    participant L as Ollama
+
+    U->>A: POST /api/chat
+    A->>P: ostatnie pytanie + historia
+    P-->>A: intent, query list, filters
+    A->>R: retrieve(candidate_k)
+    R->>E: /embed/hybrid/query
+    E->>Q: dense MedCPT + sparse BM25
+    Q-->>E: candidates
+    E-->>R: merged candidates
+    R-->>A: RetrievalResult
+    A->>T: evidence filtering + compression
+    T-->>A: MEDICAL_KNOWLEDGE_BASE + citations
+    A->>L: prompt z kontekstem RAG
+    L-->>A: odpowiedz
+    A-->>U: answer, citations, validation, quality
+```
+
+Statusy RAG w odpowiedzi API:
+
+```mermaid
+stateDiagram-v2
+    [*] --> skipped: pytanie nie wymaga retrievalu
+    [*] --> no_sources: brak wynikow
+    [*] --> grounded: wystarczajace zrodla
+    [*] --> low_evidence: zrodla slabe dla pytania klinicznego
+
+    grounded --> answer: model generuje z cytowaniami
+    low_evidence --> refusal: API odmawia odpowiedzi z wiedzy wlasnej
+    no_sources --> refusal
+    skipped --> answer
+```
+
+## Pipeline indeksowania
+
+Docelowy pipeline danych zaklada oddzielenie chunkow od embeddingow. Dzieki temu mozna generowac embeddingi w shardach, walidowac kontrakt danych i wznawiac indeksowanie po przerwaniu.
+
+```mermaid
+flowchart TD
+    raw["Raw PubMed / processed corpus"] --> chunks["chunks.parquet"]
+    chunks --> inspect["00_inspect_chunks.py"]
+    chunks --> embed["01_embed_chunks.py"]
+    embsvc["embedding-service / MedCPT Article Encoder"] --> embed
+    embed --> shards["embeddings_shard_*.parquet"]
+    chunks --> validate["02_validate_embeddings.py"]
+    shards --> validate
+    validate --> build["rag/01_build_index.py"]
+    chunks --> build
+    shards --> build
+    build --> sqlite["SQLite chunk store"]
+    build --> bm25["data/bm25_stats.json"]
+    build --> qdrantIndex["Qdrant MedicalChunk_* collection"]
+    build --> manifest["index_manifest.json + checkpoint"]
+```
+
+`01_build_index.py` wykonuje dwa przebiegi:
+
+1. czyta `chunks.parquet` batchami, buduje lokalny SQLite chunk store i statystyki BM25,
+2. czyta kolejne shardy `embeddings.parquet`, laczy je po `chunk_id` i upsertuje punkty do Qdranta.
+
+## Pipeline retrievalu
+
+```mermaid
+flowchart TD
+    q["User query"] --> pre["PreRetriever"]
+    pre --> intent["intent + publication type preferences"]
+    pre --> queries["original query + optional rewrite"]
+    pre --> filters["corpusVersion / min_year filters"]
+
+    queries --> dense["MedCPT dense query vector"]
+    queries --> sparse["BM25 sparse query vector"]
+    filters --> search["Qdrant hybrid search"]
+    dense --> search
+    sparse --> search
+
+    search --> rrf["weighted RRF merge"]
+    rrf --> dedupe["dedupe by chunk/document"]
+    dedupe --> rerank{"Cross-encoder enabled?"}
+    rerank -->|yes| cross["MedCPT Cross-Encoder rerank"]
+    rerank -->|no| scores["hybrid scores"]
+    cross --> evidence["evidence scoring"]
+    scores --> evidence
+    evidence --> excerpt["extractive excerpt compression"]
+    excerpt --> prompt["MEDICAL_KNOWLEDGE_BASE + [S1] citations"]
+```
 
 ## Ograniczenia obecnego MVP
 
 - to nie jest jeszcze pelny system multiagentowy
-- korpus danych jest demonstracyjny i bardzo maly
-- ewaluacja retrievalu jest automatyczna, ale dataset demonstracyjny jest maly
+- repo zawiera maly sample corpus, a pelny korpus PubMed powinien byc dostarczany jako `chunks.parquet` i shardy `embeddings.parquet`
+- ewaluacja retrievalu jest automatyczna, ale dataset ewaluacyjny w repo jest demonstracyjny i powinien byc rozszerzony o pytania eksperckie
+- male modele, np. `llama3.2:1b`, wystarczaja do smoke testu, ale nie do finalnej oceny jakosci medycznej odpowiedzi
 
 ## Wymagania
 
@@ -133,7 +273,7 @@ Skrypt:
 
 - czyta `data/pubmed_sample.json`
 - liczy embeddingi przez `embedding-service`
-- zapisuje punkty do kolekcji `MedicalChunk`
+- zapisuje punkty do wersjonowanej kolekcji `MedicalChunk_pubmed_reviews_v1_medcpt_20260518`
 - buduje `data/bm25_stats.json`
 
 Jesli masz juz docelowy plik od osoby od danych, czyli:
@@ -172,13 +312,35 @@ Nastepnie zbuduj indeks RAG:
 source .venv/bin/activate
 EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/rag/01_build_index.py \
   --chunks data/processed/chunks.parquet \
-  --embeddings data/embeddings/embeddings.parquet \
-  --collection MedicalChunk \
+  --embeddings data/embeddings/embeddings_shard_0.parquet \
+  --embeddings data/embeddings/embeddings_shard_1.parquet \
+  --collection MedicalChunk_pubmed_reviews_v1_medcpt_20260518 \
   --qdrant-url http://localhost:6333 \
+  --corpus-version pubmed_reviews_v1 \
   --recreate
 ```
 
 Skrypt wymaga kolumn `chunk_id` i `text`. Pozostale pola z kontraktu zespolowego, np. `doc_id`, `pmid`, `title`, `doi`, `year`, `source`, `journal`, `publication_types`, sa zapisywane jako payload Qdranta, jesli istnieja.
+
+`01_build_index.py` dziala streamingowo:
+
+- pass 1 czyta `chunks.parquet` batchami, buduje SQLite chunk store i globalne statystyki BM25,
+- pass 2 czyta kazdy `--embeddings` shard batchami, laczy po `chunk_id` i upsertuje do Qdranta,
+- zapisuje checkpoint w `data/indexes/qdrant/index_checkpoint.json`,
+- zapisuje manifest w `data/indexes/qdrant/index_manifest.json`.
+
+Wznowienie po przerwaniu:
+
+```bash
+python3 scripts/rag/01_build_index.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings data/embeddings/embeddings_shard_0.parquet \
+  --embeddings data/embeddings/embeddings_shard_1.parquet \
+  --collection MedicalChunk_pubmed_reviews_v1_medcpt_20260518 \
+  --qdrant-url http://localhost:6333 \
+  --corpus-version pubmed_reviews_v1 \
+  --resume
+```
 
 Mozesz tez pominac etap `embeddings.parquet` i pozwolic `01_build_index.py` policzyc embeddingi w locie, ale preferowany kontrakt zespolowy to osobny plik:
 
@@ -203,11 +365,14 @@ Przykladowe modele:
 
 ```bash
 ollama serve
-ollama pull medgemma:latest
+ollama pull qwen2.5:7b
+ollama pull llama3.2:1b
 ollama pull llama3.2:3b
+# jesli model jest dostepny w Twoim registry Ollama:
+ollama pull gemma4:26b
 ```
 
-`medgemma:latest` moze sluzyc jako model czatu, a `llama3.2:3b` jako model do query rewriting.
+`llama3.2:1b` jest przydatny tylko do szybkiego smoke testu, bo czesto nie trzyma formatu cytowan. `qwen2.5:7b` jest sensowniejszym budzetowym modelem do testow jakosci RAG; na CPU dziala wolno, a na GPU `g6.xlarge` powinien byc praktyczny. `gemma4:26b` zostal dodany jako profil wiekszego modelu pod mocniejsza instancje, ale musi byc dostepny lokalnie w Ollama.
 
 ### 4. Uruchom aplikacje FastAPI
 
@@ -266,7 +431,7 @@ Przykladowe zapytanie:
 curl -X POST http://127.0.0.1:8000/api/chat \
   -H 'Content-Type: application/json' \
   -d '{
-    "model": "medgemma:latest",
+    "model": "qwen2.5:7b",
     "messages": [
       {
         "role": "user",
@@ -291,23 +456,25 @@ Przykladowa odpowiedz zawiera:
 Najwazniejsze zmienne srodowiskowe aplikacji:
 
 ```bash
-OLLAMA_MODEL=medgemma
+OLLAMA_MODEL=qwen2.5:7b
 OLLAMA_BASE_URL=http://localhost:11434
 RAG_RETRIEVER=embedding_service
-RAG_CANDIDATE_K=50
-RAG_TOP_K=5
-RAG_MAX_CONTEXT_CHARS=8000
+RAG_CANDIDATE_K=75
+RAG_TOP_K=6
+RAG_MAX_CONTEXT_CHARS=10000
 CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 ANSWER_QUALITY_METHOD=semantic_similarity
 ANSWER_QUALITY_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 ANSWER_QUALITY_SIMILARITY_THRESHOLD=0.45
 QUERY_REWRITE_MODEL=llama3.2:3b
 QUERY_REWRITE_TIMEOUT=15
+RAG_CORPUS_VERSION=pubmed_reviews_v1
 EMBEDDING_SERVICE_URL=http://localhost:8081
 EMBEDDING_TIMEOUT=30
 EMBEDDING_DIMENSION=768
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
+QDRANT_COLLECTION=MedicalChunk_pubmed_reviews_v1_medcpt_20260518
 BM25_STATS_PATH=data/bm25_stats.json
 ```
 
@@ -324,6 +491,51 @@ BM25_STATS_PATH=/data/bm25_stats.json
 
 Priorytetowy tryb GPU ustawia `EMBEDDING_DEVICE=cuda` przez `docker-compose.gpu.yml`. Fallback CPU z bazowego `docker-compose.yml` ustawia `EMBEDDING_DEVICE=cpu`.
 
+### Profile modeli
+
+Profil budzetowy CPU-only do smoke testu:
+
+```bash
+OLLAMA_MODEL=llama3.2:1b
+RAG_RETRIEVER=embedding_service
+RAG_CANDIDATE_K=30
+RAG_TOP_K=5
+RAG_MAX_CONTEXT_CHARS=6000
+CROSS_ENCODER_MODEL=
+QUERY_REWRITE_MODEL=
+ANSWER_QUALITY_METHOD=token_overlap_with_retrieved_context
+```
+
+Ten profil sprawdza, czy infrastruktura dziala, ale nie powinien byc uzywany do oceny jakosci odpowiedzi medycznych.
+
+Profil 7B do budzetowego demo:
+
+```bash
+OLLAMA_MODEL=qwen2.5:7b
+RAG_RETRIEVER=embedding_service
+RAG_CANDIDATE_K=50
+RAG_TOP_K=5
+RAG_MAX_CONTEXT_CHARS=7000
+CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
+QUERY_REWRITE_TIMEOUT=10
+```
+
+Na obecnej maszynie CPU-only ten profil moze odpowiadac kilkadziesiat sekund albo dluzej. Do praktycznego testu warto uzyc GPU, np. `g6.xlarge`.
+
+Profil wiekszego modelu pod mocniejsza instancje:
+
+```bash
+OLLAMA_MODEL=gemma4:26b
+RAG_RETRIEVER=embedding_service
+RAG_CANDIDATE_K=75
+RAG_TOP_K=6
+RAG_MAX_CONTEXT_CHARS=10000
+CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
+QUERY_REWRITE_TIMEOUT=15
+```
+
+We wszystkich profilach model nie powinien odpowiadac z wiedzy wlasnej, gdy retrieval nie zwroci zrodel albo evidence filtering oznaczy `low_evidence`.
+
 ## Tryby retrievalu
 
 W kodzie sa dwie glowne sciezki retrievalu:
@@ -334,6 +546,16 @@ W kodzie sa dwie glowne sciezki retrievalu:
   alternatywa po stronie aplikacji; wykonuje podobna fuzje po stronie glownego API, jesli ustawisz `RAG_RETRIEVER=qdrant_hybrid`
 
 Domyslny endpoint `/embed/hybrid/query` wykonuje hybrid search po `medcpt_dense` i `bm25_sparse`. Jesli zapytanie nie ma tokenow obecnych w slowniku BM25, serwis wraca do dense retrieval.
+
+W runtime aplikacja nie zastepuje oryginalnego pytania rewritem. `PreRetriever` przekazuje liste query, zwykle:
+
+```text
+original/normalized query weight = 1.0
+rewritten query weight = 0.8
+additional query weight = 0.6
+```
+
+Kazde query idzie przez retrieval, a wyniki sa scalane wazonym RRF i deduplikowane po `chunkId`/`documentId`.
 
 ## Reranking top50 -> top5
 
@@ -355,6 +577,25 @@ CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 `RAG_CANDIDATE_K` okresla, ile dokumentow pobrac z Qdranta przed rerankingiem. `RAG_TOP_K` okresla, ile najlepszych dokumentow po rerankingu trafi do `MEDICAL_KNOWLEDGE_BASE` i cytowan `[S1]`, `[S2]`.
 
 Jesli `CROSS_ENCODER_MODEL` jest pusty, aplikacja nadal pobiera `RAG_CANDIDATE_K`, ale wybiera finalne `RAG_TOP_K` wedlug score z hybrid search.
+
+## Metadata i evidence filtering
+
+`PreRetriever` rozpoznaje intent pytania (`treatment`, `diagnosis`, `adverse_effects`, `prognosis`, `mechanism`, `general`) i wyznacza preferowane typy publikacji. Jesli ustawisz:
+
+```bash
+RAG_CORPUS_VERSION=pubmed_reviews_v1
+```
+
+retrieval doda filtr `corpusVersion == pubmed_reviews_v1`. Dla pytan o aktualne leczenie, wytyczne, dawkowanie lub bezpieczenstwo dodawany jest tez `min_year` dla ostatnich 10 lat.
+
+Po retrievalu kazdy kandydat dostaje `evidenceScore` liczony z:
+
+- score po retrievalu/rerankingu,
+- pokrycia terminow z pytania,
+- typu publikacji,
+- swiezosci zrodla.
+
+Do promptu trafia tylko wybrany excerpt 1-3 zdan z najlepiej pokrytych fragmentow. Jesli zostaje za malo mocnych zrodel dla pytania klinicznego, API zwraca status `low_evidence` i odmawia odpowiedzi z wiedzy wlasnej modelu.
 
 ## Raport jakości retrievalu
 

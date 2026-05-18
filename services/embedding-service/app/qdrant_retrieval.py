@@ -36,20 +36,28 @@ class QdrantMedicalRetriever:
         self.sparse_prefetch_limit = sparse_prefetch_limit
         self._bm25_encoder: BM25SparseEncoder | None = None
 
-    def search(self, query_vector: list[float], *, query_text: str, limit: int) -> list[HybridQueryDocument]:
+    def search(
+        self,
+        query_vector: list[float],
+        *,
+        query_text: str,
+        limit: int,
+        metadata_filter: dict[str, Any] | None = None,
+    ) -> list[HybridQueryDocument]:
         sparse_payload = self._get_bm25_encoder().encode_query(query_text)
         if not sparse_payload["indices"]:
-            return self._search_dense(query_vector, limit=limit)
+            return self._search_dense(query_vector, limit=limit, metadata_filter=metadata_filter)
 
         sparse_vector = models.SparseVector(
             indices=sparse_payload["indices"],
             values=sparse_payload["values"],
         )
+        query_filter = self._build_filter(metadata_filter)
         client = QdrantClient(host=self.host, port=self.port, timeout=self.timeout)
         try:
-            result = client.query_points(
-                collection_name=self.collection_name,
-                prefetch=[
+            kwargs = {
+                "collection_name": self.collection_name,
+                "prefetch": [
                     models.Prefetch(
                         query=query_vector,
                         using=self.vector_name,
@@ -61,27 +69,66 @@ class QdrantMedicalRetriever:
                         limit=max(limit, self.sparse_prefetch_limit),
                     ),
                 ],
-                query=models.FusionQuery(fusion=models.Fusion.RRF),
-                limit=limit,
-                with_payload=True,
-            )
+                "query": models.FusionQuery(fusion=models.Fusion.RRF),
+                "limit": limit,
+                "with_payload": True,
+            }
+            if query_filter is not None:
+                kwargs["query_filter"] = query_filter
+            result = client.query_points(**kwargs)
             return [self._map_point(point) for point in result.points]
         finally:
             client.close()
 
-    def _search_dense(self, query_vector: list[float], *, limit: int) -> list[HybridQueryDocument]:
+    def _search_dense(
+        self,
+        query_vector: list[float],
+        *,
+        limit: int,
+        metadata_filter: dict[str, Any] | None = None,
+    ) -> list[HybridQueryDocument]:
+        query_filter = self._build_filter(metadata_filter)
         client = QdrantClient(host=self.host, port=self.port, timeout=self.timeout)
         try:
-            result = client.query_points(
-                collection_name=self.collection_name,
-                query=query_vector,
-                using=self.vector_name,
-                limit=limit,
-                with_payload=True,
-            )
+            kwargs = {
+                "collection_name": self.collection_name,
+                "query": query_vector,
+                "using": self.vector_name,
+                "limit": limit,
+                "with_payload": True,
+            }
+            if query_filter is not None:
+                kwargs["query_filter"] = query_filter
+            result = client.query_points(**kwargs)
             return [self._map_point(point) for point in result.points]
         finally:
             client.close()
+
+    def _build_filter(self, metadata_filter: dict[str, Any] | None) -> models.Filter | None:
+        if not metadata_filter:
+            return None
+
+        must = []
+        corpus_version = str(metadata_filter.get("corpusVersion") or "").strip()
+        if corpus_version:
+            must.append(
+                models.FieldCondition(
+                    key="corpusVersion",
+                    match=models.MatchValue(value=corpus_version),
+                )
+            )
+        min_year = _optional_int(metadata_filter.get("min_year"))
+        if min_year is not None:
+            must.append(
+                models.FieldCondition(
+                    key="year",
+                    range=models.Range(gte=float(min_year)),
+                )
+            )
+
+        if not must:
+            return None
+        return models.Filter(must=must)
 
     def _get_bm25_encoder(self) -> BM25SparseEncoder:
         if self._bm25_encoder is None:
@@ -136,3 +183,12 @@ class QdrantMedicalRetriever:
             "corpusVersion",
         )
         return {key: payload[key] for key in metadata_keys if key in payload}
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None

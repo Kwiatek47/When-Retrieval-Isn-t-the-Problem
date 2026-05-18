@@ -11,6 +11,10 @@ class PreRetrievalResult:
     search_queries: list[str]
     requires_retrieval: bool
     filters: dict[str, str] = field(default_factory=dict)
+    intent: str = "general"
+    preferred_publication_types: list[str] = field(default_factory=list)
+    min_year: int | None = None
+    requires_recent_evidence: bool = False
     notes: list[str] = field(default_factory=list)
 
 

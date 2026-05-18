@@ -5,6 +5,9 @@ from pathlib import Path
 from pydantic import BaseModel
 
 
+DEFAULT_QDRANT_COLLECTION = "MedicalChunk_pubmed_reviews_v1_medcpt_20260518"
+
+
 class Settings(BaseModel):
     app_title: str = "Embedding Service"
     app_version: str = "0.1.0"
@@ -19,7 +22,7 @@ class Settings(BaseModel):
     qdrant_host: str = os.getenv("QDRANT_HOST", "qdrant")
     qdrant_port: int = int(os.getenv("QDRANT_PORT", "6333"))
     qdrant_timeout: float = float(os.getenv("QDRANT_TIMEOUT", "10"))
-    qdrant_collection: str = os.getenv("QDRANT_COLLECTION", "MedicalChunk")
+    qdrant_collection: str = os.getenv("QDRANT_COLLECTION", DEFAULT_QDRANT_COLLECTION)
     qdrant_vector_name: str = os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense")
     qdrant_sparse_vector_name: str = os.getenv("QDRANT_SPARSE_VECTOR_NAME", "bm25_sparse")
     bm25_stats_path: Path = Path(os.getenv("BM25_STATS_PATH", "/data/bm25_stats.json"))

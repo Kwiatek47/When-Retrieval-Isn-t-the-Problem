@@ -45,7 +45,8 @@ class RagPipeline:
 
         logger.info(
             "rag_pipeline timing pre_retrieval=%.3fs retrieval=%.3fs post_retrieval=%.3fs total=%.3fs "
-            "requires_retrieval=%s provider=%s candidate_documents=%d final_documents=%d",
+            "requires_retrieval=%s provider=%s candidate_documents=%d final_documents=%d "
+            "intent=%s queries=%s source_pmids=%s source_scores=%s publication_types=%s status=%s",
             pre_retrieval_done_at - started_at,
             retrieval_done_at - pre_retrieval_done_at,
             post_retrieval_done_at - retrieval_done_at,
@@ -54,5 +55,11 @@ class RagPipeline:
             retrieval.provider,
             len(retrieval.documents),
             result.retrieval.documents_count,
+            pre_retrieval.intent,
+            pre_retrieval.search_queries,
+            [document.metadata.get("pmid") for document in result.source_documents],
+            [round(document.score, 6) for document in result.source_documents],
+            [document.metadata.get("publicationTypes") for document in result.source_documents],
+            result.retrieval.status,
         )
         return result

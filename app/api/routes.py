@@ -32,7 +32,18 @@ async def chat(
     try:
         rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=settings.system_prompt)
         rag_done_at = perf_counter()
-        if rag_result.retrieval and rag_result.retrieval.status == "no_sources":
+        if rag_result.retrieval and rag_result.retrieval.status in {"no_sources", "low_evidence"}:
+            refusal_content = (
+                "Baza wiedzy nie zwróciła wystarczająco mocnych źródeł dla tego pytania, "
+                "więc nie mogę udzielić odpowiedzi opartej na wiarygodnych cytowanych danych. "
+                "Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
+            )
+            if rag_result.citations:
+                citation_labels = " ".join(f"[{citation.id}]" for citation in rag_result.citations)
+                refusal_content = (
+                    f"{refusal_content}\n\n"
+                    f"Znalezione źródła oznaczono jako niewystarczające dla bezpiecznej odpowiedzi: {citation_labels}"
+                )
             logger.info(
                 "chat_request timing rag_total=%.3fs llm_total=0.000s total=%.3fs model=%s "
                 "retrieval_status=%s documents=%d",
@@ -46,16 +57,12 @@ async def chat(
                 model=request.model,
                 message=ChatMessage(
                     role="assistant",
-                    content=(
-                        "Baza wiedzy nie zwróciła źródeł dla tego pytania, "
-                        "więc nie mogę udzielić odpowiedzi opartej na cytowanych danych. "
-                        "Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
-                    ),
+                    content=refusal_content,
                 ),
                 done=True,
                 citations=rag_result.citations,
                 retrieval=rag_result.retrieval,
-                citation_validation=validate_citations("", rag_result.citations),
+                citation_validation=validate_citations(refusal_content, rag_result.citations),
                 evidence_conflicts=rag_result.evidence_conflicts,
                 answer_quality=evaluate_answer_quality(
                     "",

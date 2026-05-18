@@ -26,6 +26,9 @@ class EvalCase:
     question: str
     relevant_document_ids: set[str]
     relevant_pmids: set[str]
+    intent: str = "general"
+    acceptable_publication_types: set[str] | None = None
+    must_not_answer_without_sources: bool = True
 
     @property
     def relevant_count(self) -> int:
@@ -129,6 +132,12 @@ def _load_cases(path: Path) -> list[EvalCase]:
                 question=str(item["question"]),
                 relevant_document_ids={str(value) for value in item.get("relevant_document_ids", [])},
                 relevant_pmids={str(value) for value in item.get("relevant_pmids", [])},
+                intent=str(item.get("intent") or "general"),
+                acceptable_publication_types={
+                    str(value) for value in item.get("acceptable_publication_types", [])
+                }
+                or None,
+                must_not_answer_without_sources=bool(item.get("must_not_answer_without_sources", True)),
             )
         )
     return cases
@@ -273,7 +282,9 @@ def _build_report(
             "RAG_TOP_K": os.getenv("RAG_TOP_K", "5"),
             "CROSS_ENCODER_MODEL": os.getenv("CROSS_ENCODER_MODEL", "ncbi/MedCPT-Cross-Encoder"),
             "RAG_RETRIEVER": os.getenv("RAG_RETRIEVER", "embedding_service"),
+            "RAG_CORPUS_VERSION": os.getenv("RAG_CORPUS_VERSION", ""),
         },
+        "intents": _intent_counts(cases),
     }
     for k in top_k_values:
         summary["recall_at_k"][str(k)] = mean(result.recall_at_k[k] for result in results)
@@ -311,6 +322,13 @@ def _case_to_dict(result: CaseMetrics) -> dict[str, Any]:
             for item in result.retrieved
         ],
     }
+
+
+def _intent_counts(cases: list[EvalCase]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for case in cases:
+        counts[case.intent] = counts.get(case.intent, 0) + 1
+    return counts
 
 
 def _write_json(path: Path, report: dict[str, Any]) -> None:
@@ -357,6 +375,10 @@ def _write_markdown(path: Path, report: dict[str, Any]) -> None:
     )
     for key, value in summary["config"].items():
         lines.append(f"- `{key}`: `{value}`")
+
+    lines.extend(["", "## Intents", ""])
+    for intent, count in sorted(summary.get("intents", {}).items()):
+        lines.append(f"- `{intent}`: {count}")
 
     lines.extend(
         [

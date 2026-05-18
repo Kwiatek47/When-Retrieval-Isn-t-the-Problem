@@ -19,7 +19,7 @@ PUBMED_SAMPLE_PATH = Path(os.getenv("PUBMED_SAMPLE_PATH", PROJECT_ROOT / "data" 
 BM25_STATS_PATH = Path(os.getenv("BM25_STATS_PATH", PROJECT_ROOT / "data" / "bm25_stats.json"))
 EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://localhost:8081").rstrip("/")
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip("/")
-QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "MedicalChunk")
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "MedicalChunk_pubmed_reviews_v1_medcpt_20260518")
 QDRANT_VECTOR_NAME = os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense")
 QDRANT_SPARSE_VECTOR_NAME = os.getenv("QDRANT_SPARSE_VECTOR_NAME", "bm25_sparse")
 CORPUS_VERSION = os.getenv("CORPUS_VERSION", "pubmed-sample-v1")
@@ -47,7 +47,7 @@ def main() -> None:
             chunk_index=index,
             bm25_encoder=bm25_encoder,
         )
-        for index, (article, embedding) in enumerate(zip(articles, embeddings, strict=True))
+        for index, (article, embedding) in enumerate(zip(articles, embeddings))
     ]
     _upsert_points(points)
     print(f"Upserted {len(points)} PubMed sample chunks into Qdrant collection {QDRANT_COLLECTION}.")

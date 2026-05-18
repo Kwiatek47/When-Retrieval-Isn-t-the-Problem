@@ -27,7 +27,7 @@ class Citation(BaseModel):
 
 class RetrievalInfo(BaseModel):
     enabled: bool
-    status: Literal["skipped", "grounded", "no_sources"]
+    status: Literal["skipped", "grounded", "no_sources", "low_evidence"]
     provider: str
     query: str
     documents_count: int

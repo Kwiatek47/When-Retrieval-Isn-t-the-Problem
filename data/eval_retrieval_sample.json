@@ -2,36 +2,51 @@
   {
     "id": "hypertension-intensive-control",
     "question": "Jakie sa korzysci i ryzyka intensywnej kontroli cisnienia skurczowego?",
+    "intent": "treatment",
     "relevant_document_ids": ["pmid-26551272"],
     "relevant_pmids": ["26551272"],
+    "acceptable_publication_types": ["Clinical Trial", "Randomized Controlled Trial", "Review", "Guideline"],
+    "must_not_answer_without_sources": true,
     "answer": "Intensive systolic blood pressure control reduced major cardiovascular events and all-cause mortality, but increased serious adverse events including hypotension, syncope, electrolyte abnormalities, and acute kidney injury or failure [S1]."
   },
   {
     "id": "sglt2-kidney-heart-outcomes",
     "question": "Co wiadomo o inhibitorach SGLT2 w cukrzycy typu 2, chorobie nerek i niewydolnosci serca?",
+    "intent": "treatment",
     "relevant_document_ids": ["pmid-33043620"],
     "relevant_pmids": ["33043620"],
+    "acceptable_publication_types": ["Meta-Analysis", "Systematic Review", "Randomized Controlled Trial", "Review"],
+    "must_not_answer_without_sources": true,
     "answer": "The SGLT2 inhibitor meta-analysis found reductions in cardiovascular, kidney, heart failure, and mortality outcomes regardless of baseline metformin use [S1]."
   },
   {
     "id": "asthma-ics-exacerbations",
     "question": "Jaka jest rola wziewnych kortykosteroidow w zapobieganiu zaostrzeniom astmy?",
+    "intent": "treatment",
     "relevant_document_ids": ["pmid-34400314"],
     "relevant_pmids": ["34400314"],
+    "acceptable_publication_types": ["Guideline", "Practice Guideline", "Systematic Review", "Review"],
+    "must_not_answer_without_sources": true,
     "answer": "Inhaled corticosteroids are highly effective for preventing asthma exacerbations, with strategies including daily controller treatment, intermittent high-dose inhaled corticosteroids in selected patients, and as-needed inhaled corticosteroid use with rescue treatment in mild asthma [S1]."
   },
   {
     "id": "af-anticoagulation-bleeding",
     "question": "Jak DOAC wypadaja wzgledem warfaryny pod katem krwawien u pacjentow z migotaniem przedsionkow?",
+    "intent": "adverse_effects",
     "relevant_document_ids": ["pmid-32676543"],
     "relevant_pmids": ["32676543"],
+    "acceptable_publication_types": ["Systematic Review", "Meta-Analysis", "Observational Study", "Review"],
+    "must_not_answer_without_sources": true,
     "answer": "In observational data, direct oral anticoagulants were associated with fewer bleeding events than warfarin overall, with apixaban showing lower bleeding risk while rivaroxaban did not show the same reduction [S1]."
   },
   {
     "id": "af-ckd-anticoagulation",
     "question": "Jak choroba nerek lub obnizony eGFR wplywa na ocene ryzyka leczenia przeciwkrzepliwego w migotaniu przedsionkow?",
+    "intent": "adverse_effects",
     "relevant_document_ids": ["pmid-30002224"],
     "relevant_pmids": ["30002224"],
+    "acceptable_publication_types": ["Systematic Review", "Meta-Analysis", "Clinical Trial", "Review"],
+    "must_not_answer_without_sources": true,
     "answer": "The atrial fibrillation kidney function study evaluated direct oral anticoagulants compared with warfarin across kidney function strata and focused on bleeding and ischemic stroke prevention in people with and without chronic kidney disease [S1]."
   }
 ]

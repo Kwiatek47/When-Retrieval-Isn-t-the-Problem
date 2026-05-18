@@ -35,6 +35,7 @@ def get_pre_retriever() -> PreRetriever:
         ollama_base_url=settings.ollama_base_url,
         rewrite_model=settings.query_rewrite_model,
         rewrite_timeout=settings.query_rewrite_timeout,
+        active_corpus_version=settings.rag_corpus_version,
     )
 
 
