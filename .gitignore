@@ -6,3 +6,8 @@ __pycache__/
 .codex
 .idea/
 reports/*
+*.parquet
+embeddings/*
+processed/*
+bm25_stats.json
+bm25_stats_pilot100.json

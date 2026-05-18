@@ -306,7 +306,7 @@ data/embeddings/embedding_quality_report.md
 data/embeddings/chunks_inspection_report.md
 ```
 
-Nastepnie zbuduj indeks RAG:
+Nastepnie zbuduj indeks RAG. Jesli masz jeden kontraktowy plik `embeddings.parquet`, uzyj:
 
 ```bash
 source .venv/bin/activate
@@ -319,6 +319,22 @@ EMBEDDING_SERVICE_URL=http://localhost:8081 python3 scripts/rag/01_build_index.p
   --corpus-version pubmed_reviews_v1 \
   --recreate
 ```
+
+Jesli embeddingi sa podzielone na shardy, nie trzeba ich scalac. Podaj wszystkie pliki po jednym `--embeddings` albo po tej samej fladze:
+
+```bash
+source .venv/bin/activate
+python3 scripts/rag/01_build_index.py \
+  --chunks data/processed/chunks.parquet \
+  --embeddings \
+    data/embeddings/embeddings_shard_0.parquet \
+    data/embeddings/embeddings_shard_1.parquet \
+  --collection MedicalChunk \
+  --qdrant-url http://localhost:6333 \
+  --recreate
+```
+
+W trybie shardow skrypt czyta embeddingi batchami i upsertuje punkty do Qdranta bez budowania jednego duzego `embeddings.parquet`.
 
 Skrypt wymaga kolumn `chunk_id` i `text`. Pozostale pola z kontraktu zespolowego, np. `doc_id`, `pmid`, `title`, `doi`, `year`, `source`, `journal`, `publication_types`, sa zapisywane jako payload Qdranta, jesli istnieja.
 
@@ -346,6 +362,7 @@ Mozesz tez pominac etap `embeddings.parquet` i pozwolic `01_build_index.py` poli
 
 ```text
 data/embeddings/embeddings.parquet
+albo shardy data/embeddings/embeddings_shard_*.parquet
 ```
 
 W tym trybie skrypt nie liczy embeddingow sam, tylko waliduje `chunk_id`, staly wymiar embeddingow, brak pustych/zerowych wektorow i mapowanie kazdego chunku na embedding.

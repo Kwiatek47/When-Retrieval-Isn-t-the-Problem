@@ -66,20 +66,22 @@ class BM25SparseEncoder:
         k1: float = 1.2,
         b: float = 0.75,
     ) -> "BM25SparseEncoder":
-        tokenized_documents = [_tokenize(document) for document in documents]
-        if not tokenized_documents:
-            raise ValueError("Cannot build BM25 stats from an empty corpus.")
-
         document_frequency: Counter[str] = Counter()
+        document_count = 0
         total_document_length = 0
-        for tokens in tokenized_documents:
+        for document in documents:
+            tokens = _tokenize(document)
+            document_count += 1
             total_document_length += len(tokens)
             document_frequency.update(set(tokens))
 
+        if document_count == 0:
+            raise ValueError("Cannot build BM25 stats from an empty corpus.")
+
         vocabulary = {term: index for index, term in enumerate(sorted(document_frequency))}
         stats = BM25Stats(
-            document_count=len(tokenized_documents),
-            average_document_length=total_document_length / len(tokenized_documents),
+            document_count=document_count,
+            average_document_length=total_document_length / document_count,
             document_frequency=dict(document_frequency),
             vocabulary=vocabulary,
             k1=k1,
