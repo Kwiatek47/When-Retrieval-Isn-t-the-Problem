@@ -2,6 +2,8 @@ services:
   embedding-service:
     build:
       context: ./services/embedding-service
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
     environment:
       EMBEDDING_MODEL_NAME: medcpt-ncbi-v1
       MEDCPT_QUERY_MODEL: ncbi/MedCPT-Query-Encoder

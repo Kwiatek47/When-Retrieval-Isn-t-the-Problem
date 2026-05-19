@@ -217,6 +217,9 @@ class PostRetriever:
                 source_policy,
                 "Reasoning and output format:",
                 reasoning_policy,
+                "Formatting: inside <answer>, use GitHub-Flavored Markdown when it helps readability "
+                "(## headings, bullet or numbered lists, **bold** for critical warnings or drugs; "
+                "use tables only when they add clarity).",
                 "If retrieved evidence is insufficient or conflicting, say so explicitly.",
                 "If CONFLICTING_EVIDENCE_FLAG is present, do not blend competing recommendations. "
                 "Present both positions with citations and abstain from a specific directive unless the "

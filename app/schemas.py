@@ -1,5 +1,4 @@
-from typing import Literal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +14,7 @@ class ChatRequest(BaseModel):
     model: str = Field(default=get_settings().default_model, min_length=1)
     messages: list[ChatMessage] = Field(..., min_length=1)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    prompt_version: str | None = Field(default=None, min_length=1)
 
 
 class Citation(BaseModel):
@@ -90,8 +90,24 @@ class ChatResponse(BaseModel):
     model: str
     message: ChatMessage
     done: bool
+    request_id: str = ""
+    prompt_version: str = ""
+    timestamp: str = ""
+    latency_ms: int = Field(default=0, ge=0)
     citations: list[Citation] = Field(default_factory=list)
     retrieval: Optional[RetrievalInfo] = None
     citation_validation: Optional[CitationValidation] = None
     evidence_conflicts: Optional[EvidenceConflictInfo] = None
     answer_quality: Optional[AnswerQuality] = None
+
+
+class FeedbackRequest(BaseModel):
+    request_id: str = Field(..., min_length=1)
+    rating: Literal["up", "down"]
+    comment: str = Field(default="", max_length=1000)
+    model: str | None = Field(default=None, min_length=1)
+    prompt_version: str | None = Field(default=None, min_length=1)
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool = True
