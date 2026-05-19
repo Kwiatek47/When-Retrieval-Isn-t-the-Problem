@@ -30,6 +30,9 @@ class Settings:
     bm25_stats_path: Path
     rag_retriever: str
     cross_encoder_model_name: str | None
+    cross_encoder_max_length: int
+    cross_encoder_batch_size: int
+    cross_encoder_device: str | None
     rag_candidate_k: int
     rag_top_k: int
     rag_max_context_chars: int
@@ -63,6 +66,9 @@ def get_settings() -> Settings:
         bm25_stats_path=Path(os.getenv("BM25_STATS_PATH", PROJECT_ROOT / "data" / "bm25_stats.json")),
         rag_retriever=os.getenv("RAG_RETRIEVER", "embedding_service"),
         cross_encoder_model_name=os.getenv("CROSS_ENCODER_MODEL", "ncbi/MedCPT-Cross-Encoder") or None,
+        cross_encoder_max_length=int(os.getenv("CROSS_ENCODER_MAX_LENGTH", "512")),
+        cross_encoder_batch_size=int(os.getenv("CROSS_ENCODER_BATCH_SIZE", "8")),
+        cross_encoder_device=os.getenv("CROSS_ENCODER_DEVICE") or None,
         rag_candidate_k=int(os.getenv("RAG_CANDIDATE_K", "50")),
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),

@@ -76,6 +76,9 @@ def get_post_retriever() -> PostRetriever:
         max_context_chars=settings.rag_max_context_chars,
         final_documents_limit=settings.rag_top_k,
         cross_encoder_model_name=settings.cross_encoder_model_name,
+        cross_encoder_max_length=settings.cross_encoder_max_length,
+        cross_encoder_batch_size=settings.cross_encoder_batch_size,
+        cross_encoder_device=settings.cross_encoder_device,
     )
 
 

@@ -8,8 +8,9 @@ from app.api.dependencies import get_llm_provider, get_medical_knowledge_retriev
 from app.core.config import Settings, get_settings
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
 from app.rag.answer_extraction import extract_answer_content
+from app.rag.answer_guardrails import apply_answer_guardrails
 from app.rag.answer_quality import evaluate_answer_quality
-from app.rag.citation_validation import validate_citations
+from app.rag.citation_validation import normalize_citation_format, validate_citations
 from app.rag.models import PreRetrievalResult, RetrievedDocument
 from app.rag.pipeline import RagPipeline
 from app.rag.retrieval import MedicalKnowledgeRetriever
@@ -80,6 +81,19 @@ async def chat(
         )
         llm_done_at = perf_counter()
         answer_content = extract_answer_content(llm_response.message.content)
+        if not answer_content:
+            logger.warning("LLM response had no extractable answer content; using fallback response.")
+            citation_labels = " ".join(f"[{citation.id}]" for citation in rag_result.citations[:1])
+            citation_suffix = f" {citation_labels}" if citation_labels else ""
+            answer_content = (
+                "Nie udało się wyodrębnić poprawnej odpowiedzi z modelu. "
+                "Znaleziono źródła w bazie wiedzy, ale model nie wygenerował użytecznej odpowiedzi. "
+                f"Spróbuj ponowić pytanie lub zawęzić je do konkretnego problemu medycznego.{citation_suffix}"
+            )
+        answer_content = apply_answer_guardrails(
+            normalize_citation_format(answer_content),
+            rag_result.source_documents,
+        )
         answer_message = ChatMessage(role=llm_response.message.role, content=answer_content)
         citation_validation = validate_citations(answer_content, rag_result.citations)
         answer_quality = evaluate_answer_quality(

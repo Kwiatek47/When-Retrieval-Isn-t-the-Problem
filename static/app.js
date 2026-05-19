@@ -31,6 +31,35 @@ function syncMedicalBadge() {
   medicalModelBadge.classList.toggle("inline-flex", isMedicalModel);
 }
 
+function getCitedSourceIds(content, citationValidation) {
+  const validatedIds = citationValidation?.cited_ids || [];
+  if (validatedIds.length > 0) {
+    return new Set(validatedIds);
+  }
+
+  const citedIds = [];
+  const citationBlocks = content.matchAll(/\[([^\]]*S[^\]]*)\]/gi);
+  for (const blockMatch of citationBlocks) {
+    const block = blockMatch[1];
+    const ranges = block.matchAll(/\bS([1-9][0-9]*)\s*[-–]\s*S?([1-9][0-9]*)\b/gi);
+    for (const rangeMatch of ranges) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      if (start <= end && end - start <= 20) {
+        for (let index = start; index <= end; index += 1) {
+          citedIds.push(`S${index}`);
+        }
+      }
+    }
+
+    const ids = block.matchAll(/\bS([1-9][0-9]*)\b/gi);
+    for (const idMatch of ids) {
+      citedIds.push(`S${idMatch[1]}`);
+    }
+  }
+  return new Set(citedIds);
+}
+
 function appendMessage(
   role,
   content,
@@ -54,11 +83,14 @@ function appendMessage(
     message.classList.add("animate-pulse", "text-zinc-400");
   }
 
-  if (role === "assistant" && citations.length > 0) {
+  const citedSourceIds = getCitedSourceIds(content, citationValidation);
+  const citedSources = citations.filter((citation) => citedSourceIds.has(citation.id));
+
+  if (role === "assistant" && citedSources.length > 0) {
     const citationsEl = document.createElement("div");
     citationsEl.className = "mt-4 flex flex-wrap gap-2 text-xs text-zinc-500";
 
-    citations.forEach((citation) => {
+    citedSources.forEach((citation) => {
       const item = document.createElement("span");
       item.className = "rounded-full border border-zinc-200 px-3 py-1";
       item.textContent = `[${citation.id}] ${citation.title}`;

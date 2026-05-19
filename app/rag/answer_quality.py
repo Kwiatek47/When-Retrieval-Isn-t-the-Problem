@@ -3,11 +3,11 @@ from __future__ import annotations
 from functools import lru_cache
 import re
 
+from app.rag.citation_validation import extract_citation_ids, strip_citation_tags
 from app.rag.models import RetrievedDocument
 from app.schemas import AnswerQuality
 
 
-_CITATION_PATTERN = re.compile(r"\[S([1-9][0-9]*)\]")
 _SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 _TOKEN_PATTERN = re.compile(r"[\w]+", re.IGNORECASE)
 _STOPWORDS = {
@@ -98,7 +98,7 @@ def _evaluate_semantic_similarity(
     similarities = []
 
     for statement in statements:
-        cited_ids = [f"S{match}" for match in _CITATION_PATTERN.findall(statement)]
+        cited_ids = extract_citation_ids(statement)
         statement_without_citations = _strip_citations(statement)
         candidate_texts = [
             source_text_by_id[source_id]
@@ -140,7 +140,7 @@ def _evaluate_token_overlap(
     unsupported = []
     supported_count = 0
     for statement in statements:
-        cited_ids = [f"S{match}" for match in _CITATION_PATTERN.findall(statement)]
+        cited_ids = extract_citation_ids(statement)
         statement_without_citations = _strip_citations(statement)
         context = " ".join(
             source_text_by_id[source_id]
@@ -196,7 +196,7 @@ def _max_semantic_similarity(model, statement: str, candidate_texts: list[str]) 
 
 
 def _strip_citations(statement: str) -> str:
-    return _CITATION_PATTERN.sub("", statement).strip()
+    return strip_citation_tags(statement)
 
 
 def _is_supported_by_token_overlap(statement: str, context: str, *, overlap_threshold: float) -> bool:

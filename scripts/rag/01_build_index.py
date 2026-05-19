@@ -129,9 +129,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--embeddings",
         type=Path,
+        nargs="+",
         action="append",
         default=[],
-        help="Embedding parquet shard. Repeat this flag for multiple shards.",
+        help=(
+            "Embedding parquet shard. Pass multiple paths after one flag or repeat "
+            "the flag for multiple shards."
+        ),
     )
     parser.add_argument(
         "--collection",
@@ -158,7 +162,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true", help="Reuse the chunk store and skip already indexed chunks.")
     parser.add_argument("--allow-missing-embeddings", action="store_true")
     parser.add_argument("--limit", type=int, help="Index only the first N chunks for a pilot run.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.embeddings = [path for group in args.embeddings for path in group]
+    return args
 
 
 def _prepare_chunk_store(
@@ -275,6 +281,7 @@ def _upsert_embedding_files(
         for row_group_index, batch_index, rows in _iter_parquet_rows(
             path,
             required_columns=REQUIRED_EMBEDDING_COLUMNS,
+            selected_columns=_embedding_columns(path),
             batch_size=args.read_batch_size,
         ):
             pending: list[tuple[str, models.PointStruct, int]] = []
@@ -492,6 +499,7 @@ def _iter_parquet_rows(
     path: Path,
     *,
     required_columns: set[str],
+    selected_columns: list[str] | None = None,
     batch_size: int,
 ) -> Iterator[tuple[int, int, list[dict[str, Any]]]]:
     if not path.exists():
@@ -500,9 +508,28 @@ def _iter_parquet_rows(
     column_names = list(parquet_file.schema_arrow.names)
     _require_columns(column_names, required_columns, path)
     for row_group_index in range(parquet_file.metadata.num_row_groups):
-        batches = parquet_file.iter_batches(batch_size=batch_size, row_groups=[row_group_index])
+        batches = parquet_file.iter_batches(
+            batch_size=batch_size,
+            row_groups=[row_group_index],
+            columns=selected_columns,
+        )
         for batch_index, batch in enumerate(batches):
-            yield row_group_index, batch_index, batch.to_pylist()
+            try:
+                rows = batch.to_pylist()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed reading {path} row_group={row_group_index} batch={batch_index}."
+                ) from exc
+            yield row_group_index, batch_index, rows
+
+
+def _embedding_columns(path: Path) -> list[str]:
+    column_names = set(pq.ParquetFile(path).schema_arrow.names)
+    return [
+        column
+        for column in ("chunk_id", "embedding", "embedding_dim", "embedding_model")
+        if column in column_names
+    ]
 
 
 def _chunk_from_row(row: dict[str, Any], *, index: int) -> dict[str, Any]:

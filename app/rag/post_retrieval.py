@@ -21,10 +21,16 @@ class PostRetriever:
         max_context_chars: int,
         final_documents_limit: int,
         cross_encoder_model_name: str | None = None,
+        cross_encoder_max_length: int = 512,
+        cross_encoder_batch_size: int = 8,
+        cross_encoder_device: str | None = None,
     ) -> None:
         self.max_context_chars = max_context_chars
         self.final_documents_limit = final_documents_limit
         self.cross_encoder_model_name = cross_encoder_model_name
+        self.cross_encoder_max_length = cross_encoder_max_length
+        self.cross_encoder_batch_size = cross_encoder_batch_size
+        self.cross_encoder_device = cross_encoder_device
         self.cross_encoder = self._load_cross_encoder(cross_encoder_model_name)
 
     def assemble(
@@ -111,14 +117,20 @@ class PostRetriever:
         query = pre_retrieval.normalized_query
         pairs = [(query, document.content) for document in documents]
         started_at = perf_counter()
-        scores = self.cross_encoder.predict(pairs)
+        scores = self.cross_encoder.predict(
+            pairs,
+            batch_size=self.cross_encoder_batch_size,
+            show_progress_bar=False,
+        )
         finished_at = perf_counter()
 
         logger.info(
-            "post_retrieval rerank timing cross_encoder=%.3fs documents=%d model=%s",
+            "post_retrieval rerank timing cross_encoder=%.3fs documents=%d model=%s batch_size=%d max_length=%d",
             finished_at - started_at,
             len(documents),
             self.cross_encoder_model_name,
+            self.cross_encoder_batch_size,
+            self.cross_encoder_max_length,
         )
 
         if len(scores) != len(documents):
@@ -239,11 +251,18 @@ class PostRetriever:
                 "Install dependencies with `pip install -r requirements.txt`."
             ) from exc
         started_at = perf_counter()
-        model = CrossEncoder(model_name)
+        model = CrossEncoder(
+            model_name,
+            max_length=self.cross_encoder_max_length,
+            device=self.cross_encoder_device,
+        )
         logger.info(
-            "post_retrieval cross_encoder loaded model=%s load=%.3fs",
+            "post_retrieval cross_encoder loaded model=%s load=%.3fs max_length=%d batch_size=%d device=%s",
             model_name,
             perf_counter() - started_at,
+            self.cross_encoder_max_length,
+            self.cross_encoder_batch_size,
+            self.cross_encoder_device or "auto",
         )
         return model
 
@@ -313,18 +332,40 @@ class PostRetriever:
     ) -> str:
         source_policy = (
             "Answer only from the MEDICAL_KNOWLEDGE_BASE context. "
-            "Every medical claim must include an inline citation with labels like [S1]. "
+            "Every medical claim must end with inline citations in the exact bracket format [S1]. "
+            "When citing multiple sources, use separate labels like [S1] [S3], not grouped labels like [S1, S3]. "
+            "Do not use parenthetical citations like (S1). "
+            "Do not place a bare citation after a paragraph; each citation must support the sentence immediately before it. "
+            "Do not cite more than three sources in one sentence; split broad summaries into separate sentences by outcome. "
             "Do not use prior knowledge, training data, or assumptions to add medical facts. "
             "Do not invent citations."
         )
+        evidence_policy = (
+            "Do not invent exact percentages, effect sizes, guideline recommendations, standard-of-care statements, "
+            "mechanisms, populations, contraindications, or safety claims unless they are explicitly stated in the cited "
+            "source excerpt. "
+            "If the retrieved context only supports a broad conclusion, write a broad conclusion. "
+            "Do not say 'recommended', 'guidelines recommend', 'standard of care', or 'should be used' unless the "
+            "cited excerpt explicitly states a recommendation or guideline. Prefer neutral wording such as "
+            "'retrieved evidence describes', 'reported', or 'is discussed' for review abstracts. "
+            "Use exact numbers only when you attribute them to the cited source, for example "
+            "'the retrieved meta-analysis reported ... [S4]'. "
+            "For broad evidence summaries, separate clinical outcomes, kidney/cardiorenal effects, mechanisms, and "
+            "limitations only when each category is directly supported by retrieved evidence. "
+            "For questions asking to summarize evidence, prefer this compact structure when supported: "
+            "'Heart failure evidence: ... [Sx] [Sy]. CKD/cardiorenal evidence: ... [Sx]. Mechanistic evidence: ... [Sx].' "
+            "Omit unsupported categories. "
+            "Prefer stronger evidence types such as systematic reviews, meta-analyses, reviews, or guidelines when they "
+            "are retrieved, but do not overstate review abstracts as patient-specific treatment advice."
+        )
         reasoning_policy = (
-            "Before writing the final response, think step-by-step privately. "
-            "Analyze the user's query, identify relevant symptoms, conditions, interventions, or outcomes, "
-            "and cross-reference them only with cited MEDICAL_KNOWLEDGE_BASE entries. "
-            "Do not reveal hidden chain-of-thought or uncited reasoning. "
-            "If you need to show your evidence check, keep it brief inside <thinking> tags and include only "
-            "the relevant citation labels and whether the evidence is sufficient. "
-            "Put the final concise user-facing response inside <answer> tags."
+            "Return only the final user-facing response inside <answer> tags. "
+            "Do not output hidden reasoning, <thinking> tags, source audits, or markdown headings. "
+            "Keep the answer concise: usually 3-5 sentences or short bullets. "
+            "Do not add a generic 'more research is needed' conclusion unless the retrieved evidence specifically "
+            "supports uncertainty. "
+            "Use the user's language. "
+            "If evidence is insufficient, say exactly what is missing instead of filling gaps from prior knowledge."
         )
         if not has_documents:
             source_policy = (
@@ -332,6 +373,10 @@ class PostRetriever:
                 "Do not answer the user's medical question from prior knowledge. "
                 "Say that the knowledge base did not return sources, so you cannot provide a grounded answer. "
                 "You may only advise consulting a qualified clinician for personal medical decisions."
+            )
+            evidence_policy = (
+                "Do not infer medical facts, mechanisms, risks, benefits, guidelines, or treatment options without "
+                "retrieved sources."
             )
             reasoning_policy = (
                 "Do not perform or output step-by-step reasoning because there are no sources to reason from. "
@@ -343,6 +388,8 @@ class PostRetriever:
                 system_prompt,
                 "RAG instructions:",
                 source_policy,
+                "Evidence and wording policy:",
+                evidence_policy,
                 "Reasoning and output format:",
                 reasoning_policy,
                 "If retrieved evidence is insufficient or conflicting, say so explicitly.",
