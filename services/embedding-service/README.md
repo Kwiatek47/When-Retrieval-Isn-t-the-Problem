@@ -9,8 +9,15 @@ Aktualna implementacja używa MedCPT:
 
 Oba encodery pracują w tej samej przestrzeni retrievalowej i zwracają embeddingi o wymiarze `768`.
 
-## Uruchomienie na GPU
+## Uruchomienie
 
+Priorytetowy tryb dla `embedding-service` to GPU. Uruchamiaj go przez Compose override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build embedding-service
+```
+
+Host GPU musi miec:
 Domyslny obraz Dockera instaluje PyTorch z **CUDA 12.8** (`cu128`) i uruchamia MedCPT na GPU. 
 
 Host musi miec:
@@ -19,7 +26,7 @@ Host musi miec:
 - Docker z NVIDIA Container Toolkit,
 - Compose obslugujacy `gpus: all`.
 
-Z katalogu głównego projektu:
+Fallback CPU, jesli host nie ma GPU:
 
 ```bash
 docker compose up --build embedding-service
@@ -52,7 +59,7 @@ MEDCPT_DOCUMENT_MODEL=ncbi/MedCPT-Article-Encoder
 MEDCPT_QUERY_MAX_LENGTH=64
 MEDCPT_DOCUMENT_MAX_LENGTH=512
 EMBEDDING_BATCH_SIZE=16
-EMBEDDING_DEVICE=cuda
+EMBEDDING_DEVICE=cuda   # GPU override
 HF_HOME=/models/huggingface
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
@@ -253,6 +260,7 @@ Mozna szybko sprawdzic, czy Docker widzi GPU:
 docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu22.04 nvidia-smi
 ```
 
+Fallback CPU jest w bazowym `docker-compose.yml`: ustawia `EMBEDDING_DEVICE=cpu` i uzywa CPU build PyTorch. GPU override `docker-compose.gpu.yml` ustawia `EMBEDDING_DEVICE=cuda`, `gpus: all` i CUDA build PyTorch.
 Jesli trzeba tymczasowo wrocic na CPU, uzyj pliku `docker-compose.cpu.yml` w katalogu glownym projektu (nadpisuje build CPU i wylacza GPU):
 
 ```bash

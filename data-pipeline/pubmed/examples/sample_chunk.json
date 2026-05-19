@@ -1,0 +1,14 @@
+{
+  "chunk_id": "pubmed:12345678:abstract",
+  "pmid": "12345678",
+  "title": "Example medical review title",
+  "abstract": "Example abstract text.",
+  "text": "Title: Example medical review title\n\nAbstract: Example abstract text.",
+  "doi": "10.0000/example",
+  "journal": "Example Journal",
+  "year": 2026,
+  "publication_types": ["Review"],
+  "is_review": true,
+  "is_systematic": false
+}
+

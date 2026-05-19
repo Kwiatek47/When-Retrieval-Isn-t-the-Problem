@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+credentials*
+config
+
+# Data: never commit large or raw datasets
+/data/
+/raw/
+/interim/
+/processed/
+*.parquet
+*.arrow
+*.jsonl
+*.xml
+*.gz
+*.zip
+
+# Logs and temporary files
+*.log
+tmp/
+.DS_Store
+
+# Presigned URLs or local handoff messages
+message_to_embedding_owner.txt
+*_presigned*.txt

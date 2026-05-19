@@ -82,7 +82,8 @@ class AnswerQuality(BaseModel):
     hallucination_rate: Optional[float] = None
     unsupported_statements: list[str] = Field(default_factory=list)
     evaluated_statements_count: int = 0
-    method: str = "token_overlap_with_retrieved_context"
+    average_similarity: Optional[float] = None
+    method: str = "semantic_similarity"
 
 
 class ChatResponse(BaseModel):

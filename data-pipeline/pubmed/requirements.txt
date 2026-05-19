@@ -1,0 +1,11 @@
+duckdb
+httpx
+lxml
+orjson
+polars
+pyarrow
+python-dotenv
+tenacity
+tqdm
+xxhash
+
