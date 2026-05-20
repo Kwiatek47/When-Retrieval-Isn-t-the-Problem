@@ -69,6 +69,7 @@ W repo sa male datasety i benchmarki:
 - `data/pubmedqa_benchmark_corpus.json`
 - `data/eval_pubmedqa_benchmark.json`
 - `data/eval_rag_english_real_sources.json`
+- `data/pubmedqa_official_pqal_test/` - official PubMedQA PQA-L 500 eval artifacts
 
 Mamy tez dokumentacje pelnego pipeline PubMed:
 
@@ -100,15 +101,15 @@ To jest dobry fundament. Dane sa odszumione i maja kontrakt pod RAG.
 
 ### Czego brakuje
 
-Pelny korpus i pelne embeddingi nie siedza w samym repo. Repo ma pipeline, kontrakt i raporty, ale nie ma gotowego produkcyjnego indeksu jako artefaktu.
+Pelny produkcyjny korpus PubMed i pelne embeddingi nie siedza w samym repo. Repo ma pipeline, kontrakt, raporty i official PubMedQA 500 benchmark artifacts, ale nie ma gotowego produkcyjnego indeksu jako artefaktu.
 
 Do pelnej powtarzalnosci brakuje jeszcze:
 
 - jednoznacznego manifestu aktualnie uzytego indeksu Qdrant,
 - wersji `chunks.parquet`,
 - wersji shardow embeddingow,
-- wersji BM25 stats,
-- prostego polecenia "od zera zbuduj dokladnie ten sam benchmark index".
+- wersji BM25 stats dla pelnego korpusu,
+- prostego polecenia "od zera zbuduj dokladnie ten sam produkcyjny index".
 
 To nie blokuje developmentu, ale blokuje idealnie powtarzalne porownania miedzy osobami i maszynami.
 
