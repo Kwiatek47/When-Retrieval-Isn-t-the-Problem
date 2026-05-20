@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 import re
 
-from app.rag.citation_validation import extract_citation_ids, strip_citation_tags
+from app.rag.citation_validation import extract_citation_ids, requires_citation, strip_citation_tags
 from app.rag.models import RetrievedDocument
 from app.schemas import AnswerQuality
 
@@ -45,7 +45,7 @@ def evaluate_answer_quality(
     statements = [
         sentence.strip()
         for sentence in _SENTENCE_SPLIT_PATTERN.split(answer.strip())
-        if sentence.strip()
+        if sentence.strip() and requires_citation(sentence)
     ]
     if not statements:
         return AnswerQuality(

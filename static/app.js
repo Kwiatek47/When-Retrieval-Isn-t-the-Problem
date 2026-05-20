@@ -60,6 +60,38 @@ function getCitedSourceIds(content, citationValidation) {
   return new Set(citedIds);
 }
 
+function citationValidationMessage(citationValidation) {
+  const issues = new Set(citationValidation?.issues || []);
+  const parts = [];
+
+  if (issues.has("claim_missing_citation")) {
+    parts.push("claim without citation");
+  }
+  if (issues.has("response_contains_shotgun_citation")) {
+    parts.push("too many citations attached to one claim");
+  }
+  if (issues.has("response_contains_orphan_citation")) {
+    parts.push("orphan citation");
+  }
+  if (issues.has("response_contains_unknown_citations")) {
+    parts.push("unknown source id");
+  }
+  if (issues.has("response_contains_noncanonical_citation_format")) {
+    parts.push("invalid citation format");
+  }
+  if (issues.has("response_missing_inline_citations")) {
+    parts.push("missing inline citations");
+  }
+
+  const claimCount = citationValidation?.claim_count;
+  const citedClaimsCount = citationValidation?.cited_claims_count;
+  const recall = citationValidation?.citation_recall;
+  const recallLabel = recall === null || recall === undefined
+    ? ""
+    : ` Claim citation recall: ${Math.round(recall * 100)}% (${citedClaimsCount}/${claimCount}).`;
+  return `Citation validation failed: ${parts.join(", ") || "citation policy violation"}.${recallLabel}`;
+}
+
 function appendMessage(
   role,
   content,
@@ -104,7 +136,7 @@ function appendMessage(
   if (role === "assistant" && citationValidation && !citationValidation.passed) {
     const validationEl = document.createElement("div");
     validationEl.className = "mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800";
-    validationEl.textContent = "Citation validation failed: the response is missing required inline citations or cites an unknown source.";
+    validationEl.textContent = citationValidationMessage(citationValidation);
     message.appendChild(validationEl);
   }
 

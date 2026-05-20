@@ -59,6 +59,13 @@ class CitationValidation(BaseModel):
     missing_citation_ids: list[str] = Field(default_factory=list)
     unused_citation_ids: list[str] = Field(default_factory=list)
     has_required_citation: bool = True
+    claim_count: int = 0
+    cited_claims_count: int = 0
+    citation_recall: Optional[float] = None
+    citation_precision: Optional[float] = None
+    uncited_claims: list[str] = Field(default_factory=list)
+    shotgun_citation_claims: list[str] = Field(default_factory=list)
+    orphan_citations: list[str] = Field(default_factory=list)
     issues: list[str] = Field(default_factory=list)
 
 
