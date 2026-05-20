@@ -5,6 +5,7 @@ import httpx
 from app.core.config import get_settings
 from app.providers.base import LLMProvider
 from app.providers.ollama import OllamaProvider
+from app.rag.evidence_judge import EvidenceJudge
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
@@ -13,6 +14,7 @@ from app.rag.retrieval import (
     MedicalKnowledgeRetriever,
     QdrantHybridKnowledgeRetriever,
 )
+from app.services.telemetry_service import TelemetryLogger
 
 
 @lru_cache
@@ -21,11 +23,20 @@ def get_ollama_provider() -> OllamaProvider:
     return OllamaProvider(
         base_url=settings.ollama_base_url,
         timeout=settings.ollama_timeout,
+        keep_alive=settings.ollama_keep_alive,
+        num_predict=settings.ollama_num_predict,
+        num_ctx=settings.ollama_num_ctx,
     )
 
 
 def get_llm_provider() -> LLMProvider:
     return get_ollama_provider()
+
+
+@lru_cache
+def get_telemetry_logger() -> TelemetryLogger:
+    settings = get_settings()
+    return TelemetryLogger(path=settings.telemetry_path)
 
 
 @lru_cache
@@ -35,6 +46,7 @@ def get_pre_retriever() -> PreRetriever:
         ollama_base_url=settings.ollama_base_url,
         rewrite_model=settings.query_rewrite_model,
         rewrite_timeout=settings.query_rewrite_timeout,
+        active_corpus_version=settings.rag_corpus_version,
     )
 
 
@@ -59,12 +71,16 @@ def get_medical_knowledge_retriever() -> MedicalKnowledgeRetriever:
             sparse_vector_name=settings.qdrant_sparse_vector_name,
             embedding_dimension=settings.embedding_dimension,
             bm25_stats_path=settings.bm25_stats_path,
+            expansion_multiplier=settings.rag_retrieval_expansion_multiplier,
+            expanded_limit_max=settings.rag_retrieval_expanded_limit_max,
         )
 
     return EmbeddingServiceHybridRetriever(
         embedding_service_url=settings.embedding_service_url,
         embedding_timeout=settings.embedding_timeout,
         embedding_dimension=settings.embedding_dimension,
+        expansion_multiplier=settings.rag_retrieval_expansion_multiplier,
+        expanded_limit_max=settings.rag_retrieval_expanded_limit_max,
     )
 
 
@@ -74,7 +90,24 @@ def get_post_retriever() -> PostRetriever:
     return PostRetriever(
         max_context_chars=settings.rag_max_context_chars,
         final_documents_limit=settings.rag_top_k,
+        max_excerpt_chars=settings.rag_max_excerpt_chars,
         cross_encoder_model_name=settings.cross_encoder_model_name,
+        cross_encoder_max_length=settings.cross_encoder_max_length,
+        cross_encoder_batch_size=settings.cross_encoder_batch_size,
+        cross_encoder_device=settings.cross_encoder_device,
+        evidence_filter_enabled=settings.rag_evidence_filter_enabled,
+    )
+
+
+@lru_cache
+def get_evidence_judge() -> EvidenceJudge:
+    settings = get_settings()
+    return EvidenceJudge(
+        enabled=settings.rag_evidence_judge_enabled,
+        method=settings.rag_evidence_judge_method,
+        max_sources=settings.rag_evidence_judge_max_sources,
+        voting_enabled=settings.rag_evidence_judge_voting_enabled,
+        voting_rounds=settings.rag_evidence_judge_votes,
     )
 
 
@@ -86,4 +119,6 @@ def get_rag_pipeline() -> RagPipeline:
         retriever=get_medical_knowledge_retriever(),
         post_retriever=get_post_retriever(),
         retrieval_candidate_limit=max(settings.rag_candidate_k, settings.rag_top_k),
+        adaptive_retrieval_enabled=settings.rag_adaptive_retrieval_enabled,
+        adaptive_max_rounds=settings.rag_adaptive_max_rounds,
     )

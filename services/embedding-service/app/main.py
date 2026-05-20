@@ -116,6 +116,7 @@ def create_app() -> FastAPI:
             embedding,
             query_text=request.text,
             limit=request.limit,
+            metadata_filter=request.metadata_filter,
         )
         return HybridQueryResponse(
             model=embedder.model_name,

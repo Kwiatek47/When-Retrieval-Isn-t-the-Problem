@@ -1,0 +1,663 @@
+{
+  "summary": {
+    "dataset": "data/eval_rag_english_real_sources.json",
+    "api_url": "http://127.0.0.1:8000",
+    "model": "qwen2.5:7b",
+    "case_count": 16,
+    "answerable_count": 13,
+    "negative_count": 3,
+    "case_pass_rate": 0.6875,
+    "status_accuracy": 0.9375,
+    "answerable_grounded_rate": 1.0,
+    "negative_refusal_rate": 0.6666666666666666,
+    "source_hit_at_1": 0.8461538461538461,
+    "source_hit_at_3": 0.9230769230769231,
+    "citation_pass_rate": 0.875,
+    "forbidden_term_violation_rate": 0.0,
+    "expected_term_missing_rate": 0.3076923076923077,
+    "mean_groundedness": 0.9642857142857143,
+    "mean_hallucination_rate": 0.03571428571428571,
+    "mean_latency_ms": 2437.553835872677,
+    "config": {
+      "candidate_k": 20,
+      "top_k": 3,
+      "temperature": 0.0,
+      "RAG_EVIDENCE_FILTER_ENABLED": "true",
+      "RAG_ANSWER_QUALITY_GATE_ENABLED": "true",
+      "CROSS_ENCODER_MODEL": "",
+      "RAG_CORPUS_VERSION": "pubmed-real-eval-v1"
+    }
+  },
+  "cases": [
+    {
+      "id": "sglt2-cardiorenal-outcomes",
+      "question": "What is known about SGLT2 inhibitors in type 2 diabetes, kidney disease, and heart failure?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 5072.875874990132,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "SGLT2 inhibitors have been shown to reduce major adverse cardiovascular events, hospitalization for heart failure or cardiovascular death, and all-cause mortality in patients with type 2 diabetes [S1]. These benefits are consistent regardless of whether patients are receiving metformin [S1]. Additionally, SGLT2 inhibitors improve kidney outcomes, including reducing the risk of chronic kidney disease progression [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.9725,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.9725,
+          "queryTermCoverage": 1.0,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.7334285714285714,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.733429,
+          "queryTermCoverage": 0.285714,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 3,
+          "title": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control",
+          "score": 0.39635714285714285,
+          "pmid": "26551272",
+          "documentId": "pmid-26551272",
+          "evidenceScore": 0.396357,
+          "queryTermCoverage": 0.571429,
+          "metadataBoost": 1.0
+        }
+      ]
+    },
+    {
+      "id": "sglt2-metformin-subgroup",
+      "question": "Were SGLT2 inhibitor benefits consistent regardless of baseline metformin use?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2172.435582964681,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [
+        "kidney"
+      ],
+      "case_pass": false,
+      "answer": "Yes, the retrieved evidence describes that SGLT2 inhibitors reduced major adverse cardiovascular events, hospitalization for heart failure or cardiovascular death, and all-cause mortality consistently, whether patients were receiving metformin or not [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.9725,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.9725,
+          "queryTermCoverage": 1.0,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "sprint-benefits-harms",
+      "question": "What were the benefits and harms of intensive systolic blood pressure control in SPRINT?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2558.9646660373546,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Intensive systolic blood pressure control below 120 mm Hg compared to standard control below 140 mm Hg reduced major cardiovascular events and all-cause mortality [S1]. However, it also increased the frequency of serious adverse events such as hypotension, syncope, electrolyte abnormalities, and acute kidney injury or failure [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control",
+          "score": 0.5477857142857143,
+          "pmid": "26551272",
+          "documentId": "pmid-26551272",
+          "evidenceScore": 0.547786,
+          "queryTermCoverage": 0.857143,
+          "metadataBoost": 1.0
+        }
+      ]
+    },
+    {
+      "id": "sprint-diabetes-exclusion",
+      "question": "Did the SPRINT blood pressure trial include patients with diabetes?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 1799.36791700311,
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "No, the SPRINT randomized clinical trial excluded patients with diabetes and prior stroke [S2].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.7641666666666668,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.764167,
+          "queryTermCoverage": 0.166667,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control",
+          "score": 0.5418333333333334,
+          "pmid": "26551272",
+          "documentId": "pmid-26551272",
+          "evidenceScore": 0.541833,
+          "queryTermCoverage": 0.833333,
+          "metadataBoost": 1.0
+        }
+      ]
+    },
+    {
+      "id": "ics-asthma-exacerbations",
+      "question": "How do inhaled corticosteroids help prevent asthma exacerbations?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2215.231375012081,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Inhaled corticosteroids (ICS) are effective for preventing asthma exacerbations by reducing airway inflammation and improving lung function [S1]. Strategies include daily controller treatment, intermittent high-dose ICS in selected patients, and as-needed dosing with a rescue inhaler for mild asthma [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Inhaled Corticosteroids for the Prevention of Asthma Exacerbations",
+          "score": 0.7400000000000001,
+          "pmid": "34400314",
+          "documentId": "pmid-34400314",
+          "evidenceScore": 0.74,
+          "queryTermCoverage": 0.8,
+          "metadataBoost": 1.1
+        }
+      ]
+    },
+    {
+      "id": "ics-mild-asthma-strategies",
+      "question": "What inhaled corticosteroid strategies are discussed for mild asthma?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 1522.0049160416238,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Inhaled corticosteroids (ICS) for mild asthma may include daily controller treatment, intermittent high-dose ICS in selected patients, and as-needed dosing with a rescue inhaler [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Inhaled Corticosteroids for the Prevention of Asthma Exacerbations",
+          "score": 0.7483333333333334,
+          "pmid": "34400314",
+          "documentId": "pmid-34400314",
+          "evidenceScore": 0.748333,
+          "queryTermCoverage": 0.833333,
+          "metadataBoost": 1.1
+        }
+      ]
+    },
+    {
+      "id": "doac-warfarin-bleeding-af",
+      "question": "How do DOACs compare with warfarin for bleeding risk in atrial fibrillation?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 3481.169749982655,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Bleeding risk comparisons between direct oral anticoagulants (DOACs) and warfarin in nonvalvular atrial fibrillation patients show variability [S1]. Apixaban has been associated with a lower bleeding risk compared to warfarin, whereas rivaroxaban did not demonstrate the same reduction [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Bleeding Risk in Nonvalvular Atrial Fibrillation Patients Receiving Direct Oral Anticoagulants and Warfarin",
+          "score": 0.87475,
+          "pmid": "32676543",
+          "documentId": "pmid-32676543",
+          "evidenceScore": 0.87475,
+          "queryTermCoverage": 0.625,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.7245,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.7245,
+          "queryTermCoverage": 0.25,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 3,
+          "title": "Inhaled Corticosteroids for the Prevention of Asthma Exacerbations",
+          "score": 0.4912500000000001,
+          "pmid": "34400314",
+          "documentId": "pmid-34400314",
+          "evidenceScore": 0.49125,
+          "queryTermCoverage": 0.125,
+          "metadataBoost": 1.1
+        }
+      ]
+    },
+    {
+      "id": "apixaban-rivaroxaban-bleeding",
+      "question": "Did apixaban and rivaroxaban show the same bleeding reduction compared with warfarin?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2443.6805830337107,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Apixaban showed lower bleeding risk compared with warfarin, while rivaroxaban did not demonstrate the same reduction in bleeding risk [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Bleeding Risk in Nonvalvular Atrial Fibrillation Patients Receiving Direct Oral Anticoagulants and Warfarin",
+          "score": 0.9685,
+          "pmid": "32676543",
+          "documentId": "pmid-32676543",
+          "evidenceScore": 0.9685,
+          "queryTermCoverage": 1.0,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.7245,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.7245,
+          "queryTermCoverage": 0.25,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 3,
+          "title": "Risks and Benefits of Direct Oral Anticoagulants across the Spectrum of GFR among Patients with Atrial Fibrillation",
+          "score": 0.39425,
+          "pmid": "30002224",
+          "documentId": "pmid-30002224",
+          "evidenceScore": 0.39425,
+          "queryTermCoverage": 0.375,
+          "metadataBoost": 1.0
+        }
+      ]
+    },
+    {
+      "id": "doac-ckd-egfr-af",
+      "question": "How does reduced eGFR or chronic kidney disease affect DOAC versus warfarin decisions in atrial fibrillation?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 5397.7865419583395,
+      "source_hit_at_1": false,
+      "source_hit_at_3": false,
+      "status_pass": true,
+      "citation_pass": false,
+      "groundedness": 0.5,
+      "hallucination_rate": 0.5,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [
+        "eGFR",
+        "chronic kidney disease"
+      ],
+      "case_pass": false,
+      "answer": "Retrieved evidence summary: This systematic review and meta-analysis of observational studies compared bleeding risk in nonvalvular atrial fibrillation patients receiving direct oral anticoagulants and warfarin. [S1] SGLT2 inhibitors reduced major adverse cardiovascular events, hospitalization for heart failure or cardiovascular death, major kidney outcomes, and all-cause mortality, with consistent effects regardless of whether patients were receiving metformin. [S2] Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Bleeding Risk in Nonvalvular Atrial Fibrillation Patients Receiving Direct Oral Anticoagulants and Warfarin",
+          "score": 0.7954230769230769,
+          "pmid": "32676543",
+          "documentId": "pmid-32676543",
+          "evidenceScore": 0.795423,
+          "queryTermCoverage": 0.307692,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.7001923076923077,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.700192,
+          "queryTermCoverage": 0.230769,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 3,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.6204615384615384,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.620462,
+          "queryTermCoverage": 0.153846,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "pad-medications",
+      "question": "What medications are used for peripheral artery disease?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 1862.336124991998,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [
+        "rivaroxaban",
+        "statin"
+      ],
+      "case_pass": false,
+      "answer": "For symptomatic peripheral artery disease (PAD), single antiplatelet therapy is recommended to reduce major adverse cardiovascular events [S1]. Aspirin or clopidogrel can be used for this purpose [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.992,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.992,
+          "queryTermCoverage": 1.0,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "pad-rivaroxaban-aspirin",
+      "question": "When is low-dose rivaroxaban plus aspirin used in PAD?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 1952.8748340089805,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [
+        "symptomatic PAD"
+      ],
+      "case_pass": false,
+      "answer": "Low-dose rivaroxaban 2.5 mg twice daily combined with low-dose aspirin is recommended to reduce major adverse cardiovascular and limb events in symptomatic peripheral artery disease (PAD) after endovascular or surgical revascularization [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.8762857142857143,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.876286,
+          "queryTermCoverage": 0.857143,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "pad-full-anticoagulation-not-indicated",
+      "question": "Should full-intensity oral anticoagulation be used only to reduce PAD cardiovascular or limb events?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 3293.2912500109524,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "Full-intensity oral anticoagulation should not be used solely to reduce peripheral artery disease (PAD) cardiovascular or limb events when there is no other indication such as atrial fibrillation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.967,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.967,
+          "queryTermCoverage": 0.9,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "Bleeding Risk in Nonvalvular Atrial Fibrillation Patients Receiving Direct Oral Anticoagulants and Warfarin",
+          "score": 0.7135000000000001,
+          "pmid": "32676543",
+          "documentId": "pmid-32676543",
+          "evidenceScore": 0.7135,
+          "queryTermCoverage": 0.3,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 3,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.6124999999999999,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.6125,
+          "queryTermCoverage": 0.2,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "pad-cilostazol-heart-failure",
+      "question": "What does the PAD guideline say about cilostazol and heart failure?",
+      "expected_status": "grounded",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2610.7704999740236,
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "According to the 2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease, cilostazol is recommended to improve claudication symptoms and walking distance but should not be used in patients with congestive heart failure [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.8085714285714286,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.808571,
+          "queryTermCoverage": 0.714286,
+          "metadataBoost": 1.21
+        },
+        {
+          "rank": 2,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.7639285714285714,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.763929,
+          "queryTermCoverage": 0.285714,
+          "metadataBoost": 1.26
+        }
+      ]
+    },
+    {
+      "id": "negative-lyme-antibiotic",
+      "question": "What is the first-line antibiotic treatment for Lyme disease?",
+      "expected_status": "low_evidence",
+      "retrieval_status": "low_evidence",
+      "provider": "qdrant+adaptive",
+      "latency_ms": 288.75050001079217,
+      "source_hit_at_1": null,
+      "source_hit_at_3": null,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "The knowledge base did not return sources strong enough for this question, so I cannot provide a reliable cited medical answer. Consult a qualified clinician for medical decisions.\n\nThe retrieved sources were marked as insufficient for a safe answer: [S1] [S2]",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.2968,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.2968,
+          "queryTermCoverage": 0.0,
+          "metadataBoost": 1.18
+        },
+        {
+          "rank": 2,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.257,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.257,
+          "queryTermCoverage": 0.0,
+          "metadataBoost": 1.23
+        }
+      ]
+    },
+    {
+      "id": "negative-pancreatic-chemo",
+      "question": "What chemotherapy regimen is recommended for metastatic pancreatic cancer?",
+      "expected_status": "low_evidence",
+      "retrieval_status": "low_evidence",
+      "provider": "qdrant+adaptive",
+      "latency_ms": 301.72283295542,
+      "source_hit_at_1": null,
+      "source_hit_at_3": null,
+      "status_pass": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": true,
+      "answer": "The knowledge base did not return sources strong enough for this question, so I cannot provide a reliable cited medical answer. Consult a qualified clinician for medical decisions.\n\nThe retrieved sources were marked as insufficient for a safe answer: [S1] [S2]",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
+          "score": 0.28900000000000003,
+          "pmid": "33043620",
+          "documentId": "pmid-33043620",
+          "evidenceScore": 0.289,
+          "queryTermCoverage": 0.0,
+          "metadataBoost": 1.23
+        },
+        {
+          "rank": 2,
+          "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+          "score": 0.26480000000000004,
+          "pmid": "38743805",
+          "documentId": "guideline-acc-pad-2024",
+          "evidenceScore": 0.2648,
+          "queryTermCoverage": 0.0,
+          "metadataBoost": 1.18
+        }
+      ]
+    },
+    {
+      "id": "negative-uti-pregnancy",
+      "question": "What antibiotic should be used for urinary tract infection during pregnancy?",
+      "expected_status": "low_evidence",
+      "retrieval_status": "grounded",
+      "provider": "qdrant",
+      "latency_ms": 2027.59812498698,
+      "source_hit_at_1": null,
+      "source_hit_at_3": null,
+      "status_pass": false,
+      "citation_pass": false,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "forbidden_terms_present": [],
+      "expected_terms_missing": [],
+      "case_pass": false,
+      "answer": "Retrieved evidence summary: This review summarizes asthma exacerbation risk factors and the role of inhaled corticosteroids. [S1] Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Inhaled Corticosteroids for the Prevention of Asthma Exacerbations",
+          "score": 0.51,
+          "pmid": "34400314",
+          "documentId": "pmid-34400314",
+          "evidenceScore": 0.51,
+          "queryTermCoverage": 0.2,
+          "metadataBoost": 1.1
+        }
+      ]
+    }
+  ]
+}

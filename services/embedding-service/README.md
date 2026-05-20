@@ -18,8 +18,11 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build embedd
 ```
 
 Host GPU musi miec:
+Domyslny obraz Dockera instaluje PyTorch z **CUDA 12.8** (`cu128`) i uruchamia MedCPT na GPU. 
 
-- sterownik NVIDIA widoczny przez `nvidia-smi`,
+Host musi miec:
+
+- sterownik NVIDIA widoczny przez `nvidia-smi`
 - Docker z NVIDIA Container Toolkit,
 - Compose obslugujacy `gpus: all`.
 
@@ -61,7 +64,7 @@ HF_HOME=/models/huggingface
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
 QDRANT_TIMEOUT=10
-QDRANT_COLLECTION=MedicalChunk
+QDRANT_COLLECTION=MedicalChunk_pubmed_reviews_v1_medcpt_20260518
 QDRANT_VECTOR_NAME=medcpt_dense
 QDRANT_SPARSE_VECTOR_NAME=bm25_sparse
 BM25_STATS_PATH=/data/bm25_stats.json
@@ -196,7 +199,11 @@ Request:
 ```json
 {
   "text": "What reduces fever?",
-  "limit": 5
+  "limit": 5,
+  "metadata_filter": {
+    "corpusVersion": "pubmed-reviews-v1",
+    "min_year": 2016
+  }
 }
 ```
 
@@ -208,7 +215,7 @@ Response:
   "encoder": "query",
   "encoder_model": "ncbi/MedCPT-Query-Encoder",
   "dimension": 768,
-  "collection": "MedicalChunk",
+  "collection": "MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
   "vector_name": "medcpt_dense",
   "sparse_vector_name": "bm25_sparse",
   "fusion": "rrf",
@@ -254,9 +261,20 @@ Jesli zapytanie nie zawiera zadnych tokenow obecnych w slowniku BM25, serwis wra
 Mozna szybko sprawdzic, czy Docker widzi GPU:
 
 ```bash
-docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu22.04 nvidia-smi
 ```
 
 Fallback CPU jest w bazowym `docker-compose.yml`: ustawia `EMBEDDING_DEVICE=cpu` i uzywa CPU build PyTorch. GPU override `docker-compose.gpu.yml` ustawia `EMBEDDING_DEVICE=cuda`, `gpus: all` i CUDA build PyTorch.
+Jesli trzeba tymczasowo wrocic na CPU, uzyj pliku `docker-compose.cpu.yml` w katalogu glownym projektu (nadpisuje build CPU i wylacza GPU):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
+```
+
+Alternatywnie recznie zbuduj obraz z CPU-only PyTorch:
+
+```bash
+docker compose build --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu embedding-service
+```
 
 Po zmianie encoderów trzeba utworzyć nową kolekcję Qdrant albo przeprowadzić pełną reindeksację korpusu. Nie dopisujemy embeddingów z nowej przestrzeni do starej kolekcji.

@@ -1,0 +1,3595 @@
+{
+  "summary": {
+    "dataset": "data/eval_pubmedqa_benchmark.json",
+    "api_url": "http://127.0.0.1:8000",
+    "model": "qwen2.5:7b",
+    "case_count": 90,
+    "case_pass_rate": 0.4444444444444444,
+    "label_accuracy": 0.45555555555555555,
+    "grounded_status_rate": 0.9222222222222223,
+    "source_hit_at_1": 0.9111111111111111,
+    "source_hit_at_3": 0.9777777777777777,
+    "citation_pass_rate": 1.0,
+    "mean_groundedness": 1.0,
+    "mean_hallucination_rate": 0.0,
+    "mean_latency_ms": 8557.917123143045,
+    "labels": {
+      "maybe": {
+        "count": 30,
+        "accuracy": 0.5333333333333333
+      },
+      "no": {
+        "count": 30,
+        "accuracy": 0.26666666666666666
+      },
+      "yes": {
+        "count": 30,
+        "accuracy": 0.5666666666666667
+      }
+    },
+    "config": {
+      "candidate_k": 20,
+      "top_k": 3,
+      "temperature": 0.0,
+      "RAG_EVIDENCE_FILTER_ENABLED": "true",
+      "RAG_ANSWER_QUALITY_GATE_ENABLED": "true",
+      "RAG_CORPUS_VERSION": "pubmedqa-benchmark-v1"
+    }
+  },
+  "cases": [
+    {
+      "id": "pubmedqa-10223070",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7886.331916030031,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The methodologic weaknesses of the studies do not permit acceptance of increased risk of tubal pregnancy or infertility as a consequence of perforation of the appendix, so a causal relationship cannot be supported by the data currently available [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 1.0057142857142856,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 1.005714,
+          "queryTermCoverage": 0.857143
+        },
+        {
+          "rank": 2,
+          "title": "Does occupational nuclear power plant radiation affect conception and pregnancy?",
+          "score": 0.5032706766917293,
+          "pmid": "9363244",
+          "documentId": "pubmedqa-9363244",
+          "evidenceScore": 0.503271,
+          "queryTermCoverage": 0.214286
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.4827819548872181,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.482782,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10340286",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 335.66704200347885,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is there a role for leukocyte and CRP measurements in the diagnosis of acute appendicitis in the elderly?",
+          "score": 0.8899999999999999,
+          "pmid": "10340286",
+          "documentId": "pubmedqa-10340286",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10605400",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7306.0977080021985,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The INR measurements obtained in general practice were validated against values from hospital laboratories and found to be reliable [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the international normalised ratio (INR) reliable?",
+          "score": 0.8654545454545455,
+          "pmid": "10605400",
+          "documentId": "pubmedqa-10605400",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5441626794258373,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.544163,
+          "queryTermCoverage": 0.363636
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11034241",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8941.647167026531,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Is routine intraoperative frozen-section examination of sentinel lymph nodes in breast cancer worthwhile [S1]? Abstract context: Routine intraoperative frozen section (FS) of sentinel lymph nodes (SLN) can detect metastatic disease, allowing immediate axillary dissection and avoiding the need for reoperation [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is routine intraoperative frozen-section examination of sentinel lymph nodes in breast cancer worthwhile?",
+          "score": 0.9111764705882353,
+          "pmid": "11034241",
+          "documentId": "pubmedqa-11034241",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.46009287925696596,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.460093,
+          "queryTermCoverage": 0.235294
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11247896",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8368.91054204898,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The relevance for clinical management of individual patients with APC mutations in familial adenomatous polyposis is open to question, and large phenotypic variation was observed among patients with identical germline mutations [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can APC mutation analysis contribute to therapeutic decisions in familial adenomatous polyposis?",
+          "score": 0.9293749999999998,
+          "pmid": "11247896",
+          "documentId": "pubmedqa-11247896",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5211513157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.521151,
+          "queryTermCoverage": 0.3125
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11296674",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9347.266166994814,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The association between prostate and lung cancer is uncommon, but the possibility of synchronous tumors should be considered in patients with urinary and pulmonary symptoms suggestive of neoplasm [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Prostatic syndrome and pleural effusion: are they different diseases?",
+          "score": 0.8623076923076922,
+          "pmid": "11296674",
+          "documentId": "pubmedqa-11296674",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5667611336032389,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.566761,
+          "queryTermCoverage": 0.384615
+        },
+        {
+          "rank": 3,
+          "title": "Women with synchronous primary cancers of the endometrium and ovary: do they have Lynch syndrome?",
+          "score": 0.4843724696356275,
+          "pmid": "16361634",
+          "documentId": "pubmedqa-16361634",
+          "evidenceScore": 0.484372,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11411430",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8946.09116599895,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Antral follicle assessment was a better predictor of in vitro fertilization outcome than age and FSH [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Antral follicle assessment as a tool for predicting outcome in IVF--is it a better predictor than age and FSH?",
+          "score": 0.9199999999999999,
+          "pmid": "11411430",
+          "documentId": "pubmedqa-11411430",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5068421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.506842,
+          "queryTermCoverage": 0.222222
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.49236842105263157,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.492368,
+          "queryTermCoverage": 0.277778
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11458136",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9550.275332992896,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Does managed care enable more low income persons to identify a usual source of care [S1]? (1) To examine the effects of managed care on the likelihood of low-income persons having a usual source of care and a usual physician, and; (2) To examine the association between usual source of care and access [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does managed care enable more low income persons to identify a usual source of care?",
+          "score": 0.9111764705882353,
+          "pmid": "11458136",
+          "documentId": "pubmedqa-11458136",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5260371517027864,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.526037,
+          "queryTermCoverage": 0.294118
+        },
+        {
+          "rank": 3,
+          "title": "Are physicians meeting the needs of family caregivers of the frail elderly?",
+          "score": 0.5391950464396286,
+          "pmid": "8199520",
+          "documentId": "pubmedqa-8199520",
+          "evidenceScore": 0.539195,
+          "queryTermCoverage": 0.294118
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11570976",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": false,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8348.333832982462,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Retrieved evidence summary: Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S1]. Abstract context: To critically assess the evidence that appendiceal perforation is a risk factor for subsequent tubal infertility or ectopic pregnancy [S1]. Abstract context: Evidence suggests substantial comorbidity between symptoms of somatization and depression in clinical as well as nonclinical populations [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.8508270676691729,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.850827,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.4564661654135338,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.456466,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11867487",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8527.526541962288,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Although most players believed that rugby headgear may prevent concussion, only a minority reported wearing it, and coaches were less convinced about its effectiveness [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does rugby headgear prevent concussion?",
+          "score": 0.6,
+          "pmid": "11867487",
+          "documentId": "pubmedqa-11867487",
+          "evidenceScore": 0.6,
+          "queryTermCoverage": 0.4
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5736842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.573684,
+          "queryTermCoverage": 0.4
+        },
+        {
+          "rank": 3,
+          "title": "Does loss of consciousness predict neuropsychological decrements after concussion?",
+          "score": 0.496842105263158,
+          "pmid": "10593212",
+          "documentId": "pubmedqa-10593212",
+          "evidenceScore": 0.496842,
+          "queryTermCoverage": 0.2
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12407608",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9383.761624980252,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: Prepuncture ultrasound evaluation did not improve the result of right internal jugular vein cannulation compared with the respiratory jugular venodilation-guided approach [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does ultrasound imaging before puncture facilitate internal jugular vein cannulation?",
+          "score": 0.9012499999999999,
+          "pmid": "12407608",
+          "documentId": "pubmedqa-12407608",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5193421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.519342,
+          "queryTermCoverage": 0.25
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.4403947368421053,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.440395,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12626177",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7740.7182910246775,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The Internet would be a practical and accessible way of delivering sexual health education to young people, particularly if it is incorporated into activities and websites they enjoy [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can the Internet be used to improve sexual health awareness in web-wise young people?",
+          "score": 0.9012499999999999,
+          "pmid": "12626177",
+          "documentId": "pubmedqa-12626177",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49302631578947365,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.493026,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12630042",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10679.082125017885,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The retrieved study [S1] suggests that body mass index (BMI) may influence the long-term survival of gastric cancer patients after gastrectomy, but it does not provide a clear recommendation or direct evidence for morbidity.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does body mass index (BMI) influence morbidity and long-term survival in gastric cancer patients after gastrectomy?",
+          "score": 0.9349999999999998,
+          "pmid": "12630042",
+          "documentId": "pubmedqa-12630042",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4798684210526316,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.479868,
+          "queryTermCoverage": 0.25
+        },
+        {
+          "rank": 3,
+          "title": "Does the severity of obstructive sleep apnea predict patients requiring high continuous positive airway pressure?",
+          "score": 0.5286842105263159,
+          "pmid": "16735905",
+          "documentId": "pubmedqa-16735905",
+          "evidenceScore": 0.528684,
+          "queryTermCoverage": 0.3
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12790890",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 11865.428666991647,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The evidence is inconclusive as it suggests that either apoptosis is not involved in cell loss in MTS, or a very slow rate of cell demise may have precluded detecting TUNEL-positive neurons dying through apoptosis [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the cell death in mesial temporal sclerosis apoptotic?",
+          "score": 0.8824999999999998,
+          "pmid": "12790890",
+          "documentId": "pubmedqa-12790890",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5436842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.543684,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.46671052631578946,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.466711,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12805495",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10064.294292009436,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: Withholding anticoagulation therapy was strongly preferred for survivors of lobar ICH with atrial fibrillation, improving quality-adjusted life expectancy by 1.9 QALYs [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can patients be anticoagulated after intracerebral hemorrhage?",
+          "score": 0.8245454545454545,
+          "pmid": "12805495",
+          "documentId": "pubmedqa-12805495",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.7982296650717704,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.79823,
+          "queryTermCoverage": 0.454545
+        },
+        {
+          "rank": 3,
+          "title": "Can APC mutation analysis contribute to therapeutic decisions in familial adenomatous polyposis?",
+          "score": 0.49009569377990436,
+          "pmid": "11247896",
+          "documentId": "pubmedqa-11247896",
+          "evidenceScore": 0.490096,
+          "queryTermCoverage": 0.272727
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12920330",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8786.499792011455,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Baseline scores on the SCL-90-R somatization subscale significantly predicted subsequent self-reported symptoms of depressed mood 5 years later, but only in women [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.9199999999999999,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5680263157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.568026,
+          "queryTermCoverage": 0.416667
+        },
+        {
+          "rank": 3,
+          "title": "Does the SCL 90-R obsessive-compulsive dimension identify cognitive impairments?",
+          "score": 0.5568421052631579,
+          "pmid": "9582182",
+          "documentId": "pubmedqa-9582182",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-14599616",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9777.274582942482,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: An increase of 5% in circumference measurements identified the most potential lymphedema cases compared with an academic trial [S3].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5058299595141701,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.50583,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 2,
+          "title": "Biliary atresia: should all patients undergo a portoenterostomy?",
+          "score": 0.45805668016194334,
+          "pmid": "9044116",
+          "documentId": "pubmedqa-9044116",
+          "evidenceScore": 0.458057,
+          "queryTermCoverage": 0.230769
+        },
+        {
+          "rank": 3,
+          "title": "Can a practicing surgeon detect early lymphedema reliably?",
+          "score": 0.8623076923076922,
+          "pmid": "14599616",
+          "documentId": "pubmedqa-14599616",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-14992556",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10047.531375021208,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Leaving out the period of intake of meals and beverages from the raw pH data might be the second best test after the time-consuming visual correction with a small chance of undetected gastropharyngeal reflux [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Artefacts in 24-h pharyngeal and oesophageal pH monitoring: is simplification of pH data analysis feasible?",
+          "score": 0.877142857142857,
+          "pmid": "14992556",
+          "documentId": "pubmedqa-14992556",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5733834586466166,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.573383,
+          "queryTermCoverage": 0.428571
+        },
+        {
+          "rank": 3,
+          "title": "Is the international normalised ratio (INR) reliable?",
+          "score": 0.5032706766917293,
+          "pmid": "10605400",
+          "documentId": "pubmedqa-10605400",
+          "evidenceScore": 0.503271,
+          "queryTermCoverage": 0.214286
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-15381614",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9167.448833992239,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Cutaneous melanoma in nonwhite persons has a manifestation and a prognosis that are different than those of cutaneous melanoma in white persons [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Cutaneous melanoma in a multiethnic population: is this a different disease?",
+          "score": 0.845,
+          "pmid": "15381614",
+          "documentId": "pubmedqa-15381614",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5680263157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.568026,
+          "queryTermCoverage": 0.416667
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.40092105263157896,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.400921,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-1571683",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9651.34629199747,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The 1992 study [S1] suggests that storage of vaccines in the community may be a weak link in the cold chain, but it does not definitively establish this as a widespread issue.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Storage of vaccines in the community: weak link in the cold chain?",
+          "score": 0.8623076923076922,
+          "pmid": "1571683",
+          "documentId": "pubmedqa-1571683",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5321457489878543,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.532146,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.5189878542510121,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.518988,
+          "queryTermCoverage": 0.307692
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-15787677",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10177.25716700079,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: [S1] reports that higher levels of aerobic fitness are associated with better microvascular and endothelial responsiveness in the 'at-risk' group of healthy adults.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does aerobic fitness influence microvascular function in healthy adults at risk of developing Type 2 diabetes?",
+          "score": 0.9199999999999999,
+          "pmid": "15787677",
+          "documentId": "pubmedqa-15787677",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49236842105263157,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.492368,
+          "queryTermCoverage": 0.277778
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.4660526315789474,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.466053,
+          "queryTermCoverage": 0.277778
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16361634",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8611.780041013844,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Two patients met Amsterdam criteria for Lynch syndrome [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Women with synchronous primary cancers of the endometrium and ovary: do they have Lynch syndrome?",
+          "score": 0.9293749999999998,
+          "pmid": "16361634",
+          "documentId": "pubmedqa-16361634",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5343092105263159,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.534309,
+          "queryTermCoverage": 0.3125
+        },
+        {
+          "rank": 3,
+          "title": "Is the international normalised ratio (INR) reliable?",
+          "score": 0.4403947368421053,
+          "pmid": "10605400",
+          "documentId": "pubmedqa-10605400",
+          "evidenceScore": 0.440395,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16392897",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8290.438708034344,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study suggests that quantitative real-time PCR assays for BCRABL detection can be comparable between laboratories despite significant differences in methodologies if the same positive control cell line and quality control gene are used [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "BCRABL transcript detection by quantitative real-time PCR : are correlated results possible from homebrew assays?",
+          "score": 0.9449999999999998,
+          "pmid": "16392897",
+          "documentId": "pubmedqa-16392897",
+          "evidenceScore": 0.945,
+          "queryTermCoverage": 0.722222
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49368421052631584,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.493684,
+          "queryTermCoverage": 0.222222
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16538201",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10077.53229199443,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The use of hydrophilic guidewires significantly improved technical success rates, especially in occlusions and more complicated lesions [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does use of hydrophilic guidewires significantly improve technical success rates of peripheral PTA?",
+          "score": 0.9111764705882353,
+          "pmid": "16538201",
+          "documentId": "pubmedqa-16538201",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        },
+        {
+          "rank": 2,
+          "title": "Does ultrasound imaging before puncture facilitate internal jugular vein cannulation?",
+          "score": 0.5127244582043344,
+          "pmid": "12407608",
+          "documentId": "pubmedqa-12407608",
+          "evidenceScore": 0.512724,
+          "queryTermCoverage": 0.235294
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.48640866873065014,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.486409,
+          "queryTermCoverage": 0.235294
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16735905",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9657.206750009209,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Severe OSA patients are much more likely to need high CPAP levels [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the severity of obstructive sleep apnea predict patients requiring high continuous positive airway pressure?",
+          "score": 0.9199999999999999,
+          "pmid": "16735905",
+          "documentId": "pubmedqa-16735905",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4805263157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.480526,
+          "queryTermCoverage": 0.222222
+        },
+        {
+          "rank": 3,
+          "title": "Does obstructive sleep apnea affect aerobic fitness?",
+          "score": 0.5568421052631579,
+          "pmid": "17076091",
+          "documentId": "pubmedqa-17076091",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16816043",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8830.344707996119,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Do French lay people and health professionals find it acceptable to breach confidentiality to protect a patient's wife from a sexually transmitted disease [S1]? Abstract context: To determine under what conditions lay people and health professionals find it acceptable for a physician to breach confidentiality to protect the wife of a patient with a sexually transmitted disease (STD) [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do French lay people and health professionals find it acceptable to breach confidentiality to protect a patient's wife from a sexually transmitted disease?",
+          "score": 0.9515789473684209,
+          "pmid": "16816043",
+          "documentId": "pubmedqa-16816043",
+          "evidenceScore": 0.951579,
+          "queryTermCoverage": 0.736842
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.488421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.488421,
+          "queryTermCoverage": 0.210526
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16968876",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9332.989374990575,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The results suggest that patients' self-reported HRQOL provide independent prognostic information for survival [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is a patient's self-reported health-related quality of life a prognostic factor for survival in non-small-cell lung cancer patients?",
+          "score": 0.9349999999999998,
+          "pmid": "16968876",
+          "documentId": "pubmedqa-16968876",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        },
+        {
+          "rank": 2,
+          "title": "Are head and neck specific quality of life measures necessary?",
+          "score": 0.496842105263158,
+          "pmid": "9278754",
+          "documentId": "pubmedqa-9278754",
+          "evidenceScore": 0.496842,
+          "queryTermCoverage": 0.2
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49302631578947365,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.493026,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-17076091",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9084.598083980381,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: Overall, in a US Air Force population, OSA does not predict a decrease in aerobic fitness as measured by cycle ergometry [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does obstructive sleep apnea affect aerobic fitness?",
+          "score": 0.8623076923076922,
+          "pmid": "17076091",
+          "documentId": "pubmedqa-17076091",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Does the severity of obstructive sleep apnea predict patients requiring high continuous positive airway pressure?",
+          "score": 0.5321457489878543,
+          "pmid": "16735905",
+          "documentId": "pubmedqa-16735905",
+          "evidenceScore": 0.532146,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Does aerobic fitness influence microvascular function in healthy adults at risk of developing Type 2 diabetes?",
+          "score": 0.5106882591093118,
+          "pmid": "15787677",
+          "documentId": "pubmedqa-15787677",
+          "evidenceScore": 0.510688,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-17076590",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8459.02983302949,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The 2006 study [S1] found that education by pharmacists, combined with access to counter samples, may or may not have an effect on medical provider prescribing patterns.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Counter sampling combined with medical provider education: do they alter prescribing behavior?",
+          "score": 0.9012499999999999,
+          "pmid": "17076590",
+          "documentId": "pubmedqa-17076590",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5474671052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.547467,
+          "queryTermCoverage": 0.3125
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9140335",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9950.414749968331,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Does fluoridation reduce the use of dental services among adults [S1]? Conclusion: Among adults aged 20 to 34 years with private dental insurance, fluoridation reduces oral disease but may or may not reduce use of restorative services, depending on dentists' clinical decisions [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does fluoridation reduce the use of dental services among adults?",
+          "score": 0.877142857142857,
+          "pmid": "9140335",
+          "documentId": "pubmedqa-9140335",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5222556390977444,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.522256,
+          "queryTermCoverage": 0.285714
+        },
+        {
+          "rank": 3,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.45063909774436095,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.450639,
+          "queryTermCoverage": 0.214286
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10375486",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9501.005874946713,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S1]. Abstract context: To critically assess the evidence that appendiceal perforation is a risk factor for subsequent tubal infertility or ectopic pregnancy [S1]. Twenty-four percent (23/96) of the patients had CXR evidence of ACS [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5453036437246964,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.545304,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 2,
+          "title": "Clinician assessment for acute chest syndrome in febrile patients with sickle cell disease: is it accurate enough?",
+          "score": 0.43174089068825916,
+          "pmid": "10381996",
+          "documentId": "pubmedqa-10381996",
+          "evidenceScore": 0.431741,
+          "queryTermCoverage": 0.230769
+        },
+        {
+          "rank": 3,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.8969230769230769,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10381996",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 11400.746708037332,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Retrieved evidence summary: Research question: Clinician assessment for acute chest syndrome in febrile patients with sickle cell disease: is it accurate enough [S1]? Abstract context: To determine whether the use of empiric chest radiography (CXR) is of significant value in detecting clinically unsuspected acute chest syndrome (ACS) in febrile patients with sickle cell disease (SCD) [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Clinician assessment for acute chest syndrome in febrile patients with sickle cell disease: is it accurate enough?",
+          "score": 0.9293749999999998,
+          "pmid": "10381996",
+          "documentId": "pubmedqa-10381996",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4798684210526316,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.479868,
+          "queryTermCoverage": 0.25
+        },
+        {
+          "rank": 3,
+          "title": "Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging?",
+          "score": 0.5061842105263158,
+          "pmid": "8165771",
+          "documentId": "pubmedqa-8165771",
+          "evidenceScore": 0.506184,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10456814",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 12112.237915978767,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The source PMID 10456814 does not provide a direct conclusion on whether desflurane alters left ventricular function when used to control surgical stimulation during aortic surgery, but it reports that afterload assessed by systemic vascular resistance index (SVRI), end-systolic wall-stress (ESWS) and left-ventricular stroke work index (LVSWI) increased with incision until the hypertension returned to post-induction values [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does desflurane alter left ventricular function when used to control surgical stimulation during aortic surgery?",
+          "score": 0.9199999999999999,
+          "pmid": "10456814",
+          "documentId": "pubmedqa-10456814",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.5318421052631579,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.531842,
+          "queryTermCoverage": 0.277778
+        },
+        {
+          "rank": 3,
+          "title": "Measuring hospital mortality rates: are 30-day data enough?",
+          "score": 0.49368421052631584,
+          "pmid": "7860319",
+          "documentId": "pubmedqa-7860319",
+          "evidenceScore": 0.493684,
+          "queryTermCoverage": 0.222222
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10473855",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9203.79454200156,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Is delayed gastric emptying following pancreaticoduodenectomy related to pylorus preservation [S1]? Abstract context: Delayed gastric emptying (DGE) is the most frequent postoperative complication after pylorus-preserving pancreaticoduodenectomy (PPPD) [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is delayed gastric emptying following pancreaticoduodenectomy related to pylorus preservation?",
+          "score": 0.877142857142857,
+          "pmid": "10473855",
+          "documentId": "pubmedqa-10473855",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5222556390977444,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.522256,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10575390",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10271.57633297611,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Do follow-up recommendations for abnormal Papanicolaou smears influence patient adherence [S1]? Abstract context: To compare adherence to follow-up recommendations for colposcopy or repeated Papanicolaou (Pap) smears for women with previously abnormal Pap smear results [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do follow-up recommendations for abnormal Papanicolaou smears influence patient adherence?",
+          "score": 0.8623076923076922,
+          "pmid": "10575390",
+          "documentId": "pubmedqa-10575390",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5321457489878543,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.532146,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.3527935222672065,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.352794,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10593212",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9848.407874989789,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found no significant differences between the LOC, no LOC, or uncertain LOC groups for any of the neuropsychological measures used, indicating that patients who experienced traumatic LOC did not perform more poorly on neuropsychological testing than those with no LOC or uncertain LOC [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does loss of consciousness predict neuropsychological decrements after concussion?",
+          "score": 0.877142857142857,
+          "pmid": "10593212",
+          "documentId": "pubmedqa-10593212",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5412406015037594,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.541241,
+          "queryTermCoverage": 0.357143
+        },
+        {
+          "rank": 3,
+          "title": "Do socioeconomic differences in mortality persist after retirement?",
+          "score": 0.4901127819548873,
+          "pmid": "8916748",
+          "documentId": "pubmedqa-8916748",
+          "evidenceScore": 0.490113,
+          "queryTermCoverage": 0.214286
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10732884",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10486.570084001869,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found no significant difference in in-hospital mortality between patients who had coronary angiography on the day of surgery and those who did not, suggesting that coronary angiography may not affect in-hospital mortality [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.9162171052631578,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.916217,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Measuring hospital mortality rates: are 30-day data enough?",
+          "score": 0.58875,
+          "pmid": "7860319",
+          "documentId": "pubmedqa-7860319",
+          "evidenceScore": 0.58875,
+          "queryTermCoverage": 0.375
+        },
+        {
+          "rank": 3,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.49302631578947365,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.493026,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10757151",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 11166.587290994357,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Does ischemic preconditioning require reperfusion before index ischemia [S1]? Abstract context: Ischemic preconditioning (IP) is initiated through one or several short bouts of ischemia and reperfusion which precede a prolonged ischemia [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does ischemic preconditioning require reperfusion before index ischemia?",
+          "score": 0.877142857142857,
+          "pmid": "10757151",
+          "documentId": "pubmedqa-10757151",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5090977443609023,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.509098,
+          "queryTermCoverage": 0.285714
+        },
+        {
+          "rank": 3,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.5032706766917293,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.503271,
+          "queryTermCoverage": 0.214286
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10781708",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9303.080249985214,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The incidence of venous thrombosis during hospitalisation in a department of general internal medicine is low and does not justify prophylaxis in all internal patients [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Thrombosis prophylaxis in hospitalised medical patients: does prophylaxis in all patients make sense?",
+          "score": 0.9092857142857143,
+          "pmid": "10781708",
+          "documentId": "pubmedqa-10781708",
+          "evidenceScore": 0.909286,
+          "queryTermCoverage": 0.642857
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5090977443609023,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.509098,
+          "queryTermCoverage": 0.285714
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.46962406015037594,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.469624,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7482275",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9379.720041004475,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The beneficial effect of hyperbaric oxygenation (HBO) for necrotizing fasciitis remains controversial [S1]. A well-designed case-control study is needed to provide a definitive answer regarding its use as an adjuvant therapy [S2].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Necrotizing fasciitis: an indication for hyperbaric oxygenation therapy?",
+          "score": 0.8245454545454545,
+          "pmid": "7482275",
+          "documentId": "pubmedqa-7482275",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5441626794258373,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.544163,
+          "queryTermCoverage": 0.363636
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7497757",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10292.338999977801,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study [S1] directly states that normothermic cardiopulmonary bypass does not prevent the development of the 'euthyroid sick syndrome' during and after CPB.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Cardiopulmonary bypass temperature does not affect postoperative euthyroid sick syndrome?",
+          "score": 0.9012499999999999,
+          "pmid": "7497757",
+          "documentId": "pubmedqa-7497757",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5211513157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.521151,
+          "queryTermCoverage": 0.3125
+        },
+        {
+          "rank": 3,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.5474671052631579,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.547467,
+          "queryTermCoverage": 0.3125
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7547656",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10831.625499995425,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S1]. Abstract context: To critically assess the evidence that appendiceal perforation is a risk factor for subsequent tubal infertility or ectopic pregnancy [S1]. Experiments were performed an 27 blood-perfused rabbit hearts (Langendorff apparatus) that were randomized into one of four series: (1) control (n = 7): 60 min normal flow - 60 min low flow (10%) ischemia - 60 min reperfusion [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5015789473684211,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.501579,
+          "queryTermCoverage": 0.210526
+        },
+        {
+          "rank": 2,
+          "title": "Does ischemic preconditioning require reperfusion before index ischemia?",
+          "score": 0.4621052631578948,
+          "pmid": "10757151",
+          "documentId": "pubmedqa-10757151",
+          "evidenceScore": 0.462105,
+          "queryTermCoverage": 0.210526
+        },
+        {
+          "rank": 3,
+          "title": "Does continuous intravenous infusion of low-concentration epinephrine impair uterine blood flow in pregnant ewes?",
+          "score": 0.9278947368421051,
+          "pmid": "7547656",
+          "documentId": "pubmedqa-7547656",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7664228",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 375.30125002376735,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Discharging patients earlier from Winnipeg hospitals: does it adversely affect quality of care?",
+          "score": 0.8899999999999999,
+          "pmid": "7664228",
+          "documentId": "pubmedqa-7664228",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8199520",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9403.932625020389,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study does not provide a definitive conclusion on whether physicians are meeting the needs of family caregivers of the frail elderly, citing hypotheses for discontent without clear evidence [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are physicians meeting the needs of family caregivers of the frail elderly?",
+          "score": 0.8623076923076922,
+          "pmid": "8199520",
+          "documentId": "pubmedqa-8199520",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5321457489878543,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.532146,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.45805668016194334,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.458057,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8200238",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8844.707167008892,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The 1994 study [S1] found that early oral intake is possible after both laparotomy and colorectal resection.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Must early postoperative oral intake be limited to laparoscopy?",
+          "score": 0.8623076923076922,
+          "pmid": "8200238",
+          "documentId": "pubmedqa-8200238",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5453036437246964,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.545304,
+          "queryTermCoverage": 0.307692
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8422202",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 420.0632919673808,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Metered-dose inhalers. Do health care providers know what to teach?",
+          "score": 0.877142857142857,
+          "pmid": "8422202",
+          "documentId": "pubmedqa-8422202",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8521557",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8506.099749996793,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The 1995 study [S1] tested the hypothesis that the deletion allele of the ACE gene is associated with insulin resistance, but did not directly address whether the insertion allele is a candidate gene for insulin resistance.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "The insertion allele of the ACE gene I/D polymorphism. A candidate gene for insulin resistance?",
+          "score": 0.877142857142857,
+          "pmid": "8521557",
+          "documentId": "pubmedqa-8521557",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5090977443609023,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.509098,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8566975",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7739.90554199554,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: We found no evidence of serovar specific immunity in our population [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Serovar specific immunity to Neisseria gonorrhoeae: does it exist?",
+          "score": 0.8969230769230769,
+          "pmid": "8566975",
+          "documentId": "pubmedqa-8566975",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5667611336032389,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.566761,
+          "queryTermCoverage": 0.384615
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.4712145748987855,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.471215,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8738894",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8934.292874997482,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The observations from this study provide limited support for the possibility that occupational arsenic exposure could play a role in the development of diabetes mellitus [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Diabetes mellitus among Swedish art glass workers--an effect of arsenic exposure?",
+          "score": 0.9293749999999998,
+          "pmid": "8738894",
+          "documentId": "pubmedqa-8738894",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5211513157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.521151,
+          "queryTermCoverage": 0.3125
+        },
+        {
+          "rank": 3,
+          "title": "Does occupational nuclear power plant radiation affect conception and pregnancy?",
+          "score": 0.46671052631578946,
+          "pmid": "9363244",
+          "documentId": "pubmedqa-9363244",
+          "evidenceScore": 0.466711,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8847047",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9066.879083984531,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: W-d HCCs were clinically demonstrated not to be early cancer, because there was no significant difference in disease free survival between the patients with w-d and l-d HCCs [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Prognosis of well differentiated small hepatocellular carcinoma--is well differentiated hepatocellular carcinoma clinically early cancer?",
+          "score": 0.8899999999999999,
+          "pmid": "8847047",
+          "documentId": "pubmedqa-8847047",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        },
+        {
+          "rank": 2,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.5568421052631579,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Prostatic syndrome and pleural effusion: are they different diseases?",
+          "score": 0.4836842105263158,
+          "pmid": "11296674",
+          "documentId": "pubmedqa-11296674",
+          "evidenceScore": 0.483684,
+          "queryTermCoverage": 0.2
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8921484",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7300.996666948777,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: Gestational age misclassification is an unlikely explanation for the reported divergence in average birth-weights for Aborigines and whites [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does gestational age misclassification explain the difference in birthweights for Australian aborigines and whites?",
+          "score": 0.9012499999999999,
+          "pmid": "8921484",
+          "documentId": "pubmedqa-8921484",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5061842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.506184,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9044116",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10024.303625046741,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The management of noncorrectable extra hepatic biliary atresia includes portoenterostomy, although the results of the surgery are variable [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Biliary atresia: should all patients undergo a portoenterostomy?",
+          "score": 0.8654545454545455,
+          "pmid": "9044116",
+          "documentId": "pubmedqa-9044116",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5704784688995216,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.570478,
+          "queryTermCoverage": 0.363636
+        },
+        {
+          "rank": 3,
+          "title": "Women with synchronous primary cancers of the endometrium and ovary: do they have Lynch syndrome?",
+          "score": 0.4374641148325359,
+          "pmid": "16361634",
+          "documentId": "pubmedqa-16361634",
+          "evidenceScore": 0.437464,
+          "queryTermCoverage": 0.272727
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9100537",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8340.43974999804,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that cytologic criteria reported to distinguish proliferative breast disease without atypia from nonproliferative breast disease have not been rigorously tested and the distinction was not conclusively proven [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can nonproliferative breast disease and proliferative breast disease without atypia be distinguished by fine-needle aspiration cytology?",
+          "score": 0.9012499999999999,
+          "pmid": "9100537",
+          "documentId": "pubmedqa-9100537",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.46671052631578946,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.466711,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9347843",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "no_sources",
+      "source_hit_at_1": false,
+      "source_hit_at_3": false,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 171.67141695972532,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer. Consult a qualified clinician for medical decisions.",
+      "final_documents": []
+    },
+    {
+      "id": "pubmedqa-9444542",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8511.691249965224,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The 1997 study found that HCA was not found to be a predictor of subsequent cognitive decline in the series studied [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does hippocampal atrophy on MRI predict cognitive decline?",
+          "score": 0.8623076923076922,
+          "pmid": "9444542",
+          "documentId": "pubmedqa-9444542",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Does loss of consciousness predict neuropsychological decrements after concussion?",
+          "score": 0.5106882591093118,
+          "pmid": "10593212",
+          "documentId": "pubmedqa-10593212",
+          "evidenceScore": 0.510688,
+          "queryTermCoverage": 0.230769
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5058299595141701,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.50583,
+          "queryTermCoverage": 0.307692
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9446993",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6824.791707971599,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: A study found that none of the dentists detected all six manipulated radiographs, with only three dentists correctly identifying five out of six [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can dentists recognize manipulated digital radiographs?",
+          "score": 0.845,
+          "pmid": "9446993",
+          "documentId": "pubmedqa-9446993",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5436842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.543684,
+          "queryTermCoverage": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9542484",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9065.8449169714,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Retrieved evidence summary: Research question: Does successful completion of the Perinatal Education Programme result in improved obstetric practice [S1]? Abstract context: To determine whether successful completion of the Perinatal Education Programme (PEP) improves obstetric practice [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does successful completion of the Perinatal Education Programme result in improved obstetric practice?",
+          "score": 0.9012499999999999,
+          "pmid": "9542484",
+          "documentId": "pubmedqa-9542484",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5193421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.519342,
+          "queryTermCoverage": 0.25
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.4140789473684211,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.414079,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9602458",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8985.533666040283,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Does the Child Health Computing System adequately identify children with cerebral palsy [S1]? Abstract context: This paper assesses the usefulness of the Child Health Computing System as a source of information about children with cerebral palsy [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the Child Health Computing System adequately identify children with cerebral palsy?",
+          "score": 0.9293749999999998,
+          "pmid": "9602458",
+          "documentId": "pubmedqa-9602458",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5061842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.506184,
+          "queryTermCoverage": 0.25
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.36144736842105263,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.361447,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9603166",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8873.62991599366,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Retrieved evidence summary: Research question: Should all human immunodeficiency virus-infected patients with end-stage renal disease be excluded from transplantation [S1]? Abstract context: Human immunodeficiency virus (HIV)-infected patients have generally been excluded from transplantation [S1]. Conclusion: Based on the predictive information available in a liver biopsy, we conclude that those patients who will not benefit from a Kasai procedure can be identified preoperatively, and channeled immediately to transplantation [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Should all human immunodeficiency virus-infected patients with end-stage renal disease be excluded from transplantation?",
+          "score": 0.9012499999999999,
+          "pmid": "9603166",
+          "documentId": "pubmedqa-9603166",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Biliary atresia: should all patients undergo a portoenterostomy?",
+          "score": 0.5343092105263159,
+          "pmid": "9044116",
+          "documentId": "pubmedqa-9044116",
+          "evidenceScore": 0.534309,
+          "queryTermCoverage": 0.3125
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.46671052631578946,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.466711,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9645785",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9000.585666974075,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Is a mandatory general surgery rotation necessary in the surgical clerkship [S1]? Abstract context: Changes in the spectrum of general surgery and the delivery of surgical care have placed the requirement for a mandatory general surgery rotation in the surgical clerkship in question [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is a mandatory general surgery rotation necessary in the surgical clerkship?",
+          "score": 0.8623076923076922,
+          "pmid": "9645785",
+          "documentId": "pubmedqa-9645785",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5321457489878543,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.532146,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.4843724696356275,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.484372,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-2224269",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7620.425500033889,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: General practitioners should consider using patients' first names more often, particularly with younger patients [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Should general practitioners call patients by their first names?",
+          "score": 0.8245454545454545,
+          "pmid": "2224269",
+          "documentId": "pubmedqa-2224269",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5704784688995216,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.570478,
+          "queryTermCoverage": 0.363636
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.5032535885167464,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.503254,
+          "queryTermCoverage": 0.272727
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-2503176",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7570.738999987952,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study [S1] aimed to determine the concentrations of inhibin in patients with hydatidiform mole and assess its potential as a clinical marker.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Inhibin: a new circulating marker of hydatidiform mole?",
+          "score": 0.845,
+          "pmid": "2503176",
+          "documentId": "pubmedqa-2503176",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5568421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7860319",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9849.528916995041,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The source [S1] found that using 30-day data discriminated the top and bottom fifths of 180-day data extremely well, but also noted a weaker correlation in the 31-180 day interval compared to the 0-30 day period.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Measuring hospital mortality rates: are 30-day data enough?",
+          "score": 0.8969230769230769,
+          "pmid": "7860319",
+          "documentId": "pubmedqa-7860319",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        },
+        {
+          "rank": 2,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.5667611336032389,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.566761,
+          "queryTermCoverage": 0.384615
+        },
+        {
+          "rank": 3,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.5189878542510121,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.518988,
+          "queryTermCoverage": 0.307692
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8017535",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8103.965041984338,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that substance use may be an important indicator of risk for HIV infection through its association with unsafe sexual behaviors among youth [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Substance use and HIV-related sexual behaviors among US high school students: are they related?",
+          "score": 0.9111764705882353,
+          "pmid": "8017535",
+          "documentId": "pubmedqa-8017535",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        },
+        {
+          "rank": 2,
+          "title": "Can the Internet be used to improve sexual health awareness in web-wise young people?",
+          "score": 0.5391950464396286,
+          "pmid": "12626177",
+          "documentId": "pubmedqa-12626177",
+          "evidenceScore": 0.539195,
+          "queryTermCoverage": 0.294118
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49972136222910224,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.499721,
+          "queryTermCoverage": 0.294118
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8111516",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8411.036167002749,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Family physicians provide sensitive, timely, and accurate community influenza morbidity data that complement data from other surveillance systems [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do family physicians make good sentinels for influenza?",
+          "score": 0.845,
+          "pmid": "8111516",
+          "documentId": "pubmedqa-8111516",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5305263157894737,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.530526,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.4798684210526316,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.479868,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8165771",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8998.87424998451,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Retrieved evidence summary: Research question: Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging [S1]? Abstract context: As part of the staging procedure in squamous cell carcinoma of the penis, we assessed the role of ultrasound examination, in particular its role in assessing the extent and the invasion into the corpora [S1]. Fifty-nine (48%) patients had squamous cell carcinoma; 63 (52%) had lymphoepitheliomas, undifferentiated NPC or poorly differentiated carcinoma, NOS (UNPC) [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging?",
+          "score": 0.8899999999999999,
+          "pmid": "8165771",
+          "documentId": "pubmedqa-8165771",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        },
+        {
+          "rank": 2,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.5868421052631579,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.586842,
+          "queryTermCoverage": 0.4
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.48736842105263156,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.487368,
+          "queryTermCoverage": 0.266667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8245806",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 11364.368958049454,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S1]. Abstract context: To critically assess the evidence that appendiceal perforation is a risk factor for subsequent tubal infertility or ectopic pregnancy [S1]. Fluoridation's effect on restorative dental demand among 972 Washington state employees and spouses, aged 20 to 34 years, in two fluoridated communities and a nonfluoridated community was examined [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5354135338345865,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.535414,
+          "queryTermCoverage": 0.285714
+        },
+        {
+          "rank": 2,
+          "title": "Does fluoridation reduce the use of dental services among adults?",
+          "score": 0.47695488721804513,
+          "pmid": "9140335",
+          "documentId": "pubmedqa-9140335",
+          "evidenceScore": 0.476955,
+          "queryTermCoverage": 0.214286
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.9092857142857143,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.909286,
+          "queryTermCoverage": 0.642857
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8262881",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 11579.958249989431,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Although the study found a higher rate of lifetime DSM-III-R psychotic disorder diagnoses in patients with psychotic BDD, it did not definitively establish that BDD has a psychotic subtype [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Body dysmorphic disorder: does it have a psychotic subtype?",
+          "score": 0.8623076923076922,
+          "pmid": "8262881",
+          "documentId": "pubmedqa-8262881",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5453036437246964,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.545304,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Does psychological distress predict disability?",
+          "score": 0.4795141700404859,
+          "pmid": "9363529",
+          "documentId": "pubmedqa-9363529",
+          "evidenceScore": 0.479514,
+          "queryTermCoverage": 0.307692
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8375607",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8646.903958986513,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Breast-feeding was related to lower levels of childhood illness both in the first and the first three years of life [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the breast best for children with a family history of atopy?",
+          "score": 0.8824999999999998,
+          "pmid": "8375607",
+          "documentId": "pubmedqa-8375607",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5568421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.49302631578947365,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.493026,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8910148",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10326.824749994557,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that transesophageal echocardiography (TEE) is useful to assess left ventricular function in potential brain-dead donors [S3]. However, the suitability of marginally acceptable hearts for transplantation was not directly addressed by this research [S3].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does desflurane alter left ventricular function when used to control surgical stimulation during aortic surgery?",
+          "score": 0.488421052631579,
+          "pmid": "10456814",
+          "documentId": "pubmedqa-10456814",
+          "evidenceScore": 0.488421,
+          "queryTermCoverage": 0.210526
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4357894736842105,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.435789,
+          "queryTermCoverage": 0.210526
+        },
+        {
+          "rank": 3,
+          "title": "Transesophageal echocardiographic assessment of left ventricular function in brain-dead patients: are marginally acceptable hearts suitable for transplantation?",
+          "score": 0.9278947368421051,
+          "pmid": "8910148",
+          "documentId": "pubmedqa-8910148",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8916748",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8164.204750035424,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Socioeconomic differences in mortality persist beyond retirement age and tend to increase with age [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do socioeconomic differences in mortality persist after retirement?",
+          "score": 0.8824999999999998,
+          "pmid": "8916748",
+          "documentId": "pubmedqa-8916748",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5548684210526316,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.554868,
+          "queryTermCoverage": 0.416667
+        },
+        {
+          "rank": 3,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.5061842105263158,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.506184,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8985020",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 223.32529100822285,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.9414285714285713,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.941429,
+          "queryTermCoverage": 0.714286
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9003088",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7771.600166044664,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study demonstrated and localized estrogen and progesterone receptors (ER, PR) in tissue sections of the anal canal, suggesting a potential hormonal influence on anal continence in women [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Immunohistochemical assessment of steroid hormone receptors in tissues of the anal canal. Implications for anal incontinence?",
+          "score": 0.9012499999999999,
+          "pmid": "9003088",
+          "documentId": "pubmedqa-9003088",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5061842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.506184,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9107172",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8544.818750000559,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Our medium-term experience with implantable LVADs suggests they can serve as an alternative to transplantation, though the evidence is based on a small sample size and further trials are needed [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Bridge experience with long-term implantable left ventricular assist devices. Are they an alternative to transplantation?",
+          "score": 0.9199999999999999,
+          "pmid": "9107172",
+          "documentId": "pubmedqa-9107172",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.49236842105263157,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.492368,
+          "queryTermCoverage": 0.277778
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9142039",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 405.95166600542143,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does pediatric housestaff experience influence tests ordered for infants in the neonatal intensive care unit?",
+          "score": 0.9199999999999999,
+          "pmid": "9142039",
+          "documentId": "pubmedqa-9142039",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9191526",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9768.189041002188,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Multidisciplinary breast cancer clinics increased patient satisfaction and reduced treatment initiation time [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Multidisciplinary breast cancer clinics. Do they work?",
+          "score": 0.845,
+          "pmid": "9191526",
+          "documentId": "pubmedqa-9191526",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5811842105263159,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.581184,
+          "queryTermCoverage": 0.416667
+        },
+        {
+          "rank": 3,
+          "title": "Is the breast best for children with a family history of atopy?",
+          "score": 0.49302631578947365,
+          "pmid": "8375607",
+          "documentId": "pubmedqa-8375607",
+          "evidenceScore": 0.493026,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9199905",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10251.840292010456,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The term 'vertical lines in esophageal mucosa' (VLEM) was described as the only mucosal abnormality found in 41 endoscopies, suggesting it is a true endoscopic manifestation of esophagitis in children [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Vertical lines in distal esophageal mucosa (VLEM): a true endoscopic manifestation of esophagitis in children?",
+          "score": 0.9111764705882353,
+          "pmid": "9199905",
+          "documentId": "pubmedqa-9199905",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.48640866873065014,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.486409,
+          "queryTermCoverage": 0.235294
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9278754",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8732.08375001559,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Head and neck-specific QOL measures are necessary and should include domains that reflect eating/swallowing, speech/communication, and appearance [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are head and neck specific quality of life measures necessary?",
+          "score": 0.8623076923076922,
+          "pmid": "9278754",
+          "documentId": "pubmedqa-9278754",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5536032388663968,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.553603,
+          "queryTermCoverage": 0.384615
+        },
+        {
+          "rank": 3,
+          "title": "Does loss of consciousness predict neuropsychological decrements after concussion?",
+          "score": 0.4712145748987855,
+          "pmid": "10593212",
+          "documentId": "pubmedqa-10593212",
+          "evidenceScore": 0.471215,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9363244",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9518.183458014391,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The data suggest that occupational exposure due to ionizing radiation should be investigated as a possible cause for involuntary temporary sterility and as a risk factor for early pregnancy disorders [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5568421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 2,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.4705263157894737,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.470526,
+          "queryTermCoverage": 0.2
+        },
+        {
+          "rank": 3,
+          "title": "Does occupational nuclear power plant radiation affect conception and pregnancy?",
+          "score": 0.8899999999999999,
+          "pmid": "9363244",
+          "documentId": "pubmedqa-9363244",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9363529",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9005.015040980652,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that a sum score based on self-reports of 11 symptoms at the baseline was used as a measure of psychological distress and predicted disability due to common chronic disorders [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does psychological distress predict disability?",
+          "score": 0.8654545454545455,
+          "pmid": "9363529",
+          "documentId": "pubmedqa-9363529",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5573205741626794,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.557321,
+          "queryTermCoverage": 0.363636
+        },
+        {
+          "rank": 3,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.5032535885167464,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.503254,
+          "queryTermCoverage": 0.272727
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9381529",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10201.026124996133,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Immune suppression by lysosomotropic amines and cyclosporine on T-cell responses to minor and major histocompatibility antigens: does synergy exist [S1]? Because lysosomotropic amines can suppress major histocompatibility complex (MHC) class II antigen presentation, their mechanism of action is potentially different from current immune suppressant drugs used to control GVHD such as cyclosporine [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Immune suppression by lysosomotropic amines and cyclosporine on T-cell responses to minor and major histocompatibility antigens: does synergy exist?",
+          "score": 0.9349999999999998,
+          "pmid": "9381529",
+          "documentId": "pubmedqa-9381529",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.45736842105263165,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.457368,
+          "queryTermCoverage": 0.2
+        },
+        {
+          "rank": 3,
+          "title": "Serovar specific immunity to Neisseria gonorrhoeae: does it exist?",
+          "score": 0.496842105263158,
+          "pmid": "8566975",
+          "documentId": "pubmedqa-8566975",
+          "evidenceScore": 0.496842,
+          "queryTermCoverage": 0.2
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9427037",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10239.790250023361,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The presence or absence of vascular endothelial proliferation is included in classic histologic grading schemes for astrocytomas [S1]. Lacy clusters of small-to-medium sized vessels with intact vessel wall integrity were observed in pilocytic astrocytomas, indicating a correlation between endothelial cell patterns and tumor grade [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are endothelial cell patterns of astrocytomas indicative of grade?",
+          "score": 0.845,
+          "pmid": "9427037",
+          "documentId": "pubmedqa-9427037",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5568421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.40092105263157896,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.400921,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9465206",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "low_evidence",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 382.4761669966392,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer [S1]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "\"Occult\" posttraumatic lesions of the knee: can magnetic resonance substitute for diagnostic arthroscopy?",
+          "score": 0.9012499999999999,
+          "pmid": "9465206",
+          "documentId": "pubmedqa-9465206",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9483814",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10200.77041699551,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Retrieved evidence summary: Research question: Does para-cervical block offer additional advantages in abortion induction with gemeprost in the 2nd trimester [S1]? It can shorten the duration of last period of second trimester abortion in some cases but has no impact on the perception of pain nor requirement of analgesics and so with only limited benefit in second trimester abortion with vaginal gemeprost [S1]. Articles were assessed according to the criteria of the Evidence-Based Medicine Working Group for evaluating articles on harm [S2]. Consult a qualified clinician for medical decisions.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does para-cervical block offer additional advantages in abortion induction with gemeprost in the 2nd trimester?",
+          "score": 0.9199999999999999,
+          "pmid": "9483814",
+          "documentId": "pubmedqa-9483814",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5068421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.506842,
+          "queryTermCoverage": 0.222222
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.46736842105263154,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.467368,
+          "queryTermCoverage": 0.222222
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9488747",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8019.131375011057,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Aquagenic maladies could be a pediatric form of the aquagenic urticaria [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Syncope during bathing in infants, a pediatric form of water-induced urticaria?",
+          "score": 0.877142857142857,
+          "pmid": "9488747",
+          "documentId": "pubmedqa-9488747",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5412406015037594,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.541241,
+          "queryTermCoverage": 0.357143
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9550200",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9038.80974999629,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The influence of lunar phases on the time of delivery seems relevant in multiparae and plurigravidae, but it is too weak to allow for prediction regarding the days with the highest frequency of deliveries [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does lunar position influence the time of delivery?",
+          "score": 0.845,
+          "pmid": "9550200",
+          "documentId": "pubmedqa-9550200",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5568421052631579,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.556842,
+          "queryTermCoverage": 0.333333
+        },
+        {
+          "rank": 3,
+          "title": "Serovar specific immunity to Neisseria gonorrhoeae: does it exist?",
+          "score": 0.4403947368421053,
+          "pmid": "8566975",
+          "documentId": "pubmedqa-8566975",
+          "evidenceScore": 0.440395,
+          "queryTermCoverage": 0.25
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9569972",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8474.762541998643,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The proliferative index obtained by DNA image cytometry adds prognostic information in Auer IV breast cancer [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Proliferative index obtained by DNA image cytometry. Does it add prognostic information in Auer IV breast cancer?",
+          "score": 0.9278947368421051,
+          "pmid": "9569972",
+          "documentId": "pubmedqa-9569972",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        },
+        {
+          "rank": 2,
+          "title": "Can APC mutation analysis contribute to therapeutic decisions in familial adenomatous polyposis?",
+          "score": 0.488421052631579,
+          "pmid": "11247896",
+          "documentId": "pubmedqa-11247896",
+          "evidenceScore": 0.488421,
+          "queryTermCoverage": 0.210526
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.47526315789473683,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.475263,
+          "queryTermCoverage": 0.210526
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9582182",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8658.445208973717,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The SCL 90-R Obsessive-Compulsive subscale was not related to objective measures of attention, verbal memory, or age, and was best viewed as an indicator of unidimensional emotional distress [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the SCL 90-R obsessive-compulsive dimension identify cognitive impairments?",
+          "score": 0.877142857142857,
+          "pmid": "9582182",
+          "documentId": "pubmedqa-9582182",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        },
+        {
+          "rank": 2,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.5032706766917293,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.503271,
+          "queryTermCoverage": 0.214286
+        },
+        {
+          "rank": 3,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4959398496240601,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.49594,
+          "queryTermCoverage": 0.285714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9616411",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8326.92495896481,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study suggests that populations with access to general practitioner hospitals utilize general hospitals less in terms of admissions and occupied bed days [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do general practitioner hospitals reduce the utilisation of general hospital beds?",
+          "score": 0.8969230769230769,
+          "pmid": "9616411",
+          "documentId": "pubmedqa-9616411",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5189878542510121,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.518988,
+          "queryTermCoverage": 0.307692
+        },
+        {
+          "rank": 3,
+          "title": "Thrombosis prophylaxis in hospitalised medical patients: does prophylaxis in all patients make sense?",
+          "score": 0.49753036437246967,
+          "pmid": "10781708",
+          "documentId": "pubmedqa-10781708",
+          "evidenceScore": 0.49753,
+          "queryTermCoverage": 0.230769
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9722752",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10431.080707989167,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved study [S1] suggests that using a bone anchor system for fixing the suture at the pubic bone may improve outcomes compared to traditional percutaneous needle suspension, but it also notes that due to poorer long-term results from percutaneous needle suspension, its status as a first-line procedure remains questionable.",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does bone anchor fixation improve the outcome of percutaneous bladder neck suspension in female stress urinary incontinence?",
+          "score": 0.9349999999999998,
+          "pmid": "9722752",
+          "documentId": "pubmedqa-9722752",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        },
+        {
+          "rank": 2,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.4836842105263158,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.483684,
+          "queryTermCoverage": 0.2
+        },
+        {
+          "rank": 3,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.3389473684210526,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.338947,
+          "queryTermCoverage": 0.2
+        }
+      ]
+    }
+  ]
+}

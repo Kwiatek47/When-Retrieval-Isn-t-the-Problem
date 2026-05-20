@@ -1,0 +1,2281 @@
+{
+  "summary": {
+    "dataset": "data/eval_pubmedqa_strict_90.json",
+    "api_url": "http://127.0.0.1:8000",
+    "model": "qwen2.5:7b",
+    "case_count": 90,
+    "case_pass_rate": 0.5888888888888889,
+    "label_accuracy": 0.6111111111111112,
+    "grounded_status_rate": 0.9888888888888889,
+    "source_hit_at_1": 0.9777777777777777,
+    "source_hit_at_3": 0.9777777777777777,
+    "citation_pass_rate": 1.0,
+    "mean_groundedness": 0.9831460674157303,
+    "mean_hallucination_rate": 0.016853932584269662,
+    "mean_latency_ms": 7562.942323636445,
+    "labels": {
+      "maybe": {
+        "count": 30,
+        "accuracy": 0.6333333333333333
+      },
+      "no": {
+        "count": 30,
+        "accuracy": 0.6333333333333333
+      },
+      "yes": {
+        "count": 30,
+        "accuracy": 0.5666666666666667
+      }
+    },
+    "config": {
+      "candidate_k": 20,
+      "top_k": 1,
+      "temperature": 0.0,
+      "RAG_EVIDENCE_FILTER_ENABLED": "true",
+      "RAG_ANSWER_QUALITY_GATE_ENABLED": "true",
+      "RAG_CORPUS_VERSION": "pubmedqa-strict-90-v1"
+    }
+  },
+  "cases": [
+    {
+      "id": "pubmedqa-10223070",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8273.877083032858,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The evidence suggests that perforation of the appendix is associated with an increased risk of tubal infertility and ectopic pregnancy, though estimates vary and some studies show recall bias and confounding variables [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.9735714285714285,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.973571,
+          "queryTermCoverage": 0.785714
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10340286",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8521.18383301422,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study found that in elderly patients with acute appendicitis, there were no cases where both leukocyte count and CRP value were unelevated [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is there a role for leukocyte and CRP measurements in the diagnosis of acute appendicitis in the elderly?",
+          "score": 0.8899999999999999,
+          "pmid": "10340286",
+          "documentId": "pubmedqa-10340286",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10605400",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8960.047916974872,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The INR measurements in general practice showed a correlation coefficient of 0.96 with hospital laboratory results, indicating reliability, but there was also a positive bias and up to 53% of tests could result in clinically significant differences depending on the site and method of testing [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the international normalised ratio (INR) reliable?",
+          "score": 0.8654545454545455,
+          "pmid": "10605400",
+          "documentId": "pubmedqa-10605400",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11034241",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8873.643417027779,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The sensitivity of intraoperative frozen-section examination varies with tumor size and the volume of metastatic disease, being more effective for macrometastases than micrometastases [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is routine intraoperative frozen-section examination of sentinel lymph nodes in breast cancer worthwhile?",
+          "score": 0.9111764705882353,
+          "pmid": "11034241",
+          "documentId": "pubmedqa-11034241",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11247896",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8910.22033302579,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study suggests that mutation sites in the APC gene may correlate with disease severity, but significant phenotypic variation was observed among patients with identical mutations, making its direct contribution to therapeutic decisions uncertain [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can APC mutation analysis contribute to therapeutic decisions in familial adenomatous polyposis?",
+          "score": 0.9293749999999998,
+          "pmid": "11247896",
+          "documentId": "pubmedqa-11247896",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11296674",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6023.196917027235,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The source discusses an uncommon association between prostate and lung cancer but does not directly address whether prostatic syndrome and pleural effusion are different diseases [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Prostatic syndrome and pleural effusion: are they different diseases?",
+          "score": 0.8623076923076922,
+          "pmid": "11296674",
+          "documentId": "pubmedqa-11296674",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11411430",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8684.845709009096,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that the clinical pregnancy rate was significantly higher in the group with antral follicle >6 compared to those with ≤6, even after controlling for age and FSH levels [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Antral follicle assessment as a tool for predicting outcome in IVF--is it a better predictor than age and FSH?",
+          "score": 0.9199999999999999,
+          "pmid": "11411430",
+          "documentId": "pubmedqa-11411430",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11458136",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7065.033708000556,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study found that high managed care penetration in the community is associated with a lower likelihood of having a usual source of care for uninsured persons [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does managed care enable more low income persons to identify a usual source of care?",
+          "score": 0.9111764705882353,
+          "pmid": "11458136",
+          "documentId": "pubmedqa-11458136",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11570976",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": false,
+      "source_hit_at_3": false,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8085.330749978311,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The evidence does not directly address whether it is Crohn's disease; instead, it discusses the risk factors for tubal infertility and ectopic pregnancy related to appendiceal perforation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is perforation of the appendix a risk factor for tubal infertility and ectopic pregnancy?",
+          "score": 0.5602255639097744,
+          "pmid": "10223070",
+          "documentId": "pubmedqa-10223070",
+          "evidenceScore": 0.560226,
+          "queryTermCoverage": 0.428571
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-11867487",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6926.355583011173,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found that players believed headgear could prevent concussion, but few actually wore it or thought its use should be mandatory, suggesting mixed evidence [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does rugby headgear prevent concussion?",
+          "score": 0.6,
+          "pmid": "11867487",
+          "documentId": "pubmedqa-11867487",
+          "evidenceScore": 0.6,
+          "queryTermCoverage": 0.4
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12407608",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9234.277499956079,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found that while there was no significant difference in cannulation success rates between the landmark and ultrasound groups for patients where respiratory jugular venodilation could be identified, the ultrasound group had significantly higher success rates and lower arterial puncture incidence for those where this landmark could not be identified [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does ultrasound imaging before puncture facilitate internal jugular vein cannulation?",
+          "score": 0.9012499999999999,
+          "pmid": "12407608",
+          "documentId": "pubmedqa-12407608",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12626177",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8363.289874978364,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study suggests that while many web-wise young people would use a GUM website, none accessed the Internet for health information, indicating limited current utility of the Internet for sexual health awareness among this group [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can the Internet be used to improve sexual health awareness in web-wise young people?",
+          "score": 0.9012499999999999,
+          "pmid": "12626177",
+          "documentId": "pubmedqa-12626177",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12630042",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7858.122167002875,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that patients with a lower BMI had significantly longer survival rates compared to those with a higher BMI in stage 2, and vice versa for stage 3a [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does body mass index (BMI) influence morbidity and long-term survival in gastric cancer patients after gastrectomy?",
+          "score": 0.9349999999999998,
+          "pmid": "12630042",
+          "documentId": "pubmedqa-12630042",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12790890",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7468.602209002711,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found increased Bax expression and caspase activity, but no evidence for DNA fragmentation by TUNEL staining or typical apoptotic changes in nuclear morphology [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the cell death in mesial temporal sclerosis apoptotic?",
+          "score": 0.8824999999999998,
+          "pmid": "12790890",
+          "documentId": "pubmedqa-12790890",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12805495",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8846.59912501229,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The evidence suggests that withholding anticoagulation therapy may be preferred for patients with prior lobar ICH, but the decision can vary based on the location of the hemorrhage and other factors [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can patients be anticoagulated after intracerebral hemorrhage?",
+          "score": 0.8245454545454545,
+          "pmid": "12805495",
+          "documentId": "pubmedqa-12805495",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-12920330",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6386.213792022318,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Somatic complaints significantly predicted subsequent depressive symptoms in women but not in men, suggesting a potential association that is subgroup-specific [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do somatic complaints predict subsequent symptoms of depression?",
+          "score": 0.9199999999999999,
+          "pmid": "12920330",
+          "documentId": "pubmedqa-12920330",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-14599616",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6638.748083030805,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found varying sensitivities for detecting lymphedema, with a 5% increase in circumference at any site being the most sensitive but not perfect [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can a practicing surgeon detect early lymphedema reliably?",
+          "score": 0.8623076923076922,
+          "pmid": "14599616",
+          "documentId": "pubmedqa-14599616",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-14992556",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7383.936041966081,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: Leaving out meals during pH data analysis agreed best with manually corrected data and detected most patients with gastropharyngeal reflux, suggesting simplification is feasible [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Artefacts in 24-h pharyngeal and oesophageal pH monitoring: is simplification of pH data analysis feasible?",
+          "score": 0.877142857142857,
+          "pmid": "14992556",
+          "documentId": "pubmedqa-14992556",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-15381614",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7581.293208000716,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study found significant differences in tumor thickness, nodal status, anatomic distribution, and overall survival between nonwhite and white patients with cutaneous melanoma [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Cutaneous melanoma in a multiethnic population: is this a different disease?",
+          "score": 0.845,
+          "pmid": "15381614",
+          "documentId": "pubmedqa-15381614",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-1571683",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7534.032458032016,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found that only 16 out of 40 respondents were aware of the appropriate storage conditions, and vaccines were exposed to subzero temperatures or up to 16 degrees C in six of eight monitored practices, supporting the proposition [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Storage of vaccines in the community: weak link in the cold chain?",
+          "score": 0.8623076923076922,
+          "pmid": "1571683",
+          "documentId": "pubmedqa-1571683",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-15787677",
+      "expected_label": "maybe",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7511.72366697574,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: A positive correlation was demonstrated between maximal oxygen uptake and microvascular function measures in the at-risk group, suggesting that aerobic fitness influences microvascular function [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does aerobic fitness influence microvascular function in healthy adults at risk of developing Type 2 diabetes?",
+          "score": 0.9199999999999999,
+          "pmid": "15787677",
+          "documentId": "pubmedqa-15787677",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16361634",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10012.90854200488,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found that out of 59 women with synchronous endometrial and ovarian cancers, two met Amsterdam criteria for HNPCC, and five additional medium-risk patients had molecular findings consistent with a germline mutation [S1]. This suggests that some women with these cancers may have Lynch syndrome, but the evidence is not strong enough to definitively support or refute the proposition in all cases [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Women with synchronous primary cancers of the endometrium and ovary: do they have Lynch syndrome?",
+          "score": 0.9293749999999998,
+          "pmid": "16361634",
+          "documentId": "pubmedqa-16361634",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16392897",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8103.021749993786,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study showed strong correlation (r(s) = 0.9435, p<0.00001) between homebrew assays from two different laboratories for BCRABL transcript detection by quantitative real-time PCR [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "BCRABL transcript detection by quantitative real-time PCR : are correlated results possible from homebrew assays?",
+          "score": 0.9449999999999998,
+          "pmid": "16392897",
+          "documentId": "pubmedqa-16392897",
+          "evidenceScore": 0.945,
+          "queryTermCoverage": 0.722222
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16538201",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7959.28766601719,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The technical success rate was significantly higher with hydrophilic guidewires in PTA procedures for stenosis and occlusions of the iliac and SFA arteries [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does use of hydrophilic guidewires significantly improve technical success rates of peripheral PTA?",
+          "score": 0.9111764705882353,
+          "pmid": "16538201",
+          "documentId": "pubmedqa-16538201",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16735905",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10966.22879197821,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The severity of obstructive sleep apnea is associated with a higher likelihood of requiring high continuous positive airway pressure, as evidenced by the significantly higher proportion of severe OSA patients needing high CPAP (28.6%) compared to mild and moderate groups [S1]. Additionally, logistic regression analysis showed that severe OSA was 5.90 times more likely to require high CPAP after adjusting for other variables [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the severity of obstructive sleep apnea predict patients requiring high continuous positive airway pressure?",
+          "score": 0.9199999999999999,
+          "pmid": "16735905",
+          "documentId": "pubmedqa-16735905",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16816043",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8868.029375036713,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: Lay people and psychologists found breaching confidentiality to protect a wife from her husband's STD more acceptable than physicians, with mean ratings of 11.76 and 9.28 respectively on a scale of 0-22 [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do French lay people and health professionals find it acceptable to breach confidentiality to protect a patient's wife from a sexually transmitted disease?",
+          "score": 0.9515789473684209,
+          "pmid": "16816043",
+          "documentId": "pubmedqa-16816043",
+          "evidenceScore": 0.951579,
+          "queryTermCoverage": 0.736842
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-16968876",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8025.282791000791,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that patient's self-reported score of pain and dysphagia were independent prognostic factors for survival in non-small cell lung cancer patients, with hazard ratios indicating increased likelihood of death [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is a patient's self-reported health-related quality of life a prognostic factor for survival in non-small-cell lung cancer patients?",
+          "score": 0.9349999999999998,
+          "pmid": "16968876",
+          "documentId": "pubmedqa-16968876",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-17076091",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 0.5,
+      "hallucination_rate": 0.5,
+      "latency_ms": 8540.23208405124,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that overall, individuals with obstructive sleep apnea (OSA) had increased VO2max compared to a normalized US Air Force data, but patients with an apnea-hypopnea index greater than 20 demonstrated decreased VO2max [S1]. This suggests a mixed effect of OSA on aerobic fitness [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does obstructive sleep apnea affect aerobic fitness?",
+          "score": 0.8623076923076922,
+          "pmid": "17076091",
+          "documentId": "pubmedqa-17076091",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-17076590",
+      "expected_label": "maybe",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6241.508500010241,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that medical providers in the active intervention group significantly altered their prescribing behavior compared to the control group [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Counter sampling combined with medical provider education: do they alter prescribing behavior?",
+          "score": 0.9012499999999999,
+          "pmid": "17076590",
+          "documentId": "pubmedqa-17076590",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9140335",
+      "expected_label": "maybe",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8069.254125002772,
+      "case_pass": true,
+      "answer": "Answer: maybe\nEvidence: The study found that adults with high fluoridation exposure had a lower probability of receiving a restoration, but this was only significant when considering teeth with specific baseline conditions [S1]. Additionally, market effects suggested potential supplier-induced demand in the fluoridated community [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does fluoridation reduce the use of dental services among adults?",
+          "score": 0.877142857142857,
+          "pmid": "9140335",
+          "documentId": "pubmedqa-9140335",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10375486",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7690.284374984913,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found no clear association between carotid endarterectomy utilization rates and district stroke mortality or admission rates, suggesting that need may not fully explain variations [S1]. However, there was a strong relationship between service location and higher utilization, indicating potential other factors at play [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are variations in the use of carotid endarterectomy explained by population Need?",
+          "score": 0.8623076923076922,
+          "pmid": "10375486",
+          "documentId": "pubmedqa-10375486",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10381996",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7265.879875048995,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that clinician assessment had a low sensitivity (39%) for predicting acute chest syndrome and did not significantly improve diagnostic accuracy [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Clinician assessment for acute chest syndrome in febrile patients with sickle cell disease: is it accurate enough?",
+          "score": 0.9293749999999998,
+          "pmid": "10381996",
+          "documentId": "pubmedqa-10381996",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10456814",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10646.545374998823,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that afterload assessed by systemic vascular resistance index (SVRI), end-systolic wall-stress (ESWS) and left-ventricular stroke work index (LVSWI) increased with incision during aortic surgery when desflurane was used to control hypertension [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does desflurane alter left ventricular function when used to control surgical stimulation during aortic surgery?",
+          "score": 0.9199999999999999,
+          "pmid": "10456814",
+          "documentId": "pubmedqa-10456814",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10473855",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7977.415082976222,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that the overall incidence of delayed gastric emptying was significantly higher in patients who experienced other postoperative complications, suggesting a relationship between pylorus preservation and delayed gastric emptying [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is delayed gastric emptying following pancreaticoduodenectomy related to pylorus preservation?",
+          "score": 0.877142857142857,
+          "pmid": "10473855",
+          "documentId": "pubmedqa-10473855",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10575390",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6953.776624985039,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that the use of as many as 3 patient reminders substantially improved adherence to follow-up recommendations [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do follow-up recommendations for abnormal Papanicolaou smears influence patient adherence?",
+          "score": 0.8623076923076922,
+          "pmid": "10575390",
+          "documentId": "pubmedqa-10575390",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10593212",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6535.018875030801,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found no significant differences in neuropsychological test performance between patients who experienced loss of consciousness (LOC) and those who did not [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does loss of consciousness predict neuropsychological decrements after concussion?",
+          "score": 0.877142857142857,
+          "pmid": "10593212",
+          "documentId": "pubmedqa-10593212",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10732884",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7940.414957993198,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found no significant difference in in-hospital mortality between patients who underwent coronary angiography before emergency aortic surgery and those who did not, suggesting that coronary angiography does affect the decision-making process, even if it does not change outcomes directly [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does coronary angiography before emergency aortic surgery affect in-hospital mortality?",
+          "score": 0.9162171052631578,
+          "pmid": "10732884",
+          "documentId": "pubmedqa-10732884",
+          "evidenceScore": 0.916217,
+          "queryTermCoverage": 0.6875
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10757151",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9596.002624952234,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study shows that ischemic preconditioning can be achieved without reperfusion before index ischemia, as both intraischemic preconditioning and ramp ischemia protocols showed some protection against infarction compared to the control group [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does ischemic preconditioning require reperfusion before index ischemia?",
+          "score": 0.877142857142857,
+          "pmid": "10757151",
+          "documentId": "pubmedqa-10757151",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-10781708",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7918.716416985262,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study suggests that the incidence of venous thrombosis is higher in patients with malignancy, but it does not provide a clear recommendation for prophylaxis in all medical patients [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Thrombosis prophylaxis in hospitalised medical patients: does prophylaxis in all patients make sense?",
+          "score": 0.877142857142857,
+          "pmid": "10781708",
+          "documentId": "pubmedqa-10781708",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7482275",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 0.0,
+      "hallucination_rate": 1.0,
+      "latency_ms": 7582.697042031214,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The evidence suggests a potential benefit of hyperbaric oxygenation therapy for necrotizing fasciitis, but the results are mixed and not conclusive due to the small sample size and lack of significant differences in some outcomes [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Necrotizing fasciitis: an indication for hyperbaric oxygenation therapy?",
+          "score": 0.8245454545454545,
+          "pmid": "7482275",
+          "documentId": "pubmedqa-7482275",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7497757",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7403.486291994341,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found no significant difference in postoperative euthyroid sick syndrome between hypothermic and normothermic CPB groups [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Cardiopulmonary bypass temperature does not affect postoperative euthyroid sick syndrome?",
+          "score": 0.9012499999999999,
+          "pmid": "7497757",
+          "documentId": "pubmedqa-7497757",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7547656",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7216.809917008504,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that infusion of low-concentration epinephrine did not impair uterine blood flow in pregnant ewes [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does continuous intravenous infusion of low-concentration epinephrine impair uterine blood flow in pregnant ewes?",
+          "score": 0.9278947368421051,
+          "pmid": "7547656",
+          "documentId": "pubmedqa-7547656",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7664228",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 10179.769375012256,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found no consistent change in readmission rates for AMI, bronchitis or asthma over the four years, but there was a significant increase in readmission rates for uterine or adnexal procedures between the first and second year [S1]. The overall trend of decreasing lengths of stay did not universally correlate with increased physician visits or readmissions [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Discharging patients earlier from Winnipeg hospitals: does it adversely affect quality of care?",
+          "score": 0.8768421052631579,
+          "pmid": "7664228",
+          "documentId": "pubmedqa-7664228",
+          "evidenceScore": 0.876842,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8199520",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6593.18466699915,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that many caregivers were dissatisfied with the attention they received from the health care system, suggesting physicians may not be meeting their needs adequately [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are physicians meeting the needs of family caregivers of the frail elderly?",
+          "score": 0.8623076923076922,
+          "pmid": "8199520",
+          "documentId": "pubmedqa-8199520",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8200238",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8320.169458980672,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that early postoperative oral intake did not lead to a higher rate of nasogastric tube reinsertion or longer hospitalization compared to traditional feeding methods, suggesting it can be limited after laparoscopy [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Must early postoperative oral intake be limited to laparoscopy?",
+          "score": 0.8623076923076922,
+          "pmid": "8200238",
+          "documentId": "pubmedqa-8200238",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8422202",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7226.319332956336,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that a significant percentage of patients and healthcare providers, including house staff, nurses, and respiratory care practitioners, had poor knowledge or proficiency in the proper use of metered-dose inhalers [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Metered-dose inhalers. Do health care providers know what to teach?",
+          "score": 0.877142857142857,
+          "pmid": "8422202",
+          "documentId": "pubmedqa-8422202",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8521557",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7861.01133399643,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that subjects with the DD genotype had significantly lower levels of specific insulin and increased insulin sensitivity, but there were no differences in other measures between the genotypes [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "The insertion allele of the ACE gene I/D polymorphism. A candidate gene for insulin resistance?",
+          "score": 0.877142857142857,
+          "pmid": "8521557",
+          "documentId": "pubmedqa-8521557",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8566975",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6226.054916973226,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found no significant difference in the prevalence of serovars isolated following a repeat infection compared to those without repeat infections, suggesting no serovar specific immunity [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Serovar specific immunity to Neisseria gonorrhoeae: does it exist?",
+          "score": 0.8623076923076922,
+          "pmid": "8566975",
+          "documentId": "pubmedqa-8566975",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8738894",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6872.898083005566,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found a slightly elevated risk of diabetes mellitus among glass workers, especially those potentially exposed to arsenic [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Diabetes mellitus among Swedish art glass workers--an effect of arsenic exposure?",
+          "score": 0.9293749999999998,
+          "pmid": "8738894",
+          "documentId": "pubmedqa-8738894",
+          "evidenceScore": 0.929375,
+          "queryTermCoverage": 0.6875
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8847047",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7827.282542013563,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The evidence suggests that well differentiated hepatocellular carcinoma may not be clinically early cancer, as there were no significant differences in disease-free survival between the two groups [S1]. However, the presence of minute cancerous foci at the time of operation is suggestive but not conclusive [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Prognosis of well differentiated small hepatocellular carcinoma--is well differentiated hepatocellular carcinoma clinically early cancer?",
+          "score": 0.8899999999999999,
+          "pmid": "8847047",
+          "documentId": "pubmedqa-8847047",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8921484",
+      "expected_label": "no",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7453.099875012413,
+      "case_pass": false,
+      "answer": "Answer: yes\nEvidence: The study found that even minor misclassification of gestational age at preterm was sensitive to the divergence in 90th centiles, suggesting gestational age misclassification explains part of the difference in birthweights for Australian aborigines and whites [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does gestational age misclassification explain the difference in birthweights for Australian aborigines and whites?",
+          "score": 0.9012499999999999,
+          "pmid": "8921484",
+          "documentId": "pubmedqa-8921484",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9044116",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7965.459125000052,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study suggests that histological criteria can predict the outcome of portoenterostomy, but it does not provide clear evidence for or against performing the surgery in all patients [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Biliary atresia: should all patients undergo a portoenterostomy?",
+          "score": 0.8654545454545455,
+          "pmid": "9044116",
+          "documentId": "pubmedqa-9044116",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9100537",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7849.499541975092,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: A swirling pattern of epithelial cells was found to be significantly different between proliferative breast disease without atypia and nonproliferative breast disease, but this is the only cytologic feature noted, suggesting limited diagnostic utility [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can nonproliferative breast disease and proliferative breast disease without atypia be distinguished by fine-needle aspiration cytology?",
+          "score": 0.9012499999999999,
+          "pmid": "9100537",
+          "documentId": "pubmedqa-9100537",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9347843",
+      "expected_label": "no",
+      "predicted_label": "maybe",
+      "retrieval_status": "no_sources",
+      "source_hit_at_1": false,
+      "source_hit_at_3": false,
+      "citation_pass": true,
+      "groundedness": null,
+      "hallucination_rate": null,
+      "latency_ms": 127.4698749766685,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The retrieved evidence was not strong enough to support a reliable yes or no answer. Consult a qualified clinician for medical decisions.",
+      "final_documents": []
+    },
+    {
+      "id": "pubmedqa-9444542",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6364.633583987597,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study did not find significant differences in the rate of cognitive decline, mortality, or progression to dementia between subjects with or without hippocampal atrophy [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does hippocampal atrophy on MRI predict cognitive decline?",
+          "score": 0.8623076923076922,
+          "pmid": "9444542",
+          "documentId": "pubmedqa-9444542",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9446993",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 5595.600124972407,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that none of the dentists detected all six manipulated radiographs, suggesting they can recognize some but not all manipulations [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Can dentists recognize manipulated digital radiographs?",
+          "score": 0.845,
+          "pmid": "9446993",
+          "documentId": "pubmedqa-9446993",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9542484",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8479.895833996125,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found some improvements in knowledge among midwives who completed the Perinatal Education Programme (PEP), but there was no significant change in obstetric practice or appropriate actions taken for detected problems, suggesting mixed results [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does successful completion of the Perinatal Education Programme result in improved obstetric practice?",
+          "score": 0.9012499999999999,
+          "pmid": "9542484",
+          "documentId": "pubmedqa-9542484",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9602458",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6884.9192499765195,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that a significant percentage of children with cerebral palsy recorded in the Northern Ireland Cerebral Palsy Register were not identified by the Child Health Computing System, suggesting potential inadequacies in identification [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the Child Health Computing System adequately identify children with cerebral palsy?",
+          "score": 0.9012499999999999,
+          "pmid": "9602458",
+          "documentId": "pubmedqa-9602458",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9603166",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7149.928083003033,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The evidence suggests that most transplant centers still exclude HIV-infected patients with end-stage renal disease, but a few would consider it, indicating uncertainty in the current practice [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Should all human immunodeficiency virus-infected patients with end-stage renal disease be excluded from transplantation?",
+          "score": 0.9012499999999999,
+          "pmid": "9603166",
+          "documentId": "pubmedqa-9603166",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9645785",
+      "expected_label": "no",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 5845.9253330365755,
+      "case_pass": true,
+      "answer": "Answer: no\nEvidence: The study found that equal mastery of surgical clerkship objectives can be obtained with or without a mandatory general surgery rotation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is a mandatory general surgery rotation necessary in the surgical clerkship?",
+          "score": 0.8623076923076922,
+          "pmid": "9645785",
+          "documentId": "pubmedqa-9645785",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-2224269",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 5586.985541973263,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: Most patients either liked or did not mind being called by their first names, but a significant minority (16%) disliked it, especially older patients [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Should general practitioners call patients by their first names?",
+          "score": 0.8245454545454545,
+          "pmid": "2224269",
+          "documentId": "pubmedqa-2224269",
+          "evidenceScore": 0.824545,
+          "queryTermCoverage": 0.454545
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-2503176",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8229.589499998838,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that serum inhibin concentrations were significantly greater in patients with hydatidiform mole compared to normal women, and declined after evacuation of the mole, suggesting it can be a marker for this condition [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Inhibin: a new circulating marker of hydatidiform mole?",
+          "score": 0.845,
+          "pmid": "2503176",
+          "documentId": "pubmedqa-2503176",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-7860319",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7414.340584015008,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that 30-day hospital mortality rates discriminated the top and bottom fifths of 180-day data, especially for AMI outcomes [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Measuring hospital mortality rates: are 30-day data enough?",
+          "score": 0.8969230769230769,
+          "pmid": "7860319",
+          "documentId": "pubmedqa-7860319",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8017535",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6834.921375033446,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that students who reported using marijuana, cocaine, or other illicit drugs were most likely to report HIV-related sexual risk behaviors compared to those with no substance use [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Substance use and HIV-related sexual behaviors among US high school students: are they related?",
+          "score": 0.9111764705882353,
+          "pmid": "8017535",
+          "documentId": "pubmedqa-8017535",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8111516",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7663.145458034705,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Family physicians reported ILI peaks earlier than state health departments and WHO laboratories, suggesting they make good sentinels for influenza [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do family physicians make good sentinels for influenza?",
+          "score": 0.845,
+          "pmid": "8111516",
+          "documentId": "pubmedqa-8111516",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8165771",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7004.882208013441,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: Ultrasound examination was found to accurately measure tumor thickness and differentiate invasion into the tunica albuginea, making it a useful addition to clinical staging [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging?",
+          "score": 0.8899999999999999,
+          "pmid": "8165771",
+          "documentId": "pubmedqa-8165771",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8245806",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6525.562583003193,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that patient characteristics and reasons for visits at residency teaching sites were similar to those in the community, supporting the proposition [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does family practice at residency teaching sites reflect community practice?",
+          "score": 0.9092857142857143,
+          "pmid": "8245806",
+          "documentId": "pubmedqa-8245806",
+          "evidenceScore": 0.909286,
+          "queryTermCoverage": 0.642857
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8262881",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7769.800832960755,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study suggests that patients with psychotic BDD have a higher rate of lifetime DSM-III-R psychotic disorder diagnoses, but the two groups did not differ significantly on most other variables examined [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Body dysmorphic disorder: does it have a psychotic subtype?",
+          "score": 0.8623076923076922,
+          "pmid": "8262881",
+          "documentId": "pubmedqa-8262881",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8375607",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7138.9616670203395,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that breast-feeding was related to lower levels of childhood illness in children with a family history of atopy, including fewer episodes of gastroenteritis, respiratory tract infections, and skin infections [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Is the breast best for children with a family history of atopy?",
+          "score": 0.8824999999999998,
+          "pmid": "8375607",
+          "documentId": "pubmedqa-8375607",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8910148",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8225.232500000857,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that hearts with an FAC below 50% (marginally acceptable) were successfully transplanted, with overall actuarial survival rates indicating suitability for transplantation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Transesophageal echocardiographic assessment of left ventricular function in brain-dead patients: are marginally acceptable hearts suitable for transplantation?",
+          "score": 0.9278947368421051,
+          "pmid": "8910148",
+          "documentId": "pubmedqa-8910148",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8916748",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6303.160167008173,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that socioeconomic differences in mortality, as measured by employment grade and car ownership, persisted after retirement [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do socioeconomic differences in mortality persist after retirement?",
+          "score": 0.8824999999999998,
+          "pmid": "8916748",
+          "documentId": "pubmedqa-8916748",
+          "evidenceScore": 0.8825,
+          "queryTermCoverage": 0.583333
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-8985020",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8244.851875002496,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study supports the role of induction chemotherapy in managing nasopharyngeal carcinoma, as it was shown to be effective in a subset of patients and influenced treatment outcomes [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does induction chemotherapy have a role in the management of nasopharyngeal carcinoma?",
+          "score": 0.9092857142857143,
+          "pmid": "8985020",
+          "documentId": "pubmedqa-8985020",
+          "evidenceScore": 0.909286,
+          "queryTermCoverage": 0.642857
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9003088",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7407.421291980427,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study demonstrated the presence of estrogen and progesterone receptors in tissues of the anal canal, supporting the potential for a hormonal influence on anal continence [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Immunohistochemical assessment of steroid hormone receptors in tissues of the anal canal. Implications for anal incontinence?",
+          "score": 0.9012499999999999,
+          "pmid": "9003088",
+          "documentId": "pubmedqa-9003088",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9107172",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8334.111125033814,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study shows that long-term use of left ventricular assist devices (LVADs) as bridges to transplantation is successful, with a survival rate of 74% and no significant increase in mortality due to infection or thromboembolic complications [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Bridge experience with long-term implantable left ventricular assist devices. Are they an alternative to transplantation?",
+          "score": 0.9199999999999999,
+          "pmid": "9107172",
+          "documentId": "pubmedqa-9107172",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9142039",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7726.432333001867,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: Interns ordered significantly more arterial blood gases per infant than residents, supporting the influence of pediatric housestaff experience on tests ordered for infants in the neonatal ICU [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does pediatric housestaff experience influence tests ordered for infants in the neonatal intensive care unit?",
+          "score": 0.9199999999999999,
+          "pmid": "9142039",
+          "documentId": "pubmedqa-9142039",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9191526",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 5716.451166023035,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The multidisciplinary breast cancer clinic increased patient satisfaction and reduced the time between diagnosis and treatment initiation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Multidisciplinary breast cancer clinics. Do they work?",
+          "score": 0.845,
+          "pmid": "9191526",
+          "documentId": "pubmedqa-9191526",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9199905",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7312.855958007276,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The presence of VLEM was significantly associated with eosinophilic esophagitis in children, supporting its use as a true endoscopic manifestation [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Vertical lines in distal esophageal mucosa (VLEM): a true endoscopic manifestation of esophagitis in children?",
+          "score": 0.9111764705882353,
+          "pmid": "9199905",
+          "documentId": "pubmedqa-9199905",
+          "evidenceScore": 0.911176,
+          "queryTermCoverage": 0.647059
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9278754",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7323.847375053447,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The evidence suggests that head and neck-specific quality of life measures are necessary as they provide distinct information, particularly for eating/swallowing (ES) and speech/communication (SC), which are not well correlated with general health domains [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are head and neck specific quality of life measures necessary?",
+          "score": 0.8623076923076922,
+          "pmid": "9278754",
+          "documentId": "pubmedqa-9278754",
+          "evidenceScore": 0.862308,
+          "queryTermCoverage": 0.538462
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9363244",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6413.8150829821825,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study found no differences in the frequency of nuclear power plant exposure between sterile and fertile groups, and no correlation was found between radiation dose and abnormal spermiograms [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does occupational nuclear power plant radiation affect conception and pregnancy?",
+          "score": 0.8899999999999999,
+          "pmid": "9363244",
+          "documentId": "pubmedqa-9363244",
+          "evidenceScore": 0.89,
+          "queryTermCoverage": 0.6
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9363529",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8558.150458033197,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that higher levels of psychological distress were associated with a significantly increased risk of disability for various conditions, including myocardial infarction, depression, neck-shoulder disorders, and unspecified low-back disorders [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does psychological distress predict disability?",
+          "score": 0.8654545454545455,
+          "pmid": "9363529",
+          "documentId": "pubmedqa-9363529",
+          "evidenceScore": 0.865455,
+          "queryTermCoverage": 0.545455
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9381529",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8231.47966596298,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that lysosomotropic amines in combination with cyclosporine result in synergistic suppression of T-cell responses to minor and major histocompatibility antigens [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Immune suppression by lysosomotropic amines and cyclosporine on T-cell responses to minor and major histocompatibility antigens: does synergy exist?",
+          "score": 0.9349999999999998,
+          "pmid": "9381529",
+          "documentId": "pubmedqa-9381529",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9427037",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6798.18362504011,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that endothelial cell patterns in astrocytomas are indicative of grade, showing distinct vascular patterns for different grades of tumors [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Are endothelial cell patterns of astrocytomas indicative of grade?",
+          "score": 0.845,
+          "pmid": "9427037",
+          "documentId": "pubmedqa-9427037",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9465206",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 8377.762541989796,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The study found that MRI could detect occult post-traumatic injuries, including bone bruises and osteochondral injuries, which were not visible on conventional radiographs and confirmed by arthroscopy [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "\"Occult\" posttraumatic lesions of the knee: can magnetic resonance substitute for diagnostic arthroscopy?",
+          "score": 0.9012499999999999,
+          "pmid": "9465206",
+          "documentId": "pubmedqa-9465206",
+          "evidenceScore": 0.90125,
+          "queryTermCoverage": 0.625
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9483814",
+      "expected_label": "yes",
+      "predicted_label": "no",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 9059.731832996476,
+      "case_pass": false,
+      "answer": "Answer: no\nEvidence: The study found that the intervals from the last gemeprost application until abortion and from 3 cm cervical dilatation to abortion were slightly shorter in the paracervical anaesthesia group, but these differences were not statistically significant [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does para-cervical block offer additional advantages in abortion induction with gemeprost in the 2nd trimester?",
+          "score": 0.9199999999999999,
+          "pmid": "9483814",
+          "documentId": "pubmedqa-9483814",
+          "evidenceScore": 0.92,
+          "queryTermCoverage": 0.666667
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9488747",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7084.17345804628,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The evidence supports that syncope during bathing in infants can be a pediatric form of water-induced urticaria, as it shows similar symptoms and a positive response to histamine levels after exposure [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Syncope during bathing in infants, a pediatric form of water-induced urticaria?",
+          "score": 0.877142857142857,
+          "pmid": "9488747",
+          "documentId": "pubmedqa-9488747",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9550200",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 5834.910208999645,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found a connection between the distribution of spontaneous full-term deliveries and the lunar month, particularly in multiparae and plurigravidae [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does lunar position influence the time of delivery?",
+          "score": 0.845,
+          "pmid": "9550200",
+          "documentId": "pubmedqa-9550200",
+          "evidenceScore": 0.845,
+          "queryTermCoverage": 0.5
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9569972",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7367.810666037258,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that the proliferative index obtained by DNA image cytometry was a prognostic determinant in Auer IV breast cancer, showing statistical significance in both univariate and multivariate analysis for recurrence-free and overall survival [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Proliferative index obtained by DNA image cytometry. Does it add prognostic information in Auer IV breast cancer?",
+          "score": 0.9278947368421051,
+          "pmid": "9569972",
+          "documentId": "pubmedqa-9569972",
+          "evidenceScore": 0.927895,
+          "queryTermCoverage": 0.684211
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9582182",
+      "expected_label": "yes",
+      "predicted_label": "maybe",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7436.331000004429,
+      "case_pass": false,
+      "answer": "Answer: maybe\nEvidence: The SCL 90-R Obsessive-Compulsive subscale was related to symptoms of depression, anxiety, and subjective complaints of memory problems but not to objective measures of attention or verbal memory [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does the SCL 90-R obsessive-compulsive dimension identify cognitive impairments?",
+          "score": 0.877142857142857,
+          "pmid": "9582182",
+          "documentId": "pubmedqa-9582182",
+          "evidenceScore": 0.877143,
+          "queryTermCoverage": 0.571429
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9616411",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 6089.364290994126,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that the total rate of admission and occupied bed days was lower in municipalities with general practitioner hospitals compared to those without [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Do general practitioner hospitals reduce the utilisation of general hospital beds?",
+          "score": 0.8969230769230769,
+          "pmid": "9616411",
+          "documentId": "pubmedqa-9616411",
+          "evidenceScore": 0.896923,
+          "queryTermCoverage": 0.615385
+        }
+      ]
+    },
+    {
+      "id": "pubmedqa-9722752",
+      "expected_label": "yes",
+      "predicted_label": "yes",
+      "retrieval_status": "grounded",
+      "source_hit_at_1": true,
+      "source_hit_at_3": true,
+      "citation_pass": true,
+      "groundedness": 1.0,
+      "hallucination_rate": 0.0,
+      "latency_ms": 7184.047958988231,
+      "case_pass": true,
+      "answer": "Answer: yes\nEvidence: The study found that bone anchor fixation was successful in 68% of cases, with 43% completely dry and 24% significantly improved [S1].",
+      "final_documents": [
+        {
+          "rank": 1,
+          "title": "Does bone anchor fixation improve the outcome of percutaneous bladder neck suspension in female stress urinary incontinence?",
+          "score": 0.9349999999999998,
+          "pmid": "9722752",
+          "documentId": "pubmedqa-9722752",
+          "evidenceScore": 0.935,
+          "queryTermCoverage": 0.7
+        }
+      ]
+    }
+  ]
+}

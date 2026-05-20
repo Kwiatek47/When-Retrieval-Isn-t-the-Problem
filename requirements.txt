@@ -1,5 +1,6 @@
 fastapi
 httpx
+tqdm>=4.66,<5
 packaging
 pyarrow>=15,<18
 qdrant-client>=1.14,<2

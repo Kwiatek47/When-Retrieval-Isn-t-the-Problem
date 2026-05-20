@@ -169,7 +169,7 @@ def _embed_chunks(
         response_model = model or response_model
         encoder_model = _clean_str(response.get("encoder_model")) or encoder_model
 
-        for chunk, vector in zip(batch, response_embeddings, strict=True):
+        for chunk, vector in zip(batch, response_embeddings):
             embeddings[chunk["chunk_id"]] = _float_vector(vector, label=f"chunk {chunk['chunk_id']}")
 
         print(f"Embedded {min(start + len(batch), len(chunks))}/{len(chunks)} chunks.")

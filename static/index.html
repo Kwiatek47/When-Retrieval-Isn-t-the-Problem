@@ -19,6 +19,122 @@
         },
       };
     </script>
+    <style>
+      .assistant-md {
+        word-break: break-word;
+      }
+      .assistant-md > :first-child {
+        margin-top: 0;
+      }
+      .assistant-md h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        color: #18181b;
+      }
+      .assistant-md h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-top: 0.875rem;
+        color: #18181b;
+      }
+      .assistant-md h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-top: 0.75rem;
+        color: #18181b;
+      }
+      .assistant-md p {
+        margin-top: 0.5rem;
+      }
+      /* Tailwind preflight resets lists — override inside assistant prose */
+      .assistant-md ul {
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        padding-left: 1.5rem !important;
+        list-style-type: disc !important;
+        list-style-position: outside !important;
+      }
+      .assistant-md ol {
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        padding-left: 1.5rem !important;
+        list-style-type: decimal !important;
+        list-style-position: outside !important;
+      }
+      .assistant-md li {
+        margin-top: 0.25rem;
+        display: list-item !important;
+      }
+      .assistant-md li > p {
+        margin-top: 0.25rem;
+      }
+      .assistant-md li > p:first-child {
+        margin-top: 0;
+      }
+      .assistant-md blockquote {
+        border-left: 3px solid #e4e4e7;
+        padding-left: 0.75rem;
+        margin-top: 0.5rem;
+        color: #52525b;
+      }
+      .assistant-md code {
+        font-size: 0.875em;
+        background: #f4f4f5;
+        padding: 0.125rem 0.375rem;
+        border-radius: 0.25rem;
+        font-variant-ligatures: none;
+      }
+      .assistant-md pre {
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        background: #f4f4f5;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+      .assistant-md pre code {
+        background: transparent;
+        padding: 0;
+      }
+      .assistant-md a {
+        color: #0d9488;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .assistant-md a:hover {
+        color: #0f766e;
+      }
+      .assistant-md strong {
+        font-weight: 600;
+      }
+      .assistant-md hr {
+        margin: 0.75rem 0;
+        border: 0;
+        border-top: 1px solid #e4e4e7;
+      }
+      .assistant-md table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+      }
+      .assistant-md th,
+      .assistant-md td {
+        border: 1px solid #e4e4e7;
+        padding: 0.375rem 0.5rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      .assistant-md th {
+        font-weight: 600;
+        background: #fafafa;
+      }
+    </style>
+    <!-- Bundled locally so Markdown renders without CDN (offline / strict CSP) -->
+    <script src="/vendor/marked.min.js"></script>
+    <script src="/vendor/purify.min.js"></script>
     <script src="/app.js" defer></script>
   </head>
   <body class="h-screen overflow-hidden bg-white font-sans text-zinc-950 antialiased">
@@ -49,7 +165,8 @@
               class="h-10 w-40 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-sm outline-none transition hover:border-zinc-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 sm:w-52"
             >
               <optgroup label="Medical LLMs">
-                <option value="medgemma:latest" data-medical="true" selected>MedGemma</option>
+                <option value="gemma4:26b" data-medical="true" selected>Gemma 4 26B</option>
+                <option value="medgemma:latest" data-medical="true">MedGemma</option>
                 <option value="medgemma:27b" data-medical="true">MedGemma 27B</option>
                 <option value="meditron" data-medical="true">Meditron</option>
                 <option value="medllama2" data-medical="true">MedLlama2</option>
@@ -57,9 +174,10 @@
               </optgroup>
               <optgroup label="General LLMs">
                 <option value="llama3.1">llama3.1</option>
+                <option value="llama3.2:1b">llama3.2:1b</option>
                 <option value="llama3.2:3b">llama3.2:3b</option>
                 <option value="mistral">mistral</option>
-                <option value="qwen2.5">qwen2.5</option>
+                <option value="qwen2.5:7b">qwen2.5:7b</option>
               </optgroup>
             </select>
           </div>

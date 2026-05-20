@@ -5,4 +5,22 @@ __pycache__/
 .DS_Store
 .codex
 .idea/
+
+# Local/generated reports
 reports/*
+
+# RAG datasets and generated indexes. Keep curated samples in data/ tracked.
+data/processed/
+data/embeddings/
+data/indexes/
+data/bm25_stats*.json
+
+# Large local data files if placed outside the expected data folders.
+*.parquet
+*.sqlite
+*.sqlite-*
+
+# Local Qdrant/Docker volumes and runtime state.
+qdrant/storage/
+qdrant/snapshots/
+storage/

@@ -5,7 +5,7 @@ Qdrant jest baza wektorowa dla pipeline RAG. Dziala w trybie bring-your-own-vect
 Aktualny MVP uzywa:
 
 ```text
-collection: MedicalChunk
+collection: MedicalChunk_pubmed_reviews_v1_medcpt_20260518
 dense vector name: medcpt_dense
 dense vector size: 768
 dense distance: cosine
@@ -60,7 +60,7 @@ Kod definicji jest w:
 qdrant/schema.py
 ```
 
-Jesli kolekcja `MedicalChunk` juz istnieje bez sparse vectora `bm25_sparse`, ustaw `QDRANT_RECREATE_COLLECTION=true` albo uzyj `--recreate` w `scripts/rag/01_build_index.py`.
+Jesli kolekcja `MedicalChunk_pubmed_reviews_v1_medcpt_20260518` juz istnieje bez sparse vectora `bm25_sparse`, ustaw `QDRANT_RECREATE_COLLECTION=true` albo uzyj `--recreate` w `scripts/rag/01_build_index.py`.
 
 ## Payload MedicalChunk
 
@@ -109,9 +109,11 @@ python3 scripts/embeddings/02_validate_embeddings.py \
 
 python3 scripts/rag/01_build_index.py \
   --chunks data/processed/chunks.parquet \
-  --embeddings data/embeddings/embeddings.parquet \
-  --collection MedicalChunk \
+  --embeddings data/embeddings/embeddings_shard_0.parquet \
+  --embeddings data/embeddings/embeddings_shard_1.parquet \
+  --collection MedicalChunk_pubmed_reviews_v1_medcpt_20260518 \
   --qdrant-url http://localhost:6333 \
+  --corpus-version pubmed-reviews-v1 \
   --recreate
 ```
 
@@ -121,6 +123,7 @@ Skrypt zapisuje:
 
 ```text
 data/bm25_stats.json
+data/indexes/qdrant/index_checkpoint.json
 data/indexes/qdrant/index_manifest.json
 ```
 
@@ -137,7 +140,7 @@ from qdrant_client import QdrantClient, models
 client = QdrantClient(host="qdrant", port=6333)
 
 client.upsert(
-    collection_name="MedicalChunk",
+    collection_name="MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
     points=[
         models.PointStruct(
             id="stable-uuid-from-chunk-id",
@@ -167,7 +170,7 @@ client.upsert(
                 "isSystematicReview": False,
                 "wordCount": 120,
                 "embeddingModel": "medcpt-ncbi-v1",
-                "corpusVersion": "pubmed-rag-v1",
+                "corpusVersion": "pubmed-reviews-v1",
                 "textHash": "source-text-hash",
             },
         )
@@ -215,7 +218,7 @@ Qdrant wykonuje RRF po dense i sparse prefetch:
 
 ```python
 result = client.query_points(
-    collection_name="MedicalChunk",
+    collection_name="MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
     prefetch=[
         models.Prefetch(
             query=query_dense_vector,

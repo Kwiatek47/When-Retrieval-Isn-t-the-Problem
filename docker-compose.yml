@@ -2,6 +2,8 @@ services:
   embedding-service:
     build:
       context: ./services/embedding-service
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
     environment:
       EMBEDDING_MODEL_NAME: medcpt-ncbi-v1
       MEDCPT_QUERY_MODEL: ncbi/MedCPT-Query-Encoder
@@ -11,7 +13,7 @@ services:
       HF_HOME: /models/huggingface
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
-      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_COLLECTION: MedicalChunk_pubmed_reviews_v1_medcpt_20260518
       QDRANT_VECTOR_NAME: medcpt_dense
       QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
       BM25_STATS_PATH: /data/bm25_stats.json
@@ -41,7 +43,7 @@ services:
     environment:
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
-      QDRANT_COLLECTION: MedicalChunk
+      QDRANT_COLLECTION: MedicalChunk_pubmed_reviews_v1_medcpt_20260518
       QDRANT_VECTOR_NAME: medcpt_dense
       QDRANT_SPARSE_VECTOR_NAME: bm25_sparse
       QDRANT_VECTOR_SIZE: "768"
