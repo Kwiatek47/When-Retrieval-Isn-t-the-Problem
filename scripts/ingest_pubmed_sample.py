@@ -120,6 +120,7 @@ def _build_point(
             "text": content,
             "pmid": pmid,
             "title": title,
+            "doi": str(metadata.get("doi") or ""),
             "journal": str(metadata.get("journal") or ""),
             "year": _to_int(metadata.get("year")),
             "authors": [],
@@ -128,6 +129,11 @@ def _build_point(
             "source": source,
             "chunkIndex": chunk_index,
             "documentId": document_id,
+            "publicationTypes": _string_list(metadata.get("publicationTypes")),
+            "isReview": bool(metadata.get("isReview", False)),
+            "isSystematicReview": bool(metadata.get("isSystematicReview", False)),
+            "corpusType": str(metadata.get("corpusType") or ""),
+            "sourceAuthority": str(metadata.get("sourceAuthority") or ""),
             "embeddingModel": embedding_model,
             "corpusVersion": CORPUS_VERSION,
         },
@@ -152,6 +158,14 @@ def _to_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(";") if item.strip()]
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _upsert_points(points: list[dict[str, Any]]) -> None:

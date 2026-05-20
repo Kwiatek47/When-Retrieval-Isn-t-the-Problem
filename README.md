@@ -13,9 +13,12 @@ MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacj
 - sample ingest do Qdranta z `data/pubmed_sample.json`
 - kontraktowy pipeline `chunks.parquet -> embeddings.parquet`
 - streamingowe indeksowanie docelowych `data/processed/chunks.parquet` i wielu shardow embeddingow do Qdranta
-- multi-query retrieval: oryginalne pytanie + rewrite, scalane wazonym RRF
+- multi-query retrieval: oryginalne pytanie + deterministyczne rozszerzenia skrotow + rewrite, scalane wazonym RRF
+- diagnostyczny endpoint `POST /api/rag/trace` bez generowania odpowiedzi LLM
 - metadata filtering i evidence filtering przed wyborem kontekstu
+- metadata-aware boost dla silniejszych typow publikacji i adaptive retrieval po `low_evidence`
 - extractive excerpt compression dla dlugich chunkow
+- opcjonalny parent-child chunking dlugich abstraktow przez `scripts/rag/00_build_child_chunks.py`
 - opcjonalny reranking przez cross-encoder
 - walidacja cytowan w odpowiedzi modelu
 - flaga konfliktow zrodel dla sprzecznych rekomendacji
@@ -154,14 +157,16 @@ Docelowy pipeline danych zaklada oddzielenie chunkow od embeddingow. Dzieki temu
 ```mermaid
 flowchart TD
     raw["Raw PubMed / processed corpus"] --> chunks["chunks.parquet"]
+    chunks --> child["optional 00_build_child_chunks.py"]
+    child --> childChunks["chunks_child.parquet"]
     chunks --> inspect["00_inspect_chunks.py"]
-    chunks --> embed["01_embed_chunks.py"]
+    childChunks --> embed["01_embed_chunks.py"]
     embsvc["embedding-service / MedCPT Article Encoder"] --> embed
     embed --> shards["embeddings_shard_*.parquet"]
-    chunks --> validate["02_validate_embeddings.py"]
+    childChunks --> validate["02_validate_embeddings.py"]
     shards --> validate
     validate --> build["rag/01_build_index.py"]
-    chunks --> build
+    childChunks --> build
     shards --> build
     build --> sqlite["SQLite chunk store"]
     build --> bm25["data/bm25_stats.json"]
@@ -174,13 +179,15 @@ flowchart TD
 1. czyta `chunks.parquet` batchami, buduje lokalny SQLite chunk store i statystyki BM25,
 2. czyta kolejne shardy `embeddings.parquet`, laczy je po `chunk_id` i upsertuje punkty do Qdranta.
 
+Opcjonalny etap `00_build_child_chunks.py` dzieli tylko dlugie rekordy (`word_count > 450`) na child chunki okolo 300-450 slow. Krotkie chunki zostaja bez zmian. Child chunki dostaja `parent_chunk_id`, `parent_word_count` i `chunk_id` w formacie `{original_chunk_id}:part:{n}`; indexer przenosi te pola do payloadu Qdranta jako `parentChunkId` i `parentWordCount`.
+
 ## Pipeline retrievalu
 
 ```mermaid
 flowchart TD
     q["User query"] --> pre["PreRetriever"]
     pre --> intent["intent + publication type preferences"]
-    pre --> queries["original query + optional rewrite"]
+    pre --> queries["original + normalized + acronym expansion + optional rewrite"]
     pre --> filters["corpusVersion / min_year filters"]
 
     queries --> dense["MedCPT dense query vector"]
@@ -190,7 +197,8 @@ flowchart TD
     sparse --> search
 
     search --> rrf["weighted RRF merge"]
-    rrf --> dedupe["dedupe by chunk/document"]
+    rrf --> meta["metadata boost"]
+    meta --> dedupe["dedupe by parent/chunk/document"]
     dedupe --> rerank{"Cross-encoder enabled?"}
     rerank -->|yes| cross["MedCPT Cross-Encoder rerank"]
     rerank -->|no| scores["hybrid scores"]
@@ -198,6 +206,8 @@ flowchart TD
     scores --> evidence
     evidence --> excerpt["extractive excerpt compression"]
     excerpt --> prompt["MEDICAL_KNOWLEDGE_BASE + [S1] citations"]
+    evidence --> adaptive{"low_evidence?"}
+    adaptive -->|yes, max 1 round| search
 ```
 
 ## Ograniczenia obecnego MVP
@@ -305,6 +315,16 @@ data/embeddings/embedding_manifest.json
 data/embeddings/embedding_quality_report.md
 data/embeddings/chunks_inspection_report.md
 ```
+
+Jesli korpus zawiera dlugie abstrakty, mozesz przed embeddingami wygenerowac child chunki:
+
+```bash
+python3 scripts/rag/00_build_child_chunks.py \
+  --input data/processed/chunks.parquet \
+  --output data/processed/chunks_child.parquet
+```
+
+Wtedy w kolejnych krokach uzyj `data/processed/chunks_child.parquet` jako wejscia `--chunks`.
 
 Nastepnie zbuduj indeks RAG. Jesli masz jeden kontraktowy plik `embeddings.parquet`, uzyj:
 
@@ -430,6 +450,8 @@ Sam retrieval bez LLM:
 curl "http://127.0.0.1:8000/search?q=hypertension%20treatment&top_k=5"
 ```
 
+`/search` uzywa deterministycznej czesci `PreRetriever` bez LLM rewrite, wiec dziala jako szybki endpoint retrieval-only, ale nadal korzysta z rozwiniec skrotow i preferencji typow publikacji.
+
 Endpoint zwraca liste wynikow z polami:
 
 ```text
@@ -441,6 +463,20 @@ Ten sam endpoint jest dostepny rowniez jako:
 ```text
 /api/search
 ```
+
+Diagnostyka calego RAG bez generowania odpowiedzi LLM:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/rag/trace \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messages": [{"role": "user", "content": "leki na PAD"}],
+    "candidate_k": 50,
+    "top_k": 5
+  }'
+```
+
+Trace zwraca `original_query`, `normalized_query`, `search_queries`, `intent`, filtry, preferowane typy publikacji, kandydatow po RRF, kandydatow po metadata boost, finalne dokumenty po evidence scoringu, `retrieval.status` i preview bloku kontekstu.
 
 Przykladowe zapytanie:
 
@@ -479,6 +515,11 @@ RAG_RETRIEVER=embedding_service
 RAG_CANDIDATE_K=75
 RAG_TOP_K=6
 RAG_MAX_CONTEXT_CHARS=10000
+RAG_MAX_EXCERPT_CHARS=1600
+RAG_ADAPTIVE_RETRIEVAL_ENABLED=true
+RAG_ADAPTIVE_MAX_ROUNDS=1
+RAG_RETRIEVAL_EXPANSION_MULTIPLIER=2
+RAG_RETRIEVAL_EXPANDED_LIMIT_MAX=100
 CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 ANSWER_QUALITY_METHOD=semantic_similarity
 ANSWER_QUALITY_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
@@ -567,12 +608,20 @@ Domyslny endpoint `/embed/hybrid/query` wykonuje hybrid search po `medcpt_dense`
 W runtime aplikacja nie zastepuje oryginalnego pytania rewritem. `PreRetriever` przekazuje liste query, zwykle:
 
 ```text
-original/normalized query weight = 1.0
-rewritten query weight = 0.8
-additional query weight = 0.6
+first unique query weight = 1.0
+second unique query weight = 0.8
+remaining query variants weight = 0.6
 ```
 
-Kazde query idzie przez retrieval, a wyniki sa scalane wazonym RRF i deduplikowane po `chunkId`/`documentId`.
+Kolejnosc wariantow to maksymalnie: original, normalized, deterministyczne rozwiniecie skrotow (`PAD`, `T2DM`, `CKD`, `AF`, `DOAC`, `SGLT2`, `ICS`), potem LLM rewrite. Kazde query idzie przez retrieval, a wyniki sa scalane wazonym RRF i deduplikowane po `parentChunkId`/`chunkId`/`documentId`.
+
+Dla pytan klinicznych retriever pobiera wieksza pule kandydatow przed finalnym przycieciem:
+
+```text
+expanded_limit = max(limit, min(limit * RAG_RETRIEVAL_EXPANSION_MULTIPLIER, RAG_RETRIEVAL_EXPANDED_LIMIT_MAX))
+```
+
+Po RRF kandydaci dostaja lekki metadata boost. Promowane sa m.in. `Systematic Review`, `Guideline`, `Practice Guideline`, `Meta-Analysis`, `Randomized Controlled Trial`, `Clinical Trial`; `Case Reports`, `Letter`, `Editorial` i `Comment` sa lekko karane. Jesli metadata brakuje, boost pozostaje neutralny.
 
 ## Reranking top50 -> top5
 
@@ -595,6 +644,8 @@ CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 
 Jesli `CROSS_ENCODER_MODEL` jest pusty, aplikacja nadal pobiera `RAG_CANDIDATE_K`, ale wybiera finalne `RAG_TOP_K` wedlug score z hybrid search.
 
+Cross-encoder dostaje query zlozone z original/normalized oraz rewrite, ograniczone do 512 znakow. Evidence scoring liczy najlepsze pokrycie terminow z kazdego wariantu query oraz `multiQueryMatchScore`, wiec dokument trafiony przez wiecej wariantow ma przewage.
+
 ## Metadata i evidence filtering
 
 `PreRetriever` rozpoznaje intent pytania (`treatment`, `diagnosis`, `adverse_effects`, `prognosis`, `mechanism`, `general`) i wyznacza preferowane typy publikacji. Jesli ustawisz:
@@ -612,7 +663,9 @@ Po retrievalu kazdy kandydat dostaje `evidenceScore` liczony z:
 - typu publikacji,
 - swiezosci zrodla.
 
-Do promptu trafia tylko wybrany excerpt 1-3 zdan z najlepiej pokrytych fragmentow. Jesli zostaje za malo mocnych zrodel dla pytania klinicznego, API zwraca status `low_evidence` i odmawia odpowiedzi z wiedzy wlasnej modelu.
+Do promptu trafia tylko wybrany excerpt 1-3 zdan z najlepiej pokrytych fragmentow. Blok kontekstu zaczyna sie od `SOURCE_PRIORITY`, ktory wskazuje najmocniejsze zrodla na poczatku promptu, zeby male modele latwiej korzystaly z najwazniejszego evidence. Jesli zostaje za malo mocnych zrodel dla pytania klinicznego, API zwraca status `low_evidence` i odmawia odpowiedzi z wiedzy wlasnej modelu.
+
+Gdy `RAG_ADAPTIVE_RETRIEVAL_ENABLED=true`, status `low_evidence` uruchamia maksymalnie jedna dodatkowa runde retrievalu (`RAG_ADAPTIVE_MAX_ROUNDS=1`). Ta runda nie generuje nowego rewrite przez LLM; rozszerza zapytanie deterministycznie o preferowane typy publikacji oraz termy zalezne od intentu, np. efficacy/safety/outcomes dla leczenia, i scala obie rundy przez wazony RRF przed ponownym post-retrieval.
 
 ## Raport jakości retrievalu
 

@@ -171,6 +171,8 @@ class QdrantMedicalRetriever:
             "meshTerms",
             "section",
             "chunkIndex",
+            "parentChunkId",
+            "parentWordCount",
             "documentId",
             "url",
             "publicationDate",
@@ -181,6 +183,8 @@ class QdrantMedicalRetriever:
             "textHash",
             "embeddingModel",
             "corpusVersion",
+            "corpusType",
+            "sourceAuthority",
         )
         return {key: payload[key] for key in metadata_keys if key in payload}
 

@@ -37,20 +37,41 @@ class EmbeddingServiceHybridRetriever:
         embedding_service_url: str,
         embedding_timeout: float,
         embedding_dimension: int,
+        expansion_multiplier: int = 2,
+        expanded_limit_max: int = 100,
     ) -> None:
         self.embedding_service_url = embedding_service_url.rstrip("/")
         self.embedding_timeout = embedding_timeout
         self.embedding_dimension = embedding_dimension
+        self.expansion_multiplier = expansion_multiplier
+        self.expanded_limit_max = expanded_limit_max
 
     async def retrieve(self, query: PreRetrievalResult, *, limit: int) -> RetrievalResult:
         query_texts = _query_texts(query)
         metadata_filter = _metadata_filter_payload(query)
+        expanded_limit = _expanded_candidate_limit(
+            limit,
+            query,
+            multiplier=self.expansion_multiplier,
+            max_limit=self.expanded_limit_max,
+        )
         results = [
-            await self._hybrid_query(query_text, limit, metadata_filter=metadata_filter)
+            await self._hybrid_query(query_text, expanded_limit, metadata_filter=metadata_filter)
             for query_text in query_texts
         ]
-        documents = _weighted_rrf_merge(results, query_texts=query_texts, limit=limit)
-        return RetrievalResult(query=query, documents=documents, provider=self.provider_name)
+        merged_documents = _weighted_rrf_merge(results, query_texts=query_texts, limit=expanded_limit)
+        boosted_documents = _metadata_boost_documents(merged_documents, query=query, limit=0)
+        documents = boosted_documents if limit <= 0 else boosted_documents[:limit]
+        return RetrievalResult(
+            query=query,
+            documents=documents,
+            provider=self.provider_name,
+            debug={
+                "rrf_documents": merged_documents,
+                "metadata_boosted_documents": boosted_documents,
+                "expanded_limit": expanded_limit,
+            },
+        )
 
     def _embedding_query_text(self, query: PreRetrievalResult) -> str:
         search_queries = [item.strip() for item in query.search_queries if item.strip()]
@@ -113,6 +134,8 @@ class QdrantHybridKnowledgeRetriever:
         sparse_prefetch_limit: int = 50,
         embedding_query_path: str = "/embed/query",
         bm25_stats_path: Path | None = None,
+        expansion_multiplier: int = 2,
+        expanded_limit_max: int = 100,
     ) -> None:
         self.qdrant_client = qdrant_client
         self.embedding_http_client = embedding_http_client
@@ -124,11 +147,19 @@ class QdrantHybridKnowledgeRetriever:
         self.sparse_prefetch_limit = sparse_prefetch_limit
         self.embedding_query_path = embedding_query_path
         self.bm25_stats_path = bm25_stats_path
+        self.expansion_multiplier = expansion_multiplier
+        self.expanded_limit_max = expanded_limit_max
         self._bm25_encoder: BM25SparseEncoder | None = None
 
     async def retrieve(self, query: PreRetrievalResult, *, limit: int) -> RetrievalResult:
         query_texts = _query_texts(query)
         query_filter = self._qdrant_filter(query)
+        expanded_limit = _expanded_candidate_limit(
+            limit,
+            query,
+            multiplier=self.expansion_multiplier,
+            max_limit=self.expanded_limit_max,
+        )
         results = []
         for query_text in query_texts:
             dense_vector = await self._embed_query(query_text)
@@ -137,11 +168,22 @@ class QdrantHybridKnowledgeRetriever:
                 dense_vector=dense_vector,
                 sparse_vector=sparse_vector,
                 query_filter=query_filter,
-                limit=limit,
+                limit=expanded_limit,
             )
             results.append([self._map_point(point) for point in points])
-        documents = _weighted_rrf_merge(results, query_texts=query_texts, limit=limit)
-        return RetrievalResult(query=query, documents=documents, provider=self.provider_name)
+        merged_documents = _weighted_rrf_merge(results, query_texts=query_texts, limit=expanded_limit)
+        boosted_documents = _metadata_boost_documents(merged_documents, query=query, limit=0)
+        documents = boosted_documents if limit <= 0 else boosted_documents[:limit]
+        return RetrievalResult(
+            query=query,
+            documents=documents,
+            provider=self.provider_name,
+            debug={
+                "rrf_documents": merged_documents,
+                "metadata_boosted_documents": boosted_documents,
+                "expanded_limit": expanded_limit,
+            },
+        )
 
     def _embedding_query_text(self, query: PreRetrievalResult) -> str:
         search_queries = [item.strip() for item in query.search_queries if item.strip()]
@@ -294,6 +336,8 @@ class QdrantHybridKnowledgeRetriever:
             "meshTerms",
             "section",
             "chunkIndex",
+            "parentChunkId",
+            "parentWordCount",
             "documentId",
             "url",
             "publicationDate",
@@ -304,6 +348,8 @@ class QdrantHybridKnowledgeRetriever:
             "textHash",
             "embeddingModel",
             "corpusVersion",
+            "corpusType",
+            "sourceAuthority",
         )
         return {key: payload[key] for key in metadata_keys if key in payload}
 
@@ -328,6 +374,20 @@ def _query_texts(query: PreRetrievalResult) -> list[str]:
             unique.append(query_text)
             seen.add(key)
     return unique or [query.normalized_query]
+
+
+def _expanded_candidate_limit(
+    limit: int,
+    query: PreRetrievalResult,
+    *,
+    multiplier: int = 2,
+    max_limit: int = 100,
+) -> int:
+    if limit <= 0:
+        return limit
+    if not (query.preferred_publication_types or query.requires_recent_evidence or query.min_year is not None):
+        return limit
+    return max(limit, min(limit * max(multiplier, 1), max_limit))
 
 
 def _metadata_filter_payload(query: PreRetrievalResult) -> dict[str, Any]:
@@ -386,6 +446,92 @@ def _weighted_rrf_merge(
     return sorted(reranked, key=lambda item: item.score, reverse=True)[:limit]
 
 
+def _metadata_boost_documents(
+    documents: list[RetrievedDocument],
+    *,
+    query: PreRetrievalResult,
+    limit: int,
+) -> list[RetrievedDocument]:
+    boosted_documents = []
+    for document in documents:
+        boost, reasons = _metadata_boost(document, query)
+        boosted_score = float(document.score or 0.0) * boost
+        metadata = {
+            **document.metadata,
+            "metadataBoost": round(boost, 6),
+            "metadataBoostReasons": reasons,
+            "preMetadataBoostScore": document.score,
+        }
+        boosted_documents.append(replace(document, score=boosted_score, metadata=metadata))
+
+    ranked = sorted(boosted_documents, key=lambda item: item.score, reverse=True)
+    return ranked if limit <= 0 else ranked[:limit]
+
+
+def _metadata_boost(document: RetrievedDocument, query: PreRetrievalResult) -> tuple[float, list[str]]:
+    publication_types = _publication_types(document.metadata)
+    preferred = {item.lower() for item in query.preferred_publication_types}
+    reasons: list[str] = []
+    boost = 1.0
+
+    if publication_types & preferred:
+        boost += 0.10
+        reasons.append("preferred_publication_type")
+    if _truthy(document.metadata.get("isSystematicReview")) or "systematic review" in publication_types:
+        boost += 0.08
+        reasons.append("systematic_review")
+    if publication_types & {"practice guideline", "guideline"}:
+        boost += 0.08
+        reasons.append("guideline")
+    if query.intent in {"treatment", "diagnosis", "adverse_effects"} and publication_types & {
+        "meta-analysis",
+        "randomized controlled trial",
+        "clinical trial",
+    }:
+        boost += 0.05
+        reasons.append("clinical_evidence_type")
+
+    year = _optional_int(document.metadata.get("year"))
+    if query.min_year is not None and year is not None and year >= query.min_year:
+        boost += 0.03
+        reasons.append("recent_evidence")
+
+    if publication_types & {"case reports", "letter", "editorial", "comment"}:
+        boost -= 0.12
+        reasons.append("weak_publication_type")
+
+    return max(boost, 0.75), reasons
+
+
+def _publication_types(metadata: dict[str, Any]) -> set[str]:
+    value = metadata.get("publicationTypes") or metadata.get("publication_types") or []
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            stripped = stripped.strip("[]")
+        return {
+            item.strip().strip("'\"").lower()
+            for item in stripped.replace(",", ";").split(";")
+            if item.strip().strip("'\"")
+        }
+    return {str(item).strip().lower() for item in value if str(item).strip()}
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
 def _query_weight(index: int) -> float:
     if index == 0:
         return 1.0
@@ -396,7 +542,7 @@ def _query_weight(index: int) -> float:
 
 def _document_merge_key(document: RetrievedDocument) -> str:
     metadata = document.metadata
-    for key in ("chunkId", "chunk_id", "documentId", "document_id"):
+    for key in ("parentChunkId", "parent_chunk_id", "chunkId", "chunk_id", "documentId", "document_id"):
         value = metadata.get(key)
         if value:
             return str(value)

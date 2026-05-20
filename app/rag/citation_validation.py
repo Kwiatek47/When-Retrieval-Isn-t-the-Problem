@@ -10,6 +10,7 @@ _SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 _MAX_CITATIONS_PER_SENTENCE = 3
 _NON_CLAIM_PATTERN = re.compile(
     r"(cannot provide|can'?t provide|not enough evidence|knowledge base did not|not medical advice|"
+    r"insufficient evidence|provided context does not|retrieved context does not|"
     r"consult(?:ing)? (?:a |an |your )?(?:qualified |licensed )?"
     r"(?:health\s*care provider|health\s*care professional|clinician|doctor|physician|medical professional)|"
     r"personalized (?:medical )?advice|personalised (?:medical )?advice|"

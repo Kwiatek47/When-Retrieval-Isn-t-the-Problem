@@ -36,6 +36,16 @@ class Settings:
     rag_candidate_k: int
     rag_top_k: int
     rag_max_context_chars: int
+    rag_max_excerpt_chars: int
+    rag_adaptive_retrieval_enabled: bool
+    rag_adaptive_max_rounds: int
+    rag_retrieval_expansion_multiplier: int
+    rag_retrieval_expanded_limit_max: int
+    rag_evidence_filter_enabled: bool
+    rag_citation_repair_enabled: bool
+    rag_answer_quality_gate_enabled: bool
+    rag_answer_quality_max_hallucination_rate: float
+    rag_extractive_fallback_enabled: bool
     answer_quality_method: str
     answer_quality_model_name: str
     answer_quality_similarity_threshold: float
@@ -72,6 +82,18 @@ def get_settings() -> Settings:
         rag_candidate_k=int(os.getenv("RAG_CANDIDATE_K", "50")),
         rag_top_k=int(os.getenv("RAG_TOP_K", "5")),
         rag_max_context_chars=int(os.getenv("RAG_MAX_CONTEXT_CHARS", "8000")),
+        rag_max_excerpt_chars=int(os.getenv("RAG_MAX_EXCERPT_CHARS", "1600")),
+        rag_adaptive_retrieval_enabled=_bool_env("RAG_ADAPTIVE_RETRIEVAL_ENABLED", True),
+        rag_adaptive_max_rounds=int(os.getenv("RAG_ADAPTIVE_MAX_ROUNDS", "1")),
+        rag_retrieval_expansion_multiplier=int(os.getenv("RAG_RETRIEVAL_EXPANSION_MULTIPLIER", "2")),
+        rag_retrieval_expanded_limit_max=int(os.getenv("RAG_RETRIEVAL_EXPANDED_LIMIT_MAX", "100")),
+        rag_evidence_filter_enabled=_bool_env("RAG_EVIDENCE_FILTER_ENABLED", True),
+        rag_citation_repair_enabled=_bool_env("RAG_CITATION_REPAIR_ENABLED", True),
+        rag_answer_quality_gate_enabled=_bool_env("RAG_ANSWER_QUALITY_GATE_ENABLED", True),
+        rag_answer_quality_max_hallucination_rate=float(
+            os.getenv("RAG_ANSWER_QUALITY_MAX_HALLUCINATION_RATE", "0.25")
+        ),
+        rag_extractive_fallback_enabled=_bool_env("RAG_EXTRACTIVE_FALLBACK_ENABLED", True),
         answer_quality_method=os.getenv("ANSWER_QUALITY_METHOD", "semantic_similarity"),
         answer_quality_model_name=os.getenv(
             "ANSWER_QUALITY_MODEL",
@@ -84,3 +106,10 @@ def get_settings() -> Settings:
             "Always include a disclaimer that this is not medical advice."
         ),
     )
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}

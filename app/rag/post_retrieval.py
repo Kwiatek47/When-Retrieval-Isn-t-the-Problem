@@ -5,6 +5,7 @@ import re
 from time import perf_counter
 from typing import Any
 
+from app.rag.answer_contract import is_yes_no_maybe_task_text
 from app.rag.conflict_detection import detect_evidence_conflicts
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.schemas import ChatMessage, Citation, EvidenceConflictInfo, RetrievalInfo
@@ -20,17 +21,21 @@ class PostRetriever:
         self,
         max_context_chars: int,
         final_documents_limit: int,
+        max_excerpt_chars: int = 1600,
         cross_encoder_model_name: str | None = None,
         cross_encoder_max_length: int = 512,
         cross_encoder_batch_size: int = 8,
         cross_encoder_device: str | None = None,
+        evidence_filter_enabled: bool = True,
     ) -> None:
         self.max_context_chars = max_context_chars
         self.final_documents_limit = final_documents_limit
+        self.max_excerpt_chars = max_excerpt_chars
         self.cross_encoder_model_name = cross_encoder_model_name
         self.cross_encoder_max_length = cross_encoder_max_length
         self.cross_encoder_batch_size = cross_encoder_batch_size
         self.cross_encoder_device = cross_encoder_device
+        self.evidence_filter_enabled = evidence_filter_enabled
         self.cross_encoder = self._load_cross_encoder(cross_encoder_model_name)
 
     def assemble(
@@ -40,8 +45,20 @@ class PostRetriever:
         system_prompt: str,
         pre_retrieval: PreRetrievalResult,
         retrieval: RetrievalResult,
+        final_documents_limit: int | None = None,
     ) -> PostRetrievalResult:
-        documents, low_evidence = self._rank_documents(retrieval.documents, pre_retrieval)
+        documents, low_evidence = self._rank_documents(
+            retrieval.documents,
+            pre_retrieval,
+            final_documents_limit=final_documents_limit,
+        )
+        preliminary_citations = self._citations_for_documents(documents)
+        preliminary_conflicts = detect_evidence_conflicts(
+            documents=documents,
+            citations=preliminary_citations,
+            query=pre_retrieval.normalized_query,
+        )
+        documents = self._order_conflicting_documents(documents, preliminary_conflicts)
         context_block, citations = self._build_context(documents, pre_retrieval)
         evidence_conflicts = detect_evidence_conflicts(
             documents=documents,
@@ -56,6 +73,7 @@ class PostRetriever:
                 context_block=context_block,
                 has_documents=bool(documents),
                 conflict_block=self._build_conflict_block(evidence_conflicts),
+                answer_contract_block=self._build_answer_contract_block(pre_retrieval),
             ),
         )
         user_visible_messages = [message for message in messages if message.role != "system"]
@@ -79,6 +97,7 @@ class PostRetriever:
         self,
         documents: list[RetrievedDocument],
         pre_retrieval: PreRetrievalResult,
+        final_documents_limit: int | None = None,
     ) -> tuple[list[RetrievedDocument], bool]:
         deduplicated = {}
         for document in sorted(documents, key=lambda item: item.score, reverse=True):
@@ -97,14 +116,17 @@ class PostRetriever:
             document
             for document in ranked_documents
             if float(document.metadata.get("evidenceScore") or 0.0) >= threshold
+            and self._passes_query_alignment(document, pre_retrieval)
         ]
         minimum_sources = self._minimum_source_count(pre_retrieval)
-        low_evidence = pre_retrieval.requires_retrieval and len(filtered_documents) < minimum_sources
+        enough_sources = len(filtered_documents) >= minimum_sources or self._has_high_authority_source(filtered_documents)
+        low_evidence = pre_retrieval.requires_retrieval and not enough_sources
         selected_documents = filtered_documents if filtered_documents else ranked_documents[:minimum_sources]
 
-        if self.final_documents_limit <= 0:
+        selected_limit = self.final_documents_limit if final_documents_limit is None else final_documents_limit
+        if selected_limit <= 0:
             return selected_documents, low_evidence
-        return selected_documents[: self.final_documents_limit], low_evidence
+        return selected_documents[: selected_limit], low_evidence
 
     def _score_documents_with_cross_encoder(
         self,
@@ -114,7 +136,7 @@ class PostRetriever:
         if self.cross_encoder is None or not documents:
             return documents
 
-        query = pre_retrieval.normalized_query
+        query = self._rerank_query(pre_retrieval)
         pairs = [(query, document.content) for document in documents]
         started_at = perf_counter()
         scores = self.cross_encoder.predict(
@@ -147,23 +169,28 @@ class PostRetriever:
         pre_retrieval: PreRetrievalResult,
     ) -> list[RetrievedDocument]:
         sorted_documents = sorted(documents, key=lambda item: item.score, reverse=True)
-        query_terms = self._meaningful_terms(pre_retrieval.normalized_query)
+        query_term_sets = self._query_term_sets(pre_retrieval)
+        query_count = self._query_count(pre_retrieval)
         denominator = max(len(sorted_documents) - 1, 1)
         scored_documents = []
 
         for index, document in enumerate(sorted_documents):
             rank_score = 1.0 if len(sorted_documents) == 1 else 1.0 - (index / denominator)
-            coverage_score = self._query_term_coverage(document, query_terms)
+            coverage_score = self._query_term_coverage(document, query_term_sets)
             publication_score = self._publication_type_score(document, pre_retrieval)
             recency_score = self._recency_score(document, pre_retrieval)
+            multi_query_score = self._multi_query_match_score(document, query_count)
             evidence_score = (
-                0.45 * rank_score
-                + 0.30 * coverage_score
+                0.25 * rank_score
+                + 0.45 * coverage_score
                 + 0.15 * publication_score
-                + 0.10 * recency_score
+                + 0.05 * recency_score
+                + 0.10 * multi_query_score
             )
-            if query_terms and coverage_score == 0.0:
+            if query_term_sets and coverage_score == 0.0:
                 evidence_score *= 0.4
+            if coverage_score >= 0.45:
+                evidence_score += 0.20
 
             metadata = {
                 **document.metadata,
@@ -172,17 +199,30 @@ class PostRetriever:
                 "queryTermCoverage": round(coverage_score, 6),
                 "publicationTypeScore": round(publication_score, 6),
                 "recencyScore": round(recency_score, 6),
+                "multiQueryMatchScore": round(multi_query_score, 6),
+                "evidenceFilterPassed": self._passes_query_alignment_score(coverage_score, pre_retrieval),
             }
             scored_documents.append(replace(document, score=evidence_score, metadata=metadata))
 
         return sorted(scored_documents, key=lambda item: item.score, reverse=True)
 
-    def _query_term_coverage(self, document: RetrievedDocument, query_terms: set[str]) -> float:
-        if not query_terms:
+    def _query_term_coverage(self, document: RetrievedDocument, query_term_sets: list[set[str]]) -> float:
+        if not query_term_sets:
             return 0.0
-        text = f"{document.title} {document.content}".lower()
-        matched = sum(1 for term in query_terms if term in text)
-        return matched / len(query_terms)
+        document_terms = self._token_set(f"{document.title} {document.content}")
+        scores = []
+        for query_terms in query_term_sets:
+            if not query_terms:
+                continue
+            matched = len(query_terms & document_terms)
+            scores.append(matched / len(query_terms))
+        return max(scores, default=0.0)
+
+    def _multi_query_match_score(self, document: RetrievedDocument, query_count: int) -> float:
+        if query_count <= 1:
+            return 1.0
+        matched_query_count = self._optional_int(document.metadata.get("matchedQueryCount")) or 1
+        return min(max(matched_query_count / query_count, 0.0), 1.0)
 
     def _publication_type_score(
         self,
@@ -235,10 +275,50 @@ class PostRetriever:
             return 0.32
         return 0.24
 
+    def _passes_query_alignment(
+        self,
+        document: RetrievedDocument,
+        pre_retrieval: PreRetrievalResult,
+    ) -> bool:
+        if not self.evidence_filter_enabled:
+            return True
+        if not pre_retrieval.requires_retrieval:
+            return True
+        coverage = float(document.metadata.get("queryTermCoverage") or 0.0)
+        return self._passes_query_alignment_score(coverage, pre_retrieval)
+
+    def _passes_query_alignment_score(
+        self,
+        coverage: float,
+        pre_retrieval: PreRetrievalResult,
+    ) -> bool:
+        if not pre_retrieval.requires_retrieval:
+            return True
+        return coverage >= self._minimum_query_term_coverage(pre_retrieval)
+
+    def _minimum_query_term_coverage(self, pre_retrieval: PreRetrievalResult) -> float:
+        if pre_retrieval.intent in {"treatment", "diagnosis", "adverse_effects"}:
+            return 0.30
+        return 0.20
+
     def _minimum_source_count(self, pre_retrieval: PreRetrievalResult) -> int:
+        if is_yes_no_maybe_task_text(pre_retrieval.original_query):
+            return 1
         if pre_retrieval.intent in {"treatment", "diagnosis", "adverse_effects"}:
             return 2
         return 1
+
+    def _has_high_authority_source(self, documents: list[RetrievedDocument]) -> bool:
+        if not documents:
+            return False
+        high_authority_types = {"practice guideline", "guideline", "systematic review", "meta-analysis"}
+        for document in documents:
+            publication_types = {item.lower() for item in self._publication_types(document.metadata)}
+            if publication_types & high_authority_types:
+                return True
+            if str(document.metadata.get("isSystematicReview")).lower() == "true":
+                return True
+        return False
 
     def _load_cross_encoder(self, model_name: str | None) -> Any | None:
         if not model_name:
@@ -277,17 +357,23 @@ class PostRetriever:
         remaining_chars = self.max_context_chars
         context_parts = []
         citations = []
-        query_terms = self._meaningful_terms(pre_retrieval.normalized_query)
+        query_terms = set().union(*self._query_term_sets(pre_retrieval))
 
         for document in documents:
             if remaining_chars <= 0:
                 break
 
             citation_id = f"S{len(citations) + 1}"
-            content = self._extract_excerpt(document.content, query_terms).strip()
-            if len(content) > remaining_chars:
-                truncated = content[:remaining_chars].rsplit(" ", 1)[0].strip()
-                content = truncated or content[:remaining_chars].strip()
+            excerpt_sentence_limit = 5 if pre_retrieval.intent == "treatment" else 3
+            content = self._extract_excerpt(
+                document.content,
+                query_terms,
+                sentence_limit=excerpt_sentence_limit,
+            ).strip()
+            content_limit = min(remaining_chars, self.max_excerpt_chars)
+            if len(content) > content_limit:
+                truncated = content[:content_limit].rsplit(" ", 1)[0].strip()
+                content = truncated or content[:content_limit].strip()
             if not content:
                 continue
 
@@ -320,7 +406,18 @@ class PostRetriever:
         if not context_parts:
             return "No verified medical knowledge-base documents were retrieved.", []
 
-        return "\n\n".join(context_parts), citations
+        priority_block = self._build_priority_block(citations)
+        return "\n\n".join([priority_block, *context_parts]), citations
+
+    def _build_priority_block(self, citations: list[Citation]) -> str:
+        if not citations:
+            return ""
+        primary_ids = " ".join(f"[{citation.id}]" for citation in citations[:2])
+        return (
+            "SOURCE_PRIORITY:\n"
+            f"Use {primary_ids} first when they directly answer the question. "
+            "Later sources are supporting or conflicting evidence."
+        )
 
     def _build_system_prompt(
         self,
@@ -329,6 +426,7 @@ class PostRetriever:
         context_block: str,
         has_documents: bool,
         conflict_block: str,
+        answer_contract_block: str,
     ) -> str:
         source_policy = (
             "Answer only from the MEDICAL_KNOWLEDGE_BASE context. "
@@ -364,6 +462,10 @@ class PostRetriever:
             "Do not mix population-specific findings into a general answer without naming the population. "
             "Do not cite kidney-outcome-only evidence for general blood-pressure targets or adverse-event claims unless "
             "the selected excerpt explicitly supports that exact claim. "
+            "When the user asks about medication options or therapies, include every medication class or named drug "
+            "that is explicitly listed in the selected excerpt; do not stop after the first option. "
+            "When the user asks about benefits or outcomes, include every outcome category explicitly listed in the "
+            "selected excerpt if it directly answers the question. "
             "For questions asking to summarize evidence, prefer this compact structure when supported: "
             "'Heart failure evidence: ... [Sx] [Sy]. CKD/cardiorenal evidence: ... [Sx]. Mechanistic evidence: ... [Sx].' "
             "Omit unsupported categories. "
@@ -404,6 +506,7 @@ class PostRetriever:
                 evidence_policy,
                 "Reasoning and output format:",
                 reasoning_policy,
+                answer_contract_block,
                 "If retrieved evidence is insufficient or conflicting, say so explicitly.",
                 "If CONFLICTING_EVIDENCE_FLAG is present, do not blend competing recommendations. "
                 "Present both positions with citations and abstain from a specific directive unless the "
@@ -414,6 +517,25 @@ class PostRetriever:
                 "MEDICAL_KNOWLEDGE_BASE:",
                 context_block,
             ]
+        )
+
+    def _build_answer_contract_block(self, pre_retrieval: PreRetrievalResult) -> str:
+        if not is_yes_no_maybe_task_text(pre_retrieval.original_query):
+            return (
+                "Task-specific answer contract: Use the user's requested format when it is explicit; otherwise "
+                "answer naturally and cite every substantive medical claim."
+            )
+        return (
+            "Task-specific answer contract for PubMedQA-style questions: "
+            "Inside <answer>, the first line must be exactly one of `Answer: yes`, `Answer: no`, or "
+            "`Answer: maybe`. Privately classify the retrieved evidence before writing the final answer. "
+            "Use `yes` when the retrieved excerpts directionally support the proposition in the question. "
+            "Use `no` when the retrieved excerpts directly refute it or report no meaningful association, "
+            "benefit, diagnostic/prognostic value, reliability, usefulness, advantage, or effect. Use `maybe` only when "
+            "evidence is explicitly mixed, inconclusive, indirect, conflicting, or does not directly answer the "
+            "question. Do not choose `maybe` merely because there is one retrieved abstract, a small study, or cautious "
+            "scientific wording. The second line must start with `Evidence:` "
+            "and contain one concise cited explanation. Do not add text before the answer label."
         )
 
     def _build_conflict_block(self, evidence_conflicts: EvidenceConflictInfo) -> str:
@@ -447,7 +569,7 @@ class PostRetriever:
         return {str(key): str(value) for key, value in metadata.items()}
 
     def _document_key(self, document: RetrievedDocument) -> str:
-        for key in ("chunkId", "chunk_id", "documentId", "document_id"):
+        for key in ("parentChunkId", "parent_chunk_id", "chunkId", "chunk_id", "documentId", "document_id"):
             value = document.metadata.get(key)
             if value:
                 return str(value)
@@ -470,7 +592,91 @@ class PostRetriever:
         except (TypeError, ValueError):
             return None
 
-    def _extract_excerpt(self, content: str, query_terms: set[str]) -> str:
+    def _rerank_query(self, pre_retrieval: PreRetrievalResult) -> str:
+        all_query_texts = self._query_texts_for_scoring(pre_retrieval)
+        if not all_query_texts:
+            return pre_retrieval.normalized_query
+
+        query_texts = self._unique_texts(
+            [
+                pre_retrieval.original_query,
+                pre_retrieval.normalized_query,
+                all_query_texts[-1],
+            ]
+        )
+        if len(query_texts) == 1:
+            return query_texts[0][:512].strip()
+        return " ".join(query_texts)[:512].strip()
+
+    def _query_term_sets(self, pre_retrieval: PreRetrievalResult) -> list[set[str]]:
+        return [
+            terms
+            for terms in (
+                self._meaningful_terms(query_text)
+                for query_text in self._query_texts_for_scoring(pre_retrieval)
+            )
+            if terms
+        ]
+
+    def _query_count(self, pre_retrieval: PreRetrievalResult) -> int:
+        return max(len(self._query_texts_for_scoring(pre_retrieval)), 1)
+
+    def _query_texts_for_scoring(self, pre_retrieval: PreRetrievalResult) -> list[str]:
+        return self._unique_texts(
+            [*pre_retrieval.search_queries, pre_retrieval.original_query, pre_retrieval.normalized_query]
+        )
+
+    def _unique_texts(self, values: list[str]) -> list[str]:
+        unique = []
+        seen = set()
+        for value in values:
+            text = value.strip()
+            key = text.lower()
+            if text and key not in seen:
+                unique.append(text)
+                seen.add(key)
+        return unique
+
+    def _citations_for_documents(self, documents: list[RetrievedDocument]) -> list[Citation]:
+        return [
+            Citation(
+                id=f"S{index + 1}",
+                title=document.title,
+                source=document.source,
+                score=document.score,
+                metadata=self._stringify_metadata(document.metadata),
+            )
+            for index, document in enumerate(documents)
+        ]
+
+    def _order_conflicting_documents(
+        self,
+        documents: list[RetrievedDocument],
+        evidence_conflicts: EvidenceConflictInfo,
+    ) -> list[RetrievedDocument]:
+        if not evidence_conflicts.detected:
+            return documents
+
+        document_by_label = {f"S{index + 1}": document for index, document in enumerate(documents)}
+        grouped_labels = []
+        seen_labels = set()
+        for pair in evidence_conflicts.pairs:
+            for label in pair.source_ids:
+                if label in document_by_label and label not in seen_labels:
+                    grouped_labels.append(label)
+                    seen_labels.add(label)
+        if not grouped_labels:
+            return documents
+
+        grouped_documents = [document_by_label[label] for label in grouped_labels]
+        remaining_documents = [
+            document
+            for index, document in enumerate(documents, start=1)
+            if f"S{index}" not in seen_labels
+        ]
+        return [*grouped_documents, *remaining_documents]
+
+    def _extract_excerpt(self, content: str, query_terms: set[str], *, sentence_limit: int = 3) -> str:
         sentences = self._sentences(content)
         if not sentences:
             return content.strip()
@@ -485,7 +691,7 @@ class PostRetriever:
             ),
             reverse=True,
         )
-        selected_indexes = sorted(index for index, sentence in ranked_sentences[:3] if sentence.strip())
+        selected_indexes = sorted(index for index, sentence in ranked_sentences[:sentence_limit] if sentence.strip())
         if not selected_indexes:
             return " ".join(sentences[:2])
         return " ".join(sentences[index] for index in selected_indexes)
@@ -497,22 +703,31 @@ class PostRetriever:
         return [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", normalized) if sentence.strip()]
 
     def _sentence_coverage(self, sentence: str, query_terms: set[str]) -> float:
-        lower_sentence = sentence.lower()
         if not query_terms:
             return 0.0
-        return sum(1 for term in query_terms if term in lower_sentence) / len(query_terms)
+        sentence_terms = self._token_set(sentence)
+        return len(query_terms & sentence_terms) / len(query_terms)
 
     def _meaningful_terms(self, text: str) -> set[str]:
         stopwords = {
+            "about",
             "jak",
             "jakie",
             "jaka",
             "jest",
+            "known",
+            "lek",
+            "leki",
+            "medication",
+            "medications",
             "czy",
             "oraz",
             "dla",
             "pod",
             "nad",
+            "stosuje",
+            "used",
+            "uses",
             "the",
             "and",
             "with",
@@ -530,6 +745,35 @@ class PostRetriever:
             "pacjentów",
             "choroba",
             "chorobie",
+            "benefit",
+            "benefits",
+            "did",
+            "disease",
+            "during",
+            "first",
+            "for",
+            "from",
+            "help",
+            "into",
+            "line",
+            "option",
+            "options",
+            "of",
+            "onto",
+            "over",
+            "prevent",
+            "recommended",
+            "regimen",
+            "should",
+            "therapy",
+            "therapies",
+            "treatment",
+            "used",
+            "using",
+            "what",
         }
         terms = re.findall(r"[\w]+", text.lower())
         return {term for term in terms if len(term) > 2 and term not in stopwords}
+
+    def _token_set(self, text: str) -> set[str]:
+        return set(re.findall(r"[\w]+", text.lower()))

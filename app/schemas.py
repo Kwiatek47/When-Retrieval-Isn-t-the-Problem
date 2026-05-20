@@ -1,3 +1,4 @@
+from typing import Any
 from typing import Literal
 from typing import Optional
 
@@ -51,6 +52,38 @@ class SearchResponse(BaseModel):
     top_k: int
     provider: str
     results: list[SearchResult] = Field(default_factory=list)
+
+
+class RagTraceRequest(BaseModel):
+    messages: list[ChatMessage] = Field(..., min_length=1)
+    candidate_k: Optional[int] = Field(default=None, ge=1, le=100)
+    top_k: Optional[int] = Field(default=None, ge=1, le=20)
+
+
+class RagTraceDocument(BaseModel):
+    rank: int
+    id: str
+    title: str
+    source: str
+    score: float
+    content_preview: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RagTraceResponse(BaseModel):
+    original_query: str
+    normalized_query: str
+    search_queries: list[str]
+    intent: str
+    filters: dict[str, str] = Field(default_factory=dict)
+    preferred_publication_types: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    provider: str
+    rrf_candidates: list[RagTraceDocument] = Field(default_factory=list)
+    metadata_boosted_candidates: list[RagTraceDocument] = Field(default_factory=list)
+    final_documents: list[RagTraceDocument] = Field(default_factory=list)
+    retrieval: RetrievalInfo
+    context_preview: str
 
 
 class CitationValidation(BaseModel):

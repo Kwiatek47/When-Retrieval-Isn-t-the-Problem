@@ -34,6 +34,9 @@ class PreRetriever:
             "therapy",
             "drug",
             "medication",
+            "antibiotic",
+            "chemotherapy",
+            "regimen",
             "dose",
             "guideline",
             "wytyczne",
@@ -136,6 +139,17 @@ class PreRetriever:
             "Guideline",
         ],
     }
+    _ACRONYM_EXPANSIONS = {
+        "PAD": "peripheral artery disease choroba tetnic obwodowych",
+        "T2DM": "type 2 diabetes mellitus cukrzyca typu 2",
+        "CKD": "chronic kidney disease przewlekla choroba nerek",
+        "AF": "atrial fibrillation migotanie przedsionkow",
+        "DOAC": "direct oral anticoagulants doustne antykoagulanty niebędące antagonistami witaminy K",
+        "EGFR": "estimated glomerular filtration rate kidney function renal function",
+        "SGLT2": "sodium-glucose cotransporter 2 inhibitors inhibitory SGLT2",
+        "ICS": "inhaled corticosteroids wziewne kortykosteroidy",
+    }
+    _MAX_QUERY_VARIANTS = 4
 
     def __init__(
         self,
@@ -150,7 +164,7 @@ class PreRetriever:
         self.rewrite_timeout = rewrite_timeout
         self.active_corpus_version = (active_corpus_version or "").strip()
 
-    async def prepare(self, messages: list[ChatMessage]) -> PreRetrievalResult:
+    async def prepare(self, messages: list[ChatMessage], *, allow_rewrite: bool = True) -> PreRetrievalResult:
         query = self._latest_user_message(messages)
         normalized_query = self._normalize(query)
         requires_retrieval = self._requires_retrieval(normalized_query)
@@ -161,12 +175,23 @@ class PreRetriever:
         notes = []
 
         if requires_retrieval:
-            rewritten_query = await self._rewrite_query(normalized_query)
-            if rewritten_query and rewritten_query.lower() != normalized_query.lower():
-                search_queries = self._unique_queries([*search_queries, rewritten_query])
-                notes.append(f"Query rewritten for semantic retrieval with {self.rewrite_model}.")
-            elif not rewritten_query:
-                notes.append("Query rewriting unavailable; using normalized query.")
+            deterministic_query, expanded_acronyms = self._deterministic_query_expansion(normalized_query)
+            if deterministic_query and deterministic_query.lower() != normalized_query.lower():
+                search_queries = self._unique_queries([*search_queries, deterministic_query])
+                notes.append(
+                    "Query expanded deterministically for acronyms: "
+                    f"{', '.join(expanded_acronyms)}."
+                )
+            if allow_rewrite:
+                rewritten_query = await self._rewrite_query(normalized_query)
+                if rewritten_query and rewritten_query.lower() != normalized_query.lower():
+                    search_queries = self._unique_queries([*search_queries, rewritten_query])
+                    notes.append(f"Query rewritten for semantic retrieval with {self.rewrite_model}.")
+                elif not rewritten_query:
+                    notes.append("Query rewriting unavailable; using normalized query.")
+            else:
+                notes.append("Query rewriting skipped for retrieval-only flow.")
+            search_queries = search_queries[: self._MAX_QUERY_VARIANTS]
 
         if not requires_retrieval:
             notes.append("Retrieval skipped for simple conversational input.")
@@ -237,6 +262,19 @@ class PreRetriever:
             if sanitized.lower().startswith(prefix.lower()):
                 sanitized = sanitized[len(prefix) :].strip()
         return sanitized or None
+
+    def _deterministic_query_expansion(self, query: str) -> tuple[str | None, list[str]]:
+        matched = []
+        upper_query = query.upper()
+        for acronym, expansion in self._ACRONYM_EXPANSIONS.items():
+            if re.search(rf"\b{re.escape(acronym)}\b", upper_query):
+                matched.append((acronym, expansion))
+        if not matched:
+            return None, []
+
+        expansion_terms = " ".join(expansion for _, expansion in matched)
+        expanded_query = self._normalize(f"{query} {expansion_terms}")
+        return expanded_query, [acronym for acronym, _ in matched]
 
     def _requires_retrieval(self, query: str) -> bool:
         if not query:

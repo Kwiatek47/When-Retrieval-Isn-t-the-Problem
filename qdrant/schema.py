@@ -34,6 +34,8 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
     "isReview": models.PayloadSchemaType.BOOL,
     "isSystematicReview": models.PayloadSchemaType.BOOL,
     "wordCount": models.PayloadSchemaType.INTEGER,
+    "parentChunkId": models.PayloadSchemaType.KEYWORD,
+    "parentWordCount": models.PayloadSchemaType.INTEGER,
     "embeddingModel": models.PayloadSchemaType.KEYWORD,
     "corpusVersion": models.PayloadSchemaType.KEYWORD,
     "textHash": models.PayloadSchemaType.KEYWORD,

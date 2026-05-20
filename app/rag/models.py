@@ -33,6 +33,7 @@ class RetrievalResult:
     query: PreRetrievalResult
     documents: list[RetrievedDocument]
     provider: str
+    debug: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
