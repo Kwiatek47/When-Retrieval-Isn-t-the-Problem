@@ -24,3 +24,12 @@ data/bm25_stats*.json
 qdrant/storage/
 qdrant/snapshots/
 storage/
+
+# Local training/eval runtime artifacts.
+artifacts/
+unsloth_compiled_cache/
+data/raw/medqa/
+data/sft/
+data/telemetry/events.jsonl
+eval/reports/*
+data/sft/pubmedqa/ori_pqau.json

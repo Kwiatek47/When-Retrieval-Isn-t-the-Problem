@@ -27,6 +27,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-retries", type=int, default=4)
     parser.add_argument("--retry-backoff", type=float, default=1.5)
     parser.add_argument("--output-dir", default="eval/reports")
+    parser.add_argument(
+        "--save-every",
+        type=int,
+        default=50,
+        help="Write checkpoint every N evaluated samples (0 disables periodic checkpoints).",
+    )
+    parser.add_argument(
+        "--checkpoint-path",
+        default=None,
+        help="Optional checkpoint JSON path (default: <output-dir>/medqa_mcq_checkpoint.json).",
+    )
     return parser.parse_args()
 
 
@@ -125,11 +136,52 @@ def parse_predicted_letter(answer_text: str) -> str | None:
     return None
 
 
+def build_payload(
+    *,
+    dataset_path: Path,
+    args: argparse.Namespace,
+    total_samples: int,
+    rows: list[dict[str, Any]],
+    correct: int,
+    parsed: int,
+    is_partial: bool,
+) -> dict[str, Any]:
+    completed = len(rows)
+    accuracy_full = correct / max(1, total_samples)
+    parsed_rate_full = parsed / max(1, total_samples)
+    accuracy_completed = correct / max(1, completed)
+    parsed_rate_completed = parsed / max(1, completed)
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "dataset": str(dataset_path),
+        "api_url": args.api_url,
+        "model": args.model,
+        "prompt_version": args.prompt_version,
+        "num_samples": total_samples,
+        "completed_samples": completed,
+        "is_partial": is_partial,
+        "accuracy": accuracy_full,
+        "parsed_rate": parsed_rate_full,
+        "accuracy_full": accuracy_full,
+        "parsed_rate_full": parsed_rate_full,
+        "accuracy_completed": accuracy_completed,
+        "parsed_rate_completed": parsed_rate_completed,
+        "correct_count": correct,
+        "parsed_count": parsed,
+        "results": rows,
+    }
+
+
 def main() -> None:
     args = parse_args()
     dataset_path = Path(args.dataset)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = (
+        Path(args.checkpoint_path)
+        if args.checkpoint_path
+        else output_dir / "medqa_mcq_checkpoint.json"
+    )
 
     samples = load_dataset(dataset_path)
 
@@ -137,64 +189,81 @@ def main() -> None:
     parsed = 0
     rows: list[dict[str, Any]] = []
 
-    with tqdm(total=len(samples), desc="Evaluating", unit="q") as pbar:
-        for sample in samples:
-            user_question = extract_user_question(sample)
-            gold = extract_gold_letter(sample)
-            qid = str(sample.get("id") or "?")
-            if not user_question or gold is None:
+    interrupted = False
+    try:
+        with tqdm(total=len(samples), desc="Evaluating", unit="q") as pbar:
+            for sample in samples:
+                user_question = extract_user_question(sample)
+                gold = extract_gold_letter(sample)
+                qid = str(sample.get("id") or "?")
+                if not user_question or gold is None:
+                    rows.append(
+                        {
+                            "id": qid,
+                            "gold": gold,
+                            "pred": None,
+                            "correct": False,
+                            "note": "missing user question or gold label",
+                        }
+                    )
+                    pbar.update(1)
+                    continue
+
+                answer = call_chat(
+                    api_url=args.api_url,
+                    model=args.model,
+                    prompt_version=args.prompt_version,
+                    question=user_question,
+                    timeout=args.timeout,
+                    max_retries=args.max_retries,
+                    retry_backoff=args.retry_backoff,
+                )
+                pred = parse_predicted_letter(answer)
+                is_correct = pred == gold
+                if pred is not None:
+                    parsed += 1
+                if is_correct:
+                    correct += 1
                 rows.append(
                     {
                         "id": qid,
                         "gold": gold,
-                        "pred": None,
-                        "correct": False,
-                        "note": "missing user question or gold label",
+                        "pred": pred,
+                        "correct": is_correct,
+                        "answer": answer,
                     }
                 )
                 pbar.update(1)
-                continue
+                pbar.set_postfix(acc=f"{correct / max(1, len(rows)):.3f}")
 
-            answer = call_chat(
-                api_url=args.api_url,
-                model=args.model,
-                prompt_version=args.prompt_version,
-                question=user_question,
-                timeout=args.timeout,
-                max_retries=args.max_retries,
-                retry_backoff=args.retry_backoff,
-            )
-            pred = parse_predicted_letter(answer)
-            is_correct = pred == gold
-            if pred is not None:
-                parsed += 1
-            if is_correct:
-                correct += 1
-            rows.append(
-                {
-                    "id": qid,
-                    "gold": gold,
-                    "pred": pred,
-                    "correct": is_correct,
-                    "answer": answer,
-                }
-            )
-            pbar.update(1)
-            pbar.set_postfix(acc=f"{correct / max(1, len(rows)):.3f}")
+                if args.save_every > 0 and len(rows) % args.save_every == 0:
+                    checkpoint_payload = build_payload(
+                        dataset_path=dataset_path,
+                        args=args,
+                        total_samples=len(samples),
+                        rows=rows,
+                        correct=correct,
+                        parsed=parsed,
+                        is_partial=True,
+                    )
+                    checkpoint_path.write_text(
+                        json.dumps(checkpoint_payload, ensure_ascii=True, indent=2),
+                        encoding="utf-8",
+                    )
+    except KeyboardInterrupt:
+        interrupted = True
 
-    accuracy = correct / max(1, len(samples))
-    parsed_rate = parsed / max(1, len(samples))
-    payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "dataset": str(dataset_path),
-        "api_url": args.api_url,
-        "model": args.model,
-        "prompt_version": args.prompt_version,
-        "num_samples": len(samples),
-        "accuracy": accuracy,
-        "parsed_rate": parsed_rate,
-        "results": rows,
-    }
+    payload = build_payload(
+        dataset_path=dataset_path,
+        args=args,
+        total_samples=len(samples),
+        rows=rows,
+        correct=correct,
+        parsed=parsed,
+        is_partial=interrupted or len(rows) < len(samples),
+    )
+    if payload["is_partial"]:
+        checkpoint_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_json = output_dir / f"medqa_mcq_report_{timestamp}.json"
@@ -212,14 +281,29 @@ def main() -> None:
         f"- Model: `{args.model}`",
         f"- Prompt version: `{args.prompt_version}`",
         f"- Samples: `{len(samples)}`",
-        f"- Accuracy: `{accuracy:.4f}`",
-        f"- Parsed answer rate: `{parsed_rate:.4f}`",
+        f"- Completed: `{payload['completed_samples']}`",
+        f"- Accuracy (full): `{payload['accuracy_full']:.4f}`",
+        f"- Parsed answer rate (full): `{payload['parsed_rate_full']:.4f}`",
+        f"- Accuracy (completed): `{payload['accuracy_completed']:.4f}`",
+        f"- Parsed answer rate (completed): `{payload['parsed_rate_completed']:.4f}`",
         "",
     ]
     report_md.write_text("\n".join(lines), encoding="utf-8")
     latest_md.write_text("\n".join(lines), encoding="utf-8")
 
-    print(json.dumps({"accuracy": accuracy, "parsed_rate": parsed_rate, "report": str(report_json)}, ensure_ascii=True))
+    print(
+        json.dumps(
+            {
+                "accuracy_full": payload["accuracy_full"],
+                "accuracy_completed": payload["accuracy_completed"],
+                "parsed_rate_full": payload["parsed_rate_full"],
+                "parsed_rate_completed": payload["parsed_rate_completed"],
+                "report": str(report_json),
+                "checkpoint": str(checkpoint_path) if payload["is_partial"] else None,
+            },
+            ensure_ascii=True,
+        )
+    )
 
 
 if __name__ == "__main__":

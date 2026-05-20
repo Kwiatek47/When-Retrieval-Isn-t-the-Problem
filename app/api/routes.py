@@ -13,13 +13,16 @@ from app.api.dependencies import (
     get_evidence_judge,
     get_llm_provider,
     get_medical_knowledge_retriever,
+    get_ollama_provider,
     get_post_retriever,
     get_pre_retriever,
     get_rag_pipeline,
+    get_telemetry_logger,
 )
 from app.core.config import Settings, get_settings
 from app.core.prompt_registry import resolve_prompt
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
+from app.providers.ollama import OllamaProvider
 from app.rag.answer_contract import (
     enforce_yes_no_maybe_contract,
     extract_yes_no_maybe_label,
@@ -39,6 +42,7 @@ from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
 from app.rag.retrieval import MedicalKnowledgeRetriever
+from app.services.telemetry_service import TelemetryLogger
 from app.schemas import (
     AnswerQuality,
     ChatMessage,
@@ -131,6 +135,7 @@ async def chat(
                     role="assistant",
                     content=refusal_content,
                 ),
+                done=True,
             )
             latency_ms = int((perf_counter() - request_started_at) * 1000)
             response = ChatResponse(
