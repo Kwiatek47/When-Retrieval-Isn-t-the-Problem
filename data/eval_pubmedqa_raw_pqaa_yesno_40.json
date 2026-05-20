@@ -1,0 +1,722 @@
+[
+  {
+    "id": "pubmedqa-1279972",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do cyclooxygenase products modulate angiotensin II-induced contractions of human chorionic plate arteries?",
+    "benchmark_question": "Do cyclooxygenase products modulate angiotensin II-induced contractions of human chorionic plate arteries?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1279972"
+    ],
+    "relevant_pmids": [
+      "1279972"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1279972/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1283117",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does prolonged treatment with finasteride ( a 5 alpha-reductase inhibitor ) affect bone density and metabolism?",
+    "benchmark_question": "Does prolonged treatment with finasteride ( a 5 alpha-reductase inhibitor ) affect bone density and metabolism?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1283117"
+    ],
+    "relevant_pmids": [
+      "1283117"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1283117/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1288866",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is ischaemic preconditioning dependent on neutrophils or glycolytic substrate at reperfusion in rabbit heart?",
+    "benchmark_question": "Is ischaemic preconditioning dependent on neutrophils or glycolytic substrate at reperfusion in rabbit heart?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1288866"
+    ],
+    "relevant_pmids": [
+      "1288866"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1288866/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1289185",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are aNLL patients with normal karyotype a homogeneous prognostic group?",
+    "benchmark_question": "Are aNLL patients with normal karyotype a homogeneous prognostic group?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1289185"
+    ],
+    "relevant_pmids": [
+      "1289185"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1289185/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1320574",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does chronic high-dosage androgen administration to ovulatory women alter adrenocortical steroidogenesis?",
+    "benchmark_question": "Does chronic high-dosage androgen administration to ovulatory women alter adrenocortical steroidogenesis?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1320574"
+    ],
+    "relevant_pmids": [
+      "1320574"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1320574/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1357786",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is endothelium-derived relaxing factor in brain blood vessels nitric oxide?",
+    "benchmark_question": "Is endothelium-derived relaxing factor in brain blood vessels nitric oxide?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1357786"
+    ],
+    "relevant_pmids": [
+      "1357786"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1357786/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1361838",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is bicarbonate the ultimate answer to the biocompatibility problems of CAPD solutions : a cytotoxicity test of CAPD solutions and effluents?",
+    "benchmark_question": "Is bicarbonate the ultimate answer to the biocompatibility problems of CAPD solutions : a cytotoxicity test of CAPD solutions and effluents?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1361838"
+    ],
+    "relevant_pmids": [
+      "1361838"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1361838/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1363234",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does cancer chemotherapy enhance MDR-associated 170 kd glycoprotein expression in normal blood mononuclear cells?",
+    "benchmark_question": "Does cancer chemotherapy enhance MDR-associated 170 kd glycoprotein expression in normal blood mononuclear cells?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1363234"
+    ],
+    "relevant_pmids": [
+      "1363234"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1363234/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1372475",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is unexplained elevated maternal serum alpha-fetoprotein predictive of adverse perinatal outcome in an indigent urban population?",
+    "benchmark_question": "Is unexplained elevated maternal serum alpha-fetoprotein predictive of adverse perinatal outcome in an indigent urban population?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1372475"
+    ],
+    "relevant_pmids": [
+      "1372475"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1372475/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1374004",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does bleomycin-induced acute lung injury in the rat influence pulmonary vascular responsiveness in vitro?",
+    "benchmark_question": "Does bleomycin-induced acute lung injury in the rat influence pulmonary vascular responsiveness in vitro?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1374004"
+    ],
+    "relevant_pmids": [
+      "1374004"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1374004/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1398276",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does m-BCR breakpoint location predict survival in Philadelphia chromosome-positive chronic myeloid leukemia?",
+    "benchmark_question": "Does m-BCR breakpoint location predict survival in Philadelphia chromosome-positive chronic myeloid leukemia?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1398276"
+    ],
+    "relevant_pmids": [
+      "1398276"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1398276/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1406426",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do why some people drown . Hypothermia versus the diving response?",
+    "benchmark_question": "Do why some people drown . Hypothermia versus the diving response?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1406426"
+    ],
+    "relevant_pmids": [
+      "1406426"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1406426/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1411933",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is total parenteral nutrition-induced changes in gut mucosal function : atrophy alone the issue?",
+    "benchmark_question": "Is total parenteral nutrition-induced changes in gut mucosal function : atrophy alone the issue?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1411933"
+    ],
+    "relevant_pmids": [
+      "1411933"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1411933/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1412585",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does tirilazad mesylate improve early cerebral metabolic recovery following compression ischemia in dogs?",
+    "benchmark_question": "Does tirilazad mesylate improve early cerebral metabolic recovery following compression ischemia in dogs?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1412585"
+    ],
+    "relevant_pmids": [
+      "1412585"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1412585/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1413132",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is [ Monosymptomatic pneumoperitoneum an indication for surgery ]?",
+    "benchmark_question": "Is [ Monosymptomatic pneumoperitoneum an indication for surgery ]?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1413132"
+    ],
+    "relevant_pmids": [
+      "1413132"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1413132/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1415405",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does amnioinfusion affect the length of labor?",
+    "benchmark_question": "Does amnioinfusion affect the length of labor?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1415405"
+    ],
+    "relevant_pmids": [
+      "1415405"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1415405/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1415406",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does position of the vibroacoustic stimulator affect fetal response?",
+    "benchmark_question": "Does position of the vibroacoustic stimulator affect fetal response?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1415406"
+    ],
+    "relevant_pmids": [
+      "1415406"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1415406/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1419010",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does alkalinization of mepivacaine alter onset of caudal anesthesia?",
+    "benchmark_question": "Does alkalinization of mepivacaine alter onset of caudal anesthesia?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1419010"
+    ],
+    "relevant_pmids": [
+      "1419010"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1419010/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1423416",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are cardioprotective effects of ischaemic preconditioning mediated by prostanoids?",
+    "benchmark_question": "Are cardioprotective effects of ischaemic preconditioning mediated by prostanoids?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1423416"
+    ],
+    "relevant_pmids": [
+      "1423416"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1423416/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1423421",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does nitric oxide mediate flow induced endothelium dependent arterial dilatation in the cat?",
+    "benchmark_question": "Does nitric oxide mediate flow induced endothelium dependent arterial dilatation in the cat?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1423421"
+    ],
+    "relevant_pmids": [
+      "1423421"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1423421/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-112569",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does thyrotropin-releasing hormone increase the amount of surfactant in lung lavage from fetal rabbits?",
+    "benchmark_question": "Does thyrotropin-releasing hormone increase the amount of surfactant in lung lavage from fetal rabbits?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-112569"
+    ],
+    "relevant_pmids": [
+      "112569"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/112569/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-782985",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does glucagon release precede insulin release in response to common secretagogues?",
+    "benchmark_question": "Does glucagon release precede insulin release in response to common secretagogues?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-782985"
+    ],
+    "relevant_pmids": [
+      "782985"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/782985/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1069366",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does intravenous 13-Nle-motilin increase the human lower esophageal sphincter pressure?",
+    "benchmark_question": "Does intravenous 13-Nle-motilin increase the human lower esophageal sphincter pressure?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1069366"
+    ],
+    "relevant_pmids": [
+      "1069366"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1069366/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1279272",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is loss of expression of protectin ( CD59 ) associated with complement membrane attack complex deposition in myocardial infarction?",
+    "benchmark_question": "Is loss of expression of protectin ( CD59 ) associated with complement membrane attack complex deposition in myocardial infarction?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1279272"
+    ],
+    "relevant_pmids": [
+      "1279272"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1279272/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1279663",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are healthy lifestyles associated with higher natural killer cell activity?",
+    "benchmark_question": "Are healthy lifestyles associated with higher natural killer cell activity?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1279663"
+    ],
+    "relevant_pmids": [
+      "1279663"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1279663/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1279842",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does ischemia-induced extracellular release of serotonin play a role in CA1 neuronal cell death in rats?",
+    "benchmark_question": "Does ischemia-induced extracellular release of serotonin play a role in CA1 neuronal cell death in rats?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1279842"
+    ],
+    "relevant_pmids": [
+      "1279842"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1279842/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1282007",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does the intrinsic migratory capacity of memory T cells contribute to their accumulation in rheumatoid synovium?",
+    "benchmark_question": "Does the intrinsic migratory capacity of memory T cells contribute to their accumulation in rheumatoid synovium?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1282007"
+    ],
+    "relevant_pmids": [
+      "1282007"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1282007/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1282009",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are antilactoferrin antibodies in patients with rheumatoid arthritis associated with vasculitis?",
+    "benchmark_question": "Are antilactoferrin antibodies in patients with rheumatoid arthritis associated with vasculitis?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1282009"
+    ],
+    "relevant_pmids": [
+      "1282009"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1282009/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1286384",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do why Londoners have low death rates from ischaemic heart disease and stroke?",
+    "benchmark_question": "Do why Londoners have low death rates from ischaemic heart disease and stroke?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1286384"
+    ],
+    "relevant_pmids": [
+      "1286384"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1286384/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1286526",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does human chorionic gonadotrophin contribute to the bioactivity of Pergonal?",
+    "benchmark_question": "Does human chorionic gonadotrophin contribute to the bioactivity of Pergonal?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1286526"
+    ],
+    "relevant_pmids": [
+      "1286526"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1286526/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1288868",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does atrial contractility affect phasic blood flow velocity of atrial small vessels in the dog?",
+    "benchmark_question": "Does atrial contractility affect phasic blood flow velocity of atrial small vessels in the dog?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1288868"
+    ],
+    "relevant_pmids": [
+      "1288868"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1288868/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1289182",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is high-dose cyclophosphamide followed by GM-CSF a safe and effective procedure for the recruitment of trilineage circulating progenitor cells?",
+    "benchmark_question": "Is high-dose cyclophosphamide followed by GM-CSF a safe and effective procedure for the recruitment of trilineage circulating progenitor cells?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1289182"
+    ],
+    "relevant_pmids": [
+      "1289182"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1289182/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1307884",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does the effects of ocean sound on sleep after coronary artery bypass graft surgery?",
+    "benchmark_question": "Does the effects of ocean sound on sleep after coronary artery bypass graft surgery?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1307884"
+    ],
+    "relevant_pmids": [
+      "1307884"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1307884/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1308216",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do the effect of abutment angulation on stress transfer for an implant?",
+    "benchmark_question": "Do the effect of abutment angulation on stress transfer for an implant?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1308216"
+    ],
+    "relevant_pmids": [
+      "1308216"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1308216/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1309493",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does intra-abdominal sepsis alter tumor necrosis factor-alpha and interleukin-1 beta binding to human neutrophils?",
+    "benchmark_question": "Does intra-abdominal sepsis alter tumor necrosis factor-alpha and interleukin-1 beta binding to human neutrophils?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1309493"
+    ],
+    "relevant_pmids": [
+      "1309493"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1309493/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1310451",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does a low-sodium diet correct the defect in beta-adrenergic response in older subjects?",
+    "benchmark_question": "Does a low-sodium diet correct the defect in beta-adrenergic response in older subjects?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1310451"
+    ],
+    "relevant_pmids": [
+      "1310451"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1310451/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1310452",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does myocardial adrenergic denervation supersensitivity depend on a postreceptor mechanism not linked with increased cAMP production?",
+    "benchmark_question": "Does myocardial adrenergic denervation supersensitivity depend on a postreceptor mechanism not linked with increased cAMP production?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1310452"
+    ],
+    "relevant_pmids": [
+      "1310452"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1310452/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1310846",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is serum angiotensin-converting enzyme level elevated in patients with human immunodeficiency virus infection?",
+    "benchmark_question": "Is serum angiotensin-converting enzyme level elevated in patients with human immunodeficiency virus infection?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1310846"
+    ],
+    "relevant_pmids": [
+      "1310846"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1310846/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1311178",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do basic calcium phosphate crystals stimulate cell proliferation and collagenase message accumulation in cultured adult articular chondrocytes?",
+    "benchmark_question": "Do basic calcium phosphate crystals stimulate cell proliferation and collagenase message accumulation in cultured adult articular chondrocytes?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1311178"
+    ],
+    "relevant_pmids": [
+      "1311178"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1311178/"
+    ],
+    "strict": false
+  },
+  {
+    "id": "pubmedqa-1312556",
+    "benchmark": "PubMedQA PQA-A yes/no subset",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does a low-sodium diet supplemented with fish oil lower blood pressure in the elderly?",
+    "benchmark_question": "Does a low-sodium diet supplemented with fish oil lower blood pressure in the elderly?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-1312556"
+    ],
+    "relevant_pmids": [
+      "1312556"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/1312556/"
+    ],
+    "strict": false
+  }
+]

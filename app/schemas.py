@@ -23,6 +23,7 @@ class Citation(BaseModel):
     id: str
     title: str
     source: str
+    url: Optional[str] = None
     score: float
     metadata: dict[str, str] = Field(default_factory=dict)
 

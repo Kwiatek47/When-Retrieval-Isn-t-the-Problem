@@ -104,6 +104,11 @@ async def chat(
         rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=system_prompt)
         rag_done_at = perf_counter()
         yes_no_maybe_task = is_yes_no_maybe_task(request.messages)
+        low_evidence_non_blocking = (
+            bool(rag_result.retrieval)
+            and rag_result.retrieval.status == "low_evidence"
+            and not settings.rag_refuse_on_low_evidence
+        )
         if rag_result.pre_retrieval is not None:
             evidence_decision = await evidence_judge.judge(
                 messages=request.messages,
@@ -114,7 +119,14 @@ async def chat(
                 model=settings.rag_evidence_judge_model or request.model,
             )
             rag_result = _with_evidence_decision(rag_result, evidence_decision)
-        if rag_result.retrieval and rag_result.retrieval.status in {"no_sources", "low_evidence"}:
+        should_refuse = (
+            bool(rag_result.retrieval)
+            and (
+                rag_result.retrieval.status == "no_sources"
+                or (rag_result.retrieval.status == "low_evidence" and settings.rag_refuse_on_low_evidence)
+            )
+        )
+        if should_refuse:
             refusal_content = _low_evidence_refusal(
                 request.messages,
                 rag_result.citations,
@@ -183,6 +195,8 @@ async def chat(
                 if settings.rag_citation_repair_enabled:
                     answer_content = repair_missing_citations(answer_content, rag_result.source_documents)
                 answer_content = enforce_yes_no_maybe_contract(answer_content, rag_result.source_documents)
+                if low_evidence_non_blocking and not yes_no_maybe_task:
+                    answer_content = f"{answer_content}\n\n{_low_evidence_warning(request.messages, rag_result.citations)}"
                 citation_validation = validate_citations(answer_content, rag_result.citations)
                 answer_quality = evaluate_answer_quality(
                     answer_content,
@@ -244,6 +258,8 @@ async def chat(
                 draft_answer=answer_content,
                 source_documents=rag_result.source_documents,
             )
+        if low_evidence_non_blocking and not yes_no_maybe_task:
+            answer_content = f"{answer_content}\n\n{_low_evidence_warning(request.messages, rag_result.citations)}"
         citation_validation = validate_citations(answer_content, rag_result.citations)
         answer_quality = evaluate_answer_quality(
             answer_content,
@@ -280,6 +296,7 @@ async def chat(
             answer_quality.groundedness,
             answer_quality.hallucination_rate,
         )
+        latency_ms = int((perf_counter() - request_started_at) * 1000)
         response = ChatResponse(
             model=llm_response.model,
             message=answer_message,
@@ -568,6 +585,23 @@ def _low_evidence_refusal(
             f"Znalezione źródła oznaczono jako niewystarczające dla bezpiecznej odpowiedzi: {citation_labels}"
         )
     return content
+
+
+def _low_evidence_warning(messages: list[ChatMessage], citations: list) -> str:
+    citation_labels = " ".join(f"[{citation.id}]" for citation in citations)
+    if _prefer_english(messages):
+        warning = (
+            "Warning: retrieved sources were marked as low-evidence, so this answer may be incomplete or uncertain."
+        )
+        if citation_labels:
+            warning = f"{warning} Sources: {citation_labels}"
+        return warning
+    warning = (
+        "Ostrzeżenie: znalezione źródła oznaczono jako low-evidence, więc odpowiedź może być niepełna lub niepewna."
+    )
+    if citation_labels:
+        warning = f"{warning} Źródła: {citation_labels}"
+    return warning
 
 
 def _prefer_english(messages: list[ChatMessage]) -> bool:

@@ -123,6 +123,102 @@ function citationValidationMessage(citationValidation) {
   return `Citation validation failed: ${parts.join(", ") || "citation policy violation"}.${recallLabel}`;
 }
 
+function resolveCitationUrl(citation) {
+  if (!citation) {
+    return "";
+  }
+
+  const metadata = citation.metadata || {};
+  const directUrl = [metadata.url, metadata.source_url, metadata.sourceUrl, citation.url]
+    .map((value) => (value || "").toString().trim())
+    .find((value) => /^https?:\/\//i.test(value));
+  if (directUrl) {
+    return directUrl;
+  }
+
+  const source = (citation.source || "").toString().trim();
+  if (/^https?:\/\//i.test(source)) {
+    return source;
+  }
+  const sourceBeforePmid = source.split(": PMID")[0].trim();
+  if (/^https?:\/\//i.test(sourceBeforePmid)) {
+    return sourceBeforePmid;
+  }
+
+  const pmid = (metadata.pmid || "").toString().trim();
+  if (pmid) {
+    return `https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(pmid)}/`;
+  }
+
+  const doi = (metadata.doi || "").toString().trim();
+  if (doi) {
+    return `https://doi.org/${encodeURIComponent(doi)}`;
+  }
+
+  return "";
+}
+
+function linkifyInlineCitations(content, citations) {
+  if (!content || !Array.isArray(citations) || citations.length === 0) {
+    return content;
+  }
+
+  const citationUrlById = new Map();
+  citations.forEach((citation) => {
+    const citationId = (citation?.id || "").toString().trim();
+    const citationUrl = resolveCitationUrl(citation);
+    if (citationId && citationUrl) {
+      citationUrlById.set(citationId.toUpperCase(), citationUrl);
+    }
+  });
+
+  if (citationUrlById.size === 0) {
+    return content;
+  }
+
+  return content.replace(/\[(S[1-9][0-9]*)\]/gi, (match, citationId) => {
+    const url = citationUrlById.get(citationId.toUpperCase());
+    if (!url) {
+      return match;
+    }
+    return `[${citationId}](${url})`;
+  });
+}
+
+function normalizeAssistantFormatting(content) {
+  if (!content) {
+    return content;
+  }
+
+  const headingNames = [
+    "Urgency / cannot-miss",
+    "Differential diagnosis",
+    "Localization & reasoning",
+    "What to rule out now",
+    "Suggested workup",
+    "Immediate actions",
+    "Uncertainty & gaps",
+  ];
+
+  let normalized = content.replace(/\r\n/g, "\n");
+
+  // If the model emits plain heading labels without markdown markers, convert to ## headings.
+  headingNames.forEach((heading) => {
+    const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const plainHeadingPattern = new RegExp(`(^|\\n)\\s*${escapedHeading}(?=\\s+)`, "g");
+    normalized = normalized.replace(plainHeadingPattern, `$1## ${heading}`);
+  });
+
+  // Ensure each section heading starts on a new block.
+  normalized = normalized.replace(/\s+(##\s+)/g, "\n\n$1");
+  normalized = normalized.replace(/([^\n])(\n##\s+)/g, "$1\n$2");
+  normalized = normalized.replace(/(^|\n)(##\s+[^\n#]+?)\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/g, "$1$2\n");
+
+  // Keep spacing readable.
+  normalized = normalized.replace(/\n{3,}/g, "\n\n").trim();
+  return normalized;
+}
+
 function appendMessage(
   role,
   content,
@@ -150,7 +246,9 @@ function appendMessage(
     if (loading || assistantPlainText) {
       bodyEl.textContent = content;
     } else {
-      bodyEl.innerHTML = renderAssistantMarkdown(content);
+      const normalizedContent = normalizeAssistantFormatting(content);
+      const linkedContent = linkifyInlineCitations(normalizedContent, citations);
+      bodyEl.innerHTML = renderAssistantMarkdown(linkedContent);
     }
     message.appendChild(bodyEl);
   }
@@ -167,10 +265,17 @@ function appendMessage(
     citationsEl.className = "mt-4 flex flex-wrap gap-2 text-xs text-zinc-500";
 
     citedSources.forEach((citation) => {
-      const item = document.createElement("span");
+      const citationLabel = `[${citation.id}] ${citation.title}`;
+      const citationUrl = resolveCitationUrl(citation);
+      const item = document.createElement(citationUrl ? "a" : "span");
       item.className = "rounded-full border border-zinc-200 px-3 py-1";
-      item.textContent = `[${citation.id}] ${citation.title}`;
-      item.title = citation.source;
+      item.textContent = citationLabel;
+      item.title = citationUrl || citation.source;
+      if (citationUrl) {
+        item.href = citationUrl;
+        item.target = "_blank";
+        item.rel = "noopener noreferrer";
+      }
       citationsEl.appendChild(item);
     });
 

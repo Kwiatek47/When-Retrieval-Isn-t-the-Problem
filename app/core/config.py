@@ -51,6 +51,7 @@ class Settings:
     rag_evidence_judge_max_sources: int
     rag_evidence_judge_voting_enabled: bool
     rag_evidence_judge_votes: int
+    rag_refuse_on_low_evidence: bool
     rag_citation_repair_enabled: bool
     rag_answer_quality_gate_enabled: bool
     rag_answer_quality_max_hallucination_rate: float
@@ -108,6 +109,7 @@ def get_settings() -> Settings:
         rag_evidence_judge_max_sources=int(os.getenv("RAG_EVIDENCE_JUDGE_MAX_SOURCES", "3")),
         rag_evidence_judge_voting_enabled=_bool_env("RAG_EVIDENCE_JUDGE_VOTING_ENABLED", False),
         rag_evidence_judge_votes=int(os.getenv("RAG_EVIDENCE_JUDGE_VOTES", "3")),
+        rag_refuse_on_low_evidence=_bool_env("RAG_REFUSE_ON_LOW_EVIDENCE", True),
         rag_citation_repair_enabled=_bool_env("RAG_CITATION_REPAIR_ENABLED", True),
         rag_answer_quality_gate_enabled=_bool_env("RAG_ANSWER_QUALITY_GATE_ENABLED", True),
         rag_answer_quality_max_hallucination_rate=float(
@@ -124,10 +126,8 @@ def get_settings() -> Settings:
         telemetry_path=Path(os.getenv("TELEMETRY_PATH", str(PROJECT_ROOT / "data" / "telemetry" / "events.jsonl"))),
         active_prompt_version=os.getenv("PROMPT_VERSION", "v4"),
         system_prompt=(
-            "You are a neurology clinical decision-support assistant for physicians. "
-            "Provide differential diagnosis from patient history and symptom chronology. "
-            "Highlight red flags, urgent exclusions, and recommended next diagnostics. "
-            "Include a disclaimer that this is decision support and not a final diagnosis."
+            "You are a senior clinical decision-support assistant for a doctor. "
+            "Your role is to support triage, differential diagnosis, and next-step planning; you must not provide a definitive diagnosis."
         ),
     )
 

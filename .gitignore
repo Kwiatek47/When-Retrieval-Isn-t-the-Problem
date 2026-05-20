@@ -13,6 +13,7 @@ reports/*
 data/processed/
 data/embeddings/
 data/indexes/
+data/raw/
 data/bm25_stats*.json
 
 # Large local data files if placed outside the expected data folders.
