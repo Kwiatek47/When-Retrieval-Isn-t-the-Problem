@@ -1,1124 +1,805 @@
-# Audyt Architektury Medical RAG
+# Aktualna diagnoza RAG
 
-Data audytu: 2026-05-18  
-Projekt: `Architektura-multiagentowego-systemu-diagnostycznego`  
-Zakładane modele generujące: open-source LLM 7B oraz 26B/27B  
-Zakładany typ systemu: prosty medyczny chatbot RAG oparty o Vector DB, bez rozbudowanej warstwy agentowej
+Data: 2026-05-20
+Branch: `rag-improvement-rag-optimization`
+Zakres: dane -> embeddingi -> indeks -> retrieval -> evidence judge -> writer -> API -> eval
 
-## 1. Executive Summary
+## 1. Najkrotsza diagnoza
 
-Obecna architektura jest sensownym MVP medycznego RAG-a:
+Mamy juz duzo wiecej niz prosty RAG. System ma pipeline danych, embeddingi MedCPT, hybrydowe wyszukiwanie dense + BM25, reranking/scoring, guardraile cytowan, endpoint trace i osobny `EvidenceJudge`, ktory podejmuje decyzje przed writerem.
 
-- FastAPI + UI czatu,
-- lokalny LLM przez Ollama,
-- osobny `embedding-service`,
-- Qdrant jako Vector DB,
-- MedCPT jako biomedical dense embedding,
-- BM25 sparse retrieval,
-- hybrid retrieval przez RRF,
-- opcjonalny cross-encoder reranking,
-- walidacja cytowań,
-- prosta ocena groundedness.
+Najmocniejsza czesc systemu to obecnie retrieval. Na oficjalnym PubMedQA 500 test system znajduje poprawne zrodlo na pierwszej pozycji w `98.2%` przypadkow. To znaczy, ze problem nie jest glownie w tym, ze RAG nie znajduje papieru.
 
-Największe problemy nie są w samym pomyśle, tylko w kilku miejscach wykonania:
+Najslabsza czesc systemu to decyzja z evidence: czy zrodlo oznacza `yes`, `no` czy `maybe`. Na oficjalnym PubMedQA 500 mamy `49.6%` accuracy przy modelu `qwen2.5:7b`. To jest ponizej paperowego majority baseline PubMedQA okolo `55.2%`, mimo ze retrieval trafia bardzo dobrze.
 
-1. Indeksowanie pełnego korpusu jest zbyt pamięciożerne, bo skrypt czyta całe pliki Parquet do pamięci.
-2. Chunking jest zbyt prosty: jeden abstrakt PubMed to jeden chunk, a najdłuższe chunki są bardzo długie.
-3. Query rewrite zastępuje praktycznie oryginalne pytanie, zamiast robić multi-query retrieval.
-4. Metadata filtering jest obecnie opisany w danych, ale nie jest realnie używany jako część retrievalu.
-5. `embedding-service` miesza liczenie embeddingów z odpytywaniem Qdranta.
-6. Ewaluacja jest za mała, żeby bezpiecznie stroić retrieval i prompt.
-
-Najkrótsza droga do stabilnej wersji:
+Najprosciej:
 
 ```text
-streaming indexer
-+ metadata filtering
-+ evidence filtering
-+ multi-query retrieval
-+ BM25 top50 -> MedCPT/cross-encoder rerank -> top5
-+ osobne profile dla 7B i 26B
-+ realny eval set minimum 100-300 pytań
+retriever dowozi zrodlo
+judge nie zawsze dobrze rozumie, co z tego zrodla wynika
+writer i cytowania sa juz mocno ograniczone guardrailami
 ```
 
-Nie rekomenduję na tym etapie budowania złożonego systemu multiagentowego. Najpierw trzeba ustabilizować prosty, mierzalny RAG.
+Dlatego kolejny realny skok jakosci nie bedzie z samego "lepszego promptu do chatbota". Najwiekszy zysk bedzie z lepszego evidence judge, lepszego datasetu treningowo-walidacyjnego i multi-corpus retrievalu dla produkcyjnych pytan klinicznych.
 
-## 2. Obecny Stan Systemu
+## 2. Co teraz mamy w repo
 
-### 2.1. Aplikacja
-
-Aktualny przepływ:
+Glowne katalogi:
 
 ```text
-Użytkownik
-  -> UI / static
-  -> FastAPI /api/chat
-  -> PreRetriever
-  -> Retriever
-     -> embedding-service
-     -> Qdrant
-  -> PostRetriever
-  -> Ollama
-  -> odpowiedź z cytowaniami
+app/
+  api/                 endpointy FastAPI
+  core/                konfiguracja
+  providers/           Ollama provider
+  rag/                 caly pipeline RAG
+services/
+  embedding-service/   MedCPT query/document encoder + hybrid search
+scripts/
+  embeddings/          embedding pipeline
+  rag/                 index, search, eval, PubMedQA benchmark
+data-pipeline/
+  pubmed/              dokumentacja i kontrakt danych PubMed
+data/                  sample corpora i male benchmarki
+reports/               raporty ewaluacyjne
+tests/                 testy jednostkowe RAG
 ```
 
-Główne komponenty:
+Najwazniejsze pliki runtime:
 
-- `app/rag/pre_retrieval.py` - normalizacja pytania, query rewrite, proste filtry,
-- `app/rag/retrieval.py` - retrievery do Qdranta/embedding-service,
-- `app/rag/post_retrieval.py` - reranking, deduplikacja, budowa kontekstu,
-- `app/rag/citation_validation.py` - walidacja cytowań `[S1]`, `[S2]`,
-- `app/rag/answer_quality.py` - heurystyczna ocena groundedness,
-- `services/embedding-service` - MedCPT query/document encoder i endpoint hybrid query,
-- `scripts/rag/01_build_index.py` - budowa indeksu Qdrant.
+- `app/rag/pre_retrieval.py` - czyszczenie i planowanie query.
+- `app/rag/retrieval.py` - retrievery, weighted RRF, metadata boost.
+- `app/rag/post_retrieval.py` - ranking evidence, excerpt extraction, prompt context.
+- `app/rag/evidence_judge.py` - osobny judge przed writerem.
+- `app/rag/pipeline.py` - orkiestracja RAG.
+- `app/api/routes.py` - `/api/chat`, `/api/search`, `/api/rag/trace`.
+- `app/core/config.py` - wszystkie flagi i domyslne parametry.
+- `services/embedding-service/` - MedCPT + BM25 + Qdrant hybrid query.
+- `scripts/rag/01_build_index.py` - streamingowy indexer do Qdranta.
 
-### 2.2. Dane
+## 3. Dane
 
-Lokalna paczka danych:
+### Co mamy
+
+W repo sa male datasety i benchmarki:
+
+- `data/pubmed_sample.json`
+- `data/sample/medical_documents.json`
+- `data/pubmedqa_strict_corpus_90.json`
+- `data/eval_pubmedqa_strict_90.json`
+- `data/pubmedqa_benchmark_corpus.json`
+- `data/eval_pubmedqa_benchmark.json`
+- `data/eval_rag_english_real_sources.json`
+
+Mamy tez dokumentacje pelnego pipeline PubMed:
+
+- `data-pipeline/pubmed/docs/`
+- `data-pipeline/pubmed/configs/chunks_schema_v1.json`
+- `data-pipeline/pubmed/reports/pubmed_reviews_v1_quality_report.md`
+
+Wedlug repo-safe raportu jakosci dla `pubmed_reviews_v1` pipeline zbudowal:
 
 ```text
-pubmed_reviews_v1_local/data/processed/chunks.parquet
-pubmed_reviews_v1_local/data/processed/documents.parquet
-pubmed_reviews_v1_local/data/embeddings/embeddings_shard_0.parquet
-pubmed_reviews_v1_local/data/embeddings/embeddings_shard_1.parquet
+input PMID count: 990,391
+metadata rows fetched: 982,019
+cleaned rows: 979,499
+final documents: 977,777
+final chunks: 977,777
 ```
 
-Jakość danych:
-
-- dokumenty: `977777`,
-- chunki: `977777`,
-- duplicate `chunk_id`: `0`,
-- duplicate PMID: `0`,
-- empty text rows: `0`,
-- średnia długość chunku: `221.58` słów,
-- mediana długości chunku: `214` słów,
-- maksimum: `4793` słowa.
-
-Embeddingi:
-
-- model: `medcpt-ncbi-v1`,
-- document encoder: `ncbi/MedCPT-Article-Encoder`,
-- query encoder: `ncbi/MedCPT-Query-Encoder`,
-- wymiar: `768`,
-- shard 0: `488889` embeddingów,
-- shard 1: `488888` embeddingów,
-- łącznie: `977777`,
-- status walidacji shardów: `PASS`.
-
-### 2.3. Retrieval
-
-Obecnie są dwie ścieżki:
-
-1. Domyślna:
+Usuniete rekordy:
 
 ```text
-app -> embedding-service -> Qdrant hybrid query
+removed by cleaning filters: 2,520
+duplicates by DOI: 57
+duplicates by title hash: 1,665
+duplicates by PMID: 0
+duplicates by content hash: 0
 ```
 
-2. Alternatywna:
+To jest dobry fundament. Dane sa odszumione i maja kontrakt pod RAG.
+
+### Czego brakuje
+
+Pelny korpus i pelne embeddingi nie siedza w samym repo. Repo ma pipeline, kontrakt i raporty, ale nie ma gotowego produkcyjnego indeksu jako artefaktu.
+
+Do pelnej powtarzalnosci brakuje jeszcze:
+
+- jednoznacznego manifestu aktualnie uzytego indeksu Qdrant,
+- wersji `chunks.parquet`,
+- wersji shardow embeddingow,
+- wersji BM25 stats,
+- prostego polecenia "od zera zbuduj dokladnie ten sam benchmark index".
+
+To nie blokuje developmentu, ale blokuje idealnie powtarzalne porownania miedzy osobami i maszynami.
+
+## 4. Chunking
+
+Obecny model danych zaklada `chunks.parquet`. Dla PubMed zwykle jeden abstrakt to jeden chunk.
+
+Dodany zostal opcjonalny parent-child chunking:
+
+- plik: `scripts/rag/00_build_child_chunks.py`
+- wejscie: `chunks.parquet`
+- wyjscie: `chunks_child.parquet`
+- krotkie chunki zostaja bez zmian,
+- dlugie chunki `word_count > 450` sa dzielone po zdaniach,
+- child chunk dostaje `parent_chunk_id`, `parent_word_count`, `chunk_index`.
+
+To jest dobra zmiana, bo MedCPT document encoder ma limit dlugosci. Bardzo dlugi abstrakt moze byc uciety przy embedowaniu albo dac za duzo szumu do promptu. Child chunking zmniejsza ten problem.
+
+Slaby punkt: to jest tylko skrypt. Jesli nie uruchomimy go przy pelnym buildzie indeksu, runtime nie skorzysta z child chunkow.
+
+## 5. Embeddingi
+
+Embedding service uzywa MedCPT:
 
 ```text
-app -> QdrantHybridKnowledgeRetriever -> Qdrant
+query encoder:    ncbi/MedCPT-Query-Encoder
+document encoder: ncbi/MedCPT-Article-Encoder
+dimension:        768
 ```
 
-Domyślna ścieżka robi:
+To jest dobry wybor dla biomedycznego RAG, lepszy niz ogolny embedding model do PubMed.
+
+Serwis ma dwa glowne zadania:
+
+1. liczyc embeddingi dokumentow/chunkow,
+2. liczyc embedding query i robic hybrid search z Qdrantem.
+
+Wyszukiwanie jest hybrydowe:
 
 ```text
-MedCPT query embedding
-+ BM25 sparse query vector
+MedCPT dense vector
++ BM25 sparse vector
 + Qdrant RRF fusion
-+ opcjonalny cross-encoder rerank
-+ top_k do promptu
 ```
 
-Domyślne parametry:
+Domyslna kolekcja:
 
 ```text
-RAG_CANDIDATE_K=50
-RAG_TOP_K=5
-RAG_MAX_CONTEXT_CHARS=8000
-CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
+MedicalChunk_pubmed_reviews_v1_medcpt_20260518
 ```
 
-To jest dobry kierunek. Problemem jest brak wystarczającej kontroli jakości retrieved evidence.
+Najwazniejsza uwaga: nie wolno mieszac embeddingow z roznych modeli albo roznych wymiarow w jednej kolekcji. Repo juz ma `embeddingModel` i `corpusVersion` w metadanych, co jest dobrym kierunkiem.
 
-## 3. Najważniejsze Ryzyka
+## 6. Indeks Qdrant
 
-### 3.1. Indeksowanie nie jest gotowe na pełny korpus
+Indexer jest teraz sensowniejszy niz pierwotne MVP:
 
-`scripts/rag/01_build_index.py` używa:
+- czyta `chunks.parquet` batchami,
+- buduje lokalny SQLite chunk store,
+- liczy BM25 stats,
+- czyta shardy embeddingow,
+- laczy embeddingi z payloadem po `chunk_id`,
+- upsertuje batchami do Qdranta,
+- zapisuje manifest i checkpoint.
 
-```python
-table = pq.read_table(path)
-rows = table.to_pylist()
-```
-
-To oznacza, że dla prawie miliona chunków i dużych embeddingów wszystko ląduje w pamięci procesu.
-
-Ryzyko:
-
-- OOM przy pełnym indeksowaniu,
-- trudne resume po przerwaniu,
-- brak naturalnej obsługi shardów,
-- konieczność tworzenia dużego scalonego `embeddings.parquet`,
-- słaba powtarzalność buildu.
-
-Rekomendacja:
-
-Przepisać index builder na streaming:
+Plik:
 
 ```text
-czytaj chunks.parquet batchami
-czytaj embeddings_shard_*.parquet batchami
-join po chunk_id w kontrolowanym buforze
-buduj BM25 globalnie w pass 1
-upsertuj Qdrant batchami w pass 2
-zapisuj manifest i checkpoint
+scripts/rag/01_build_index.py
 ```
 
-Minimalny wariant:
+Payload w Qdrancie obsluguje m.in.:
+
+- `chunkId`
+- `documentId`
+- `pmid`
+- `doi`
+- `title`
+- `journal`
+- `year`
+- `publicationTypes`
+- `isReview`
+- `isSystematicReview`
+- `wordCount`
+- `parentChunkId`
+- `parentWordCount`
+- `embeddingModel`
+- `corpusVersion`
+
+To jest wazne, bo RAG nie powinien traktowac kazdego zrodla tak samo. Guideline, systematic review i RCT powinny miec inna wage niz case report albo editorial.
+
+## 7. Pre-retrieval
+
+`PreRetriever` robi teraz kilka waznych rzeczy przed szukaniem:
+
+- bierze ostatnie pytanie usera,
+- normalizuje query,
+- wykrywa, czy retrieval w ogole jest potrzebny,
+- klasyfikuje intent, np. `treatment`, `diagnosis`, `adverse_effects`,
+- dobiera preferowane typy publikacji,
+- ustawia filtr swiezosci dla pytan o aktualne wytyczne/bezpieczenstwo,
+- robi deterministyczne rozwijanie skrotow,
+- opcjonalnie robi LLM rewrite,
+- ogranicza liczbe query wariantow do 4.
+
+Rozwijane skroty:
 
 ```text
-pass 1: policz BM25 stats po całym corpusie
-pass 2: dla każdego shardu embeddingów znajdź metadane chunków i upsertuj do Qdranta
+PAD, T2DM, CKD, AF, DOAC, EGFR, SGLT2, ICS
 ```
 
-### 3.2. Chunking jest zbyt płaski
-
-Manifest mówi, że chunking to:
+Kolejnosc query:
 
 ```text
-one_pubmed_abstract_equals_one_chunk
+original -> normalized -> acronym expansion -> LLM rewrite
 ```
 
-To jest OK dla MVP, ale nie jest wystarczające produkcyjnie.
+To jest dobre, bo nie tracimy oryginalnego pytania. Wczesniejszy problem typowy dla RAG to zastapienie query rewrite'em, ktory czasem gubi sens pytania. Teraz query warianty sa laczone.
 
-Problem:
+## 8. Retrieval
 
-- część abstraktów jest bardzo długa,
-- MedCPT document encoder ma `MEDCPT_DOCUMENT_MAX_LENGTH=512`,
-- długie chunki będą ucinane na etapie embeddingu,
-- długi chunk w promptcie może zabrać miejsce kilku lepszym źródłom,
-- model 7B jest szczególnie wrażliwy na szum w kontekście.
+Mamy dwa retrievery:
 
-Rekomendacja:
+1. `EmbeddingServiceHybridRetriever` - domyslnie przez `embedding-service`.
+2. `QdrantHybridKnowledgeRetriever` - bezposrednio z aplikacji do Qdranta.
 
-Zostawić obecny abstrakt jako jednostkę źródłową, ale dodać warstwę chunków potomnych dla outlierów:
+Dodane/obecne mechanizmy:
+
+- wieksza pula kandydatow dla pytan klinicznych,
+- weighted RRF dla wielu query,
+- zapisywanie `rrfScore`,
+- zapisywanie `matchedQueryCount`,
+- zapisywanie `rawRetrievalScores`,
+- metadata-aware boost,
+- neutralny fallback, gdy brakuje metadanych.
+
+Candidate expansion:
 
 ```text
-document_id = PMID
-parent_chunk_id = pubmed:{pmid}:abstract
-chunk_id = pubmed:{pmid}:abstract:{n}
-section = abstract
-chunk_index = n
+expanded_limit = max(limit, min(limit * 2, 100))
 ```
 
-Reguła:
+Metadata boost premiuje:
 
-- jeśli abstract <= ok. 350-450 słów, zostaje jednym chunkiem,
-- jeśli abstract jest dłuższy, dzielić po zdaniach do limitu tokenów,
-- zachować overlap tylko mały, np. 1 zdanie, nie agresywne 200-token overlap.
+- `Systematic Review`
+- `Guideline`
+- `Practice Guideline`
+- `Meta-Analysis`
+- `Randomized Controlled Trial`
+- `Clinical Trial`
 
-### 3.3. Query rewrite traci oryginalne pytanie
+Lekko karze:
 
-`PreRetriever` tworzy:
+- `Case Reports`
+- `Letter`
+- `Editorial`
+- `Comment`
+
+To jest dobre i bezpieczne. Nie zmieniamy tresci dokumentu, tylko lepiej ustawiamy kolejnosc zrodel.
+
+## 9. Post-retrieval i pakowanie evidence
+
+`PostRetriever` robi selekcje kontekstu przed writerem.
+
+Najwazniejsze rzeczy:
+
+- deduplikacja po `parentChunkId`, `chunkId`, `documentId`,
+- opcjonalny cross-encoder reranking,
+- evidence scoring,
+- query term coverage z wielu query wariantow,
+- `multiQueryMatchScore`,
+- priorytet dla mocniejszych typow publikacji,
+- limit fragmentu per zrodlo przez `RAG_MAX_EXCERPT_CHARS`,
+- extractive excerpt extraction,
+- wykrywanie potencjalnych konfliktow,
+- budowanie bloku `MEDICAL_KNOWLEDGE_BASE`,
+- wymuszanie cytowan `[S1]`, `[S2]`, itd.
+
+Obecny kontekst jest ukladany wedlug `evidenceScore`, a nie tylko wedlug surowego score z retrievera. To jest wazne, bo surowy retrieval score nie zawsze oznacza "najlepsze zrodlo do odpowiedzi".
+
+Slaby punkt: evidence scoring nadal jest heurystyczny. Jest znacznie lepszy niz samo top-k z wektora, ale to nadal nie jest nauczony evidence filter.
+
+## 10. Evidence Judge
+
+To jest najwazniejsza zmiana architektoniczna.
+
+Wczesniej system dzialal mniej wiecej tak:
 
 ```text
-search_queries = [normalized_query, rewritten_query]
+retriever -> writer
 ```
 
-Ale retriever używa praktycznie tylko ostatniego zapytania:
-
-```python
-return search_queries[-1]
-```
-
-Problem:
-
-- jeśli rewrite zgubi nazwę leku, skrót, liczbę, populację lub język pacjenta, retrieval się pogorszy,
-- dla modeli 7B rewrite może być niestabilny,
-- brak merge wyników z oryginalnego i przepisanego pytania.
-
-Rekomendacja:
-
-Nie zastępować query. Robić multi-query retrieval:
+Teraz docelowy podzial jest taki:
 
 ```text
-query A: oryginalne pytanie
-query B: rewritten query
-query C: opcjonalnie medyczne synonimy/expanded query
-
-dla każdego query:
-  dense retrieval
-  sparse retrieval
-
-merge:
-  RRF albo weighted RRF
-  dedupe po chunkId/documentId
+retriever -> evidence judge -> answer writer
 ```
 
-Wariant prosty:
+Znaczenie:
+
+- retriever znajduje potencjalne zrodla,
+- evidence judge ocenia, co te zrodla naprawde mowia,
+- writer ma skladac odpowiedz z decyzji i cytacji, a nie samemu "zgadywac".
+
+Plik:
 
 ```text
-original_query weight = 1.0
-rewritten_query weight = 0.8
+app/rag/evidence_judge.py
 ```
 
-### 3.4. Metadata filtering jest niewykorzystany
+Dla pytan PubMedQA-style (`yes/no/maybe`) judge moze:
 
-Dane mają metadane:
+- wezwac tani lokalny LLM jako klasyfikator evidence,
+- zwrocic `answer_label`,
+- zwrocic `confidence`,
+- zwrocic krotkie rationale z cytowaniem,
+- ominac glownego writera i dac deterministyczna odpowiedz.
+
+Dzieki temu mala 7B nie musi robic wszystkiego naraz. To jest poprawny kierunek dla malych modeli.
+
+### Evidence Judge v3
+
+V3 dodaje ostrzejsze reguly:
+
+- nie traktuje samego tytulu/pytania/celu badania jako dowodu,
+- `yes` tylko gdy wyniki jasno wspieraja teze,
+- `no` gdy jest bezposrednie zaprzeczenie albo brak efektu,
+- `maybe` gdy evidence jest posrednie, slabe, mieszane, subgroup-only albo niepewne,
+- po decyzji LLM robi kalibracje regexami na typowe pomylki.
+
+To poprawilo wynik na malym, kontrolowanym tescie 90 przypadkow.
+
+### Voting
+
+Dodany jest opcjonalny tryb voting:
 
 ```text
-pmid
-doi
-journal
-year
-publicationTypes
-isReview
-isSystematicReview
-corpusVersion
+RAG_EVIDENCE_JUDGE_VOTING_ENABLED=true
+RAG_EVIDENCE_JUDGE_VOTES=3
 ```
 
-Ale retrieval nie używa ich jako realnych filtrów lub boostów.
+W praktyce na obecnym tescie voting nie dal lepszej accuracy, a zwiekszyl latency z okolo `2.76s` do `7.56s`. Dlatego defaultowo powinien zostac wylaczony.
 
-W medycznym RAG-u to duża strata. Paper o koreańskim chatbocie medycznym na open-weight LLM-ach pokazał, że zwykły RAG nie zawsze poprawia wyniki, a RAG z metadata filtering dawał istotną poprawę dla większości modeli. Testowane były m.in. modele klasy 7B/8B oraz 20B/27B.
+## 11. Answer writer i guardraile
 
-Rekomendacja:
+Dla zwyklego chatu writer nadal generuje odpowiedz z kontekstu RAG.
 
-Dodać metadata filtering jako obowiązkową warstwę:
+Guardraile:
+
+- wymuszaja canonical citations `[S1]`,
+- naprawiaja brakujace cytowania, jesli sie da,
+- pilnuja, zeby model nie odpowiadal bez zrodel przy `low_evidence`,
+- dla PubMedQA-style wymuszaja format `Answer: yes/no/maybe`,
+- maja extractive fallback.
+
+Dla PubMedQA-style obecny system moze ominac glownego writera i zwrocic odpowiedz bezposrednio z `EvidenceJudge`. To zmniejsza halucynacje i poprawia kontrolowalnosc, ale przenosi ciezar accuracy na judge.
+
+## 12. API i debug
+
+Najwazniejsze endpointy:
 
 ```text
-hard filters:
-  corpusVersion == current
-  source in allowed_sources
-  year >= min_year, jeśli pytanie dotyczy aktualnych zaleceń
-
-soft boosts:
-  isSystematicReview
-  publicationTypes contains "Systematic Review"
-  publicationTypes contains "Practice Guideline"
-  publicationTypes contains "Guideline"
-  publicationTypes contains "Review"
-  nowszy rok publikacji
+POST /api/chat
+GET  /api/search
+POST /api/search
+POST /api/rag/trace
 ```
 
-Nie należy ślepo boostować samej świeżości. Dla mechanizmów biologicznych starsze źródło może być nadal dobre. Dla leczenia, wytycznych i bezpieczeństwa leków świeżość i typ publikacji są ważniejsze.
+`/api/rag/trace` jest bardzo wazny diagnostycznie, bo pokazuje etapy RAG bez generowania odpowiedzi przez LLM.
 
-### 3.5. `embedding-service` ma za dużo odpowiedzialności
+Trace zwraca m.in.:
 
-Obecnie `embedding-service`:
+- `original_query`
+- `normalized_query`
+- `search_queries`
+- `intent`
+- `filters`
+- `preferred_publication_types`
+- kandydatow po RRF,
+- kandydatow po metadata boost,
+- finalne dokumenty po evidence scoringu,
+- `retrieval.status`,
+- `evidence_decision`,
+- preview kontekstu.
 
-- liczy embeddingi dokumentów,
-- liczy embeddingi query,
-- koduje BM25 query,
-- odpytuje Qdrant,
-- mapuje wyniki do API.
-
-To działa, ale zaciera granice.
-
-Rekomendacja docelowa:
+To daje nam narzedzie do debugowania, czy problem jest w:
 
 ```text
-embedding-service:
-  /embed/query
-  /embed/documents
-
-retrieval-service albo main API:
-  BM25 query vector
-  Qdrant query
-  metadata filtering
-  RRF
-  evidence filtering
-  reranking
+query -> retrieval -> ranking -> judge -> writer
 ```
 
-Minimalnie:
+Bez trace bardzo latwo zgadywac w zlym miejscu.
 
-- zostawić endpoint `/embed/hybrid/query` dla kompatybilności,
-- nowy kod rozwijać w `QdrantHybridKnowledgeRetriever`,
-- docelowo traktować `embedding-service` jako stateless encoder.
+## 13. Aktualne wyniki eval
 
-### 3.6. Ewaluacja jest zbyt mała
+### Strict PubMedQA 90
 
-Obecny eval set ma 5 przypadków.
-
-To jest smoke test, nie benchmark.
-
-Rekomendacja:
-
-Zbudować eval set:
+Dataset:
 
 ```text
-100-300 pytań minimum
-podział na kategorie kliniczne
-gold PMIDs/chunkIds
-ocena ekspercka albo półautomatyczna
-osobno pytania proste i złożone
-osobno pytania aktualne klinicznie
-osobno pytania, gdzie należy odmówić odpowiedzi
+data/eval_pubmedqa_strict_90.json
 ```
 
-Metryki:
+Model:
 
 ```text
-retrieval:
-  Recall@5, Recall@10, Recall@50
-  MRR
-  nDCG@10
-  evidence precision@5
-  latency p50/p95
-
-generation:
-  citation precision
-  citation recall
-  unsupported claim rate
-  no-answer accuracy
-  safety score
+qwen2.5:7b
 ```
 
-## 4. Usprawnienia Z Paperów I Praktyki Medical RAG
+Wyniki:
 
-Poniżej są usprawnienia, które warto dodać do obecnego planu. Celowo pomijam ciężkie i egzotyczne podejścia. To są praktyki pasujące do prostego chatbota RAG + Vector DB.
-
-### 4.1. Metadata filtering przed augmentacją
+| Wariant | Accuracy | Case pass | Source@1 | Citation pass | Mean latency |
+|---|---:|---:|---:|---:|---:|
+| Evidence Judge v3 | 61.1% | 57.8% | 97.8% | 100.0% | 2.76s |
+| Evidence Judge v3 + voting | 61.1% | 58.9% | 97.8% | 100.0% | 7.56s |
 
 Wniosek:
 
 ```text
-Nie każdy retrieved chunk powinien trafić do promptu.
+v3 pomaga
+voting na razie nie pomaga
+retrieval prawie zawsze trafia zrodlo
 ```
 
-W badaniu koreańskiego chatbota medycznego na open-weight LLM-ach porównywano baseline, RAG-only i RAG z metadata filtering. RAG-only potrafił nie dawać istotnej poprawy albo pogarszać wynik, natomiast RAG + metadata filtering poprawiał większość testowanych modeli. To jest bezpośrednio istotne dla naszych modeli 7B i 26B/27B.
+### Official PubMedQA PQA-L test 500
 
-Do wdrożenia:
+Raport:
 
 ```text
-retrieved candidates
-  -> metadata filter
-  -> evidence filter
-  -> reranker
-  -> top_k context
+reports/pubmedqa_official_pqal_test_v3.md
+reports/pubmedqa_official_pqal_test_v3.json
+reports/pubmedqa_official_pqal_test_v3_predictions.json
 ```
 
-Przykładowa polityka:
+Model:
 
 ```text
-dla pytań o leczenie:
-  preferuj systematic reviews, guidelines, reviews
-  boostuj nowsze źródła
-  odrzuć bardzo stare źródła, jeśli są alternatywy
-
-dla pytań o patofizjologię:
-  nie wymuszaj najnowszego roku
-  preferuj review/systematic review
-
-dla pytań o bezpieczeństwo leków:
-  boostuj adverse events, contraindications, guidelines, systematic reviews
+qwen2.5:7b
 ```
 
-### 4.2. Hybrid retrieval zostaje, ale trzeba go mierzyć
+Wyniki:
 
-Paper o efektywnym i reprodukowalnym biomedical QA wskazuje, że BM25 + MedCPT dobrze balansuje jakość i koszt. Szczególnie praktyczny wariant to pobranie większej puli kandydatów tanim lexical retrieverem, a potem reranking biomedical modelem.
+| Metryka | Wynik |
+|---|---:|
+| Cases | 500 |
+| Label accuracy | 49.6% |
+| Macro-F1 | 46.9% |
+| Case pass rate | 48.2% |
+| Source hit@1 | 98.2% |
+| Source hit@3 | 98.2% |
+| Citation pass rate | 99.8% |
+| Grounded status rate | 99.2% |
+| Mean hallucination rate | 1.8% |
+| Mean latency | 2.64s |
 
-Obecna architektura ma już:
+Per label:
 
-- BM25 sparse,
-- MedCPT dense,
-- Qdrant RRF,
-- MedCPT cross-encoder reranker.
+| Label | Count | Accuracy |
+|---|---:|---:|
+| maybe | 55 | 54.5% |
+| no | 169 | 52.7% |
+| yes | 276 | 46.7% |
 
-Nie trzeba wymyślać nowej architektury. Trzeba dodać tryby porównawcze:
+Predykcje sa przesuniete w strone `maybe`:
 
 ```text
-tryb A: dense MedCPT top50 -> cross-encoder top5
-tryb B: BM25 top50 -> cross-encoder/MedCPT top5
-tryb C: Qdrant RRF dense+sparse top50 -> cross-encoder top5
-tryb D: original query + rewritten query -> RRF merge -> top50 -> cross-encoder top5
+true labels:      yes 276, no 169, maybe 55
+predicted labels: maybe 203, yes 164, no 133
 ```
 
-Decyzja ma być na metrykach, nie na intuicji.
-
-### 4.3. Evidence filtering po retrievalu
-
-Medical RAG często psuje odpowiedź przez słaby retrieval albo zły wybór dowodów. Paper z dużą ekspercką oceną medical RAG pokazuje, że standardowy RAG potrafi obniżać factuality/completeness, jeśli evidence retrieval i evidence selection są słabe. Proste strategie typu evidence filtering i query reformulation istotnie pomagają.
-
-Do wdrożenia:
-
-Każdy kandydat po retrievalu dostaje dodatkową ocenę:
+Najwazniejszy wniosek:
 
 ```text
-query-term coverage
-metadata priority
-retrieval score
-reranker score
-source freshness
-publication type
+retrieval: bardzo dobry
+cytowania: bardzo dobre
+grounding: dobry
+label reasoning: za slaby
 ```
 
-Odrzucamy:
+System za czesto mowi `maybe`, kiedy powinien powiedziec `yes`, i nadal myli czesc `no`.
+
+## 14. Porownanie do paper results
+
+To nie jest jeszcze paper-level accuracy.
+
+Dla orientacji PubMedQA paper raportowal mniej wiecej:
 
 ```text
-score poniżej progu
-brak pokrycia kluczowych terminów z pytania
-niewłaściwy typ publikacji dla pytania klinicznego
-źródło z innego corpusVersion
-duplikaty tego samego PMID bez dodatkowej wartości
+majority baseline: ok. 55.2%
+BioBERT:           ok. 68.1%
+human:             ok. 78.0%
 ```
 
-Ważne:
-
-Evidence filtering nie może być zbyt agresywny. Jeśli zostaje mniej niż 2-3 źródła, system powinien oznaczyć `low_evidence` i odpowiedzieć ostrożniej albo odmówić odpowiedzi.
-
-### 4.4. Nie zwiększać kontekstu bez potrzeby
-
-MedRAG/MIRAGE oraz prace o long-context medical RAG pokazują problem `lost-in-the-middle`: ważne źródło może zostać pominięte przez model, jeśli jest wrzucone w środek dużego kontekstu.
-
-Wniosek dla nas:
+Nasz official 500 wynik:
 
 ```text
-RAG_TOP_K=5 jest rozsądne.
-Nie zwiększać domyślnie do 10-20.
+49.6%
 ```
 
-Lepsza strategia:
+Czyli:
 
-- poprawić ranking,
-- skrócić chunki,
-- zachować tylko najlepsze fragmenty,
-- układać kontekst według siły dowodu,
-- w promptcie wymusić cytowania przy każdym claimie.
+- jestesmy ponizej prostego majority baseline,
+- nie jestesmy jeszcze blisko BioBERT paper result,
+- ale retrieval nie jest glownym winowajca, bo `source@1` jest `98.2%`.
 
-Dla modelu 7B:
+To jest wazne. Gdyby source@1 bylo np. 60%, najpierw naprawialibysmy retrieval. Tutaj glowna strata jest juz po znalezieniu dobrego zrodla.
+
+## 15. Co faktycznie zrobilismy w tej serii zmian
+
+Zrobione rzeczy:
+
+1. Przeniesiony i rozbudowany pipeline na branchu `rag-improvement-rag-optimization`.
+2. Dodany candidate pool expansion dla pytan klinicznych.
+3. Dodany weighted RRF dla multi-query retrieval.
+4. Dodany metadata-aware boost dla mocniejszych typow publikacji.
+5. Dodane deterministic acronym expansion dla medycznych skrotow.
+6. Dodane multi-query term coverage i `multiQueryMatchScore`.
+7. Dodany limit excerptu per zrodlo przez `RAG_MAX_EXCERPT_CHARS`.
+8. Dodany diagnostyczny endpoint `POST /api/rag/trace`.
+9. Dodany parent-child chunking script dla dlugich abstraktow.
+10. Dodany adaptive retrieval v1 po `low_evidence`.
+11. Dodany `EvidenceJudge` jako osobna rola miedzy retrieverem i writerem.
+12. Dodany `EvidenceJudge v3` z lepszymi regulami decyzji.
+13. Dodany opcjonalny voting za flaga.
+14. Dodane raporty eval w `reports/`.
+15. Uruchomiony realny official PubMedQA PQA-L test 500.
+
+## 16. Mocne strony obecnej architektury
+
+### 16.1. Dobry retriever biomedyczny
+
+MedCPT + BM25 + RRF to sensowny stack do PubMed. Wynik `98.2% Source@1` na official PubMedQA potwierdza, ze dla tego benchmarku retriever znajduje wlasciwe zrodla.
+
+### 16.2. Query planning jest juz praktyczny
+
+System nie polega na jednym query. Uzywa oryginalu, normalizacji, rozszerzen skrotow i opcjonalnego rewrite. To ogranicza ryzyko, ze jedno zle query rozwali caly retrieval.
+
+### 16.3. Metadata zaczyna miec znaczenie
+
+RAG rozroznia typy publikacji. To jest konieczne w medycynie, bo case report i systematic review nie powinny miec tej samej sily.
+
+### 16.4. Jest trace endpoint
+
+Bez `/api/rag/trace` kazda optymalizacja bylaby zgadywaniem. Teraz mozemy sprawdzic, gdzie wynik sie psuje.
+
+### 16.5. Writer jest ograniczony
+
+Cytowania, guardraile i extractive fallback zmniejszaja ryzyko halucynacji. Na official 500 citation pass to `99.8%`, a mean hallucination rate to `1.8%`.
+
+## 17. Slabe punkty
+
+### 17.1. Evidence Judge nie jest jeszcze wystarczajaco dobry
+
+To jest najwiekszy problem.
+
+Objawy:
+
+- official 500 accuracy tylko `49.6%`,
+- zbyt duzo odpowiedzi `maybe`,
+- `yes` ma tylko `46.7%` per-label accuracy,
+- wynik jest ponizej majority baseline.
+
+To znaczy, ze judge jest zbyt ostrozny albo nie rozpoznaje wystarczajaco dobrze, kiedy evidence jasno wspiera teze.
+
+### 17.2. Brakuje uczonego evidence filtera
+
+Mamy heurystyki i LLM judge. Nie mamy jeszcze malego modelu/fine-tuned classifiera, ktory bylby uczony konkretnie do:
 
 ```text
-top_k = 4-5
-max_context_chars = 6000-8000
-krótkie odpowiedzi
-zero temperature albo bardzo niskie temperature
+question + evidence -> supported/refuted/uncertain
 ```
 
-Dla modelu 26B/27B:
+To nie jest "trenowanie pod test". Poprawny cel to nauczenie modelu rozpoznawania relacji miedzy pytaniem a wynikiem badania.
+
+### 17.3. Mamy jeden glowny corpus
+
+Architektura nadal jest glownie PubMed-centric.
+
+Do produkcyjnego chatbota medycznego powinny dojsc osobne korpusy:
+
+- PubMed abstracts/articles,
+- clinical guidelines,
+- drug labels / SmPC / FDA / EMA,
+- local protocols,
+- possibly textbooks/knowledge summaries,
+- benchmark-specific corpora do ewaluacji.
+
+Wtedy retriever powinien byc balanced, a nie "jedna kolekcja i top-k".
+
+### 17.4. Brakuje produkcyjnego clinical eval
+
+PubMedQA jest dobry do testowania evidence reasoning, ale nie jest pelnym testem chatbota klinicznego.
+
+Brakuje:
+
+- pytan o leczenie,
+- pytan o dawki,
+- pytan o przeciwwskazania,
+- pytan o interakcje,
+- pytan z konfliktami guidelines vs starsze badania,
+- recenzji eksperta medycznego.
+
+### 17.5. Voting jest drogi i na razie nieoplacalny
+
+Na strict 90 voting nie poprawil accuracy, a prawie potroil latency. To nie powinien byc domyslny tryb.
+
+### 17.6. Cross-encoder jest opcjonalny i kosztowny
+
+Cross-encoder moze poprawic ranking, ale na MacBooku/CPU moze byc wolny. Trzeba go testowac osobno i wlaczac tam, gdzie daje realny zysk.
+
+## 18. Diagnoza warstwa po warstwie
+
+### Dane
+
+Stan: dobry fundament, ale artefakty pelnego korpusu sa poza repo.
+Ryzyko: trudniejsza powtarzalnosc pelnego buildu.
+Priorytet: manifesty i skrypt "rebuild eval index".
+
+### Chunking
+
+Stan: jest parent-child script.
+Ryzyko: nie daje zysku, jesli nie uzyjemy `chunks_child.parquet` przy indeksowaniu.
+Priorytet: wlaczyc go w pelnym buildzie i porownac wyniki.
+
+### Embeddingi
+
+Stan: dobry model biomedyczny MedCPT.
+Ryzyko: mieszanie wersji embeddingow albo corpusVersion.
+Priorytet: twarde manifesty i walidacja kolekcji.
+
+### Retrieval
+
+Stan: mocny.
+Ryzyko: dla PubMedQA nie jest bottleneckiem, ale dla produkcyjnych pytan brakuje multi-corpus.
+Priorytet: nie przepalac czasu na drobne tuningowanie retrievera pod PubMedQA; lepiej dodac multi-corpus dla kliniki.
+
+### Post-retrieval
+
+Stan: solidny heurystycznie.
+Ryzyko: scoring nadal jest reczny.
+Priorytet: learned/rationale evidence filter.
+
+### Evidence Judge
+
+Stan: najwazniejszy komponent i najwiekszy bottleneck.
+Ryzyko: za duzo `maybe`, za malo pewnego `yes`.
+Priorytet: poprawa judge na oficjalnym dev/test flow, najlepiej przez osobny classifier lub silniejszy judge model.
+
+### Writer
+
+Stan: wystarczajaco kontrolowany dla cytowan i groundedness.
+Ryzyko: ogolne odpowiedzi kliniczne nie sa jeszcze szeroko ocenione.
+Priorytet: clinical answer eval, nie tylko PubMedQA.
+
+## 19. Co to znaczy praktycznie
+
+Nie powinnismy teraz losowo dopisywac kolejnych promptow do glownego chatbota.
+
+Najlepszy kierunek:
 
 ```text
-top_k = 5-8
-max_context_chars = 8000-12000, jeśli model stabilnie obsługuje dłuższy kontekst
-dalej unikać wrzucania szumu
+1. utrzymac mocny retrieval
+2. poprawic evidence judge
+3. dodac multi-corpus retrieval
+4. zrobic powtarzalny eval
+5. dopiero potem fine-tuning/fine-grained judge
 ```
 
-### 4.5. Query reformulation, ale bez utraty oryginału
-
-Medical RAG korzysta z query reformulation, ale nie powinien ufać wyłącznie rewrite.
-
-Rekomendowany prosty wariant:
+Jesli chcemy zblizyc sie do paper results na malych modelach, musimy rozdzielic problem:
 
 ```text
-queries = [
-  original_user_query,
-  normalized_query,
-  rewritten_medical_query
-]
+retrieval accuracy != answer accuracy
 ```
 
-Każde query idzie przez retrieval, potem wyniki są scalane.
+U nas retrieval accuracy jest juz bardzo wysokie. Answer accuracy spada na etapie interpretacji evidence.
 
-Nie robić na start:
+## 20. Najlepsze kolejne kroki
 
-- wieloetapowego chain-of-thought w promptach użytkownika,
-- skomplikowanej agentowości,
-- wielu iteracji dla każdego pytania.
+### P0 - zrobic eval w 100% powtarzalny
 
-Można dodać później:
-
-- jedną iterację follow-up query tylko dla złożonych pytań,
-- HyDE tylko jako fallback, gdy top wyniki są słabe.
-
-### 4.6. Iterative RAG tylko jako tryb dla trudnych pytań
-
-i-MedRAG pokazuje, że follow-up queries pomagają przy złożonych pytaniach, gdzie potrzeba kilku rund szukania. To ma sens, ale nie jako default dla prostego chatbota.
-
-Proponowany gating:
+Dodac do repo jeden skrypt/runbook, ktory odtwarza official PubMedQA 500 eval:
 
 ```text
-jeśli pytanie proste:
-  standard RAG
-
-jeśli pytanie zawiera wiele warunków:
-  choroba + lek + populacja + przeciwwskazanie + outcome
-  -> pozwól na 1 dodatkowe follow-up query
-
-jeśli retrieval confidence jest niski:
-  -> 1 dodatkowe query reformulation
-
-limit:
-  max 2 rundy retrievalu
+download official labels
+build chunks
+build BM25 stats
+index Qdrant collection
+run eval
+write report
 ```
 
-Dla 7B:
+Bez tego latwo porownywac wyniki z roznych indeksow albo roznych filtrow.
 
-- iterative RAG raczej sterowany regułami,
-- model 7B nie powinien sam swobodnie planować wielu zapytań.
+### P1 - poprawic Evidence Judge
 
-Dla 26B:
-
-- można pozwolić na jedną lepszą reformulację,
-- nadal kontrolować liczbę rund i koszt.
-
-### 4.7. Rationale-guided retrieval jako inspiracja, nie pierwszy krok
-
-RAG^2 używa rationale-guided retrieval i filtruje nieinformatywne fragmenty. To jest ciekawy kierunek, ale dla obecnego projektu może być zbyt ciężki.
-
-Prosty odpowiednik bez komplikowania:
+Cel:
 
 ```text
-1. wygeneruj krótkie "information need" bez chain-of-thought
-2. użyj go jako dodatkowego query
-3. filtruj retrieved chunks po pokryciu tego information need
+question + top evidence -> yes/no/maybe + rationale
 ```
 
-Przykład:
+Najpierw bez fine-tuningu:
 
-```text
-User query:
-"Czy SGLT2 są bezpieczne w CKD i niewydolności serca?"
+- zrobic error analysis official 500,
+- zobaczyc, kiedy `yes` zamienia sie w `maybe`,
+- zobaczyc, kiedy `no` myli sie z `maybe/yes`,
+- dodac testy regresyjne na konkretne typy bledow.
 
-Information need:
-"SGLT2 inhibitors effects on kidney outcomes, heart failure hospitalization, mortality, adverse events in CKD or type 2 diabetes"
-```
+Potem fine-tuning:
 
-Nie zapisywać ani nie pokazywać użytkownikowi prywatnego rozumowania.
+- nie po to, zeby "zapamietac test",
+- tylko po to, zeby nauczyc relacji pytanie-evidence-decyzja,
+- najlepiej na train/dev split, a official test zostawic do koncowej walidacji.
 
-### 4.8. Źródła: guidelines i reviews są ważniejsze niż pojedyncze abstrakty
+### P2 - multi-corpus retrieval
 
-Thyro-GenAI zwraca uwagę na różnicę między pojedynczymi artykułami a materiałami syntetycznymi typu guidelines/textbooks. W prostym medycznym chatbocie warto preferować źródła, które są bliższe praktyce klinicznej.
-
-Dla obecnego PubMed corpus:
-
-```text
-boost:
-  Practice Guideline
-  Guideline
-  Systematic Review
-  Meta-Analysis
-  Review
-
-neutral:
-  Randomized Controlled Trial
-  Clinical Trial
-
-ostrożnie:
-  case reports
-  letters
-  editorials
-```
-
-Jeśli w przyszłości dodamy inne korpusy:
-
-```text
-guidelines/textbooks:
-  wysoki priorytet dla zaleceń klinicznych
-
-PubMed abstracts:
-  dobry materiał dowodowy, ale wymaga selekcji
-
-public web:
-  tylko allowlist z wersjonowaniem
-```
-
-## 5. Rekomendowana Architektura Docelowa
-
-Nie rozbudowywać systemu w agentowy framework. Wystarczy modularny RAG:
-
-```text
-offline data pipeline
-  -> processed documents/chunks
-  -> embeddings
-  -> streaming index builder
-  -> versioned Qdrant collection
-
-runtime API
-  -> query normalization
-  -> metadata intent detection
-  -> multi-query retrieval
-  -> metadata filtering
-  -> hybrid ranking/RRF
-  -> evidence filtering
-  -> cross-encoder rerank
-  -> context assembly
-  -> answer generation
-  -> citation validation
-  -> answer/evidence logging
-```
-
-### 5.1. Offline Pipeline
-
-```text
-PubMed/source data
-  -> cleaning/dedupe
-  -> chunking
-  -> chunk quality validation
-  -> document embeddings
-  -> embedding validation
-  -> BM25 stats
-  -> Qdrant index build
-  -> index manifest
-```
-
-Wymagane manifesty:
-
-```text
-dataset version
-chunking version
-embedding model
-embedding dimension
-BM25 stats checksum
-Qdrant collection name
-Qdrant vector names
-source file checksums
-build timestamp
-build command/config
-```
-
-### 5.2. Versioned Qdrant Collections
-
-Nie pisać bezpośrednio do jednej stałej kolekcji `MedicalChunk`.
-
-Lepszy wzorzec:
-
-```text
-MedicalChunk_pubmed_reviews_v1_medcpt_20260518
-MedicalChunk_pubmed_reviews_v2_medcpt_20260601
-```
-
-Alias:
-
-```text
-MedicalChunk_current -> MedicalChunk_pubmed_reviews_v1_medcpt_20260518
-```
-
-Korzyści:
-
-- bezpieczne rebuildy,
-- rollback,
-- porównanie wersji indeksu,
-- brak ryzyka częściowo zbudowanej kolekcji w produkcji.
-
-### 5.3. Runtime Retrieval
-
-Proponowany przepływ:
-
-```text
-Input question
-  -> normalize
-  -> classify intent:
-       treatment / diagnosis / adverse effects / prognosis / mechanism / general
-  -> build queries:
-       original
-       rewrite
-       optional information_need
-  -> retrieve candidates:
-       dense MedCPT
-       sparse BM25
-       optional lexical-only mode
-  -> merge by weighted RRF
-  -> apply metadata filter/boost
-  -> evidence filter
-  -> rerank top50
-  -> select top_k
-```
-
-### 5.4. Context Assembly
-
-Każde źródło w kontekście powinno mieć:
-
-```text
-[S1] title
-PMID / DOI / URL
-year
-publication type
-why selected / evidence score
-short excerpt
-```
-
-Nie trzeba dawać modelowi pełnego abstraktu, jeśli wystarczy fragment.
+Dla prawdziwego chatbota klinicznego PubMed nie wystarczy.
 
 Docelowo:
 
 ```text
-full chunk in Qdrant payload
-short selected excerpt in prompt
-full source available in citations metadata
+corpus: pubmed
+corpus: guidelines
+corpus: drug_labels
+corpus: local_protocols
 ```
 
-## 6. Profile Dla Modeli 7B I 26B
-
-### 6.1. Profil 7B
-
-Założenie:
-
-Model 7B ma mniejszą odporność na szum, słabsze utrzymanie instrukcji i gorszą syntezę sprzecznych źródeł.
-
-Rekomendacja:
+Retriever powinien dawac zbalansowane top-k, np.:
 
 ```text
-temperature = 0.0-0.2
-RAG_TOP_K = 4-5
-RAG_CANDIDATE_K = 50
-max_context_chars = 6000-8000
-cross_encoder = on
-metadata_filtering = strict
-evidence_filtering = strict
-answer length = concise
-citations = required per medical claim
-no_answer_policy = strict
+2 guidelines
+2 reviews/trials
+1 drug label
 ```
 
-Prompt policy:
+Zalezne od intencji pytania.
+
+### P3 - learned/rationale evidence filter
+
+Po retrievalu i przed writerem dodac filter:
 
 ```text
-Answer only from retrieved sources.
-If sources are weak or missing, say the knowledge base does not contain enough evidence.
-Do not provide diagnosis or treatment instructions without citations.
-Every medical claim must cite [Sx].
+czy ten fragment realnie pomaga odpowiedziec na pytanie?
+czy wspiera, zaprzecza, czy jest niepewny?
 ```
 
-7B nie powinien:
+To moze byc:
 
-- samodzielnie robić wielu kroków agentowych,
-- generować długich analiz klinicznych,
-- rozwiązywać konfliktów źródeł bez jasnych instrukcji,
-- dostawać 15-20 chunków w kontekście.
+- cross-encoder/NLI model,
+- maly lokalny LLM judge,
+- fine-tuned classifier.
 
-### 6.2. Profil 26B/27B
+### P4 - produkcyjny clinical eval
 
-Założenie:
+Oprocz PubMedQA potrzebujemy eval setu po angielsku z pytaniami typu:
 
-Model 26B/27B będzie lepszy w syntezie, ale nadal może halucynować, jeśli retrieval jest słaby. Większy model nie naprawia złego retrievalu.
+- treatment recommendation,
+- diagnosis,
+- contraindications,
+- drug interactions,
+- safety,
+- recent guideline question,
+- insufficient evidence question.
 
-Rekomendacja:
+PubMedQA sprawdza reasoning z abstraktu. Nie sprawdza calego chatbota klinicznego.
+
+## 21. Czego nie robic teraz
+
+Nie warto teraz:
+
+- tuningowac bez konca glownego promptu writera,
+- wlaczac voting defaultowo,
+- oceniac systemu tylko po kilku recznych pytaniach,
+- fine-tunowac model na official test set,
+- mieszac nowych korpusow bez pola `corpus` i bez balanced retrievera,
+- zakladac, ze wiekszy LLM sam rozwiaze problem RAG.
+
+Wiekszy model pomoze w evidence judge, ale jesli pipeline nie rozroznia corpusow, evidence i konfliktow, to dalej bedzie trudno kontrolowac odpowiedzi.
+
+## 22. Obecny werdykt
+
+Architektura jest teraz w dobrym miejscu do dalszej optymalizacji.
+
+Najkrotszy werdykt:
 
 ```text
-temperature = 0.0-0.2
-RAG_TOP_K = 5-8
-RAG_CANDIDATE_K = 50-100
-max_context_chars = 8000-12000
-cross_encoder = on
-metadata_filtering = on
-evidence_filtering = on
-optional single follow-up query for complex questions
+RAG technicznie dziala.
+Retriever jest mocny.
+Cytowania i grounding sa dobre.
+Glowne ograniczenie to evidence reasoning.
+Do produkcji brakuje multi-corpus, powtarzalnego eval i lepszego judge.
 ```
 
-26B może dostać:
-
-- minimalnie więcej źródeł,
-- jedną dodatkową reformulację,
-- bardziej rozbudowaną syntezę,
-- porównanie źródeł, jeśli wykryto konflikt.
-
-26B nadal nie powinien:
-
-- odpowiadać z wiedzy własnej, gdy RAG nie ma źródeł,
-- mieszać rekomendacji z różnych populacji pacjentów,
-- ignorować słabych cytowań,
-- dostawać kontekstu bez selekcji.
-
-## 7. Konkretne Zmiany W Kodzie
-
-### P0 - Stabilizacja indeksowania
-
-1. Dodać obsługę wielu plików embeddingów:
-
-```bash
-python3 scripts/rag/01_build_index.py \
-  --chunks data/processed/chunks.parquet \
-  --embeddings data/embeddings/embeddings_shard_0.parquet \
-  --embeddings data/embeddings/embeddings_shard_1.parquet \
-  --collection MedicalChunk_pubmed_reviews_v1_medcpt_20260518 \
-  --qdrant-url http://localhost:6333 \
-  --recreate
-```
-
-2. Usunąć pełne `to_pylist()` dla dużych plików.
-
-3. Dodać checkpoint:
-
-```text
-indexed shard
-last row group
-last batch
-upserted_count
-failed_count
-```
-
-4. Zapisywać manifest indeksu.
-
-### P0 - Metadata filtering
-
-Dodać do `PreRetrievalResult`:
-
-```text
-intent
-preferred_publication_types
-min_year
-requires_recent_evidence
-```
-
-Dodać Qdrant filter:
-
-```text
-corpusVersion == active
-optional year range
-optional publicationTypes
-optional isSystematicReview
-```
-
-Jeśli Qdrant filtering okaże się za restrykcyjny, używać filtering/boosting po retrievalu.
-
-### P1 - Multi-query retrieval
-
-Zmienić retrieval z:
-
-```text
-use search_queries[-1]
-```
-
-na:
-
-```text
-for query in search_queries:
-  retrieve candidates
-merge candidates with weighted RRF
-dedupe by chunkId/documentId
-```
-
-### P1 - Evidence filtering
-
-Dodać etap po retrievalu:
-
-```text
-candidate -> evidence_score
-```
-
-Składniki:
-
-```text
-retrieval_score
-reranker_score
-query_term_coverage
-publication_type_score
-recency_score
-source_priority_score
-```
-
-Prosty próg:
-
-```text
-if evidence_score < threshold:
-  remove from final context
-```
-
-Jeśli zostanie za mało źródeł:
-
-```text
-retrieval.status = low_evidence
-```
-
-### P1 - Context compression
-
-Dodać prosty excerpt extractor:
-
-```text
-weź 1-3 zdania z chunku, które mają największe pokrycie terminów z pytania
-```
-
-Nie robić na start abstrakcyjnego summarizera. Extractive excerpt jest tańszy, bardziej kontrolowalny i bezpieczniejszy.
-
-### P1 - Eval
-
-Rozszerzyć `data/eval_retrieval_sample.json` do minimum 100 pytań.
-
-Format:
-
-```json
-{
-  "id": "sglt2-ckd-heart-failure",
-  "question": "Czy inhibitory SGLT2 zmniejszają hospitalizacje z powodu niewydolności serca u pacjentów z CKD?",
-  "intent": "treatment",
-  "relevant_pmids": ["..."],
-  "acceptable_publication_types": ["Meta-Analysis", "Systematic Review", "Randomized Controlled Trial"],
-  "must_not_answer_without_sources": true
-}
-```
-
-Dodać raport porównujący:
-
-```text
-dense only
-sparse only
-hybrid RRF
-hybrid + metadata filtering
-hybrid + metadata filtering + reranker
-multi-query + hybrid + filtering + reranker
-```
-
-### P2 - Runtime observability
-
-Logować dla każdego requestu:
-
-```text
-query
-rewritten_query
-intent
-retrieval_mode
-candidate_count
-final_source_count
-source_pmids
-source_scores
-publication_types
-reranker_scores
-answer citation ids
-unsupported claims
-latency breakdown
-model name
-```
-
-Nie przechowywać danych wrażliwych użytkownika bez decyzji produktowo-prawnej. Jeśli to ma być realna aplikacja medyczna, potrzebna jest polityka anonimizacji/logowania.
-
-## 8. Rekomendowane Parametry Startowe
-
-### 8.1. 7B
-
-```bash
-RAG_RETRIEVER=qdrant_hybrid
-RAG_CANDIDATE_K=50
-RAG_TOP_K=5
-RAG_MAX_CONTEXT_CHARS=7000
-CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
-ANSWER_QUALITY_METHOD=token_overlap_with_retrieved_context
-QUERY_REWRITE_MODEL=<lekki-model-7b-lub-3b>
-QUERY_REWRITE_TIMEOUT=10
-```
-
-Generacja:
-
-```text
-temperature: 0.0-0.2
-max answer length: krótko
-style: konkret + cytowania
-```
-
-### 8.2. 26B/27B
-
-```bash
-RAG_RETRIEVER=qdrant_hybrid
-RAG_CANDIDATE_K=75
-RAG_TOP_K=6
-RAG_MAX_CONTEXT_CHARS=10000
-CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
-QUERY_REWRITE_TIMEOUT=15
-```
-
-Generacja:
-
-```text
-temperature: 0.0-0.2
-answer length: umiarkowana
-allow conflict summary: yes
-allow one follow-up retrieval query: only for complex questions
-```
-
-## 9. No-Answer I Safety Policy
-
-Medyczny RAG powinien umieć nie odpowiedzieć.
-
-Warunki odmowy lub odpowiedzi ostrożnej:
-
-```text
-brak źródeł
-mniej niż 2 sensowne źródła przy pytaniu klinicznym
-źródła sprzeczne bez jasnego rozstrzygnięcia
-źródła nie dotyczą populacji z pytania
-źródła zbyt stare dla pytania o aktualne leczenie
-retrieval confidence poniżej progu
-```
-
-Przykładowa odpowiedź:
-
-```text
-Baza wiedzy nie zwróciła wystarczająco mocnych źródeł dla tego pytania, więc nie mogę udzielić odpowiedzi opartej na cytowanych danych. W decyzjach medycznych skonsultuj się z lekarzem.
-```
-
-To jest szczególnie ważne dla 7B.
-
-## 10. Priorytetowy Roadmap
-
-### Etap 1 - Żeby pełny corpus działał
-
-- streaming index builder,
-- obsługa `embeddings_shard_0.parquet` i `embeddings_shard_1.parquet`,
-- manifest indeksu,
-- wersjonowana kolekcja Qdrant,
-- smoke test `/search`.
-
-### Etap 2 - Żeby retrieval był medycznie sensowny
-
-- metadata filtering,
-- publication type boosting,
-- original query + rewritten query retrieval,
-- evidence filtering,
-- top50 -> rerank -> top5.
-
-### Etap 3 - Żeby dało się mierzyć jakość
-
-- eval set 100-300 pytań,
-- porównanie trybów retrievalu,
-- osobne raporty dla 7B i 26B,
-- latency p50/p95,
-- citation precision i unsupported claims.
-
-### Etap 4 - Dopiero później dodatki
-
-- HyDE jako fallback,
-- jedna iteracja follow-up query dla pytań złożonych,
-- context excerpt extraction,
-- lepsze wykrywanie konfliktów źródeł.
-
-## 11. Czego Nie Robić Teraz
-
-Nie robić teraz:
-
-- pełnego systemu multiagentowego,
-- długich chain-of-thought promptów,
-- wielu rund retrievalu dla każdego pytania,
-- zwiększania `RAG_TOP_K` bez ewaluacji,
-- mieszania różnych modeli embeddingów w jednej kolekcji,
-- odpowiadania z wiedzy własnej LLM, gdy RAG nie znalazł źródeł,
-- budowania skomplikowanego knowledge graph przed naprawieniem retrievalu.
-
-To są rzeczy, które mogą wyglądać atrakcyjnie, ale najpierw trzeba mieć stabilny i mierzalny prosty RAG.
-
-## 12. Docelowy Minimalny Standard Jakości
-
-Przed uznaniem systemu za gotowy do szerszych testów:
-
-```text
-Recall@50 >= 0.85 na eval secie
-nDCG@10 rośnie po metadata filtering/rerank
-minimum 95% odpowiedzi ma poprawne cytowania
-unsupported claim rate mierzalnie spada względem baseline
-no-answer działa dla pytań bez źródeł
-latency p95 akceptowalna dla 7B i 26B osobno
-pełny rebuild indeksu jest powtarzalny
-rollback kolekcji Qdrant jest możliwy
-```
-
-## 13. Źródła
-
-- [Benchmarking Retrieval-Augmented Generation for Medicine](https://arxiv.org/abs/2402.13178) - MIRAGE/MedRAG, wpływ RAG na medical QA, znaczenie kombinacji corpora/retrieverów, lost-in-the-middle.
-- [Efficient and Reproducible Biomedical Question Answering using Retrieval Augmented Generation](https://arxiv.org/abs/2505.07917) - porównanie BM25, BioBERT, MedCPT i hybryd; praktyczny trade-off jakości i latencji.
-- [Korean Medical Consultation With Open-Weight Large Language Models: Pilot Comparative Evaluation of RAG With Metadata Filtering](https://pubmed.ncbi.nlm.nih.gov/42060907/) - open-weight LLM, RAG-only vs RAG + metadata filtering, wyniki dla modeli klasy 7B/8B i 20B/27B.
-- [Thyro-GenAI: A Chatbot Using Retrieval-Augmented Generative Models for Personalized Thyroid Disease Management](https://pmc.ncbi.nlm.nih.gov/articles/PMC11989359/) - modularny RAG, vector DB, HyDE, BM25, reranking, cytowania i logowanie.
-- [Rethinking Retrieval-Augmented Generation for Medicine: A Large-Scale, Systematic Expert Evaluation and Practical Insights](https://arxiv.org/abs/2511.06738) - standardowy RAG może pogarszać wyniki, jeśli retrieval/evidence selection są słabe; evidence filtering i query reformulation pomagają.
-- [Improving Retrieval-Augmented Generation in Medicine with Iterative Follow-up Questions](https://arxiv.org/abs/2408.00727) - i-MedRAG, follow-up queries dla złożonych pytań medycznych.
-- [Rationale-Guided Retrieval Augmented Generation for Medical Question Answering](https://arxiv.org/abs/2411.00300) - filtrowanie nieinformatywnych fragmentów i użycie rationale/query guidance jako inspiracja dla bardziej selektywnego retrievalu.
-- [MKRAG: Medical Knowledge Retrieval Augmented Generation for Medical Question Answering](https://arxiv.org/abs/2309.16035) - prosty transparentny RAG poprawiający open-source model klasy 7B bez fine-tuningu.
-
+Jesli mamy dzisiaj wybrac jeden najwazniejszy kierunek, to nie jest kolejny rewrite retrievera. To jest dopracowanie `EvidenceJudge` i przygotowanie go pod uczony, powtarzalnie oceniany classifier.
