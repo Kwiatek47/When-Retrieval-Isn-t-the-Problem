@@ -42,6 +42,12 @@ class Settings:
     rag_retrieval_expansion_multiplier: int
     rag_retrieval_expanded_limit_max: int
     rag_evidence_filter_enabled: bool
+    rag_evidence_judge_enabled: bool
+    rag_evidence_judge_method: str
+    rag_evidence_judge_model: str
+    rag_evidence_judge_max_sources: int
+    rag_evidence_judge_voting_enabled: bool
+    rag_evidence_judge_votes: int
     rag_citation_repair_enabled: bool
     rag_answer_quality_gate_enabled: bool
     rag_answer_quality_max_hallucination_rate: float
@@ -88,6 +94,12 @@ def get_settings() -> Settings:
         rag_retrieval_expansion_multiplier=int(os.getenv("RAG_RETRIEVAL_EXPANSION_MULTIPLIER", "2")),
         rag_retrieval_expanded_limit_max=int(os.getenv("RAG_RETRIEVAL_EXPANDED_LIMIT_MAX", "100")),
         rag_evidence_filter_enabled=_bool_env("RAG_EVIDENCE_FILTER_ENABLED", True),
+        rag_evidence_judge_enabled=_bool_env("RAG_EVIDENCE_JUDGE_ENABLED", True),
+        rag_evidence_judge_method=os.getenv("RAG_EVIDENCE_JUDGE_METHOD", "llm"),
+        rag_evidence_judge_model=os.getenv("RAG_EVIDENCE_JUDGE_MODEL", ""),
+        rag_evidence_judge_max_sources=int(os.getenv("RAG_EVIDENCE_JUDGE_MAX_SOURCES", "3")),
+        rag_evidence_judge_voting_enabled=_bool_env("RAG_EVIDENCE_JUDGE_VOTING_ENABLED", False),
+        rag_evidence_judge_votes=int(os.getenv("RAG_EVIDENCE_JUDGE_VOTES", "3")),
         rag_citation_repair_enabled=_bool_env("RAG_CITATION_REPAIR_ENABLED", True),
         rag_answer_quality_gate_enabled=_bool_env("RAG_ANSWER_QUALITY_GATE_ENABLED", True),
         rag_answer_quality_max_hallucination_rate=float(

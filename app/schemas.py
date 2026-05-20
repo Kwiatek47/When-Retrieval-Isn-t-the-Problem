@@ -70,6 +70,18 @@ class RagTraceDocument(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvidenceDecisionInfo(BaseModel):
+    enabled: bool = True
+    status: Literal["skipped", "supported", "refuted", "uncertain", "insufficient"]
+    method: str = "rules"
+    answer_label: Optional[Literal["yes", "no", "maybe"]] = None
+    confidence: Optional[float] = None
+    rationale: str = ""
+    citations: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class RagTraceResponse(BaseModel):
     original_query: str
     normalized_query: str
@@ -83,6 +95,7 @@ class RagTraceResponse(BaseModel):
     metadata_boosted_candidates: list[RagTraceDocument] = Field(default_factory=list)
     final_documents: list[RagTraceDocument] = Field(default_factory=list)
     retrieval: RetrievalInfo
+    evidence_decision: Optional[EvidenceDecisionInfo] = None
     context_preview: str
 
 
@@ -132,6 +145,7 @@ class ChatResponse(BaseModel):
     done: bool
     citations: list[Citation] = Field(default_factory=list)
     retrieval: Optional[RetrievalInfo] = None
+    evidence_decision: Optional[EvidenceDecisionInfo] = None
     citation_validation: Optional[CitationValidation] = None
     evidence_conflicts: Optional[EvidenceConflictInfo] = None
     answer_quality: Optional[AnswerQuality] = None

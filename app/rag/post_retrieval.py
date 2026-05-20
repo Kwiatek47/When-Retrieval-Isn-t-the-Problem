@@ -91,6 +91,7 @@ class PostRetriever:
             retrieval=retrieval_info,
             evidence_conflicts=evidence_conflicts,
             source_documents=documents[: len(citations)],
+            pre_retrieval=pre_retrieval,
         )
 
     def _rank_documents(

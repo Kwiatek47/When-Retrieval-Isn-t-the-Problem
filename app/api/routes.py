@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies import (
+    get_evidence_judge,
     get_llm_provider,
     get_medical_knowledge_retriever,
     get_post_retriever,
@@ -25,7 +26,12 @@ from app.rag.answer_extraction import extract_answer_content
 from app.rag.answer_guardrails import apply_answer_guardrails, repair_missing_citations
 from app.rag.answer_quality import evaluate_answer_quality
 from app.rag.citation_validation import normalize_citation_format, validate_citations
-from app.rag.models import RetrievedDocument, RetrievalResult
+from app.rag.evidence_judge import (
+    EvidenceJudge,
+    answer_from_evidence_decision,
+    build_evidence_decision_block,
+)
+from app.rag.models import PostRetrievalResult, RetrievedDocument, RetrievalResult
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
@@ -36,6 +42,7 @@ from app.schemas import (
     ChatRequest,
     ChatResponse,
     CitationValidation,
+    EvidenceDecisionInfo,
     RagTraceDocument,
     RagTraceRequest,
     RagTraceResponse,
@@ -54,6 +61,7 @@ async def chat(
     request: ChatRequest,
     llm_provider: Annotated[LLMProvider, Depends(get_llm_provider)],
     rag_pipeline: Annotated[RagPipeline, Depends(get_rag_pipeline)],
+    evidence_judge: Annotated[EvidenceJudge, Depends(get_evidence_judge)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ChatResponse:
     request_started_at = perf_counter()
@@ -61,6 +69,16 @@ async def chat(
         rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=settings.system_prompt)
         rag_done_at = perf_counter()
         yes_no_maybe_task = is_yes_no_maybe_task(request.messages)
+        if rag_result.pre_retrieval is not None:
+            evidence_decision = await evidence_judge.judge(
+                messages=request.messages,
+                pre_retrieval=rag_result.pre_retrieval,
+                source_documents=rag_result.source_documents,
+                retrieval_status=rag_result.retrieval.status if rag_result.retrieval else "skipped",
+                llm_provider=llm_provider,
+                model=settings.rag_evidence_judge_model or request.model,
+            )
+            rag_result = _with_evidence_decision(rag_result, evidence_decision)
         if rag_result.retrieval and rag_result.retrieval.status in {"no_sources", "low_evidence"}:
             refusal_content = _low_evidence_refusal(
                 request.messages,
@@ -85,6 +103,7 @@ async def chat(
                 done=True,
                 citations=rag_result.citations,
                 retrieval=rag_result.retrieval,
+                evidence_decision=rag_result.evidence_decision,
                 citation_validation=validate_citations(refusal_content, rag_result.citations),
                 evidence_conflicts=rag_result.evidence_conflicts,
                 answer_quality=evaluate_answer_quality(
@@ -95,6 +114,48 @@ async def chat(
                     similarity_threshold=settings.answer_quality_similarity_threshold,
                 ),
             )
+
+        if yes_no_maybe_task:
+            judged_answer = answer_from_evidence_decision(rag_result.evidence_decision, rag_result.source_documents)
+            if judged_answer:
+                answer_content = enforce_yes_no_maybe_contract(judged_answer, rag_result.source_documents)
+                answer_content = apply_answer_guardrails(
+                    normalize_citation_format(answer_content),
+                    rag_result.source_documents,
+                )
+                if settings.rag_citation_repair_enabled:
+                    answer_content = repair_missing_citations(answer_content, rag_result.source_documents)
+                answer_content = enforce_yes_no_maybe_contract(answer_content, rag_result.source_documents)
+                citation_validation = validate_citations(answer_content, rag_result.citations)
+                answer_quality = evaluate_answer_quality(
+                    answer_content,
+                    rag_result.source_documents,
+                    method=settings.answer_quality_method,
+                    model_name=settings.answer_quality_model_name,
+                    similarity_threshold=settings.answer_quality_similarity_threshold,
+                )
+                logger.info(
+                    "chat_request timing rag_total=%.3fs llm_total=0.000s total=%.3fs model=%s "
+                    "retrieval_status=%s documents=%d evidence_judge=%s citation_validation=%s",
+                    rag_done_at - request_started_at,
+                    perf_counter() - request_started_at,
+                    request.model,
+                    rag_result.retrieval.status if rag_result.retrieval else "none",
+                    rag_result.retrieval.documents_count if rag_result.retrieval else 0,
+                    rag_result.evidence_decision.status if rag_result.evidence_decision else "none",
+                    citation_validation.passed,
+                )
+                return ChatResponse(
+                    model=request.model,
+                    message=ChatMessage(role="assistant", content=answer_content),
+                    done=True,
+                    citations=rag_result.citations,
+                    retrieval=rag_result.retrieval,
+                    evidence_decision=rag_result.evidence_decision,
+                    citation_validation=citation_validation,
+                    evidence_conflicts=rag_result.evidence_conflicts,
+                    answer_quality=answer_quality,
+                )
 
         llm_response = await llm_provider.chat(
             model=request.model,
@@ -168,6 +229,7 @@ async def chat(
             done=llm_response.done,
             citations=rag_result.citations,
             retrieval=rag_result.retrieval,
+            evidence_decision=rag_result.evidence_decision,
             citation_validation=citation_validation,
             evidence_conflicts=rag_result.evidence_conflicts,
             answer_quality=answer_quality,
@@ -190,6 +252,7 @@ async def rag_trace(
     pre_retriever: Annotated[PreRetriever, Depends(get_pre_retriever)],
     retriever: Annotated[MedicalKnowledgeRetriever, Depends(get_medical_knowledge_retriever)],
     post_retriever: Annotated[PostRetriever, Depends(get_post_retriever)],
+    evidence_judge: Annotated[EvidenceJudge, Depends(get_evidence_judge)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RagTraceResponse:
     pre_retrieval = await pre_retriever.prepare(request.messages)
@@ -206,6 +269,14 @@ async def rag_trace(
         pre_retrieval=pre_retrieval,
         retrieval=retrieval,
         final_documents_limit=top_k,
+    )
+    evidence_decision = await evidence_judge.judge(
+        messages=request.messages,
+        pre_retrieval=pre_retrieval,
+        source_documents=post_result.source_documents,
+        retrieval_status=post_result.retrieval.status,
+        llm_provider=None,
+        model="",
     )
 
     rrf_documents = _debug_documents(retrieval, "rrf_documents") or sorted(
@@ -227,6 +298,7 @@ async def rag_trace(
         metadata_boosted_candidates=_trace_documents(metadata_boosted_documents),
         final_documents=_trace_documents(post_result.source_documents),
         retrieval=post_result.retrieval,
+        evidence_decision=evidence_decision,
         context_preview=_context_preview(post_result.messages[0].content),
     )
 
@@ -297,6 +369,23 @@ def _search_result(document: RetrievedDocument) -> SearchResult:
         url=metadata.get("url"),
         metadata=metadata,
     )
+
+
+def _with_evidence_decision(
+    rag_result: PostRetrievalResult,
+    evidence_decision: EvidenceDecisionInfo,
+) -> PostRetrievalResult:
+    decision_block = build_evidence_decision_block(evidence_decision)
+    if not decision_block or not rag_result.messages:
+        return replace(rag_result, evidence_decision=evidence_decision)
+
+    messages = list(rag_result.messages)
+    system_message = messages[0]
+    messages[0] = ChatMessage(
+        role=system_message.role,
+        content=f"{system_message.content}\n\n{decision_block}",
+    )
+    return replace(rag_result, messages=messages, evidence_decision=evidence_decision)
 
 
 def _optional_int(value: str | None) -> int | None:

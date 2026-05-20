@@ -5,6 +5,7 @@ import httpx
 from app.core.config import get_settings
 from app.providers.base import LLMProvider
 from app.providers.ollama import OllamaProvider
+from app.rag.evidence_judge import EvidenceJudge
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
@@ -85,6 +86,18 @@ def get_post_retriever() -> PostRetriever:
         cross_encoder_batch_size=settings.cross_encoder_batch_size,
         cross_encoder_device=settings.cross_encoder_device,
         evidence_filter_enabled=settings.rag_evidence_filter_enabled,
+    )
+
+
+@lru_cache
+def get_evidence_judge() -> EvidenceJudge:
+    settings = get_settings()
+    return EvidenceJudge(
+        enabled=settings.rag_evidence_judge_enabled,
+        method=settings.rag_evidence_judge_method,
+        max_sources=settings.rag_evidence_judge_max_sources,
+        voting_enabled=settings.rag_evidence_judge_voting_enabled,
+        voting_rounds=settings.rag_evidence_judge_votes,
     )
 
 

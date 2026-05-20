@@ -500,6 +500,7 @@ Przykladowa odpowiedz zawiera:
 - `message`
 - `citations`
 - `retrieval`
+- `evidence_decision`
 - `citation_validation`
 - `evidence_conflicts`
 - `answer_quality`
@@ -520,6 +521,12 @@ RAG_ADAPTIVE_RETRIEVAL_ENABLED=true
 RAG_ADAPTIVE_MAX_ROUNDS=1
 RAG_RETRIEVAL_EXPANSION_MULTIPLIER=2
 RAG_RETRIEVAL_EXPANDED_LIMIT_MAX=100
+RAG_EVIDENCE_JUDGE_ENABLED=true
+RAG_EVIDENCE_JUDGE_METHOD=llm
+RAG_EVIDENCE_JUDGE_MODEL=
+RAG_EVIDENCE_JUDGE_MAX_SOURCES=3
+RAG_EVIDENCE_JUDGE_VOTING_ENABLED=false
+RAG_EVIDENCE_JUDGE_VOTES=3
 CROSS_ENCODER_MODEL=ncbi/MedCPT-Cross-Encoder
 ANSWER_QUALITY_METHOD=semantic_similarity
 ANSWER_QUALITY_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
@@ -666,6 +673,10 @@ Po retrievalu kazdy kandydat dostaje `evidenceScore` liczony z:
 Do promptu trafia tylko wybrany excerpt 1-3 zdan z najlepiej pokrytych fragmentow. Blok kontekstu zaczyna sie od `SOURCE_PRIORITY`, ktory wskazuje najmocniejsze zrodla na poczatku promptu, zeby male modele latwiej korzystaly z najwazniejszego evidence. Jesli zostaje za malo mocnych zrodel dla pytania klinicznego, API zwraca status `low_evidence` i odmawia odpowiedzi z wiedzy wlasnej modelu.
 
 Gdy `RAG_ADAPTIVE_RETRIEVAL_ENABLED=true`, status `low_evidence` uruchamia maksymalnie jedna dodatkowa runde retrievalu (`RAG_ADAPTIVE_MAX_ROUNDS=1`). Ta runda nie generuje nowego rewrite przez LLM; rozszerza zapytanie deterministycznie o preferowane typy publikacji oraz termy zalezne od intentu, np. efficacy/safety/outcomes dla leczenia, i scala obie rundy przez wazony RRF przed ponownym post-retrieval.
+
+Po wyborze finalnych zrodel pipeline uruchamia osobny `EvidenceJudge`: `retriever -> evidence judge -> answer writer`. Judge ocenia, czy zrodla wspieraja, obalaja albo nie rozstrzygaja pytania. Wynik trafia do pola `evidence_decision` oraz do promptu writera jako `EVIDENCE_JUDGE_DECISION`, zeby generator nie musial sam ustalac kierunku odpowiedzi. Dla `POST /api/rag/trace` judge dziala bez wywolania LLM i uzywa reguł, zeby endpoint pozostal diagnostyczny.
+
+Opcjonalny tryb accuracy-first wlacza self-consistency voting dla judge'a: `RAG_EVIDENCE_JUDGE_VOTING_ENABLED=true` i `RAG_EVIDENCE_JUDGE_VOTES=3`. Wtedy judge wykonuje kilka wariantow promptu: balanced, refutation check, uncertainty check i laczy decyzje wiekszoscia. Remis `yes`/`no` jest traktowany jako `maybe`, bo to bezpieczniejszy wynik przy sprzecznym evidence.
 
 ## Raport jakości retrievalu
 
