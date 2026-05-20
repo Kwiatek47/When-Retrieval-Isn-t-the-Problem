@@ -4,25 +4,35 @@
     "title": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control",
     "source": "https://pubmed.ncbi.nlm.nih.gov/26551272/",
     "score": 0.0,
-    "content": "PubMed PMID 26551272. The SPRINT trial compared intensive systolic blood pressure control below 120 mm Hg with standard control below 140 mm Hg in adults with systolic blood pressure at least 130 mm Hg and elevated cardiovascular risk, excluding patients with diabetes. Intensive treatment reduced major cardiovascular events and all-cause mortality, but increased some serious adverse events including hypotension, syncope, electrolyte abnormalities, and acute kidney injury or failure. Relevant concepts: hypertension, high blood pressure, cardiovascular risk, stroke, heart failure, chronic kidney disease, CKD, adverse events, intensive treatment.",
+    "content": "Real source PMID 26551272. The SPRINT randomized clinical trial compared intensive systolic blood pressure control below 120 mm Hg with standard control below 140 mm Hg in adults with systolic blood pressure at least 130 mm Hg and elevated cardiovascular risk. The trial excluded patients with diabetes and prior stroke. Intensive control lowered major cardiovascular events and all-cause mortality, but serious adverse events including hypotension, syncope, electrolyte abnormalities, and acute kidney injury or failure were more frequent. Relevant concepts: hypertension, high blood pressure, cardiovascular risk, stroke, heart failure, chronic kidney disease, CKD, adverse events, intensive treatment, diabetes exclusion.",
     "metadata": {
       "pmid": "26551272",
+      "doi": "10.1056/NEJMoa1511939",
       "journal": "New England Journal of Medicine",
-      "year": "2015",
-      "topic": "hypertension"
+      "year": 2015,
+      "topic": "hypertension blood pressure cardiovascular risk adverse events",
+      "publicationTypes": ["Randomized Controlled Trial", "Clinical Trial"],
+      "corpusType": "pubmed_trial",
+      "sourceAuthority": "PubMed"
     }
   },
   {
     "id": "pmid-33043620",
-    "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: cardiovascular, kidney and mortality outcomes",
+    "title": "Sodium-glucose co-transporter-2 inhibitors with and without metformin: A meta-analysis of cardiovascular, kidney and mortality outcomes",
     "source": "https://pubmed.ncbi.nlm.nih.gov/33043620/",
     "score": 0.0,
-    "content": "PubMed PMID 33043620. This meta-analysis evaluated SGLT2 inhibitor trials and found reductions in cardiovascular, kidney, heart failure, and mortality outcomes regardless of baseline metformin use. The evidence is relevant to type 2 diabetes, diabetic kidney disease, chronic kidney disease, heart failure hospitalization, cardiovascular death, kidney outcomes, metformin, empagliflozin, dapagliflozin, canagliflozin, and SGLT2 inhibitors.",
+    "content": "Real source PMID 33043620. This meta-analysis of event-driven randomized placebo-controlled SGLT2 inhibitor trials evaluated cardiovascular, kidney, heart failure, and mortality outcomes with and without baseline metformin use. SGLT2 inhibitors reduced major adverse cardiovascular events, hospitalization for heart failure or cardiovascular death, major kidney outcomes, and all-cause mortality, with consistent effects regardless of whether patients were receiving metformin. Relevant concepts: type 2 diabetes, diabetic kidney disease, chronic kidney disease, heart failure hospitalization, cardiovascular death, kidney outcomes, metformin, empagliflozin, dapagliflozin, canagliflozin, SGLT2 inhibitors.",
     "metadata": {
       "pmid": "33043620",
+      "doi": "10.1111/dom.14226",
       "journal": "Diabetes, Obesity and Metabolism",
-      "year": "2021",
-      "topic": "diabetes kidney heart failure"
+      "year": 2021,
+      "topic": "diabetes kidney heart failure sglt2 metformin outcomes",
+      "publicationTypes": ["Meta-Analysis"],
+      "isReview": true,
+      "isSystematicReview": true,
+      "corpusType": "pubmed_meta_analysis",
+      "sourceAuthority": "PubMed"
     }
   },
   {
@@ -30,12 +40,17 @@
     "title": "Inhaled Corticosteroids for the Prevention of Asthma Exacerbations",
     "source": "https://pubmed.ncbi.nlm.nih.gov/34400314/",
     "score": 0.0,
-    "content": "PubMed PMID 34400314. This review summarizes asthma exacerbation risk factors and the role of inhaled corticosteroids. It reports that inhaled corticosteroids are highly effective for preventing asthma exacerbations, with multiple dosing strategies including daily controller treatment, intermittent high-dose inhaled corticosteroids in selected patients, and as-needed inhaled corticosteroid use with rescue treatment in mild asthma. Relevant concepts: asthma, wheeze, exacerbation, inhaled corticosteroids, ICS, controller therapy, rescue inhaler, viral respiratory infection, eosinophilia.",
+    "content": "Real source PMID 34400314. This review summarizes asthma exacerbation risk factors and the role of inhaled corticosteroids. It reports that inhaled corticosteroids are effective for preventing asthma exacerbations, with strategies including daily controller treatment, intermittent high-dose inhaled corticosteroids in selected patients, and as-needed inhaled corticosteroid dosing with rescue treatment in mild asthma. Relevant concepts: asthma, wheeze, exacerbation, inhaled corticosteroids, ICS, controller therapy, rescue inhaler, viral respiratory infection, eosinophilia.",
     "metadata": {
       "pmid": "34400314",
+      "doi": "10.1016/j.anai.2021.07.016",
       "journal": "Annals of Allergy, Asthma & Immunology",
-      "year": "2021",
-      "topic": "asthma"
+      "year": 2021,
+      "topic": "asthma inhaled corticosteroids exacerbation prevention",
+      "publicationTypes": ["Review"],
+      "isReview": true,
+      "corpusType": "pubmed_review",
+      "sourceAuthority": "PubMed"
     }
   },
   {
@@ -43,12 +58,18 @@
     "title": "Bleeding Risk in Nonvalvular Atrial Fibrillation Patients Receiving Direct Oral Anticoagulants and Warfarin",
     "source": "https://pubmed.ncbi.nlm.nih.gov/32676543/",
     "score": 0.0,
-    "content": "PubMed PMID 32676543. This systematic review and meta-analysis of observational studies compared bleeding risk in nonvalvular atrial fibrillation patients receiving direct oral anticoagulants and warfarin. Overall, direct oral anticoagulants were associated with fewer bleeding events than warfarin in observational data, with differences between agents: apixaban showed lower bleeding risk compared with warfarin, while rivaroxaban did not show the same reduction. Relevant concepts: atrial fibrillation, AF, anticoagulation, DOAC, NOAC, warfarin, apixaban, rivaroxaban, dabigatran, bleeding, stroke prevention.",
+    "content": "Real source PMID 32676543. This systematic review and meta-analysis of observational studies compared bleeding risk in nonvalvular atrial fibrillation patients receiving direct oral anticoagulants and warfarin. Overall, direct oral anticoagulants were associated with fewer bleeding events than warfarin in observational data. Agent-specific findings differed: apixaban showed lower bleeding risk compared with warfarin, while rivaroxaban did not show the same reduction. Relevant concepts: atrial fibrillation, AF, anticoagulation, DOAC, NOAC, warfarin, apixaban, rivaroxaban, dabigatran, bleeding, stroke prevention.",
     "metadata": {
       "pmid": "32676543",
+      "doi": "10.1055/s-0040-1713167",
       "journal": "TH Open",
-      "year": "2020",
-      "topic": "atrial fibrillation anticoagulation"
+      "year": 2020,
+      "topic": "atrial fibrillation anticoagulation bleeding doac warfarin apixaban rivaroxaban",
+      "publicationTypes": ["Systematic Review", "Meta-Analysis", "Observational Study"],
+      "isReview": true,
+      "isSystematicReview": true,
+      "corpusType": "pubmed_meta_analysis",
+      "sourceAuthority": "PubMed"
     }
   },
   {
@@ -56,13 +77,34 @@
     "title": "Risks and Benefits of Direct Oral Anticoagulants across the Spectrum of GFR among Patients with Atrial Fibrillation",
     "source": "https://pubmed.ncbi.nlm.nih.gov/30002224/",
     "score": 0.0,
-    "content": "PubMed PMID 30002224. This study evaluated direct oral anticoagulants compared with warfarin in patients with atrial fibrillation across kidney function strata. It focused on bleeding and ischemic stroke prevention in people with and without chronic kidney disease. The record is useful for questions about anticoagulation when eGFR is reduced, CKD is present, or kidney function affects treatment risk. Relevant concepts: atrial fibrillation, chronic kidney disease, CKD, eGFR, kidney function, direct oral anticoagulants, warfarin, bleeding, ischemic stroke.",
+    "content": "Real source PMID 30002224. This study evaluated direct oral anticoagulants compared with warfarin among patients with atrial fibrillation across kidney function strata. It focused on bleeding and ischemic stroke prevention in people with and without chronic kidney disease, and is useful for questions about anticoagulation when eGFR is reduced or kidney function changes treatment risk. Relevant concepts: atrial fibrillation, chronic kidney disease, CKD, eGFR, kidney function, direct oral anticoagulants, warfarin, bleeding, ischemic stroke.",
     "metadata": {
       "pmid": "30002224",
+      "doi": "10.2215/CJN.13811217",
       "journal": "Clinical Journal of the American Society of Nephrology",
-      "year": "2018",
-      "topic": "atrial fibrillation kidney disease"
+      "year": 2018,
+      "topic": "atrial fibrillation kidney disease ckd egfr anticoagulation",
+      "publicationTypes": ["Observational Study"],
+      "corpusType": "pubmed_observational",
+      "sourceAuthority": "PubMed"
+    }
+  },
+  {
+    "id": "guideline-acc-pad-2024",
+    "title": "2024 ACC/AHA/Multisociety Guideline for Lower Extremity Peripheral Artery Disease: Key Points",
+    "source": "https://www.acc.org/Latest-in-Cardiology/ten-points-to-remember/2024/05/09/15/00/2024-guideline-for-lower-extremity-pad",
+    "score": 0.0,
+    "content": "Real source: 2024 ACC/AHA multisociety guideline key points for lower extremity peripheral artery disease. In symptomatic PAD, single antiplatelet therapy is recommended to reduce major adverse cardiovascular events; aspirin or clopidogrel can be used. In symptomatic PAD and after endovascular or surgical revascularization, low-dose rivaroxaban 2.5 mg twice daily combined with low-dose aspirin is recommended to reduce major adverse cardiovascular and limb events. Full-intensity oral anticoagulation should not be used solely to reduce PAD cardiovascular or limb events when there is no other indication such as atrial fibrillation. High-intensity statin therapy aiming for at least 50 percent LDL-C reduction is recommended. Cilostazol is recommended to improve claudication symptoms and walking distance but should not be used in congestive heart failure. Relevant concepts: peripheral artery disease, PAD, antiplatelet therapy, aspirin, clopidogrel, rivaroxaban, statin, lipid lowering, cilostazol, claudication, revascularization.",
+    "metadata": {
+      "pmid": "38743805",
+      "doi": "10.1016/j.jacc.2024.02.013",
+      "journal": "Journal of the American College of Cardiology",
+      "year": 2024,
+      "topic": "peripheral artery disease pad antiplatelet aspirin clopidogrel rivaroxaban statin cilostazol",
+      "publicationTypes": ["Guideline", "Practice Guideline"],
+      "isReview": true,
+      "corpusType": "guideline",
+      "sourceAuthority": "ACC/AHA"
     }
   }
 ]
-

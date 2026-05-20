@@ -64,7 +64,7 @@ HF_HOME=/models/huggingface
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
 QDRANT_TIMEOUT=10
-QDRANT_COLLECTION=MedicalChunk
+QDRANT_COLLECTION=MedicalChunk_pubmed_reviews_v1_medcpt_20260518
 QDRANT_VECTOR_NAME=medcpt_dense
 QDRANT_SPARSE_VECTOR_NAME=bm25_sparse
 BM25_STATS_PATH=/data/bm25_stats.json
@@ -199,7 +199,11 @@ Request:
 ```json
 {
   "text": "What reduces fever?",
-  "limit": 5
+  "limit": 5,
+  "metadata_filter": {
+    "corpusVersion": "pubmed-reviews-v1",
+    "min_year": 2016
+  }
 }
 ```
 
@@ -211,7 +215,7 @@ Response:
   "encoder": "query",
   "encoder_model": "ncbi/MedCPT-Query-Encoder",
   "dimension": 768,
-  "collection": "MedicalChunk",
+  "collection": "MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
   "vector_name": "medcpt_dense",
   "sparse_vector_name": "bm25_sparse",
   "fusion": "rrf",

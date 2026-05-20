@@ -33,6 +33,7 @@ class EmbedQueryRequest(BaseModel):
 class HybridQueryRequest(BaseModel):
     text: str = Field(..., min_length=1)
     limit: int = Field(default=5, ge=1, le=100)
+    metadata_filter: dict[str, Any] = Field(default_factory=dict)
 
 
 class EmbedResponse(BaseModel):

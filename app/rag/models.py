@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.schemas import ChatMessage, Citation, EvidenceConflictInfo, RetrievalInfo
+from app.schemas import ChatMessage, Citation, EvidenceConflictInfo, EvidenceDecisionInfo, RetrievalInfo
 
 
 @dataclass(frozen=True)
@@ -11,6 +11,10 @@ class PreRetrievalResult:
     search_queries: list[str]
     requires_retrieval: bool
     filters: dict[str, str] = field(default_factory=dict)
+    intent: str = "general"
+    preferred_publication_types: list[str] = field(default_factory=list)
+    min_year: int | None = None
+    requires_recent_evidence: bool = False
     notes: list[str] = field(default_factory=list)
 
 
@@ -29,6 +33,7 @@ class RetrievalResult:
     query: PreRetrievalResult
     documents: list[RetrievedDocument]
     provider: str
+    debug: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -38,3 +43,5 @@ class PostRetrievalResult:
     retrieval: RetrievalInfo
     evidence_conflicts: EvidenceConflictInfo
     source_documents: list[RetrievedDocument] = field(default_factory=list)
+    evidence_decision: EvidenceDecisionInfo | None = None
+    pre_retrieval: PreRetrievalResult | None = None

@@ -6,7 +6,7 @@ import time
 from qdrant_client import QdrantClient, models
 
 
-COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "MedicalChunk")
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "MedicalChunk_pubmed_reviews_v1_medcpt_20260518")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 VECTOR_NAME = os.getenv("QDRANT_VECTOR_NAME", "medcpt_dense")
@@ -34,6 +34,8 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
     "isReview": models.PayloadSchemaType.BOOL,
     "isSystematicReview": models.PayloadSchemaType.BOOL,
     "wordCount": models.PayloadSchemaType.INTEGER,
+    "parentChunkId": models.PayloadSchemaType.KEYWORD,
+    "parentWordCount": models.PayloadSchemaType.INTEGER,
     "embeddingModel": models.PayloadSchemaType.KEYWORD,
     "corpusVersion": models.PayloadSchemaType.KEYWORD,
     "textHash": models.PayloadSchemaType.KEYWORD,

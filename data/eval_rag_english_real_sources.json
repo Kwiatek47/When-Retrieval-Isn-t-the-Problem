@@ -1,0 +1,159 @@
+[
+  {
+    "id": "sglt2-cardiorenal-outcomes",
+    "question": "What is known about SGLT2 inhibitors in type 2 diabetes, kidney disease, and heart failure?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-33043620"],
+    "relevant_pmids": ["33043620"],
+    "expected_answer_terms": ["SGLT2", "cardiovascular", "kidney", "heart failure", "mortality"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/33043620/"]
+  },
+  {
+    "id": "sglt2-metformin-subgroup",
+    "question": "Were SGLT2 inhibitor benefits consistent regardless of baseline metformin use?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-33043620"],
+    "relevant_pmids": ["33043620"],
+    "expected_answer_terms": ["metformin", "consistent", "cardiovascular", "kidney"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/33043620/"]
+  },
+  {
+    "id": "sprint-benefits-harms",
+    "question": "What were the benefits and harms of intensive systolic blood pressure control in SPRINT?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-26551272"],
+    "relevant_pmids": ["26551272"],
+    "expected_answer_terms": ["cardiovascular", "mortality", "hypotension", "syncope", "acute kidney injury"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/26551272/"]
+  },
+  {
+    "id": "sprint-diabetes-exclusion",
+    "question": "Did the SPRINT blood pressure trial include patients with diabetes?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-26551272"],
+    "relevant_pmids": ["26551272"],
+    "expected_answer_terms": ["excluded", "diabetes"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/26551272/"]
+  },
+  {
+    "id": "ics-asthma-exacerbations",
+    "question": "How do inhaled corticosteroids help prevent asthma exacerbations?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-34400314"],
+    "relevant_pmids": ["34400314"],
+    "expected_answer_terms": ["inhaled corticosteroids", "exacerbations", "daily", "as-needed"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/34400314/"]
+  },
+  {
+    "id": "ics-mild-asthma-strategies",
+    "question": "What inhaled corticosteroid strategies are discussed for mild asthma?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-34400314"],
+    "relevant_pmids": ["34400314"],
+    "expected_answer_terms": ["daily", "intermittent", "as-needed", "rescue"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/34400314/"]
+  },
+  {
+    "id": "doac-warfarin-bleeding-af",
+    "question": "How do DOACs compare with warfarin for bleeding risk in atrial fibrillation?",
+    "intent": "adverse_effects",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-32676543"],
+    "relevant_pmids": ["32676543"],
+    "expected_answer_terms": ["DOAC", "warfarin", "bleeding", "apixaban", "rivaroxaban"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/32676543/"]
+  },
+  {
+    "id": "apixaban-rivaroxaban-bleeding",
+    "question": "Did apixaban and rivaroxaban show the same bleeding reduction compared with warfarin?",
+    "intent": "adverse_effects",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-32676543"],
+    "relevant_pmids": ["32676543"],
+    "expected_answer_terms": ["apixaban", "rivaroxaban", "warfarin", "bleeding"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/32676543/"]
+  },
+  {
+    "id": "doac-ckd-egfr-af",
+    "question": "How does reduced eGFR or chronic kidney disease affect DOAC versus warfarin decisions in atrial fibrillation?",
+    "intent": "adverse_effects",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["pmid-30002224"],
+    "relevant_pmids": ["30002224"],
+    "expected_answer_terms": ["eGFR", "chronic kidney disease", "atrial fibrillation", "warfarin", "bleeding"],
+    "source_urls": ["https://pubmed.ncbi.nlm.nih.gov/30002224/"]
+  },
+  {
+    "id": "pad-medications",
+    "question": "What medications are used for peripheral artery disease?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["guideline-acc-pad-2024"],
+    "relevant_pmids": ["38743805"],
+    "expected_answer_terms": ["antiplatelet", "aspirin", "clopidogrel", "rivaroxaban", "statin"],
+    "source_urls": ["https://www.acc.org/Latest-in-Cardiology/ten-points-to-remember/2024/05/09/15/00/2024-guideline-for-lower-extremity-pad"]
+  },
+  {
+    "id": "pad-rivaroxaban-aspirin",
+    "question": "When is low-dose rivaroxaban plus aspirin used in PAD?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["guideline-acc-pad-2024"],
+    "relevant_pmids": ["38743805"],
+    "expected_answer_terms": ["rivaroxaban", "aspirin", "symptomatic PAD", "revascularization", "limb events"],
+    "source_urls": ["https://www.acc.org/Latest-in-Cardiology/ten-points-to-remember/2024/05/09/15/00/2024-guideline-for-lower-extremity-pad"]
+  },
+  {
+    "id": "pad-full-anticoagulation-not-indicated",
+    "question": "Should full-intensity oral anticoagulation be used only to reduce PAD cardiovascular or limb events?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["guideline-acc-pad-2024"],
+    "relevant_pmids": ["38743805"],
+    "expected_answer_terms": ["full-intensity", "oral anticoagulation", "should not", "atrial fibrillation"],
+    "source_urls": ["https://www.acc.org/Latest-in-Cardiology/ten-points-to-remember/2024/05/09/15/00/2024-guideline-for-lower-extremity-pad"]
+  },
+  {
+    "id": "pad-cilostazol-heart-failure",
+    "question": "What does the PAD guideline say about cilostazol and heart failure?",
+    "intent": "adverse_effects",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["guideline-acc-pad-2024"],
+    "relevant_pmids": ["38743805"],
+    "expected_answer_terms": ["cilostazol", "claudication", "walking distance", "heart failure"],
+    "source_urls": ["https://www.acc.org/Latest-in-Cardiology/ten-points-to-remember/2024/05/09/15/00/2024-guideline-for-lower-extremity-pad"]
+  },
+  {
+    "id": "negative-lyme-antibiotic",
+    "question": "What is the first-line antibiotic treatment for Lyme disease?",
+    "intent": "treatment",
+    "expected_status": "low_evidence",
+    "relevant_document_ids": [],
+    "relevant_pmids": [],
+    "forbidden_answer_terms": ["doxycycline", "amoxicillin", "cefuroxime"]
+  },
+  {
+    "id": "negative-pancreatic-chemo",
+    "question": "What chemotherapy regimen is recommended for metastatic pancreatic cancer?",
+    "intent": "treatment",
+    "expected_status": "low_evidence",
+    "relevant_document_ids": [],
+    "relevant_pmids": [],
+    "forbidden_answer_terms": ["FOLFIRINOX", "gemcitabine", "nab-paclitaxel"]
+  },
+  {
+    "id": "negative-uti-pregnancy",
+    "question": "What antibiotic should be used for urinary tract infection during pregnancy?",
+    "intent": "treatment",
+    "expected_status": "low_evidence",
+    "relevant_document_ids": [],
+    "relevant_pmids": [],
+    "forbidden_answer_terms": ["nitrofurantoin", "cephalexin", "trimethoprim"]
+  }
+]
