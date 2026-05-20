@@ -398,6 +398,7 @@ class PostRetriever:
                     id=citation_id,
                     title=document.title,
                     source=document.source,
+                    url=self._citation_url(document),
                     score=document.score,
                     metadata=self._stringify_metadata(document.metadata),
                 )
@@ -644,11 +645,33 @@ class PostRetriever:
                 id=f"S{index + 1}",
                 title=document.title,
                 source=document.source,
+                url=self._citation_url(document),
                 score=document.score,
                 metadata=self._stringify_metadata(document.metadata),
             )
             for index, document in enumerate(documents)
         ]
+
+    def _citation_url(self, document: RetrievedDocument) -> str | None:
+        metadata = document.metadata or {}
+        for key in ("url", "source_url", "sourceUrl"):
+            value = str(metadata.get(key) or "").strip()
+            if value.startswith(("http://", "https://")):
+                return value
+
+        source = str(document.source or "").strip()
+        if source.startswith(("http://", "https://")):
+            return source.split(": PMID", 1)[0].strip()
+
+        pmid = str(metadata.get("pmid") or "").strip()
+        if pmid:
+            return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+
+        doi = str(metadata.get("doi") or "").strip()
+        if doi:
+            return f"https://doi.org/{doi}"
+
+        return None
 
     def _order_conflicting_documents(
         self,

@@ -1,0 +1,11 @@
+{
+  "input_glob": "data/raw/medqa/US/metamap_extracted_phrases/**/*.jsonl",
+  "output_dir": "data/sft/medqa",
+  "converted": 12723,
+  "skipped": 0,
+  "split_counts": {
+    "train": 10178,
+    "dev": 1272,
+    "test": 1273
+  }
+}

@@ -13,6 +13,7 @@ reports/*
 data/processed/
 data/embeddings/
 data/indexes/
+data/raw/
 data/bm25_stats*.json
 
 # Large local data files if placed outside the expected data folders.
@@ -24,3 +25,12 @@ data/bm25_stats*.json
 qdrant/storage/
 qdrant/snapshots/
 storage/
+
+# Local training/eval runtime artifacts.
+artifacts/
+unsloth_compiled_cache/
+data/raw/medqa/
+data/sft/
+data/telemetry/events.jsonl
+eval/reports/*
+data/sft/pubmedqa/ori_pqau.json
