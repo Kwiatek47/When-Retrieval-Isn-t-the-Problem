@@ -1,0 +1,15 @@
+# Optional overlay: embedding-service on CPU (machines without NVIDIA GPU).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
+
+services:
+  embedding-service:
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+    environment:
+      EMBEDDING_DEVICE: cpu
+      EMBEDDING_BATCH_SIZE: "4"
+    gpus: !reset null
+    healthcheck:
+      start_period: 600s

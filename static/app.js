@@ -9,6 +9,37 @@ const sendButton = document.querySelector("#sendButton");
 const messages = [];
 let isSending = false;
 
+function renderAssistantMarkdown(markdown) {
+  const md =
+    typeof marked !== "undefined"
+      ? marked
+      : typeof globalThis !== "undefined" && globalThis.marked
+        ? globalThis.marked
+        : undefined;
+  const purify =
+    typeof DOMPurify !== "undefined"
+      ? DOMPurify
+      : typeof globalThis !== "undefined" && globalThis.DOMPurify
+        ? globalThis.DOMPurify
+        : undefined;
+
+  if (!md?.parse || !purify?.sanitize) {
+    const fallback = document.createElement("div");
+    fallback.textContent = markdown;
+    return fallback.innerHTML;
+  }
+
+  const html = md.parse(markdown, { gfm: true, breaks: true });
+  const safe = purify.sanitize(html);
+  const tpl = document.createElement("template");
+  tpl.innerHTML = safe;
+  tpl.content.querySelectorAll('a[href^="http"]').forEach((a) => {
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
+  });
+  return tpl.innerHTML;
+}
+
 function scrollToBottom() {
   requestAnimationFrame(() => {
     chatViewport.scrollTop = chatViewport.scrollHeight;
@@ -99,17 +130,30 @@ function appendMessage(
   citations = [],
   citationValidation = null,
   evidenceConflicts = null,
-  answerQuality = null
+  answerQuality = null,
+  assistantPlainText = false
 ) {
   const row = document.createElement("div");
   row.className = role === "user" ? "flex justify-end" : "flex justify-start";
 
   const message = document.createElement(role === "user" ? "div" : "article");
-  message.textContent = content;
   message.className =
     role === "user"
       ? "max-w-[82%] whitespace-pre-wrap rounded-[24px] bg-zinc-100 px-4 py-3 text-[15px] leading-6 text-zinc-950"
-      : "w-full whitespace-pre-wrap text-[15px] leading-7 text-zinc-800";
+      : "w-full text-[15px] leading-7 text-zinc-800";
+
+  if (role === "user") {
+    message.textContent = content;
+  } else {
+    const bodyEl = document.createElement("div");
+    bodyEl.className = "assistant-md w-full";
+    if (loading || assistantPlainText) {
+      bodyEl.textContent = content;
+    } else {
+      bodyEl.innerHTML = renderAssistantMarkdown(content);
+    }
+    message.appendChild(bodyEl);
+  }
 
   if (loading) {
     message.classList.add("animate-pulse", "text-zinc-400");
@@ -222,7 +266,7 @@ async function sendMessage(content) {
     );
   } catch (error) {
     loadingRow.remove();
-    appendMessage("assistant", error.message || "Something went wrong.");
+    appendMessage("assistant", error.message || "Something went wrong.", false, [], null, null, null, true);
   } finally {
     isSending = false;
     syncSendButton();

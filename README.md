@@ -2,6 +2,9 @@
 
 MedChat to MVP medycznego chatbota RAG. Obecny stan projektu to lokalna aplikacja FastAPI z UI, osobnym `embedding-service`, baza wektorowa Qdrant i lokalnym modelem Ollama. Nazwa repo odnosi sie do kierunku rozwoju, ale aktualnie zaimplementowany jest sekwencyjny pipeline RAG, a nie pelny system multiagentowy.
 
+Minimalistyczny fundament chatbota medycznego oparty o FastAPI, asynchroniczny provider pattern i lokalne modele Ollama.
+Aktualny target: wsparcie lekarza w neurologicznym roznicowaniu diagnoz na podstawie wywiadu medycznego.
+
 ## Co jest zaimplementowane
 
 - UI czatu w `static/`
@@ -225,10 +228,19 @@ flowchart TD
 - GPU NVIDIA rekomendowane dla `embedding-service`; CPU jest fallbackiem
 
 Priorytetowy tryb dla `embedding-service` to GPU. Jesli chcesz uzywac GPU w Dockerze, host musi miec:
+Domyslny obraz `embedding-service` buduje PyTorch z **CUDA 12.8** (`cu128`), zeby obslugiwac architekture **Blackwell (RTX 50xx, np. RTX 5070, sm_120)**. Starsze buildy (`cu121`) nie zawieraja kerneli dla tych kart i koncza sie bledem `no kernel image is available for execution on the device`.
 
-- dzialajace `nvidia-smi`
+Jesli chcesz uzywac GPU w Dockerze, host musi miec:
+
+- dzialajace `nvidia-smi` oraz sterownik NVIDIA zgodny z CUDA 12.8 (typowo nowszy pakiet dla RTX 50)
 - NVIDIA Container Toolkit
 - Docker skonfigurowany do pracy z `--gpus all`
+
+Na maszynie **bez** GPU mozesz zbudowac i uruchomic serwis na CPU:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
+```
 
 ## Szybki start
 
@@ -817,3 +829,97 @@ EMBEDDING_SERVICE_URL=http://localhost:8081 uvicorn main:app --reload
 - rozbudowac ewaluacje o prywatny zestaw pytan i ocene ekspercka
 - rozbudowac konflikty zrodel o formalne reguly dla dawkowania, populacji i przeciwwskazan
 - dopiero potem budowac warstwe multiagentowa
+
+## Prompt versioning, telemetria i offline eval
+
+### Prompt versioning
+
+Aplikacja wspiera wersje promptu systemowego (`v1`, `v2`, `v3`):
+
+- aktywna wersja: zmienna `PROMPT_VERSION` (domyslnie `v3`)
+- opcjonalny override per request: pole `prompt_version` w `POST /api/chat`
+
+### Telemetria i feedback
+
+- Wszystkie wywolania `POST /api/chat` i `POST /api/feedback` zapisywane sa do JSONL.
+- Domyslna sciezka: `data/telemetry/events.jsonl`
+- Mozesz zmienic sciezke przez `TELEMETRY_PATH`.
+
+### Offline eval prompt versions (CPU-only)
+
+Benchmark i rubryka sa w katalogu `eval/`:
+
+- dataset: `eval/dataset.jsonl`
+- rubric: `eval/rubric.md`
+
+Uruchomienie porownania promptow:
+
+```bash
+python scripts/run_eval.py --candidate v2
+```
+
+Raporty trafiaja do `eval/reports/` (`latest.md`, `latest.json` oraz wersje timestampowane).
+
+## MedQA -> SFT (Unsloth)
+
+Jesli chcesz wytrenowac model SFT na MedQA (MCQ), uzyj gotowych skryptow:
+
+1. Konwersja surowych plikow MedQA JSONL do formatu chat JSONL:
+
+```bash
+python scripts/prepare_medqa_for_sft.py \
+  --input-glob "data/raw/medqa/**/*.jsonl" \
+  --out-dir data/sft/medqa \
+  --include-rationale-if-present
+```
+
+Skrypt zapisze:
+
+```text
+data/sft/medqa/train.jsonl
+data/sft/medqa/dev.jsonl
+data/sft/medqa/test.jsonl
+data/sft/medqa/manifest.json
+```
+
+2. Trening LoRA/QLoRA przez Unsloth:
+
+```bash
+pip install unsloth transformers datasets trl peft accelerate bitsandbytes sentencepiece
+python scripts/train_sft_unsloth.py \
+  --train-file data/sft/medqa/train.jsonl \
+  --eval-file data/sft/medqa/dev.jsonl \
+  --base-model unsloth/Llama-3.1-8B-bnb-4bit \
+  --output-dir artifacts/sft-medqa-lora
+```
+
+3. Ewaluacja MCQ accuracy przez lokalne API:
+
+```bash
+python scripts/eval_medqa_mcq.py \
+  --dataset data/sft/medqa/test.jsonl \
+  --api-url http://127.0.0.1:8000/api/chat \
+  --model medgemma \
+  --prompt-version v3
+```
+
+Raporty trafia do `eval/reports/` jako `medqa_mcq_latest.json` i `medqa_mcq_latest.md`.
+
+### Profil specjalistyczny: neurologia
+
+- Prompty `v1-v3` sa ukierunkowane na: roznicowanie neurologiczne, lokalizacje, czerwone flagi i kolejnosc badan.
+- Dataset benchmarkowy zawiera przypadki neurologiczne (stroke, napad, neuroinfekcja, neuropatie, otepienia, zespoly rdzeniowe).
+- Rubryka premiuje: jakosc roznicowania, lokalizacje neuroanatomiczna, plan diagnostyczny i bezpieczenstwo triage.
+
+### Ustawienia perf Ollamy
+
+Zmienne srodowiskowe sterujace szybkoscia i stabilnoscia chatu po stronie Ollamy:
+
+```bash
+OLLAMA_TIMEOUT=300        # max sekundy na pojedyncze /api/chat
+OLLAMA_KEEP_ALIVE=30m     # jak dlugo trzymac model w pamieci miedzy zapytaniami
+OLLAMA_NUM_PREDICT=400    # cap na dlugosc odpowiedzi (tokeny)
+OLLAMA_NUM_CTX=2048       # rozmiar okna kontekstu
+```
+
+Endpoint `GET /api/health` waliduje, czy Ollama jest osiagalna i listuje dostepne modele.

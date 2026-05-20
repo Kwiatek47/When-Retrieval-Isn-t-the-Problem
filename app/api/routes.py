@@ -2,8 +2,10 @@ import json
 import logging
 from dataclasses import replace
 import re
+from datetime import datetime, timezone
 from time import perf_counter
 from typing import Annotated
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -16,6 +18,7 @@ from app.api.dependencies import (
     get_rag_pipeline,
 )
 from app.core.config import Settings, get_settings
+from app.core.prompt_registry import resolve_prompt
 from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableError
 from app.rag.answer_contract import (
     enforce_yes_no_maybe_contract,
@@ -56,6 +59,25 @@ search_router = APIRouter(tags=["search"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("/health")
+async def health(
+    ollama: Annotated[OllamaProvider, Depends(get_ollama_provider)],
+) -> dict:
+    try:
+        tags = await ollama.ping()
+        return {"status": "ok", "ollama": tags}
+    except ProviderUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
@@ -63,10 +85,19 @@ async def chat(
     rag_pipeline: Annotated[RagPipeline, Depends(get_rag_pipeline)],
     evidence_judge: Annotated[EvidenceJudge, Depends(get_evidence_judge)],
     settings: Annotated[Settings, Depends(get_settings)],
+    telemetry_logger: Annotated[TelemetryLogger, Depends(get_telemetry_logger)],
 ) -> ChatResponse:
+    request_id = uuid4().hex
+    timestamp = datetime.now(timezone.utc).isoformat()
+    prompt_version, system_prompt = resolve_prompt(
+        requested_version=request.prompt_version,
+        active_version=settings.active_prompt_version,
+        fallback_prompt=settings.system_prompt,
+    )
     request_started_at = perf_counter()
+
     try:
-        rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=settings.system_prompt)
+        rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=system_prompt)
         rag_done_at = perf_counter()
         yes_no_maybe_task = is_yes_no_maybe_task(request.messages)
         if rag_result.pre_retrieval is not None:
@@ -100,7 +131,16 @@ async def chat(
                     role="assistant",
                     content=refusal_content,
                 ),
+            )
+            latency_ms = int((perf_counter() - request_started_at) * 1000)
+            response = ChatResponse(
+                model=request.model,
+                message=no_sources_message,
                 done=True,
+                request_id=request_id,
+                prompt_version=prompt_version,
+                timestamp=timestamp,
+                latency_ms=latency_ms,
                 citations=rag_result.citations,
                 retrieval=rag_result.retrieval,
                 evidence_decision=rag_result.evidence_decision,
@@ -114,6 +154,18 @@ async def chat(
                     similarity_threshold=settings.answer_quality_similarity_threshold,
                 ),
             )
+            telemetry_logger.log_chat_event(
+                {
+                    "request_id": request_id,
+                    "status": "no_sources",
+                    "model": request.model,
+                    "temperature": request.temperature,
+                    "prompt_version": prompt_version,
+                    "messages": [message.model_dump() for message in request.messages],
+                    "response": response.model_dump(),
+                }
+            )
+            return response
 
         if yes_no_maybe_task:
             judged_answer = answer_from_evidence_decision(rag_result.evidence_decision, rag_result.source_documents)
@@ -223,10 +275,14 @@ async def chat(
             answer_quality.groundedness,
             answer_quality.hallucination_rate,
         )
-        return ChatResponse(
+        response = ChatResponse(
             model=llm_response.model,
             message=answer_message,
             done=llm_response.done,
+            request_id=request_id,
+            prompt_version=prompt_version,
+            timestamp=timestamp,
+            latency_ms=latency_ms,
             citations=rag_result.citations,
             retrieval=rag_result.retrieval,
             evidence_decision=rag_result.evidence_decision,
@@ -234,12 +290,46 @@ async def chat(
             evidence_conflicts=rag_result.evidence_conflicts,
             answer_quality=answer_quality,
         )
+        telemetry_logger.log_chat_event(
+            {
+                "request_id": request_id,
+                "status": "ok",
+                "model": request.model,
+                "temperature": request.temperature,
+                "prompt_version": prompt_version,
+                "messages": [message.model_dump() for message in request.messages],
+                "response": response.model_dump(),
+            }
+        )
+        return response
     except ProviderUnavailableError as exc:
+        telemetry_logger.log_chat_event(
+            {
+                "request_id": request_id,
+                "status": "provider_unavailable",
+                "model": request.model,
+                "temperature": request.temperature,
+                "prompt_version": prompt_version,
+                "messages": [message.model_dump() for message in request.messages],
+                "error": str(exc),
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
     except ProviderError as exc:
+        telemetry_logger.log_chat_event(
+            {
+                "request_id": request_id,
+                "status": "provider_error",
+                "model": request.model,
+                "temperature": request.temperature,
+                "prompt_version": prompt_version,
+                "messages": [message.model_dump() for message in request.messages],
+                "error": str(exc),
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
