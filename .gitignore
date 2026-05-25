@@ -5,15 +5,19 @@ __pycache__/
 .DS_Store
 .codex
 .idea/
+.ruff_cache/
 
 # Local/generated reports
 reports/*
+eval/reports/*
 
 # RAG datasets and generated indexes. Keep curated samples in data/ tracked.
 data/processed/
 data/embeddings/
 data/indexes/
 data/raw/
+data/interim/
+data/tmp/
 data/bm25_stats*.json
 
 # Large local data files if placed outside the expected data folders.
@@ -29,8 +33,6 @@ storage/
 # Local training/eval runtime artifacts.
 artifacts/
 unsloth_compiled_cache/
-data/raw/medqa/
 data/sft/
 data/telemetry/events.jsonl
-eval/reports/*
 data/sft/pubmedqa/ori_pqau.json

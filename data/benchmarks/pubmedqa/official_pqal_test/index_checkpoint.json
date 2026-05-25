@@ -1,7 +1,7 @@
 {
   "chunk_count": 500,
   "chunk_store_path": "data/indexes/pubmedqa_official_pqal_test/chunk_store.sqlite",
-  "chunks_path": "data/pubmedqa_official_pqal_test/chunks.parquet",
+  "chunks_path": "data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet",
   "collection": "MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
   "failed_count": 0,
   "stage": "complete",

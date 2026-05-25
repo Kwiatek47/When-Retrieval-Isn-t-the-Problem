@@ -36,7 +36,7 @@ class CaseResult:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run offline regression benchmark for prompt versions.")
     parser.add_argument("--api-url", default="http://127.0.0.1:8000/api/chat")
-    parser.add_argument("--dataset", default="eval/dataset.jsonl")
+    parser.add_argument("--dataset", default="data/benchmarks/prompt/dataset.jsonl")
     parser.add_argument("--model", default="medgemma")
     parser.add_argument("--baseline", default="v1")
     parser.add_argument("--candidate", required=True)

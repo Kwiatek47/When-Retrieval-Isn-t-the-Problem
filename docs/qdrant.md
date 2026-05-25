@@ -24,7 +24,7 @@ fusion: RRF
 GPU jest priorytetowym trybem dla `embedding-service`, ale sam Qdrant uruchamiasz tak samo:
 
 ```bash
-docker compose up --build qdrant qdrant-init
+make qdrant-init
 ```
 
 Pelny wariant GPU:
@@ -36,7 +36,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build qdrant
 Fallback CPU:
 
 ```bash
-docker compose up --build qdrant qdrant-init embedding-service
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build qdrant qdrant-init embedding-service
 ```
 
 Adresy:

@@ -18,7 +18,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build embedd
 ```
 
 Host GPU musi miec:
-Domyslny obraz Dockera instaluje PyTorch z **CUDA 12.8** (`cu128`) i uruchamia MedCPT na GPU. 
+GPU override instaluje PyTorch z **CUDA 12.8** (`cu128`) i uruchamia MedCPT na GPU.
 
 Host musi miec:
 
@@ -29,7 +29,7 @@ Host musi miec:
 Fallback CPU, jesli host nie ma GPU:
 
 ```bash
-docker compose up --build embedding-service
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service
 ```
 
 Pierwszy start pobiera modele z Hugging Face. Cache modeli jest trzymany w wolumenie Docker Compose:
@@ -264,8 +264,8 @@ Mozna szybko sprawdzic, czy Docker widzi GPU:
 docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu22.04 nvidia-smi
 ```
 
-Fallback CPU jest w bazowym `docker-compose.yml`: ustawia `EMBEDDING_DEVICE=cpu` i uzywa CPU build PyTorch. GPU override `docker-compose.gpu.yml` ustawia `EMBEDDING_DEVICE=cuda`, `gpus: all` i CUDA build PyTorch.
-Jesli trzeba tymczasowo wrocic na CPU, uzyj pliku `docker-compose.cpu.yml` w katalogu glownym projektu (nadpisuje build CPU i wylacza GPU):
+Fallback CPU jest w bazowym `docker-compose.yml` i jawnym override `docker-compose.cpu.yml`: ustawia `EMBEDDING_DEVICE=cpu` i uzywa CPU build PyTorch. GPU override `docker-compose.gpu.yml` ustawia `EMBEDDING_DEVICE=cuda`, `gpus: all` i CUDA 12.8 / `cu128` build PyTorch.
+Jesli trzeba tymczasowo wrocic na CPU, uzyj pliku `docker-compose.cpu.yml` w katalogu glownym projektu:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build embedding-service

@@ -3,7 +3,7 @@ services:
     build:
       context: ./services/embedding-service
       args:
-        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
     environment:
       EMBEDDING_MODEL_NAME: medcpt-ncbi-v1
       MEDCPT_QUERY_MODEL: ncbi/MedCPT-Query-Encoder
@@ -36,6 +36,12 @@ services:
       - "6334:6334"
     volumes:
       - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   qdrant-init:
     build:
@@ -49,7 +55,7 @@ services:
       QDRANT_VECTOR_SIZE: "768"
     depends_on:
       qdrant:
-        condition: service_started
+        condition: service_healthy
     restart: "no"
 
 volumes:

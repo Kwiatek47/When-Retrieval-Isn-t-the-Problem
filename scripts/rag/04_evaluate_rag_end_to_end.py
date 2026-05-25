@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "eval_rag_english_real_sources.json"
+DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "benchmarks" / "rag" / "eval_rag_english_real_sources.json"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports"
 
 

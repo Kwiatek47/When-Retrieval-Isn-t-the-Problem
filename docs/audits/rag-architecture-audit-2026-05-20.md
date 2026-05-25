@@ -4,6 +4,8 @@ Data: 2026-05-20
 Branch: `rag-improvement-rag-optimization`
 Zakres: dane -> embeddingi -> indeks -> retrieval -> evidence judge -> writer -> API -> eval
 
+> Uwaga po reorganizacji repo: ten dokument jest historycznym audytem z 2026-05-20. Niektore sciezki opisane ponizej odnosza sie do struktury sprzed porzadkowania repozytorium. Aktualna mapa projektu jest w root `README.md`.
+
 ## 1. Najkrotsza diagnoza
 
 Mamy juz duzo wiecej niz prosty RAG. System ma pipeline danych, embeddingi MedCPT, hybrydowe wyszukiwanie dense + BM25, reranking/scoring, guardraile cytowan, endpoint trace i osobny `EvidenceJudge`, ktory podejmuje decyzje przed writerem.

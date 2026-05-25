@@ -3,7 +3,7 @@ services:
     build:
       context: ./services/embedding-service
       args:
-        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu121
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
     environment:
       EMBEDDING_DEVICE: cuda
       NVIDIA_VISIBLE_DEVICES: all

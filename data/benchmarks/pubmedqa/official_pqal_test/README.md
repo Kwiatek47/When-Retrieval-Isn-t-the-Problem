@@ -26,11 +26,11 @@ RAG_CORPUS_VERSION=pubmedqa-official-pqal-test-v1
 
 ```bash
 python3 scripts/rag/01_build_index.py \
-  --chunks data/pubmedqa_official_pqal_test/chunks.parquet \
+  --chunks data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet \
   --corpus-version pubmedqa-official-pqal-test-v1 \
-  --bm25-stats-out data/pubmedqa_official_pqal_test/bm25_stats.json \
-  --manifest-out data/pubmedqa_official_pqal_test/index_manifest.json \
-  --checkpoint-out data/pubmedqa_official_pqal_test/index_checkpoint.json \
+  --bm25-stats-out data/benchmarks/pubmedqa/official_pqal_test/bm25_stats.json \
+  --manifest-out data/benchmarks/pubmedqa/official_pqal_test/index_manifest.json \
+  --checkpoint-out data/benchmarks/pubmedqa/official_pqal_test/index_checkpoint.json \
   --chunk-store data/indexes/pubmedqa_official_pqal_test/chunk_store.sqlite \
   --embedding-batch-size 32 \
   --upsert-batch-size 128
@@ -43,7 +43,7 @@ Start the API against the indexed corpus, then run:
 ```bash
 PUBMEDQA_EVAL_LABEL=pubmedqa_official_pqal_test_v3 \
 python3 scripts/rag/06_evaluate_pubmedqa_benchmark.py \
-  --dataset data/pubmedqa_official_pqal_test/eval.json \
+  --dataset data/benchmarks/pubmedqa/official_pqal_test/eval.json \
   --candidate-k 20 \
   --top-k 1
 ```
@@ -53,7 +53,7 @@ For the local run that produced the tracked report, the API used:
 ```bash
 RAG_RETRIEVER=qdrant_hybrid
 RAG_CORPUS_VERSION=pubmedqa-official-pqal-test-v1
-BM25_STATS_PATH=data/pubmedqa_official_pqal_test/bm25_stats.json
+BM25_STATS_PATH=data/benchmarks/pubmedqa/official_pqal_test/bm25_stats.json
 ```
 
 ## Checksums

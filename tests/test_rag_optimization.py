@@ -12,7 +12,7 @@ except ModuleNotFoundError:
 
 from app.rag.answer_contract import enforce_yes_no_maybe_contract, is_yes_no_maybe_task
 from app.rag.answer_guardrails import apply_answer_guardrails, repair_missing_citations
-from app.rag.evidence_judge import EvidenceJudge, answer_from_evidence_decision, build_evidence_decision_block
+from app.rag.evidence_judge import EvidenceJudge, answer_from_evidence_decision
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever

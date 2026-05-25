@@ -10,12 +10,12 @@ from urllib.request import Request, urlopen
 from uuid import NAMESPACE_URL, uuid5
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.rag.sparse import BM25SparseEncoder
 
-PUBMED_SAMPLE_PATH = Path(os.getenv("PUBMED_SAMPLE_PATH", PROJECT_ROOT / "data" / "pubmed_sample.json"))
+PUBMED_SAMPLE_PATH = Path(os.getenv("PUBMED_SAMPLE_PATH", PROJECT_ROOT / "data" / "sample" / "pubmed_sample.json"))
 BM25_STATS_PATH = Path(os.getenv("BM25_STATS_PATH", PROJECT_ROOT / "data" / "bm25_stats.json"))
 EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://localhost:8081").rstrip("/")
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip("/")

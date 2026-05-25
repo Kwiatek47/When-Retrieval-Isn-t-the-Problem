@@ -2,7 +2,7 @@ fastapi
 httpx
 tqdm>=4.66,<5
 packaging
-pyarrow>=15,<18
+pyarrow>=15,<25
 qdrant-client>=1.14,<2
 sentence-transformers>=3.0,<4
 uvicorn

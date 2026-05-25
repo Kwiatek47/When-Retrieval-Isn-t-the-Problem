@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "eval_retrieval_sample.json"
+DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "benchmarks" / "retrieval" / "eval_retrieval_sample.json"
 DEFAULT_JSON_REPORT_PATH = PROJECT_ROOT / "reports" / "retrieval_quality_report.json"
 DEFAULT_MD_REPORT_PATH = PROJECT_ROOT / "reports" / "retrieval_quality_report.md"
 

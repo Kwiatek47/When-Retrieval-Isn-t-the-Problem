@@ -1,7 +1,5 @@
-import json
 import logging
 from dataclasses import replace
-import re
 from datetime import datetime, timezone
 from time import perf_counter
 from typing import Annotated
@@ -25,7 +23,6 @@ from app.providers.base import LLMProvider, ProviderError, ProviderUnavailableEr
 from app.providers.ollama import OllamaProvider
 from app.rag.answer_contract import (
     enforce_yes_no_maybe_contract,
-    extract_yes_no_maybe_label,
     is_yes_no_maybe_task,
 )
 from app.rag.answer_extraction import extract_answer_content
@@ -42,13 +39,18 @@ from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
 from app.rag.retrieval import MedicalKnowledgeRetriever
+from app.services.chat_service import (
+    build_refusal_response,
+    extractive_fallback_answer,
+    low_evidence_warning,
+    quality_gate_failed,
+    repair_yes_no_maybe_answer,
+)
 from app.services.telemetry_service import TelemetryLogger
 from app.schemas import (
-    AnswerQuality,
     ChatMessage,
     ChatRequest,
     ChatResponse,
-    CitationValidation,
     EvidenceDecisionInfo,
     RagTraceDocument,
     RagTraceRequest,
@@ -127,11 +129,6 @@ async def chat(
             )
         )
         if should_refuse:
-            refusal_content = _low_evidence_refusal(
-                request.messages,
-                rag_result.citations,
-                yes_no_maybe_task=yes_no_maybe_task,
-            )
             logger.info(
                 "chat_request timing rag_total=%.3fs llm_total=0.000s total=%.3fs model=%s "
                 "retrieval_status=%s documents=%d",
@@ -141,48 +138,17 @@ async def chat(
                 rag_result.retrieval.status,
                 rag_result.retrieval.documents_count,
             )
-            return ChatResponse(
-                model=request.model,
-                message=ChatMessage(
-                    role="assistant",
-                    content=refusal_content,
-                ),
-                done=True,
-            )
-            latency_ms = int((perf_counter() - request_started_at) * 1000)
-            response = ChatResponse(
-                model=request.model,
-                message=no_sources_message,
-                done=True,
+            return build_refusal_response(
+                request=request,
                 request_id=request_id,
                 prompt_version=prompt_version,
                 timestamp=timestamp,
-                latency_ms=latency_ms,
-                citations=rag_result.citations,
-                retrieval=rag_result.retrieval,
-                evidence_decision=rag_result.evidence_decision,
-                citation_validation=validate_citations(refusal_content, rag_result.citations),
-                evidence_conflicts=rag_result.evidence_conflicts,
-                answer_quality=evaluate_answer_quality(
-                    "",
-                    rag_result.source_documents,
-                    method=settings.answer_quality_method,
-                    model_name=settings.answer_quality_model_name,
-                    similarity_threshold=settings.answer_quality_similarity_threshold,
-                ),
+                request_started_at=request_started_at,
+                rag_result=rag_result,
+                yes_no_maybe_task=yes_no_maybe_task,
+                settings=settings,
+                telemetry_logger=telemetry_logger,
             )
-            telemetry_logger.log_chat_event(
-                {
-                    "request_id": request_id,
-                    "status": "no_sources",
-                    "model": request.model,
-                    "temperature": request.temperature,
-                    "prompt_version": prompt_version,
-                    "messages": [message.model_dump() for message in request.messages],
-                    "response": response.model_dump(),
-                }
-            )
-            return response
 
         if yes_no_maybe_task:
             judged_answer = answer_from_evidence_decision(rag_result.evidence_decision, rag_result.source_documents)
@@ -196,7 +162,7 @@ async def chat(
                     answer_content = repair_missing_citations(answer_content, rag_result.source_documents)
                 answer_content = enforce_yes_no_maybe_contract(answer_content, rag_result.source_documents)
                 if low_evidence_non_blocking and not yes_no_maybe_task:
-                    answer_content = f"{answer_content}\n\n{_low_evidence_warning(request.messages, rag_result.citations)}"
+                    answer_content = f"{answer_content}\n\n{low_evidence_warning(request.messages, rag_result.citations)}"
                 citation_validation = validate_citations(answer_content, rag_result.citations)
                 answer_quality = evaluate_answer_quality(
                     answer_content,
@@ -251,7 +217,7 @@ async def chat(
         if settings.rag_citation_repair_enabled:
             answer_content = repair_missing_citations(answer_content, rag_result.source_documents)
         if yes_no_maybe_task:
-            answer_content = await _repair_yes_no_maybe_answer(
+            answer_content = await repair_yes_no_maybe_answer(
                 llm_provider=llm_provider,
                 model=request.model,
                 messages=request.messages,
@@ -259,7 +225,7 @@ async def chat(
                 source_documents=rag_result.source_documents,
             )
         if low_evidence_non_blocking and not yes_no_maybe_task:
-            answer_content = f"{answer_content}\n\n{_low_evidence_warning(request.messages, rag_result.citations)}"
+            answer_content = f"{answer_content}\n\n{low_evidence_warning(request.messages, rag_result.citations)}"
         citation_validation = validate_citations(answer_content, rag_result.citations)
         answer_quality = evaluate_answer_quality(
             answer_content,
@@ -268,8 +234,8 @@ async def chat(
             model_name=settings.answer_quality_model_name,
             similarity_threshold=settings.answer_quality_similarity_threshold,
         )
-        if _quality_gate_failed(citation_validation, answer_quality, settings):
-            fallback_content = _extractive_fallback_answer(request.messages, rag_result.source_documents)
+        if quality_gate_failed(citation_validation, answer_quality, settings):
+            fallback_content = extractive_fallback_answer(request.messages, rag_result.source_documents)
             if fallback_content:
                 if yes_no_maybe_task:
                     fallback_content = enforce_yes_no_maybe_contract(fallback_content, rag_result.source_documents)
@@ -546,274 +512,3 @@ def _context_preview(system_prompt: str) -> str:
         return system_prompt[:4000]
     return system_prompt.split(marker, 1)[1].strip()[:4000]
 
-
-def _low_evidence_refusal(
-    messages: list[ChatMessage],
-    citations: list,
-    *,
-    yes_no_maybe_task: bool = False,
-) -> str:
-    citation_labels = " ".join(f"[{citation.id}]" for citation in citations)
-    if yes_no_maybe_task:
-        cited_suffix = f" {citation_labels}" if citation_labels else ""
-        return (
-            "Answer: maybe\n"
-            "Evidence: The retrieved evidence was not strong enough to support a reliable yes or no answer"
-            f"{cited_suffix}. Consult a qualified clinician for medical decisions."
-        )
-    if _prefer_english(messages):
-        content = (
-            "The knowledge base did not return sources strong enough for this question, "
-            "so I cannot provide a reliable cited medical answer. "
-            "Consult a qualified clinician for medical decisions."
-        )
-        if citation_labels:
-            content = (
-                f"{content}\n\n"
-                f"The retrieved sources were marked as insufficient for a safe answer: {citation_labels}"
-            )
-        return content
-
-    content = (
-        "Baza wiedzy nie zwróciła wystarczająco mocnych źródeł dla tego pytania, "
-        "więc nie mogę udzielić odpowiedzi opartej na wiarygodnych cytowanych danych. "
-        "Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
-    )
-    if citation_labels:
-        content = (
-            f"{content}\n\n"
-            f"Znalezione źródła oznaczono jako niewystarczające dla bezpiecznej odpowiedzi: {citation_labels}"
-        )
-    return content
-
-
-def _low_evidence_warning(messages: list[ChatMessage], citations: list) -> str:
-    citation_labels = " ".join(f"[{citation.id}]" for citation in citations)
-    if _prefer_english(messages):
-        warning = (
-            "Warning: retrieved sources were marked as low-evidence, so this answer may be incomplete or uncertain."
-        )
-        if citation_labels:
-            warning = f"{warning} Sources: {citation_labels}"
-        return warning
-    warning = (
-        "Ostrzeżenie: znalezione źródła oznaczono jako low-evidence, więc odpowiedź może być niepełna lub niepewna."
-    )
-    if citation_labels:
-        warning = f"{warning} Źródła: {citation_labels}"
-    return warning
-
-
-def _prefer_english(messages: list[ChatMessage]) -> bool:
-    user_text = " ".join(message.content for message in messages if message.role == "user").lower()
-    if not user_text:
-        return False
-    english_markers = {"answer", "what", "which", "how", "does", "do", "is", "are", "known", "compare", "risk", "used"}
-    polish_markers = {"jak", "jakie", "czy", "jest", "stosuje", "leki", "chorobie", "ryzyko"}
-    words = set(user_text.split())
-    return bool(words & english_markers) and not bool(words & polish_markers)
-
-
-def _quality_gate_failed(
-    citation_validation: CitationValidation,
-    answer_quality: AnswerQuality,
-    settings: Settings,
-) -> bool:
-    if not settings.rag_answer_quality_gate_enabled:
-        return False
-    if not settings.rag_extractive_fallback_enabled:
-        return False
-    if not citation_validation.passed:
-        return True
-    if answer_quality.hallucination_rate is None:
-        return False
-    return answer_quality.hallucination_rate > settings.rag_answer_quality_max_hallucination_rate
-
-
-async def _repair_yes_no_maybe_answer(
-    *,
-    llm_provider: LLMProvider,
-    model: str,
-    messages: list[ChatMessage],
-    draft_answer: str,
-    source_documents: list[RetrievedDocument],
-) -> str:
-    if not source_documents:
-        return enforce_yes_no_maybe_contract(draft_answer, source_documents)
-
-    user_question = "\n".join(message.content for message in messages if message.role == "user").strip()
-    decision_messages = [
-        ChatMessage(
-            role="system",
-            content=(
-                "You are a biomedical evidence classification layer for a PubMedQA-style task. "
-                "Use only the supplied retrieved source excerpts. Treat the draft answer as non-binding and ignore it "
-                "when it conflicts with the source excerpts. "
-                "Output only compact JSON with keys `answer` and `evidence`. "
-                "`answer` must be exactly one of `yes`, `no`, or `maybe`. "
-                "This is evidence classification, not patient-specific clinical advice; do not default to `maybe` just "
-                "because there is one abstract, a small study, or cautious scientific wording. "
-                "Choose `yes` when the abstract/results directionally support the proposition in the question: effect, "
-                "association, diagnostic utility, prognostic value, usefulness, feasibility, or superiority. "
-                "Choose `no` when the abstract/results directly refute the proposition or report no meaningful effect, "
-                "no association, no diagnostic/prognostic value, not enough accuracy, not useful, not reliable, or no "
-                "advantage. "
-                "Choose `maybe` only when the abstract/results are explicitly inconclusive, mixed, conflicting, indirect, "
-                "or do not address the proposition. "
-                "The `evidence` value must be one short sentence with source citations like [S1]. "
-                "Do not include hidden reasoning or any text outside JSON."
-            ),
-        ),
-        ChatMessage(
-            role="user",
-            content=(
-                f"Question:\n{user_question}\n\n"
-                f"Retrieved source excerpts:\n{_decision_source_block(source_documents)}\n\n"
-                f"Draft answer for reference only:\n{draft_answer}\n\n"
-                "Return JSON now."
-            ),
-        ),
-    ]
-    try:
-        response = await llm_provider.chat(model=model, messages=decision_messages, temperature=0.0)
-    except ProviderError:
-        logger.warning("yes_no_maybe_decision_repair provider failed; using deterministic contract.", exc_info=True)
-        return enforce_yes_no_maybe_contract(draft_answer, source_documents)
-
-    decision = _parse_yes_no_maybe_decision(response.message.content)
-    if decision is None:
-        return enforce_yes_no_maybe_contract(draft_answer, source_documents)
-
-    label, evidence = decision
-    return enforce_yes_no_maybe_contract(
-        f"Answer: {label}\nEvidence: {normalize_citation_format(evidence)}",
-        source_documents,
-    )
-
-
-def _decision_source_block(source_documents: list[RetrievedDocument]) -> str:
-    parts = []
-    for index, document in enumerate(source_documents[:3], start=1):
-        excerpt = re.sub(r"\s+", " ", document.content).strip()
-        if len(excerpt) > 1800:
-            excerpt = excerpt[:1800].rsplit(" ", 1)[0].strip()
-        parts.append(
-            "\n".join(
-                [
-                    f"[S{index}] {document.title}",
-                    f"Source: {document.source}",
-                    "Excerpt:",
-                    excerpt,
-                ]
-            )
-        )
-    return "\n\n".join(parts)
-
-
-def _parse_yes_no_maybe_decision(content: str) -> tuple[str, str] | None:
-    normalized = extract_answer_content(content)
-    json_match = re.search(r"\{.*\}", normalized, flags=re.DOTALL)
-    if json_match:
-        try:
-            parsed = json.loads(json_match.group(0))
-        except json.JSONDecodeError:
-            parsed = None
-        if isinstance(parsed, dict):
-            label = str(parsed.get("answer") or "").strip().lower()
-            evidence = str(parsed.get("evidence") or "").strip()
-            if label in {"yes", "no", "maybe"} and evidence:
-                return label, evidence
-
-    label = extract_yes_no_maybe_label(normalized)
-    if not label:
-        return None
-    evidence = re.sub(r"^\s*(?:answer\s*[:\-]\s*)?(?:yes|no|maybe)\b\s*[,.;:\-]*", "", normalized, flags=re.IGNORECASE)
-    evidence = re.sub(r"^\s*evidence\s*[:\-]\s*", "", evidence.strip(), flags=re.IGNORECASE)
-    return label, evidence.strip() or "The retrieved evidence supports this classification."
-
-
-def _extractive_fallback_answer(
-    messages: list[ChatMessage],
-    source_documents: list[RetrievedDocument],
-) -> str:
-    if not source_documents:
-        return ""
-
-    query_text = " ".join(message.content for message in messages if message.role == "user")
-    query_terms = _content_tokens(query_text)
-    sentences = []
-    for index, document in enumerate(source_documents[:2], start=1):
-        sentence_limit = 2 if index == 1 else 1
-        for selected_sentence in _best_source_sentences(document.content, query_terms, limit=sentence_limit):
-            sentences.append(_append_source_citation(selected_sentence, f"S{index}"))
-
-    if not sentences:
-        return ""
-
-    if _prefer_english(messages):
-        return (
-            "Retrieved evidence summary: "
-            + " ".join(sentences)
-            + " Consult a qualified clinician for medical decisions."
-        )
-    return (
-        "Podsumowanie danych ze źródeł: "
-        + " ".join(sentences)
-        + " Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
-    )
-
-
-def _best_source_sentences(content: str, query_terms: set[str], *, limit: int) -> list[str]:
-    candidates = [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", content).strip())
-        if sentence.strip()
-    ]
-    candidates = [
-        sentence
-        for sentence in candidates
-        if not sentence.lower().startswith(("real source", "relevant concepts"))
-    ]
-    if not candidates:
-        return []
-    if not query_terms:
-        return candidates[:limit]
-    ranked = sorted(
-        candidates,
-        key=lambda sentence: len(_content_tokens(sentence) & query_terms) / max(len(query_terms), 1),
-        reverse=True,
-    )
-    return ranked[:limit]
-
-
-def _append_source_citation(sentence: str, citation_id: str) -> str:
-    match = re.search(r"([.!?])$", sentence)
-    if match:
-        return f"{sentence[: match.start()].rstrip()} [{citation_id}]{match.group(1)}"
-    return f"{sentence} [{citation_id}]."
-
-
-def _content_tokens(text: str) -> set[str]:
-    stopwords = {
-        "about",
-        "and",
-        "are",
-        "can",
-        "compare",
-        "does",
-        "for",
-        "from",
-        "how",
-        "into",
-        "known",
-        "the",
-        "used",
-        "what",
-        "when",
-        "with",
-    }
-    return {
-        token
-        for token in re.findall(r"[\w]+", text.lower())
-        if len(token) >= 4 and token not in stopwords
-    }

@@ -21,7 +21,7 @@ if sys_path not in sys.path:
 
 from app.rag.answer_contract import extract_yes_no_maybe_label
 
-DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "eval_pubmedqa_benchmark.json"
+DEFAULT_DATASET_PATH = PROJECT_ROOT / "data" / "benchmarks" / "pubmedqa" / "eval_pubmedqa_benchmark.json"
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports"
 
 

@@ -9,8 +9,8 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT_PATH = Path("/private/tmp/ori_pqal.json")
-DEFAULT_CORPUS_OUT = PROJECT_ROOT / "data" / "pubmedqa_benchmark_corpus.json"
-DEFAULT_EVAL_OUT = PROJECT_ROOT / "data" / "eval_pubmedqa_benchmark.json"
+DEFAULT_CORPUS_OUT = PROJECT_ROOT / "data" / "benchmarks" / "pubmedqa" / "pubmedqa_benchmark_corpus.json"
+DEFAULT_EVAL_OUT = PROJECT_ROOT / "data" / "benchmarks" / "pubmedqa" / "eval_pubmedqa_benchmark.json"
 
 
 def main() -> None:
