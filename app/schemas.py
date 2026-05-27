@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 
+ChatMode = Literal["medical_chat", "benchmark_pqal"]
+
 
 class ChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -17,6 +19,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., min_length=1)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     prompt_version: str | None = Field(default=None, min_length=1)
+    mode: ChatMode = "medical_chat"
 
 
 class Citation(BaseModel):
@@ -60,6 +63,7 @@ class RagTraceRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., min_length=1)
     candidate_k: Optional[int] = Field(default=None, ge=1, le=100)
     top_k: Optional[int] = Field(default=None, ge=1, le=20)
+    mode: ChatMode = "medical_chat"
 
 
 class RagTraceDocument(BaseModel):
@@ -85,6 +89,7 @@ class EvidenceDecisionInfo(BaseModel):
 
 
 class RagTraceResponse(BaseModel):
+    mode: ChatMode = "medical_chat"
     original_query: str
     normalized_query: str
     search_queries: list[str]
@@ -143,6 +148,7 @@ class AnswerQuality(BaseModel):
 
 class ChatResponse(BaseModel):
     model: str
+    mode: ChatMode = "medical_chat"
     message: ChatMessage
     done: bool
     request_id: str = ""

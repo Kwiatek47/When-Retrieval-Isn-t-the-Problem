@@ -5,7 +5,7 @@ PY := $(VENV)/bin/python
 UVICORN := $(VENV)/bin/uvicorn
 RUFF := $(VENV)/bin/ruff
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index eval-retrieval eval-pubmedqa clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index eval-retrieval eval-pubmedqa eval-official-pqal500 eval-medical-suite clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -47,6 +47,12 @@ eval-retrieval:
 
 eval-pubmedqa:
 	$(PY) scripts/rag/06_evaluate_pubmedqa_benchmark.py
+
+eval-official-pqal500:
+	PYTHON_BIN=$(PY) scripts/eval/run_official_pqal500.sh
+
+eval-medical-suite:
+	PYTHON_BIN=$(PY) scripts/eval/run_medical_eval_suite.sh
 
 clean-local:
 	rm -rf reports/* data/processed data/embeddings data/indexes data/telemetry .ruff_cache

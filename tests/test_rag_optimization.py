@@ -19,6 +19,7 @@ from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
 from app.rag.retrieval import _expanded_candidate_limit, _metadata_boost_documents, _weighted_rrf_merge
 from app.schemas import ChatMessage, ChatResponse, EvidenceConflictInfo, EvidenceDecisionInfo, RetrievalInfo
+from app.services.chat_service import has_urgent_red_flags, low_evidence_refusal, urgent_red_flag_response
 
 
 class RagRankingTests(unittest.TestCase):
@@ -788,6 +789,31 @@ class AdaptiveRetrievalTests(unittest.TestCase):
 
         self.assertEqual(retriever.calls, 2)
         self.assertEqual(result.retrieval.status, "grounded")
+        self.assertEqual(pre_retriever.allow_rewrite_values, [True])
+
+    def test_benchmark_mode_skips_query_rewrite_and_adaptive_retrieval(self) -> None:
+        pre_retriever = _FakePreRetriever()
+        retriever = _FakeRetriever()
+        pipeline = RagPipeline(
+            pre_retriever=pre_retriever,
+            retriever=retriever,
+            post_retriever=PostRetriever(max_context_chars=2000, final_documents_limit=5),
+            retrieval_candidate_limit=5,
+            adaptive_retrieval_enabled=True,
+            adaptive_max_rounds=1,
+        )
+
+        result = asyncio.run(
+            pipeline.run(
+                messages=[ChatMessage(role="user", content="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?")],
+                system_prompt="System prompt.",
+                mode="benchmark_pqal",
+            )
+        )
+
+        self.assertEqual(pre_retriever.allow_rewrite_values, [False])
+        self.assertEqual(retriever.calls, 1)
+        self.assertEqual(result.retrieval.status, "low_evidence")
 
     def test_adaptive_query_adds_intent_specific_follow_up_terms(self) -> None:
         pipeline = RagPipeline(
@@ -813,8 +839,50 @@ class AdaptiveRetrievalTests(unittest.TestCase):
         self.assertIn("safety", adaptive.search_queries[-1])
 
 
+class LowEvidenceSafetyRefusalTests(unittest.TestCase):
+    def test_low_evidence_refusal_adds_emergency_instruction_for_red_flags(self) -> None:
+        messages = [
+            ChatMessage(
+                role="user",
+                content="I have sudden weakness on one side of the body and trouble speaking. What should I do?",
+            )
+        ]
+
+        refusal = low_evidence_refusal(messages, [])
+
+        self.assertTrue(has_urgent_red_flags(messages))
+        self.assertIn("seek emergency care immediately", refusal)
+        self.assertIn("cannot provide a reliable cited medical answer", refusal)
+
+    def test_urgent_red_flag_response_is_immediate_and_explicit(self) -> None:
+        messages = [
+            ChatMessage(
+                role="user",
+                content="I have crushing chest pain, shortness of breath, and sweating. Can I wait until tomorrow?",
+            )
+        ]
+
+        response = urgent_red_flag_response(messages)
+
+        self.assertTrue(has_urgent_red_flags(messages))
+        self.assertIn("Seek emergency care immediately", response)
+        self.assertIn("911/112", response)
+
+    def test_low_evidence_refusal_does_not_add_emergency_instruction_for_routine_question(self) -> None:
+        messages = [ChatMessage(role="user", content="What is known about mild seasonal allergies?")]
+
+        refusal = low_evidence_refusal(messages, [])
+
+        self.assertFalse(has_urgent_red_flags(messages))
+        self.assertNotIn("seek emergency care immediately", refusal)
+
+
 class _FakePreRetriever:
-    async def prepare(self, _messages: list[ChatMessage]) -> PreRetrievalResult:
+    def __init__(self) -> None:
+        self.allow_rewrite_values: list[bool] = []
+
+    async def prepare(self, _messages: list[ChatMessage], *, allow_rewrite: bool = True) -> PreRetrievalResult:
+        self.allow_rewrite_values.append(allow_rewrite)
         return PreRetrievalResult(
             original_query="leczenie PAD",
             normalized_query="leczenie PAD",

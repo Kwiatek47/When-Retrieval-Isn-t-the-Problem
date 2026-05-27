@@ -40,11 +40,14 @@ from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
 from app.rag.retrieval import MedicalKnowledgeRetriever
 from app.services.chat_service import (
+    benchmark_pqal_system_prompt,
     build_refusal_response,
     extractive_fallback_answer,
+    has_urgent_red_flags,
     low_evidence_warning,
     quality_gate_failed,
     repair_yes_no_maybe_answer,
+    urgent_red_flag_response,
 )
 from app.services.telemetry_service import TelemetryLogger
 from app.schemas import (
@@ -55,6 +58,7 @@ from app.schemas import (
     RagTraceDocument,
     RagTraceRequest,
     RagTraceResponse,
+    RetrievalInfo,
     SearchResponse,
     SearchResult,
 )
@@ -100,12 +104,48 @@ async def chat(
         active_version=settings.active_prompt_version,
         fallback_prompt=settings.system_prompt,
     )
+    benchmark_mode = request.mode == "benchmark_pqal"
+    if benchmark_mode:
+        system_prompt = benchmark_pqal_system_prompt()
     request_started_at = perf_counter()
 
     try:
-        rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=system_prompt)
+        if not benchmark_mode and has_urgent_red_flags(request.messages):
+            latency_ms = int((perf_counter() - request_started_at) * 1000)
+            response = ChatResponse(
+                model=request.model,
+                mode=request.mode,
+                message=ChatMessage(role="assistant", content=urgent_red_flag_response(request.messages)),
+                done=True,
+                request_id=request_id,
+                prompt_version=prompt_version,
+                timestamp=timestamp,
+                latency_ms=latency_ms,
+                retrieval=RetrievalInfo(
+                    enabled=False,
+                    status="skipped",
+                    provider="red_flag_router",
+                    query="",
+                    documents_count=0,
+                ),
+            )
+            telemetry_logger.log_chat_event(
+                {
+                    "request_id": request_id,
+                    "status": "red_flag_routed",
+                    "mode": request.mode,
+                    "model": request.model,
+                    "temperature": request.temperature,
+                    "prompt_version": prompt_version,
+                    "messages": [message.model_dump() for message in request.messages],
+                    "response": response.model_dump(),
+                }
+            )
+            return response
+
+        rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=system_prompt, mode=request.mode)
         rag_done_at = perf_counter()
-        yes_no_maybe_task = is_yes_no_maybe_task(request.messages)
+        yes_no_maybe_task = benchmark_mode or is_yes_no_maybe_task(request.messages)
         low_evidence_non_blocking = (
             bool(rag_result.retrieval)
             and rag_result.retrieval.status == "low_evidence"
@@ -184,6 +224,7 @@ async def chat(
                 )
                 return ChatResponse(
                     model=request.model,
+                    mode=request.mode,
                     message=ChatMessage(role="assistant", content=answer_content),
                     done=True,
                     citations=rag_result.citations,
@@ -265,6 +306,7 @@ async def chat(
         latency_ms = int((perf_counter() - request_started_at) * 1000)
         response = ChatResponse(
             model=llm_response.model,
+            mode=request.mode,
             message=answer_message,
             done=llm_response.done,
             request_id=request_id,
@@ -282,6 +324,7 @@ async def chat(
             {
                 "request_id": request_id,
                 "status": "ok",
+                "mode": request.mode,
                 "model": request.model,
                 "temperature": request.temperature,
                 "prompt_version": prompt_version,
@@ -295,6 +338,7 @@ async def chat(
             {
                 "request_id": request_id,
                 "status": "provider_unavailable",
+                "mode": request.mode,
                 "model": request.model,
                 "temperature": request.temperature,
                 "prompt_version": prompt_version,
@@ -311,6 +355,7 @@ async def chat(
             {
                 "request_id": request_id,
                 "status": "provider_error",
+                "mode": request.mode,
                 "model": request.model,
                 "temperature": request.temperature,
                 "prompt_version": prompt_version,
@@ -333,7 +378,8 @@ async def rag_trace(
     evidence_judge: Annotated[EvidenceJudge, Depends(get_evidence_judge)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RagTraceResponse:
-    pre_retrieval = await pre_retriever.prepare(request.messages)
+    benchmark_mode = request.mode == "benchmark_pqal"
+    pre_retrieval = await pre_retriever.prepare(request.messages, allow_rewrite=not benchmark_mode)
     candidate_k = request.candidate_k or max(settings.rag_candidate_k, settings.rag_top_k)
     top_k = request.top_k or settings.rag_top_k
     if pre_retrieval.requires_retrieval:
@@ -343,7 +389,7 @@ async def rag_trace(
 
     post_result = post_retriever.assemble(
         messages=request.messages,
-        system_prompt=settings.system_prompt,
+        system_prompt=benchmark_pqal_system_prompt() if benchmark_mode else settings.system_prompt,
         pre_retrieval=pre_retrieval,
         retrieval=retrieval,
         final_documents_limit=top_k,
@@ -364,6 +410,7 @@ async def rag_trace(
     )
     metadata_boosted_documents = _debug_documents(retrieval, "metadata_boosted_documents") or retrieval.documents
     return RagTraceResponse(
+        mode=request.mode,
         original_query=pre_retrieval.original_query,
         normalized_query=pre_retrieval.normalized_query,
         search_queries=pre_retrieval.search_queries,
@@ -511,4 +558,3 @@ def _context_preview(system_prompt: str) -> str:
     if marker not in system_prompt:
         return system_prompt[:4000]
     return system_prompt.split(marker, 1)[1].strip()[:4000]
-

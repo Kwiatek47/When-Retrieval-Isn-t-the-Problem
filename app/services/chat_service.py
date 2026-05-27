@@ -15,6 +15,25 @@ from app.schemas import ChatMessage, ChatRequest, ChatResponse
 from app.services.telemetry_service import TelemetryLogger
 
 
+_URGENT_RED_FLAG_PATTERN = re.compile(
+    r"\b("
+    r"chest\s+(?:pain|pressure|discomfort)|shortness\s+of\s+breath|trouble\s+breathing|"
+    r"sudden\s+(?:weakness|numbness|confusion|vision|speech)|trouble\s+speaking|"
+    r"one\s+side\s+of\s+the\s+body|worst\s+headache|seizure|"
+    r"heavy\s+(?:vaginal\s+)?bleeding|pregnant.{0,80}(?:bleeding|dizzy|dizziness)|"
+    r"killing\s+myself|suicid(?:al|e)|self[-\s]?harm|"
+    r"anaphylaxis|swelling\s+of\s+(?:the\s+)?tongue|"
+    r"bol\s+w\s+klatce|duszno|nagly|nagle|udar|samoboj"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_BENCHMARK_PQAL_SYSTEM_PROMPT = (
+    "You are a biomedical evidence classifier for PubMedQA-style benchmark questions. "
+    "This mode is not patient advice. Use only retrieved evidence and return a yes/no/maybe classification."
+)
+
+
 def build_messages(messages: list[ChatMessage], system_prompt: str) -> list[ChatMessage]:
     user_visible_messages = [message for message in messages if message.role != "system"]
     return [ChatMessage(role="system", content=system_prompt), *user_visible_messages]
@@ -49,6 +68,7 @@ def build_refusal_response(
     status = rag_result.retrieval.status if rag_result.retrieval else "skipped"
     response = ChatResponse(
         model=request.model,
+        mode=request.mode,
         message=ChatMessage(role="assistant", content=refusal_content),
         done=True,
         request_id=request_id,
@@ -76,6 +96,24 @@ def build_refusal_response(
     return response
 
 
+def benchmark_pqal_system_prompt() -> str:
+    return _BENCHMARK_PQAL_SYSTEM_PROMPT
+
+
+def urgent_red_flag_response(messages: list[ChatMessage]) -> str:
+    if prefer_english(messages):
+        return (
+            "I cannot safely assess these red-flag symptoms in chat. "
+            "Seek emergency care immediately or call 911/112 now. "
+            "Do not wait for an online answer if symptoms are happening now."
+        )
+    return (
+        "Nie moge bezpiecznie ocenic takich objawow alarmowych na czacie. "
+        "Natychmiast skontaktuj sie z pomoca ratunkowa, zadzwon pod 112 albo jedz na SOR. "
+        "Nie czekaj na odpowiedz online, jesli objawy dzieja sie teraz."
+    )
+
+
 def low_evidence_refusal(
     messages: list[ChatMessage],
     citations: list,
@@ -96,6 +134,11 @@ def low_evidence_refusal(
             "so I cannot provide a reliable cited medical answer. "
             "Consult a qualified clinician for medical decisions."
         )
+        if has_urgent_red_flags(messages):
+            content = (
+                f"{content} If these symptoms are happening now, seek emergency care immediately "
+                "or call your local emergency number."
+            )
         if citation_labels:
             content = (
                 f"{content}\n\n"
@@ -108,6 +151,11 @@ def low_evidence_refusal(
         "wiec nie moge udzielic odpowiedzi opartej na wiarygodnych cytowanych danych. "
         "Skonsultuj decyzje medyczne z wykwalifikowanym lekarzem."
     )
+    if has_urgent_red_flags(messages):
+        content = (
+            f"{content} Jesli te objawy dzieja sie teraz, pilnie skontaktuj sie z pomoca ratunkowa "
+            "albo zadzwon pod lokalny numer alarmowy."
+        )
     if citation_labels:
         content = (
             f"{content}\n\n"
@@ -133,10 +181,30 @@ def prefer_english(messages: list[ChatMessage]) -> bool:
     user_text = " ".join(message.content for message in messages if message.role == "user").lower()
     if not user_text:
         return False
-    english_markers = {"answer", "what", "which", "how", "does", "do", "is", "are", "known", "compare", "risk", "used"}
+    english_markers = {
+        "answer",
+        "what",
+        "which",
+        "how",
+        "can",
+        "should",
+        "does",
+        "do",
+        "is",
+        "are",
+        "known",
+        "compare",
+        "risk",
+        "used",
+    }
     polish_markers = {"jak", "jakie", "czy", "jest", "stosuje", "leki", "chorobie", "ryzyko"}
     words = set(user_text.split())
     return bool(words & english_markers) and not bool(words & polish_markers)
+
+
+def has_urgent_red_flags(messages: list[ChatMessage]) -> bool:
+    user_text = " ".join(message.content for message in messages if message.role == "user")
+    return bool(_URGENT_RED_FLAG_PATTERN.search(user_text))
 
 
 def quality_gate_failed(citation_validation, answer_quality, settings: Settings) -> bool:

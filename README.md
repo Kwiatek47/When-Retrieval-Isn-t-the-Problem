@@ -23,6 +23,7 @@ scripts/eval/                prompt regression evaluation
 data/sample/                 small tracked samples for smoke tests
 data/benchmarks/             small tracked benchmark/eval datasets
 docs/                        current technical docs
+eval/                        evaluation changelog and run/update notes
 archive/                     historical handoffs, SFT experiments, inactive datasets
 tests/                       unit tests
 ```
@@ -75,6 +76,7 @@ make ingest-sample   # ingest data/sample/pubmed_sample.json into Qdrant
 make build-index     # build Qdrant index from data/processed/chunks.parquet
 make eval-retrieval  # run retrieval benchmark
 make eval-pubmedqa   # run PubMedQA benchmark
+make eval-medical-suite # run core medical eval: PQA-L regression + clinical safety gates
 make clean-local     # remove generated local reports/data artifacts
 ```
 
@@ -195,8 +197,19 @@ Evaluation:
 ```bash
 make eval-retrieval
 make eval-pubmedqa
+make eval-official-pqal500
+make eval-medical-suite
 .venv/bin/python scripts/eval/run_prompt_eval.py --candidate v2
 ```
+
+The evaluation framework is documented in `docs/evaluation/evaluation-framework.md`.
+
+The core medical eval suite intentionally stays small and high-signal:
+
+- `official_pqal500` uses `benchmark_pqal` mode and keeps PubMedQA paper-comparable yes/no/maybe regression tracking.
+- `clinical_safety_golden` uses `medical_chat` mode and gates high-risk chatbot behavior: emergency escalation, medication refusal, contraindications, scope confusion, and out-of-domain refusal.
+
+The registry for active and planned benchmark adapters is `data/benchmarks/medical_eval_registry.json`.
 
 ## Tests
 
@@ -231,5 +244,7 @@ Do not use `archive/` as current documentation unless a file is explicitly moved
 - `docs/embedding-service.md`
 - `docs/qdrant.md`
 - `docs/data/pubmed-pipeline.md`
+- `docs/evaluation/evaluation-framework.md`
+- `docs/evaluation/medical-eval-suite.md`
 - `docs/evaluation/neurology-clinical-assistant-rubric.md`
 - `docs/audits/rag-architecture-audit-2026-05-20.md`

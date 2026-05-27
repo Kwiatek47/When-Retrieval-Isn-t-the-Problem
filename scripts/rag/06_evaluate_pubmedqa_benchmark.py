@@ -75,6 +75,7 @@ def main() -> None:
             candidate_k=args.candidate_k,
             top_k=args.top_k,
             temperature=args.temperature,
+            mode=args.mode,
         )
         for case in cases
     ]
@@ -94,6 +95,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-k", type=int, default=int(os.getenv("PUBMEDQA_EVAL_CANDIDATE_K", "20")))
     parser.add_argument("--top-k", type=int, default=int(os.getenv("PUBMEDQA_EVAL_TOP_K", "3")))
     parser.add_argument("--temperature", type=float, default=float(os.getenv("PUBMEDQA_EVAL_TEMPERATURE", "0.0")))
+    parser.add_argument("--mode", default=os.getenv("PUBMEDQA_EVAL_MODE", "benchmark_pqal"))
     parser.add_argument("--json-out", type=Path, default=DEFAULT_REPORT_DIR / f"{label}.json")
     parser.add_argument("--md-out", type=Path, default=DEFAULT_REPORT_DIR / f"{label}.md")
     return parser.parse_args()
@@ -127,6 +129,7 @@ def _evaluate_case(
     candidate_k: int,
     top_k: int,
     temperature: float,
+    mode: str,
 ) -> PubMedQAResult:
     started_at = perf_counter()
     trace = _post_json(
@@ -135,6 +138,7 @@ def _evaluate_case(
             "messages": [{"role": "user", "content": case.question}],
             "candidate_k": candidate_k,
             "top_k": top_k,
+            "mode": mode,
         },
     )
     chat = _post_json(
@@ -143,6 +147,7 @@ def _evaluate_case(
             "model": model,
             "messages": [{"role": "user", "content": case.question}],
             "temperature": temperature,
+            "mode": mode,
         },
     )
     latency_ms = (perf_counter() - started_at) * 1000.0
@@ -260,6 +265,7 @@ def _build_report(
             "candidate_k": args.candidate_k,
             "top_k": args.top_k,
             "temperature": args.temperature,
+            "mode": args.mode,
             "RAG_EVIDENCE_FILTER_ENABLED": os.getenv("RAG_EVIDENCE_FILTER_ENABLED", ""),
             "RAG_ANSWER_QUALITY_GATE_ENABLED": os.getenv("RAG_ANSWER_QUALITY_GATE_ENABLED", ""),
             "RAG_CORPUS_VERSION": os.getenv("RAG_CORPUS_VERSION", ""),

@@ -30,9 +30,16 @@ class RagPipeline:
         self.adaptive_retrieval_enabled = adaptive_retrieval_enabled
         self.adaptive_max_rounds = max(adaptive_max_rounds, 0)
 
-    async def run(self, *, messages: list[ChatMessage], system_prompt: str) -> PostRetrievalResult:
+    async def run(
+        self,
+        *,
+        messages: list[ChatMessage],
+        system_prompt: str,
+        mode: str = "medical_chat",
+    ) -> PostRetrievalResult:
         started_at = perf_counter()
-        pre_retrieval = await self.pre_retriever.prepare(messages)
+        benchmark_mode = mode == "benchmark_pqal"
+        pre_retrieval = await self.pre_retriever.prepare(messages, allow_rewrite=not benchmark_mode)
         pre_retrieval_done_at = perf_counter()
         if pre_retrieval.requires_retrieval:
             retrieval = await self.retriever.retrieve(pre_retrieval, limit=self.retrieval_candidate_limit)
@@ -47,7 +54,7 @@ class RagPipeline:
             retrieval=retrieval,
         )
 
-        if self._should_run_adaptive_retrieval(pre_retrieval, result):
+        if not benchmark_mode and self._should_run_adaptive_retrieval(pre_retrieval, result):
             retrieval, result = await self._run_adaptive_retrieval(
                 messages=messages,
                 system_prompt=system_prompt,
