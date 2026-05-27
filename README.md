@@ -109,7 +109,7 @@ Copy `.env.example` to `.env` for local runs. Main variables:
 
 ```text
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma4:26b
+OLLAMA_MODEL=qwen2.5:7b
 EMBEDDING_SERVICE_URL=http://localhost:8081
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
