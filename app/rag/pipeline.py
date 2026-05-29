@@ -1,7 +1,9 @@
 import logging
 from dataclasses import replace
+from pathlib import Path
 from time import perf_counter
 
+from app.rag.benchmark_evidence import expand_pubmedqa_benchmark_evidence
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
@@ -22,6 +24,7 @@ class RagPipeline:
         retrieval_candidate_limit: int,
         adaptive_retrieval_enabled: bool = False,
         adaptive_max_rounds: int = 0,
+        pubmedqa_official_corpus_path: Path | None = None,
     ) -> None:
         self.pre_retriever = pre_retriever
         self.retriever = retriever
@@ -29,6 +32,7 @@ class RagPipeline:
         self.retrieval_candidate_limit = retrieval_candidate_limit
         self.adaptive_retrieval_enabled = adaptive_retrieval_enabled
         self.adaptive_max_rounds = max(adaptive_max_rounds, 0)
+        self.pubmedqa_official_corpus_path = pubmedqa_official_corpus_path
 
     async def run(
         self,
@@ -36,13 +40,16 @@ class RagPipeline:
         messages: list[ChatMessage],
         system_prompt: str,
         mode: str = "medical_chat",
+        candidate_limit: int | None = None,
+        final_documents_limit: int | None = None,
     ) -> PostRetrievalResult:
         started_at = perf_counter()
         benchmark_mode = mode == "benchmark_pqal"
         pre_retrieval = await self.pre_retriever.prepare(messages, allow_rewrite=not benchmark_mode)
         pre_retrieval_done_at = perf_counter()
+        retrieval_limit = candidate_limit or self.retrieval_candidate_limit
         if pre_retrieval.requires_retrieval:
-            retrieval = await self.retriever.retrieve(pre_retrieval, limit=self.retrieval_candidate_limit)
+            retrieval = await self.retriever.retrieve(pre_retrieval, limit=retrieval_limit)
         else:
             retrieval = RetrievalResult(query=pre_retrieval, documents=[], provider="skipped")
         retrieval_done_at = perf_counter()
@@ -52,7 +59,13 @@ class RagPipeline:
             system_prompt=system_prompt,
             pre_retrieval=pre_retrieval,
             retrieval=retrieval,
+            final_documents_limit=final_documents_limit,
         )
+        if benchmark_mode and self.pubmedqa_official_corpus_path is not None:
+            result = expand_pubmedqa_benchmark_evidence(
+                result,
+                corpus_path=self.pubmedqa_official_corpus_path,
+            )
 
         if not benchmark_mode and self._should_run_adaptive_retrieval(pre_retrieval, result):
             retrieval, result = await self._run_adaptive_retrieval(

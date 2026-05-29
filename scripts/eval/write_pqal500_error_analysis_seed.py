@@ -69,22 +69,49 @@ def _error_item(case: dict[str, Any]) -> dict[str, Any]:
         "true_label": case.get("expected_label"),
         "predicted_label": case.get("predicted_label"),
         "retrieval_status": case.get("retrieval_status"),
+        "error_bucket": case.get("error_bucket"),
         "source_hit_at_1": case.get("source_hit_at_1"),
         "source_hit_at_3": case.get("source_hit_at_3"),
         "citation_pass": case.get("citation_pass"),
         "hallucination_rate": case.get("hallucination_rate"),
+        "evidence_decision": {
+            "status": (case.get("evidence_decision") or {}).get("status"),
+            "method": (case.get("evidence_decision") or {}).get("method"),
+            "answer_label": (case.get("evidence_decision") or {}).get("answer_label"),
+            "confidence": (case.get("evidence_decision") or {}).get("confidence"),
+            "rationale": (case.get("evidence_decision") or {}).get("rationale"),
+            "notes": (case.get("evidence_decision") or {}).get("notes") or [],
+        },
         "top_source": {
             "pmid": top_source.get("pmid"),
             "documentId": top_source.get("documentId"),
+            "chunkId": top_source.get("chunkId"),
             "title": top_source.get("title"),
             "score": top_source.get("score"),
+            "evidenceScore": top_source.get("evidenceScore"),
+            "queryTermCoverage": top_source.get("queryTermCoverage"),
+            "benchmarkFullEvidence": top_source.get("benchmarkFullEvidence"),
         },
+        "top_candidate_pmids": _candidate_pmids(case.get("metadata_boosted_candidates")),
+        "evidence_excerpt": top_source.get("content_preview"),
         "answer": case.get("answer"),
         "error_type": None,
-        "evidence_excerpt": None,
         "difficulty": None,
         "notes": None,
     }
+
+
+def _candidate_pmids(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    pmids = []
+    for item in value[:10]:
+        if not isinstance(item, dict):
+            continue
+        pmid = item.get("pmid")
+        if pmid is not None:
+            pmids.append(str(pmid))
+    return pmids
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:

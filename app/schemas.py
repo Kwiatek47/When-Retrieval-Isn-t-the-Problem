@@ -19,6 +19,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., min_length=1)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     prompt_version: str | None = Field(default=None, min_length=1)
+    candidate_k: Optional[int] = Field(default=None, ge=1, le=100)
+    top_k: Optional[int] = Field(default=None, ge=1, le=20)
     mode: ChatMode = "medical_chat"
 
 

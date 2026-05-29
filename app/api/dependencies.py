@@ -5,6 +5,7 @@ import httpx
 from app.core.config import get_settings
 from app.providers.base import LLMProvider
 from app.providers.ollama import OllamaProvider
+from app.rag.evidence_classifier import EvidenceClassifier
 from app.rag.evidence_judge import EvidenceJudge
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
@@ -102,12 +103,25 @@ def get_post_retriever() -> PostRetriever:
 @lru_cache
 def get_evidence_judge() -> EvidenceJudge:
     settings = get_settings()
+    classifier = EvidenceClassifier(
+        enabled=settings.rag_evidence_classifier_enabled,
+        model_path=settings.rag_evidence_classifier_model_path,
+        temperature_path=settings.rag_evidence_classifier_temperature_path,
+        max_length=settings.rag_evidence_classifier_max_length,
+        max_sources=settings.rag_evidence_judge_max_sources,
+        device=settings.rag_evidence_classifier_device,
+        min_macro_f1=settings.rag_evidence_classifier_min_macro_f1,
+        min_per_label_accuracy=settings.rag_evidence_classifier_min_per_label_accuracy,
+    )
     return EvidenceJudge(
         enabled=settings.rag_evidence_judge_enabled,
         method=settings.rag_evidence_judge_method,
         max_sources=settings.rag_evidence_judge_max_sources,
         voting_enabled=settings.rag_evidence_judge_voting_enabled,
         voting_rounds=settings.rag_evidence_judge_votes,
+        classifier=classifier,
+        classifier_fast_threshold=settings.rag_evidence_classifier_fast_threshold,
+        classifier_hint_threshold=settings.rag_evidence_classifier_hint_threshold,
     )
 
 
@@ -121,4 +135,5 @@ def get_rag_pipeline() -> RagPipeline:
         retrieval_candidate_limit=max(settings.rag_candidate_k, settings.rag_top_k),
         adaptive_retrieval_enabled=settings.rag_adaptive_retrieval_enabled,
         adaptive_max_rounds=settings.rag_adaptive_max_rounds,
+        pubmedqa_official_corpus_path=settings.pubmedqa_official_corpus_path,
     )

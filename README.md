@@ -197,6 +197,7 @@ Evaluation:
 ```bash
 make eval-retrieval
 make eval-pubmedqa
+make eval-quick-pqal
 make eval-official-pqal500
 make eval-medical-suite
 .venv/bin/python scripts/eval/run_prompt_eval.py --candidate v2
@@ -207,9 +208,78 @@ The evaluation framework is documented in `docs/evaluation/evaluation-framework.
 The core medical eval suite intentionally stays small and high-signal:
 
 - `official_pqal500` uses `benchmark_pqal` mode and keeps PubMedQA paper-comparable yes/no/maybe regression tracking.
+- `eval-quick-pqal` runs deterministic diagnostics before the full gate: `balanced90` plus `first100_yes`.
 - `clinical_safety_golden` uses `medical_chat` mode and gates high-risk chatbot behavior: emergency escalation, medication refusal, contraindications, scope confusion, and out-of-domain refusal.
 
+In `benchmark_pqal` mode the pipeline expands the selected retrieved PMID to the full official PQA-L abstract from
+`PUBMEDQA_OFFICIAL_CORPUS_PATH`. This is benchmark-only: it does not affect patient-facing `medical_chat`, and it does
+not use gold labels.
+
 The registry for active and planned benchmark adapters is `data/benchmarks/medical_eval_registry.json`.
+
+## PubMedQA DeBERTa Evidence Classifier
+
+The `benchmark_pqal` mode can use a local DeBERTa classifier for `question + evidence -> yes/no/maybe`.
+Official PQA-L 500 is treated as held-out and is excluded from classifier train/dev data.
+
+Prepare official PubMedQA data:
+
+```bash
+make classifier-prepare
+```
+
+For faster local iteration on a MacBook, use the smaller official-data split:
+
+```bash
+make classifier-prepare-local
+make classifier-train-local
+```
+
+For the fuller research run, use:
+
+```bash
+make classifier-train
+```
+
+For a 2x RTX 4080 Linux box, use the DDP runner:
+
+```bash
+make classifier-prepare
+make classifier-train-2x4080
+```
+
+This calls `torch.distributed.run` with `nproc_per_node=2`, DDP/NCCL, `bf16` autocast, gradient checkpointing,
+class-weighted loss, per-GPU batch size 8, and gradient accumulation 4. Override defaults with env vars, for example:
+
+```bash
+BATCH_SIZE=12 GRADIENT_ACCUMULATION=3 EPOCHS=5 make classifier-train-2x4080
+```
+
+The default checkpoint path is:
+
+```text
+artifacts/classifier/pubmedqa_deberta/best
+```
+
+Runtime integration is controlled by:
+
+```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=true
+RAG_EVIDENCE_CLASSIFIER_MODEL_PATH=artifacts/classifier/pubmedqa_deberta/best
+RAG_EVIDENCE_CLASSIFIER_FAST_THRESHOLD=0.80
+RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD=0.55
+RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1=0.40
+RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY=0.10
+```
+
+If the checkpoint collapses to one label on dev, the runtime quality gate disables it and the benchmark falls back to the existing evidence judge.
+
+After training, run:
+
+```bash
+make eval-quick-pqal
+make eval-official-pqal500
+```
 
 ## Tests
 

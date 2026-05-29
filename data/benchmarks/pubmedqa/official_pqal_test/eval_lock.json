@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-27T15:12:42.021020+00:00",
+  "created_at": "2026-05-29T08:27:40.309250+00:00",
   "benchmark": "PubMedQA official PQA-L 500",
   "dataset": {
     "path": "data/benchmarks/pubmedqa/official_pqal_test/eval.json",
@@ -19,7 +19,7 @@
   },
   "index": {
     "manifest_path": "data/benchmarks/pubmedqa/official_pqal_test/index_manifest.json",
-    "manifest_sha256": "34db5582ad6262c8e8869f4fd8981ab331fb9b07c2ebb455018371554f05cc01",
+    "manifest_sha256": "d75ff0cce1ffabb568a19499e4002256dbd23ebaf126013bf05b44c054ada5e2",
     "manifest": {
       "bm25_stats_path": "data/benchmarks/pubmedqa/official_pqal_test/bm25_stats.json",
       "bm25_stats_sha256": "fe7f40da02e3fc17f35a9e712fab809260430a0c48bbcbdab181f7912282fa13",
@@ -58,13 +58,13 @@
       "chunks_sha256": "5fc54290888abf3459402e9800d223192347899ce171a2faaac33f72226bbfaf",
       "collection": "MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
       "corpus_version": "pubmedqa-official-pqal-test-v1",
-      "created_at": "2026-05-27T13:48:32.117340+00:00",
+      "created_at": "2026-05-29T08:18:26.946557+00:00",
       "dense_datatype": "float16",
       "dense_distance": "cosine",
       "dense_on_disk": true,
       "dense_vector_name": "medcpt_dense",
       "embedding_dimension": 768,
-      "embedding_model": "medcpt-ncbi-v1",
+      "embedding_model": "embedding-service",
       "embeddings": [],
       "failed_count": 0,
       "fusion": "rrf",
@@ -118,6 +118,7 @@
       "scikit-learn==1.8.0",
       "scipy==1.17.1",
       "sentence-transformers==3.4.1",
+      "sentencepiece==0.2.1",
       "setuptools==81.0.0",
       "starlette==1.1.0",
       "sympy==1.14.0",
@@ -134,7 +135,7 @@
   },
   "model": {
     "chat_model": "qwen2.5:7b",
-    "embedding_model": "medcpt-ncbi-v1"
+    "embedding_model": "embedding-service"
   },
   "qdrant": {
     "url": "http://localhost:6333",
@@ -147,12 +148,13 @@
     "candidate_k": 20,
     "top_k": 1,
     "temperature": 0.0,
+    "mode": "benchmark_pqal",
     "metric_path": "summary.label_accuracy",
     "allowed_drop": 0.01,
     "flags": {
       "RAG_RETRIEVER": "",
-      "RAG_CORPUS_VERSION": "",
-      "BM25_STATS_PATH": "",
+      "RAG_CORPUS_VERSION": "pubmedqa-official-pqal-test-v1",
+      "BM25_STATS_PATH": "data/benchmarks/pubmedqa/official_pqal_test/bm25_stats.json",
       "RAG_EVIDENCE_FILTER_ENABLED": "",
       "RAG_ANSWER_QUALITY_GATE_ENABLED": "",
       "RAG_TOP_K": "",
@@ -161,46 +163,111 @@
       "OLLAMA_BASE_URL": "",
       "OLLAMA_MODEL": "",
       "EMBEDDING_SERVICE_URL": "",
-      "QDRANT_COLLECTION": "",
+      "QDRANT_COLLECTION": "MedicalChunk_pubmed_reviews_v1_medcpt_20260518",
       "QDRANT_VECTOR_NAME": "",
       "QDRANT_SPARSE_VECTOR_NAME": ""
     }
   },
   "report": {
-    "path": "reports/medical_eval_suite/real_e2e_20260527_official_pqal500.json",
-    "sha256": "9fd58fd0cd6369566d2e52e9549c7cd80343928e52e61d952644421d0c49051b",
+    "path": "reports/official_pqal500/official_pqal500_20260529T081826Z.json",
+    "sha256": "4038361f5fb57fbc540af795352bf29e82ea6c2c5384c006e111155a3f7893c5",
     "summary": {
       "dataset": "data/benchmarks/pubmedqa/official_pqal_test/eval.json",
       "api_url": "http://127.0.0.1:8000",
       "model": "qwen2.5:7b",
       "case_count": 500,
-      "case_pass_rate": 0.264,
-      "label_accuracy": 0.304,
-      "grounded_status_rate": 0.992,
-      "source_hit_at_1": 0.962,
-      "source_hit_at_3": 0.962,
-      "citation_pass_rate": 0.994,
-      "mean_groundedness": 0.8833333333333333,
-      "mean_hallucination_rate": 0.11666666666666667,
-      "mean_latency_ms": 10009.319007666025,
+      "case_pass_rate": 0.39,
+      "label_accuracy": 0.536,
+      "grounded_status_rate": 1.0,
+      "source_hit_at_1": 0.98,
+      "source_hit_at_3": 0.98,
+      "citation_pass_rate": 1.0,
+      "mean_groundedness": 0.744,
+      "mean_hallucination_rate": 0.256,
+      "mean_latency_ms": 1103.9349135700031,
       "labels": {
         "maybe": {
           "count": 55,
-          "accuracy": 0.7090909090909091
+          "accuracy": 0.45454545454545453
         },
         "no": {
           "count": 169,
-          "accuracy": 0.47337278106508873
+          "accuracy": 0.4319526627218935
         },
         "yes": {
           "count": 276,
-          "accuracy": 0.11956521739130435
+          "accuracy": 0.6159420289855072
+        }
+      },
+      "confusion_matrix": {
+        "yes": {
+          "yes": 170,
+          "no": 36,
+          "maybe": 70,
+          "none": 0
+        },
+        "no": {
+          "yes": 59,
+          "no": 73,
+          "maybe": 37,
+          "none": 0
+        },
+        "maybe": {
+          "yes": 23,
+          "no": 7,
+          "maybe": 25,
+          "none": 0
+        },
+        "none": {
+          "yes": 0,
+          "no": 0,
+          "maybe": 0,
+          "none": 0
+        }
+      },
+      "prediction_pairs": {
+        "maybe->maybe": 25,
+        "maybe->no": 7,
+        "maybe->yes": 23,
+        "no->maybe": 37,
+        "no->no": 73,
+        "no->yes": 59,
+        "yes->maybe": 70,
+        "yes->no": 36,
+        "yes->yes": 170
+      },
+      "error_buckets": {
+        "evidence_judge_label_error": 170,
+        "hallucination_fail": 125,
+        "retrieval_miss": 10
+      },
+      "predicted_labels": {
+        "yes": 252,
+        "no": 116,
+        "maybe": 132
+      },
+      "evidence_decision": {
+        "statuses": {
+          "supported": 252,
+          "refuted": 116,
+          "uncertain": 132,
+          "insufficient": 0,
+          "skipped": 0
+        },
+        "labels": {
+          "yes": 252,
+          "no": 116,
+          "maybe": 132
+        },
+        "methods": {
+          "rules": 500
         }
       },
       "config": {
         "candidate_k": 20,
         "top_k": 1,
         "temperature": 0.0,
+        "mode": "benchmark_pqal",
         "RAG_EVIDENCE_FILTER_ENABLED": "",
         "RAG_ANSWER_QUALITY_GATE_ENABLED": "",
         "RAG_CORPUS_VERSION": "pubmedqa-official-pqal-test-v1"
@@ -209,12 +276,12 @@
   },
   "regression_gate": {
     "metric_path": "summary.label_accuracy",
-    "score": 0.304,
+    "score": 0.536,
     "previous_best_score": 0.496,
     "allowed_drop": 0.01,
     "allowed_floor": 0.486,
-    "passed": false,
+    "passed": true,
     "baseline_path": "data/benchmarks/pubmedqa/official_pqal_test/previous_best.json",
-    "report_path": "reports/medical_eval_suite/real_e2e_20260527_official_pqal500.json"
+    "report_path": "reports/official_pqal500/official_pqal500_20260529T081826Z.json"
   }
 }

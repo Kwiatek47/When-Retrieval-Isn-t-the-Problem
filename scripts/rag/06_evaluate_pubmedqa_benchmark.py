@@ -48,6 +48,9 @@ class PubMedQAResult:
     latency_ms: float
     answer: str
     final_documents: list[dict[str, Any]]
+    rrf_candidates: list[dict[str, Any]]
+    metadata_boosted_candidates: list[dict[str, Any]]
+    evidence_decision: dict[str, Any]
 
     @property
     def label_pass(self) -> bool:
@@ -147,16 +150,21 @@ def _evaluate_case(
             "model": model,
             "messages": [{"role": "user", "content": case.question}],
             "temperature": temperature,
+            "candidate_k": candidate_k,
+            "top_k": top_k,
             "mode": mode,
         },
     )
     latency_ms = (perf_counter() - started_at) * 1000.0
 
     final_documents = list(trace.get("final_documents") or [])
+    rrf_candidates = list(trace.get("rrf_candidates") or [])
+    metadata_boosted_candidates = list(trace.get("metadata_boosted_candidates") or [])
     retrieval = chat.get("retrieval") or trace.get("retrieval") or {}
     answer = str((chat.get("message") or {}).get("content") or "")
     citation_validation = chat.get("citation_validation") or {}
     answer_quality = chat.get("answer_quality") or {}
+    evidence_decision = chat.get("evidence_decision") or {}
 
     return PubMedQAResult(
         id=case.id,
@@ -171,6 +179,9 @@ def _evaluate_case(
         latency_ms=latency_ms,
         answer=answer,
         final_documents=final_documents,
+        rrf_candidates=rrf_candidates,
+        metadata_boosted_candidates=metadata_boosted_candidates,
+        evidence_decision=evidence_decision,
     )
 
 
@@ -236,6 +247,7 @@ def _build_report(
     groundedness_values = [result.groundedness for result in results if result.groundedness is not None]
     hallucination_values = [result.hallucination_rate for result in results if result.hallucination_rate is not None]
     labels = sorted({case.expected_label for case in cases})
+    confusion_matrix = _confusion_matrix(results)
     summary = {
         "dataset": str(args.dataset),
         "api_url": args.api_url,
@@ -261,6 +273,24 @@ def _build_report(
             }
             for label in labels
         },
+        "confusion_matrix": confusion_matrix,
+        "prediction_pairs": _prediction_pairs(results),
+        "error_buckets": _counts(_error_bucket(result) for result in results if not result.case_pass),
+        "predicted_labels": {
+            label: sum(1 for result in results if result.predicted_label == label)
+            for label in ("yes", "no", "maybe")
+        },
+        "evidence_decision": {
+            "statuses": {
+                status: sum(1 for result in results if result.evidence_decision.get("status") == status)
+                for status in ("supported", "refuted", "uncertain", "insufficient", "skipped")
+            },
+            "labels": {
+                label: sum(1 for result in results if result.evidence_decision.get("answer_label") == label)
+                for label in ("yes", "no", "maybe")
+            },
+            "methods": _counts(str(result.evidence_decision.get("method") or "") for result in results),
+        },
         "config": {
             "candidate_k": args.candidate_k,
             "top_k": args.top_k,
@@ -284,11 +314,23 @@ def _rate(values: Any) -> float:
     return sum(1 for value in values if value) / len(values)
 
 
+def _counts(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _case_to_dict(result: PubMedQAResult) -> dict[str, Any]:
+    label_pass = result.label_pass
+    error_bucket = None if result.case_pass else _error_bucket(result)
     return {
         "id": result.id,
         "expected_label": result.expected_label,
         "predicted_label": result.predicted_label,
+        "label_pass": label_pass,
         "retrieval_status": result.retrieval_status,
         "source_hit_at_1": result.source_hit_at_1,
         "source_hit_at_3": result.source_hit_at_3,
@@ -297,20 +339,75 @@ def _case_to_dict(result: PubMedQAResult) -> dict[str, Any]:
         "hallucination_rate": result.hallucination_rate,
         "latency_ms": result.latency_ms,
         "case_pass": result.case_pass,
+        "error_bucket": error_bucket,
         "answer": result.answer,
-        "final_documents": [
-            {
-                "rank": document.get("rank"),
-                "title": document.get("title"),
-                "score": document.get("score"),
-                "pmid": (document.get("metadata") or {}).get("pmid"),
-                "documentId": (document.get("metadata") or {}).get("documentId"),
-                "evidenceScore": (document.get("metadata") or {}).get("evidenceScore"),
-                "queryTermCoverage": (document.get("metadata") or {}).get("queryTermCoverage"),
-            }
-            for document in result.final_documents
+        "evidence_decision": result.evidence_decision,
+        "final_documents": [_debug_document(document) for document in result.final_documents],
+        "rrf_candidates": [_debug_document(document) for document in result.rrf_candidates[:10]],
+        "metadata_boosted_candidates": [
+            _debug_document(document) for document in result.metadata_boosted_candidates[:10]
         ],
     }
+
+
+def _debug_document(document: dict[str, Any]) -> dict[str, Any]:
+    metadata = document.get("metadata") or {}
+    return {
+        "rank": document.get("rank"),
+        "id": document.get("id"),
+        "title": document.get("title"),
+        "source": document.get("source"),
+        "score": document.get("score"),
+        "pmid": metadata.get("pmid"),
+        "documentId": metadata.get("documentId"),
+        "chunkId": metadata.get("chunkId") or metadata.get("chunk_id"),
+        "parentChunkId": metadata.get("parentChunkId") or metadata.get("parent_chunk_id"),
+        "evidenceScore": metadata.get("evidenceScore"),
+        "queryTermCoverage": metadata.get("queryTermCoverage"),
+        "rrfScore": metadata.get("rrfScore"),
+        "preMetadataBoostScore": metadata.get("preMetadataBoostScore"),
+        "metadataBoost": metadata.get("metadataBoost"),
+        "matchedQueryCount": metadata.get("matchedQueryCount"),
+        "benchmarkFullEvidence": metadata.get("benchmarkFullEvidence"),
+        "fullEvidenceChars": metadata.get("fullEvidenceChars"),
+        "selectedContentChars": metadata.get("selectedContentChars"),
+        "content_preview": document.get("content_preview"),
+        "metadata": metadata,
+    }
+
+
+def _confusion_matrix(results: list[PubMedQAResult]) -> dict[str, dict[str, int]]:
+    labels = ("yes", "no", "maybe", "none")
+    matrix = {gold: {pred: 0 for pred in labels} for gold in labels}
+    for result in results:
+        gold = result.expected_label if result.expected_label in labels else "none"
+        pred = result.predicted_label if result.predicted_label in labels else "none"
+        matrix[gold][pred] += 1
+    return matrix
+
+
+def _prediction_pairs(results: list[PubMedQAResult]) -> dict[str, int]:
+    return _counts(
+        f"{result.expected_label}->{result.predicted_label or 'none'}"
+        for result in results
+    )
+
+
+def _error_bucket(result: PubMedQAResult) -> str:
+    if not result.source_hit_at_3:
+        return "retrieval_miss"
+    if result.retrieval_status != "grounded":
+        return f"retrieval_status_{result.retrieval_status or 'unknown'}"
+    if not result.citation_pass:
+        return "citation_fail"
+    if result.hallucination_rate is not None and result.hallucination_rate > 0.25:
+        return "hallucination_fail"
+    if not result.label_pass:
+        decision_label = result.evidence_decision.get("answer_label")
+        if decision_label == result.predicted_label:
+            return "evidence_judge_label_error"
+        return "answer_label_extraction_or_writer_error"
+    return "other_case_fail"
 
 
 def _write_json(path: Path, report: dict[str, Any]) -> None:
@@ -348,6 +445,35 @@ def _write_markdown(path: Path, report: dict[str, Any]) -> None:
     ]
     for label, metrics in summary["labels"].items():
         lines.append(f"| {label} | {metrics['count']} | {metrics['accuracy']:.3f} |")
+
+    lines.extend(["", "## Confusion Matrix", "", "| True \\ Pred | yes | no | maybe | none |", "|---|---:|---:|---:|---:|"])
+    for true_label, row in summary["confusion_matrix"].items():
+        lines.append(
+            f"| {true_label} | {row.get('yes', 0)} | {row.get('no', 0)} | "
+            f"{row.get('maybe', 0)} | {row.get('none', 0)} |"
+        )
+
+    lines.extend(["", "## Error Buckets", "", "| Bucket | Count |", "|---|---:|"])
+    for bucket, count in summary["error_buckets"].items():
+        lines.append(f"| {bucket} | {count} |")
+
+    lines.extend(
+        [
+            "",
+            "## Evidence Judge",
+            "",
+            "| Type | Value | Count |",
+            "|---|---|---:|",
+        ]
+    )
+    for label, count in summary["predicted_labels"].items():
+        lines.append(f"| predicted_label | {label} | {count} |")
+    for status, count in summary["evidence_decision"]["statuses"].items():
+        lines.append(f"| evidence_status | {status} | {count} |")
+    for label, count in summary["evidence_decision"]["labels"].items():
+        lines.append(f"| evidence_label | {label} | {count} |")
+    for method, count in summary["evidence_decision"]["methods"].items():
+        lines.append(f"| evidence_method | {method} | {count} |")
 
     lines.extend(
         [

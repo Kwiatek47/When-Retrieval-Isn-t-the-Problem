@@ -25,6 +25,8 @@ To rozdzielenie jest celowe. Benchmark PQA-L nie powinien testowac tego samego z
 ```text
 scripts/eval/
   run_official_pqal500.sh              glowny runner PQA-L 500
+  run_quick_pqal_eval.sh               szybki runner balanced90 + first100_yes
+  build_pqal_quick_sets.py             deterministyczne mini-sety PQA-L
   run_medical_eval_suite.sh            runner calego core suite
   check_regression_gate.py             bramka: wynik nie moze spasc za mocno
   check_medical_suite_gate.py          bramki safety
@@ -38,6 +40,7 @@ data/benchmarks/
   medical_eval_registry.json           rejestr aktywnych i planowanych benchmarkow
   clinical_safety_golden/eval.json     maly, reczny zestaw safety
   pubmedqa/official_pqal_test/         oficjalny PQA-L 500 i manifesty
+  pubmedqa/official_pqal_test/quick/   generowane mini-sety quick eval
 
 docs/evaluation/
   evaluation-framework.md              ten dokument
@@ -153,7 +156,117 @@ Czyli jesli poprzedni najlepszy wynik to `49.6%`, to domyslnie nie mozemy zejsc 
 
 Wazne: PQA-L nie mowi, czy chatbot jest bezpieczny dla pacjenta. On mowi tylko, czy evidence classifier dziala.
 
-### 2. Clinical Safety Golden
+W trybie `benchmark_pqal` evidence jest traktowane inaczej niz w czacie pacjenta:
+
+- retrieval nadal wybiera PMID na podstawie pytania,
+- jesli PMID istnieje w official PQA-L corpus, pipeline podmienia wybrany chunk na pelny official abstract,
+- judge decyduje `yes/no/maybe` na pelnym abstract evidence,
+- gold label nie jest uzywany ani do wyboru PMID, ani do decyzji.
+
+To jest celowo ograniczone do benchmarku. `medical_chat` nadal uzywa zwyklego safety-first RAG, odmow i red flags.
+
+### Evidence Classifier v1
+
+Cel:
+
+- nauczyc maly model do decyzji `question + evidence -> yes/no/maybe`,
+- poprawic PQA-L accuracy bez zmieniania retrievala,
+- zachowac official PQA-L 500 jako czysty held-out test.
+
+Zrodlo danych:
+
+```text
+Official PubMedQA repository:
+https://github.com/pubmedqa/pubmedqa
+```
+
+Komendy:
+
+```bash
+make classifier-prepare
+make classifier-train
+```
+
+Szybszy lokalny wariant na MacBooku:
+
+```bash
+make classifier-prepare-local
+make classifier-train-local
+```
+
+Wariant na maszyne Linux z 2x RTX 4080:
+
+```bash
+make classifier-prepare
+make classifier-train-2x4080
+```
+
+Ten runner uzywa DDP/NCCL przez `torch.distributed.run`, `bf16`, gradient checkpointing, class-weighted loss,
+batch size 8 na GPU i gradient accumulation 4. Najczesciej zmieniane parametry mozna nadpisac env vars:
+
+```bash
+BATCH_SIZE=12 GRADIENT_ACCUMULATION=3 EPOCHS=5 make classifier-train-2x4080
+```
+
+Domyslny model:
+
+```text
+microsoft/deberta-v3-base
+```
+
+Runtime:
+
+```text
+confidence >= 0.80  -> classifier fast path
+0.55-0.80           -> classifier hint dla LLM judge
+< 0.55              -> obecny LLM/rules judge
+```
+
+Wazne: classifier dziala tylko dla `benchmark_pqal`. `medical_chat` pozostaje bez zmian. Checkpoint musi tez przejsc quality gate na dev (`macro_f1` i per-label accuracy), inaczej runtime go nie uzyje.
+
+### 2. Quick PQA-L Diagnostics
+
+Cel:
+
+- szybko sprawdzic, czy tryb `benchmark_pqal` dziala przed pelnym PQA-L 500,
+- osobno zmierzyc balans etykiet `yes/no/maybe`,
+- osobno zmierzyc problem `yes`, ktory obecnie jest najwiekszym zrodlem strat.
+
+Runner jednej komendy:
+
+```bash
+scripts/eval/run_quick_pqal_eval.sh
+```
+
+Ten runner robi:
+
+```text
+1. Buduje data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json
+   - 30 yes
+   - 30 no
+   - 30 maybe
+
+2. Buduje data/benchmarks/pubmedqa/official_pqal_test/quick/first100_yes.json
+   - pierwsze 100 przypadkow z etykieta yes
+
+3. Odpala oba sety przez scripts/rag/06_evaluate_pubmedqa_benchmark.py
+   - mode=benchmark_pqal
+   - top_k=1
+   - temperature=0.0
+
+4. Pisze raport zbiorczy do reports/pqal_quick/
+```
+
+Jak czytac wynik:
+
+```text
+balanced90       -> czy classifier nie jest jednostronnie przesuniety w yes/no/maybe
+first100_yes     -> czy nadal za czesto uciekamy w maybe przy przypadkach, ktore powinny byc yes
+```
+
+To nie zastepuje official PQA-L 500. To jest diagnostyka przed pelnym runem.
+
+### 3. Clinical Safety Golden
 
 Cel:
 
@@ -359,4 +472,3 @@ PQA-L jest benchmarkiem research QA, nie certyfikatem bezpieczenstwa.
 Clinical safety jest bramka bezpieczenstwa, nie paperowym benchmarkiem.
 
 Oba sa potrzebne, ale sluza do innych decyzji.
-

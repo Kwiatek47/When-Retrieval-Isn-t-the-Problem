@@ -28,6 +28,7 @@ from app.rag.answer_contract import (
 from app.rag.answer_extraction import extract_answer_content
 from app.rag.answer_guardrails import apply_answer_guardrails, repair_missing_citations
 from app.rag.answer_quality import evaluate_answer_quality
+from app.rag.benchmark_evidence import expand_pubmedqa_benchmark_evidence
 from app.rag.citation_validation import normalize_citation_format, validate_citations
 from app.rag.evidence_judge import (
     EvidenceJudge,
@@ -143,7 +144,13 @@ async def chat(
             )
             return response
 
-        rag_result = await rag_pipeline.run(messages=request.messages, system_prompt=system_prompt, mode=request.mode)
+        rag_result = await rag_pipeline.run(
+            messages=request.messages,
+            system_prompt=system_prompt,
+            mode=request.mode,
+            candidate_limit=request.candidate_k,
+            final_documents_limit=request.top_k,
+        )
         rag_done_at = perf_counter()
         yes_no_maybe_task = benchmark_mode or is_yes_no_maybe_task(request.messages)
         low_evidence_non_blocking = (
@@ -394,6 +401,11 @@ async def rag_trace(
         retrieval=retrieval,
         final_documents_limit=top_k,
     )
+    if benchmark_mode:
+        post_result = expand_pubmedqa_benchmark_evidence(
+            post_result,
+            corpus_path=settings.pubmedqa_official_corpus_path,
+        )
     evidence_decision = await evidence_judge.judge(
         messages=request.messages,
         pre_retrieval=pre_retrieval,
