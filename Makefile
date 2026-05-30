@@ -5,7 +5,7 @@ PY := $(VENV)/bin/python
 UVICORN := $(VENV)/bin/uvicorn
 RUFF := $(VENV)/bin/ruff
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index eval-retrieval eval-pubmedqa eval-quick-pqal eval-official-pqal500 eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index eval-retrieval eval-pubmedqa eval-quick-pqal eval-official-pqal500 eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -71,6 +71,15 @@ classifier-train-local:
 
 classifier-train-2x4080:
 	PYTHON_BIN=$(PY) scripts/classifier/run_deberta_2x4080.sh
+
+classifier-train-2x4080-full:
+	PYTHON_BIN=$(PY) scripts/classifier/run_pubmedqa_2x4080_full_experiments.sh
+
+classifier-audit:
+	$(PY) scripts/classifier/audit_pubmedqa_classifier_data.py
+
+classifier-train-h100:
+	PYTHON_BIN=$(PY) scripts/classifier/run_pubmedqa_h100_experiments.sh
 
 clean-local:
 	rm -rf reports/* data/processed data/embeddings data/indexes data/telemetry .ruff_cache

@@ -1,6 +1,7 @@
 import asyncio
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -16,6 +17,7 @@ from app.rag.answer_contract import enforce_yes_no_maybe_contract, is_yes_no_may
 from app.rag.answer_guardrails import apply_answer_guardrails, repair_missing_citations
 from app.rag.benchmark_evidence import expand_pubmedqa_benchmark_evidence
 from app.rag.evidence_classifier import EvidenceClassifier, EvidenceClassifierPrediction
+from app.rag import evidence_classifier as evidence_classifier_module
 from app.rag.evidence_judge import EvidenceJudge, answer_from_evidence_decision
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.rag.pipeline import RagPipeline
@@ -852,6 +854,115 @@ class EvidenceJudgeArchitectureTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(classifier.available)
             self.assertIn("quality gate", classifier.load_error)
 
+    def test_evidence_classifier_quality_gate_rejects_stale_metrics_without_fresh_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir)
+            metrics_path = model_path / "dev_metrics_calibrated.json"
+            model_artifact = model_path / "model.safetensors"
+            metrics_path.write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.90,
+                        "per_label": {
+                            "yes": {"support": 10, "accuracy": 0.9},
+                            "no": {"support": 10, "accuracy": 0.9},
+                            "maybe": {"support": 10, "accuracy": 0.9},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_artifact.write_text("newer model", encoding="utf-8")
+            os.utime(metrics_path, (1000, 1000))
+            os.utime(model_artifact, (2000, 2000))
+
+            classifier = EvidenceClassifier(
+                enabled=True,
+                model_path=model_path,
+                min_macro_f1=0.40,
+                min_per_label_accuracy=0.10,
+            )
+
+            self.assertFalse(classifier.available)
+            self.assertIn("stale metrics", classifier.load_error)
+
+    def test_evidence_classifier_quality_gate_uses_fresh_uncalibrated_metrics_when_calibrated_is_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir)
+            calibrated_metrics_path = model_path / "dev_metrics_calibrated.json"
+            fresh_metrics_path = model_path / "dev_metrics.json"
+            model_artifact = model_path / "model.safetensors"
+            calibrated_metrics_path.write_text(
+                json.dumps({"macro_f1": 0.05, "per_label": {"maybe": {"support": 10, "accuracy": 1.0}}}),
+                encoding="utf-8",
+            )
+            fresh_metrics_path.write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.55,
+                        "per_label": {
+                            "yes": {"support": 10, "accuracy": 0.5},
+                            "no": {"support": 10, "accuracy": 0.6},
+                            "maybe": {"support": 10, "accuracy": 0.3},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_artifact.write_text("model", encoding="utf-8")
+            os.utime(calibrated_metrics_path, (1000, 1000))
+            os.utime(model_artifact, (2000, 2000))
+            os.utime(fresh_metrics_path, (3000, 3000))
+
+            error = evidence_classifier_module._quality_gate_error(
+                metrics_path=calibrated_metrics_path,
+                fallback_metrics_path=fresh_metrics_path,
+                reference_paths=evidence_classifier_module._quality_reference_paths(model_path),
+                min_macro_f1=0.40,
+                min_per_label_accuracy=0.10,
+            )
+
+            self.assertEqual(error, "")
+
+    async def test_classifier_method_uses_classifier_even_below_fast_path_threshold(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"refuted","answer":"no","confidence":0.99,"rationale":"Wrong LLM decision [S1]."}'
+        )
+        classifier = _FakeEvidenceClassifier(label="maybe", confidence=0.34)
+        judge = EvidenceJudge(
+            enabled=True,
+            method="classifier",
+            max_sources=1,
+            classifier=classifier,
+            classifier_fast_threshold=0.80,
+            classifier_hint_threshold=0.55,
+        )
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            search_queries=["Does treatment help?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Treatment study",
+            content="Abstract context: Results were mixed and indirect.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.method, "deberta_classifier")
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertEqual(len(provider.messages), 0)
+
     async def test_llm_evidence_judge_adds_primary_citation_when_missing(self) -> None:
         provider = _FakeJudgeProvider(
             '{"status":"supported","answer":"yes","rationale":"The abstract reports improved outcomes."}'
@@ -1294,6 +1405,7 @@ class PubMedQADatasetBuilderTests(unittest.TestCase):
                             "pmid": "train-1",
                             "QUESTION": "Does train treatment help?",
                             "CONTEXTS": ["Train result."],
+                            "LONG_ANSWER": "Train conclusion is negative.",
                             "final_decision": "no",
                         },
                     }
@@ -1306,6 +1418,7 @@ class PubMedQADatasetBuilderTests(unittest.TestCase):
         self.assertEqual(len(examples), 1)
         self.assertEqual(examples[0].pmid, "train-1")
         self.assertEqual(examples[0].label, "no")
+        self.assertEqual(examples[0].long_answer, "Train conclusion is negative.")
 
 
 class PubMedQABenchmarkEvidenceTests(unittest.TestCase):

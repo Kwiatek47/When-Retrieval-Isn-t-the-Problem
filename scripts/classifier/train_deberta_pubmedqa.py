@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from dataclasses import dataclass
+from itertools import product
 import json
 import os
 from pathlib import Path
 import random
+import re
 from typing import Any
 
 
@@ -21,6 +23,8 @@ class Example:
     question: str
     evidence: str
     label_id: int
+    long_answer: str = ""
+    source_dataset: str = ""
 
 
 def main() -> None:
@@ -54,8 +58,17 @@ def main() -> None:
     train_examples = _load_examples(args.train_jsonl)
     dev_examples = _load_examples(args.dev_jsonl)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    train_dataset = _PairDataset(train_examples, tokenizer, args.max_length)
-    dev_dataset = _PairDataset(dev_examples, tokenizer, args.max_length)
+    aux_vocab = (
+        _build_aux_vocab(
+            train_examples,
+            vocab_size=args.aux_long_answer_bow_vocab_size,
+            min_df=args.aux_long_answer_min_df,
+        )
+        if args.aux_long_answer_bow
+        else []
+    )
+    train_dataset = _PairDataset(train_examples, tokenizer, args.max_length, aux_vocab=aux_vocab)
+    dev_dataset = _PairDataset(dev_examples, tokenizer, args.max_length, aux_vocab=aux_vocab)
     train_class_counts = _class_counts(train_examples)
 
     device = torch.device("cuda", local_rank) if distributed else _resolve_device(torch, args.device)
@@ -68,6 +81,12 @@ def main() -> None:
     if args.gradient_checkpointing and hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
     model.to(device)
+    aux_head = None
+    if aux_vocab:
+        hidden_size = int(getattr(model.config, "hidden_size", 0) or 0)
+        if hidden_size <= 0:
+            raise RuntimeError("LONG_ANSWER BOW auxiliary objective requires model.config.hidden_size.")
+        aux_head = torch.nn.Linear(hidden_size, len(aux_vocab)).to(device)
     if distributed:
         model = DistributedDataParallel(
             model,
@@ -75,6 +94,13 @@ def main() -> None:
             output_device=local_rank,
             find_unused_parameters=False,
         )
+        if aux_head is not None:
+            aux_head = DistributedDataParallel(
+                aux_head,
+                device_ids=[local_rank],
+                output_device=local_rank,
+                find_unused_parameters=False,
+            )
 
     sampler = None
     if distributed:
@@ -109,7 +135,10 @@ def main() -> None:
         num_workers=args.num_workers,
         pin_memory=device.type == "cuda",
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    optimizer_parameters = list(model.parameters())
+    if aux_head is not None:
+        optimizer_parameters.extend(aux_head.parameters())
+    optimizer = torch.optim.AdamW(optimizer_parameters, lr=args.learning_rate, weight_decay=args.weight_decay)
     scaler = torch.cuda.amp.GradScaler(enabled=args.amp == "fp16" and device.type == "cuda")
     total_steps = max(1, (len(train_loader) * args.epochs) // args.gradient_accumulation)
     scheduler = get_linear_schedule_with_warmup(
@@ -123,6 +152,9 @@ def main() -> None:
     best_dir = args.out_dir / "best"
     if is_main:
         args.out_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(args.out_dir / "run_config.json", _jsonable_args(args, distributed=distributed))
+        if aux_vocab:
+            _write_json(args.out_dir / "aux_long_answer_vocab.json", aux_vocab)
     class_weights = (
         torch.tensor(_class_weights(train_class_counts), dtype=torch.float, device=device)
         if args.class_weighted_loss
@@ -141,6 +173,9 @@ def main() -> None:
             device=device,
             gradient_accumulation=args.gradient_accumulation,
             class_weights=class_weights,
+            focal_loss_gamma=args.focal_loss_gamma,
+            aux_head=aux_head,
+            aux_loss_weight=args.aux_long_answer_bow_weight,
             amp=args.amp,
             scaler=scaler,
             log_every=args.log_every,
@@ -152,10 +187,11 @@ def main() -> None:
         should_stop = False
         if is_main:
             dev_metrics = _evaluate(torch=torch, model=_unwrap_model(model), loader=dev_loader, device=device, amp=args.amp)
-            metric = (dev_metrics["accuracy"] + dev_metrics["macro_f1"]) / 2
+            metric = _selection_metric(dev_metrics, args.selection_metric)
             print(
                 f"epoch={epoch} train_loss={train_loss:.4f} "
-                f"dev_accuracy={dev_metrics['accuracy']:.4f} dev_macro_f1={dev_metrics['macro_f1']:.4f}"
+                f"dev_accuracy={dev_metrics['accuracy']:.4f} dev_macro_f1={dev_metrics['macro_f1']:.4f} "
+                f"selection_{args.selection_metric}={metric:.4f}"
             )
 
             if metric > best_metric:
@@ -166,12 +202,28 @@ def main() -> None:
                 tokenizer.save_pretrained(best_dir)
                 _write_json(best_dir / "label_map.json", LABEL_TO_ID)
                 _write_json(best_dir / "training_config.json", _jsonable_args(args, distributed=distributed))
+                if aux_vocab:
+                    _write_json(best_dir / "aux_long_answer_vocab.json", aux_vocab)
                 _write_json(best_dir / "dev_metrics.json", dev_metrics)
+                best_updated = True
             else:
                 bad_epochs += 1
+                best_updated = False
                 if bad_epochs >= args.early_stopping_patience:
                     print(f"Early stopping after epoch={epoch}.")
                     should_stop = True
+            _append_jsonl(
+                args.out_dir / "train_log.jsonl",
+                {
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "dev_metrics": dev_metrics,
+                    "selection_metric": args.selection_metric,
+                    "selection_value": metric,
+                    "best_metric": best_metric,
+                    "best_updated": best_updated,
+                },
+            )
 
         if distributed:
             stop_tensor = torch.tensor([1 if should_stop else 0], device=device)
@@ -197,6 +249,25 @@ def main() -> None:
             amp=args.amp,
         )
         _write_json(best_dir / "dev_metrics_calibrated.json", final_metrics)
+        if args.tune_thresholds:
+            labels, probabilities = _predict_probabilities(
+                torch=torch,
+                model=model,
+                loader=dev_loader,
+                device=device,
+                temperature=calibration["temperature"],
+                amp=args.amp,
+            )
+            threshold_result = _tune_decision_thresholds(
+                labels=labels,
+                probabilities=probabilities,
+                metric=args.threshold_metric,
+                minimum=args.threshold_min,
+                maximum=args.threshold_max,
+                step=args.threshold_step,
+            )
+            _write_json(best_dir / "decision_thresholds.json", threshold_result)
+            _write_json(best_dir / "dev_metrics_threshold_tuned.json", threshold_result["metrics"])
         print(f"Wrote best model: {best_dir}")
         print(json.dumps({"calibration": calibration, "dev_metrics": final_metrics}, indent=2))
     if distributed:
@@ -222,8 +293,27 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--balanced-sampling", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--class-weighted-loss", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--focal-loss-gamma", type=float, default=0.0)
+    parser.add_argument(
+        "--selection-metric",
+        choices=("macro_f1", "accuracy", "accuracy_macro_f1", "balanced_accuracy"),
+        default="macro_f1",
+    )
     parser.add_argument("--amp", choices=("off", "fp16", "bf16"), default="off")
     parser.add_argument("--gradient-checkpointing", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--aux-long-answer-bow", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--aux-long-answer-bow-weight", type=float, default=0.10)
+    parser.add_argument("--aux-long-answer-bow-vocab-size", type=int, default=512)
+    parser.add_argument("--aux-long-answer-min-df", type=int, default=3)
+    parser.add_argument("--tune-thresholds", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument(
+        "--threshold-metric",
+        choices=("macro_f1", "accuracy", "balanced_accuracy"),
+        default="macro_f1",
+    )
+    parser.add_argument("--threshold-min", type=float, default=0.25)
+    parser.add_argument("--threshold-max", type=float, default=0.75)
+    parser.add_argument("--threshold-step", type=float, default=0.05)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--ddp-backend", default="nccl")
     parser.add_argument("--log-every", type=int, default=100)
@@ -259,6 +349,8 @@ def _load_examples(path: Path) -> list[Example]:
                     question=str(item["question"]),
                     evidence=str(item["evidence"]),
                     label_id=label_id,
+                    long_answer=str(item.get("long_answer") or item.get("LONG_ANSWER") or ""),
+                    source_dataset=str(item.get("source_dataset") or ""),
                 )
             )
     if not examples:
@@ -267,8 +359,9 @@ def _load_examples(path: Path) -> list[Example]:
 
 
 class _PairDataset:
-    def __init__(self, examples: list[Example], tokenizer: Any, max_length: int) -> None:
+    def __init__(self, examples: list[Example], tokenizer: Any, max_length: int, *, aux_vocab: list[str]) -> None:
         self.examples = examples
+        self.aux_vocab = aux_vocab
         questions = [example.question for example in examples]
         evidences = [example.evidence for example in examples]
         self.encoded = tokenizer(
@@ -282,6 +375,11 @@ class _PairDataset:
         import torch
 
         self.labels = torch.tensor([example.label_id for example in examples], dtype=torch.long)
+        self.aux_bow = (
+            torch.tensor([_long_answer_bow(example.long_answer, aux_vocab) for example in examples], dtype=torch.float)
+            if aux_vocab
+            else None
+        )
 
     def __len__(self) -> int:
         return len(self.examples)
@@ -289,6 +387,8 @@ class _PairDataset:
     def __getitem__(self, index: int) -> dict[str, Any]:
         item = {key: value[index] for key, value in self.encoded.items()}
         item["labels"] = self.labels[index]
+        if self.aux_bow is not None:
+            item["aux_bow"] = self.aux_bow[index]
         return item
 
 
@@ -351,21 +451,40 @@ def _train_epoch(
     device: Any,
     gradient_accumulation: int,
     class_weights: Any | None,
+    focal_loss_gamma: float,
+    aux_head: Any | None,
+    aux_loss_weight: float,
     amp: str,
     scaler: Any,
     log_every: int,
     is_main: bool,
 ) -> float:
     model.train()
+    if aux_head is not None:
+        aux_head.train()
     optimizer.zero_grad(set_to_none=True)
     loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights)
+    aux_loss_fn = torch.nn.BCEWithLogitsLoss()
     losses: list[float] = []
     for step, batch in enumerate(loader, start=1):
         batch = {key: value.to(device, non_blocking=True) for key, value in batch.items()}
         labels = batch.pop("labels")
+        aux_bow = batch.pop("aux_bow", None)
         with _autocast(torch, device=device, amp=amp):
-            logits = model(**batch).logits
-            raw_loss = loss_fn(logits, labels)
+            outputs = model(**batch, output_hidden_states=aux_head is not None)
+            logits = outputs.logits
+            raw_loss = _classification_loss(
+                torch=torch,
+                logits=logits,
+                labels=labels,
+                loss_fn=loss_fn,
+                class_weights=class_weights,
+                focal_loss_gamma=focal_loss_gamma,
+            )
+            if aux_head is not None and aux_bow is not None:
+                cls_hidden = outputs.hidden_states[-1][:, 0]
+                aux_logits = aux_head(cls_hidden)
+                raw_loss = raw_loss + aux_loss_weight * aux_loss_fn(aux_logits, aux_bow)
         loss = raw_loss / gradient_accumulation
         if scaler.is_enabled():
             scaler.scale(loss).backward()
@@ -405,6 +524,7 @@ def _evaluate(
         for batch in loader:
             batch = {key: value.to(device, non_blocking=True) for key, value in batch.items()}
             label_tensor = batch.pop("labels")
+            batch.pop("aux_bow", None)
             with _autocast(torch, device=device, amp=amp):
                 logits = model(**batch).logits / max(temperature, 1e-6)
             probs = torch.softmax(logits, dim=-1)
@@ -414,6 +534,22 @@ def _evaluate(
             confidences.extend(float(value) for value in conf.detach().cpu())
 
     return _classification_metrics(labels=labels, predictions=predictions, confidences=confidences)
+
+
+def _classification_loss(
+    *,
+    torch: Any,
+    logits: Any,
+    labels: Any,
+    loss_fn: Any,
+    class_weights: Any | None,
+    focal_loss_gamma: float,
+) -> Any:
+    if focal_loss_gamma <= 0:
+        return loss_fn(logits, labels)
+    ce = torch.nn.functional.cross_entropy(logits, labels, weight=class_weights, reduction="none")
+    pt = torch.exp(-ce)
+    return (((1.0 - pt) ** focal_loss_gamma) * ce).mean()
 
 
 def _classification_metrics(*, labels: list[int], predictions: list[int], confidences: list[float]) -> dict[str, Any]:
@@ -471,6 +607,164 @@ def _ece(*, labels: list[int], predictions: list[int], confidences: list[float],
     return ece
 
 
+def _selection_metric(metrics: dict[str, Any], name: str) -> float:
+    if name == "macro_f1":
+        return float(metrics["macro_f1"])
+    if name == "accuracy":
+        return float(metrics["accuracy"])
+    if name == "accuracy_macro_f1":
+        return (float(metrics["accuracy"]) + float(metrics["macro_f1"])) / 2
+    if name == "balanced_accuracy":
+        per_label = metrics.get("per_label", {})
+        recalls = [float(per_label.get(label, {}).get("recall", 0.0)) for label in LABELS]
+        return sum(recalls) / max(len(recalls), 1)
+    raise ValueError(f"Unknown selection metric: {name}")
+
+
+def _predict_probabilities(
+    *,
+    torch: Any,
+    model: Any,
+    loader: Any,
+    device: Any,
+    temperature: float = 1.0,
+    amp: str = "off",
+) -> tuple[list[int], list[list[float]]]:
+    model.eval()
+    labels: list[int] = []
+    probabilities: list[list[float]] = []
+    with torch.no_grad():
+        for batch in loader:
+            batch = {key: value.to(device, non_blocking=True) for key, value in batch.items()}
+            label_tensor = batch.pop("labels")
+            batch.pop("aux_bow", None)
+            with _autocast(torch, device=device, amp=amp):
+                logits = model(**batch).logits / max(temperature, 1e-6)
+            probs = torch.softmax(logits, dim=-1).detach().cpu()
+            labels.extend(int(value) for value in label_tensor.detach().cpu())
+            probabilities.extend([[float(value) for value in row] for row in probs])
+    return labels, probabilities
+
+
+def _tune_decision_thresholds(
+    *,
+    labels: list[int],
+    probabilities: list[list[float]],
+    metric: str,
+    minimum: float,
+    maximum: float,
+    step: float,
+) -> dict[str, Any]:
+    values = _threshold_grid(minimum=minimum, maximum=maximum, step=step)
+    best_score = -1.0
+    best_thresholds = [1.0 for _ in LABELS]
+    best_predictions: list[int] = []
+    best_confidences: list[float] = []
+    for thresholds in product(values, repeat=len(LABELS)):
+        predictions, confidences = _predict_with_thresholds(probabilities, list(thresholds))
+        metrics = _classification_metrics(labels=labels, predictions=predictions, confidences=confidences)
+        score = _selection_metric(metrics, metric if metric != "balanced_accuracy" else "balanced_accuracy")
+        if score > best_score:
+            best_score = score
+            best_thresholds = list(thresholds)
+            best_predictions = predictions
+            best_confidences = confidences
+
+    best_metrics = _classification_metrics(labels=labels, predictions=best_predictions, confidences=best_confidences)
+    return {
+        "method": "probability_divided_by_per_label_threshold",
+        "metric": metric,
+        "score": best_score,
+        "thresholds": {label: best_thresholds[index] for index, label in enumerate(LABELS)},
+        "metrics": best_metrics,
+    }
+
+
+def _threshold_grid(*, minimum: float, maximum: float, step: float) -> list[float]:
+    values = []
+    current = minimum
+    while current <= maximum + 1e-9:
+        values.append(round(current, 6))
+        current += max(step, 1e-6)
+    return values or [1.0]
+
+
+def _predict_with_thresholds(
+    probabilities: list[list[float]],
+    thresholds: list[float],
+) -> tuple[list[int], list[float]]:
+    predictions = []
+    confidences = []
+    for row in probabilities:
+        scores = [
+            float(probability) / max(float(thresholds[index]), 1e-6)
+            for index, probability in enumerate(row)
+        ]
+        prediction = max(range(len(scores)), key=lambda index: scores[index])
+        predictions.append(prediction)
+        confidences.append(float(row[prediction]))
+    return predictions, confidences
+
+
+def _build_aux_vocab(examples: list[Example], *, vocab_size: int, min_df: int) -> list[str]:
+    document_frequency: Counter[str] = Counter()
+    for example in examples:
+        tokens = set(_long_answer_tokens(example.long_answer))
+        document_frequency.update(tokens)
+    candidates = [
+        (token, count)
+        for token, count in document_frequency.items()
+        if count >= min_df and token not in _AUX_STOPWORDS
+    ]
+    candidates.sort(key=lambda item: (-item[1], item[0]))
+    return [token for token, _count in candidates[: max(vocab_size, 0)]]
+
+
+def _long_answer_bow(long_answer: str, vocab: list[str]) -> list[float]:
+    if not vocab:
+        return []
+    tokens = set(_long_answer_tokens(long_answer))
+    return [1.0 if token in tokens else 0.0 for token in vocab]
+
+
+def _long_answer_tokens(text: str) -> list[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z][a-z0-9]{2,}", text.lower())
+        if token not in _AUX_STOPWORDS
+    ]
+
+
+_AUX_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "that",
+    "this",
+    "with",
+    "were",
+    "was",
+    "are",
+    "our",
+    "from",
+    "have",
+    "has",
+    "had",
+    "not",
+    "but",
+    "can",
+    "may",
+    "these",
+    "those",
+    "study",
+    "results",
+    "suggest",
+    "suggests",
+    "conclusion",
+    "conclusions",
+}
+
+
 def _fit_temperature(*, torch: Any, model: Any, loader: Any, device: Any, amp: str = "off") -> dict[str, float]:
     logits_list = []
     labels_list = []
@@ -510,6 +804,12 @@ def _autocast(torch: Any, *, device: Any, amp: str) -> Any:
 def _write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _append_jsonl(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(data, ensure_ascii=False) + "\n")
 
 
 def _jsonable_args(args: argparse.Namespace, *, distributed: bool = False) -> dict[str, Any]:

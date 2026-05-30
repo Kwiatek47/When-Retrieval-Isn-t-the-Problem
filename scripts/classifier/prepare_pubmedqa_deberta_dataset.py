@@ -29,6 +29,8 @@ class ClassifierExample:
     evidence: str
     label: str
     source_file: str
+    source_dataset: str
+    long_answer: str = ""
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -36,9 +38,11 @@ class ClassifierExample:
             "pmid": self.pmid,
             "question": self.question,
             "evidence": self.evidence,
+            "long_answer": self.long_answer,
             "label": self.label,
             "label_id": LABEL_TO_ID[self.label],
             "source_file": self.source_file,
+            "source_dataset": self.source_dataset,
         }
 
 
@@ -71,8 +75,10 @@ def main() -> None:
         dev_fraction=args.dev_fraction,
         max_train_per_label=args.max_train_per_label,
         max_dev_per_label=args.max_dev_per_label,
+        min_dev_per_label=args.min_dev_per_label,
         balance_train=args.balance_train,
         balance_dev=args.balance_dev,
+        priority_source_names=set(args.priority_source_name),
     )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -107,12 +113,18 @@ def main() -> None:
                 "dev_fraction": args.dev_fraction,
                 "max_train_per_label": args.max_train_per_label,
                 "max_dev_per_label": args.max_dev_per_label,
+                "min_dev_per_label": args.min_dev_per_label,
                 "balance_train": args.balance_train,
                 "balance_dev": args.balance_dev,
+                "priority_source_names": args.priority_source_name,
                 "train_count": len(train),
                 "dev_count": len(dev),
                 "train_labels": _label_counts(train),
                 "dev_labels": _label_counts(dev),
+                "train_sources": _source_counts(train),
+                "dev_sources": _source_counts(dev),
+                "train_with_long_answer": sum(1 for example in train if example.long_answer),
+                "dev_with_long_answer": sum(1 for example in dev if example.long_answer),
             },
         },
     )
@@ -140,6 +152,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dev-fraction", type=float, default=0.10)
     parser.add_argument("--max-train-per-label", type=int, default=6000)
     parser.add_argument("--max-dev-per-label", type=int, default=500)
+    parser.add_argument(
+        "--min-dev-per-label",
+        type=int,
+        default=1,
+        help="Minimum dev examples per label when available. Leaves at least one train example per label.",
+    )
+    parser.add_argument(
+        "--priority-source-name",
+        action="append",
+        default=[],
+        help=(
+            "Source filename to keep before filling per-label train caps. Use `ori_pqal.json` so scarce PQA-L "
+            "examples, especially `maybe`, are not drowned by PQA-A."
+        ),
+    )
     parser.add_argument("--balance-train", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--balance-dev", action=argparse.BooleanOptionalAction, default=False)
     return parser.parse_args()
@@ -284,6 +311,7 @@ def _to_example(raw_id: str, item: dict[str, Any], *, source_file: str) -> Class
     if not pmid:
         return None
     example_id = f"pubmedqa-{pmid}"
+    long_answer = str(item.get("LONG_ANSWER") or item.get("long_answer") or "").strip()
     return ClassifierExample(
         id=example_id,
         pmid=pmid,
@@ -291,6 +319,8 @@ def _to_example(raw_id: str, item: dict[str, Any], *, source_file: str) -> Class
         evidence=" ".join(evidence_parts),
         label=label,
         source_file=source_file,
+        source_dataset=_source_dataset_name(source_file),
+        long_answer=long_answer,
     )
 
 
@@ -301,8 +331,10 @@ def _split_examples(
     dev_fraction: float,
     max_train_per_label: int,
     max_dev_per_label: int,
+    min_dev_per_label: int,
     balance_train: bool,
     balance_dev: bool,
+    priority_source_names: set[str],
 ) -> tuple[list[ClassifierExample], list[ClassifierExample]]:
     rng = random.Random(seed)
     by_label: dict[str, list[ClassifierExample]] = defaultdict(list)
@@ -314,9 +346,26 @@ def _split_examples(
     for label in LABELS:
         label_examples = list(by_label.get(label, []))
         rng.shuffle(label_examples)
-        dev_count = min(max(int(len(label_examples) * dev_fraction), 1), max_dev_per_label, len(label_examples))
+        if len(label_examples) <= 1:
+            dev_count = len(label_examples)
+        else:
+            requested_dev = max(int(len(label_examples) * dev_fraction), min_dev_per_label, 1)
+            dev_count = min(requested_dev, max_dev_per_label, len(label_examples) - 1)
         dev_by_label[label] = label_examples[:dev_count]
-        train_by_label[label] = label_examples[dev_count : dev_count + max_train_per_label]
+        train_pool = label_examples[dev_count:]
+        if priority_source_names:
+            priority = [
+                example
+                for example in train_pool
+                if Path(example.source_file).name in priority_source_names
+            ]
+            non_priority = [
+                example
+                for example in train_pool
+                if Path(example.source_file).name not in priority_source_names
+            ]
+            train_pool = [*priority, *non_priority]
+        train_by_label[label] = train_pool[:max_train_per_label]
 
     if balance_train:
         train_target = min((len(train_by_label[label]) for label in LABELS), default=0)
@@ -348,6 +397,22 @@ def _write_json(path: Path, data: Any) -> None:
 def _label_counts(examples: list[ClassifierExample]) -> dict[str, int]:
     counts = Counter(example.label for example in examples)
     return {label: counts.get(label, 0) for label in LABELS}
+
+
+def _source_counts(examples: list[ClassifierExample]) -> dict[str, int]:
+    counts = Counter(example.source_dataset for example in examples)
+    return dict(sorted(counts.items()))
+
+
+def _source_dataset_name(source_file: str) -> str:
+    filename = Path(source_file).name.lower()
+    if "pqaa" in filename:
+        return "pqa_a"
+    if "pqal" in filename:
+        return "pqa_l"
+    if "ground_truth" in filename:
+        return "pqa_l_official_test_labels"
+    return Path(source_file).stem or "unknown"
 
 
 def _sha256(path: Path) -> str:

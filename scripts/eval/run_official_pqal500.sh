@@ -51,6 +51,8 @@ ERROR_ANALYSIS_OUT="${OFFICIAL_PQAL500_ERROR_ANALYSIS_OUT:-data/error_analysis_p
 export RAG_CORPUS_VERSION="${CORPUS_VERSION}"
 export BM25_STATS_PATH="${BM25_STATS}"
 export QDRANT_COLLECTION
+export RAG_EVIDENCE_JUDGE_METHOD="${RAG_EVIDENCE_JUDGE_METHOD:-classifier}"
+export RAG_EVIDENCE_CLASSIFIER_ENABLED="${RAG_EVIDENCE_CLASSIFIER_ENABLED:-true}"
 
 mkdir -p "${REPORT_DIR}"
 
@@ -88,6 +90,16 @@ echo "==> Running official PQA-L 500 eval against ${RAG_API_URL}"
   --mode "${MODE}" \
   --json-out "${JSON_REPORT}" \
   --md-out "${MD_REPORT}"
+
+if [[ "${OFFICIAL_PQAL500_REQUIRE_CLASSIFIER:-1}" == "1" ]]; then
+  echo "==> Verifying official PQA-L eval used classifier decisions"
+  "${PYTHON_BIN}" scripts/eval/check_pubmedqa_evidence_methods.py \
+    --report "${JSON_REPORT}" \
+    --out "${REPORT_DIR}/${RUN_LABEL}.methods.json" \
+    --forbid-only-method rules \
+    --require-method-prefix deberta_classifier \
+    --min-required-count 1
+fi
 
 echo "==> Seeding manual error-analysis file"
 "${PYTHON_BIN}" scripts/eval/write_pqal500_error_analysis_seed.py \

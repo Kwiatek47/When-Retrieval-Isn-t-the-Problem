@@ -57,6 +57,7 @@ class EvidenceClassifier:
         self._torch: Any = None
         self._device: Any = None
         self._temperature = 1.0
+        self._decision_thresholds: dict[str, float] = {}
 
     @property
     def available(self) -> bool:
@@ -105,7 +106,7 @@ class EvidenceClassifier:
             _label_for_index(index): float(probabilities_tensor[index])
             for index in range(min(len(probabilities_tensor), len(LABELS)))
         }
-        label = max(probabilities, key=probabilities.get)
+        label = _select_label(probabilities, thresholds=self._decision_thresholds)
         confidence = probabilities[label]
         rationale = f"DeBERTa evidence classifier predicted {label} with confidence {confidence:.2f} [S1]."
         return EvidenceClassifierPrediction(
@@ -125,8 +126,11 @@ class EvidenceClassifier:
             self._load_error = f"Evidence classifier model path does not exist: {self.model_path}"
             logger.info(self._load_error)
             return
+        reference_paths = _quality_reference_paths(self.model_path)
         quality_error = _quality_gate_error(
             metrics_path=self.model_path / "dev_metrics_calibrated.json",
+            fallback_metrics_path=self.model_path / "dev_metrics.json",
+            reference_paths=reference_paths,
             min_macro_f1=self.min_macro_f1,
             min_per_label_accuracy=self.min_per_label_accuracy,
         )
@@ -150,13 +154,21 @@ class EvidenceClassifier:
             self._model = AutoModelForSequenceClassification.from_pretrained(self.model_path)
             self._model.to(self._device)
             self._model.eval()
-            self._temperature = _load_temperature(self.temperature_path or (self.model_path / "calibration.json"))
+            self._temperature = _load_temperature(
+                self.temperature_path or (self.model_path / "calibration.json"),
+                reference_paths=reference_paths,
+            )
+            self._decision_thresholds = _load_decision_thresholds(
+                self.model_path / "decision_thresholds.json",
+                reference_paths=reference_paths,
+            )
             self._available = True
             logger.info(
-                "Loaded evidence classifier model=%s device=%s temperature=%.4f",
+                "Loaded evidence classifier model=%s device=%s temperature=%.4f thresholds=%s",
                 self.model_path,
                 self._device,
                 self._temperature,
+                self._decision_thresholds or "argmax",
             )
         except Exception as exc:  # pragma: no cover - model-load failures are environment dependent
             self._load_error = f"Evidence classifier failed to load: {exc}"
@@ -174,8 +186,11 @@ def _resolve_device(torch: Any, requested: str) -> Any:
     return torch.device("cpu")
 
 
-def _load_temperature(path: Path) -> float:
+def _load_temperature(path: Path, *, reference_paths: list[Path] | None = None) -> float:
     if not path.exists():
+        return 1.0
+    if _is_stale(path, reference_paths or []):
+        logger.warning("Ignoring stale evidence classifier calibration from %s.", path)
         return 1.0
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -185,20 +200,49 @@ def _load_temperature(path: Path) -> float:
         return 1.0
 
 
+def _load_decision_thresholds(path: Path, *, reference_paths: list[Path] | None = None) -> dict[str, float]:
+    if not path.exists():
+        return {}
+    if _is_stale(path, reference_paths or []):
+        logger.warning("Ignoring stale evidence classifier decision thresholds from %s.", path)
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        raw_thresholds = data.get("thresholds", data)
+        thresholds = {
+            label: max(float(raw_thresholds[label]), 1e-6)
+            for label in LABELS
+            if label in raw_thresholds
+        }
+        return thresholds if len(thresholds) == len(LABELS) else {}
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        logger.warning("Could not read evidence classifier decision thresholds from %s.", path, exc_info=True)
+        return {}
+
+
 def _quality_gate_error(
     *,
     metrics_path: Path,
+    fallback_metrics_path: Path | None = None,
+    reference_paths: list[Path] | None = None,
     min_macro_f1: float,
     min_per_label_accuracy: float,
 ) -> str:
     if min_macro_f1 <= 0 and min_per_label_accuracy <= 0:
         return ""
-    if not metrics_path.exists():
+    selected_metrics_path, stale_error = _select_quality_metrics_path(
+        metrics_path=metrics_path,
+        fallback_metrics_path=fallback_metrics_path,
+        reference_paths=reference_paths or [],
+    )
+    if stale_error:
+        return stale_error
+    if selected_metrics_path is None:
         return ""
     try:
-        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics = json.loads(selected_metrics_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return f"Evidence classifier quality gate could not read metrics: {metrics_path}"
+        return f"Evidence classifier quality gate could not read metrics: {selected_metrics_path}"
 
     macro_f1 = float(metrics.get("macro_f1", 0.0))
     if macro_f1 < min_macro_f1:
@@ -217,6 +261,76 @@ def _quality_gate_error(
                 f"dev {label} accuracy={accuracy:.4f} < required {min_per_label_accuracy:.4f}."
             )
     return ""
+
+
+def _select_quality_metrics_path(
+    *,
+    metrics_path: Path,
+    fallback_metrics_path: Path | None,
+    reference_paths: list[Path],
+) -> tuple[Path | None, str]:
+    primary_exists = metrics_path.exists()
+    fallback_exists = fallback_metrics_path is not None and fallback_metrics_path.exists()
+    primary_stale = primary_exists and _is_stale(metrics_path, reference_paths)
+    fallback_stale = fallback_exists and _is_stale(fallback_metrics_path, reference_paths)  # type: ignore[arg-type]
+
+    if primary_exists and not primary_stale:
+        return metrics_path, ""
+    if fallback_exists and not fallback_stale:
+        if primary_exists and primary_stale:
+            logger.warning(
+                "Evidence classifier calibrated metrics are stale: %s; using fresh metrics: %s.",
+                metrics_path,
+                fallback_metrics_path,
+            )
+        return fallback_metrics_path, ""  # type: ignore[return-value]
+    if primary_stale or fallback_stale:
+        stale_paths = [
+            str(path)
+            for path, stale in ((metrics_path, primary_stale), (fallback_metrics_path, fallback_stale))
+            if path is not None and stale
+        ]
+        return (
+            None,
+            "Evidence classifier disabled by quality gate: stale metrics "
+            f"{', '.join(stale_paths)} are older than the model artifacts.",
+        )
+    return None, ""
+
+
+def _quality_reference_paths(model_path: Path) -> list[Path]:
+    return [
+        model_path / "model.safetensors",
+        model_path / "pytorch_model.bin",
+        model_path / "dev_metrics.json",
+    ]
+
+
+def _is_stale(path: Path, reference_paths: list[Path]) -> bool:
+    if not path.exists():
+        return False
+    try:
+        path_mtime = path.stat().st_mtime
+    except OSError:
+        return False
+    for reference_path in reference_paths:
+        if reference_path == path or not reference_path.exists():
+            continue
+        try:
+            if reference_path.stat().st_mtime > path_mtime:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _select_label(probabilities: dict[str, float], *, thresholds: dict[str, float]) -> str:
+    if not thresholds:
+        return max(probabilities, key=probabilities.get)
+    return max(
+        probabilities,
+        key=lambda label: probabilities[label] / max(thresholds.get(label, 1.0), 1e-6),
+    )
 
 
 def _label_for_index(index: int) -> str:

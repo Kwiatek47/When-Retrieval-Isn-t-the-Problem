@@ -88,6 +88,15 @@ class EvidenceJudge:
             pre_retrieval=pre_retrieval,
             source_documents=source_documents,
         )
+        if classifier_prediction is not None and self.method in {"classifier", "deberta_classifier"}:
+            decision = _decision_from_classifier_prediction(
+                classifier_prediction,
+                source_documents=source_documents,
+                method="deberta_classifier",
+                note="Classifier-only benchmark path selected by evidence judge method.",
+            )
+            _log_decision(decision)
+            return decision
         if classifier_prediction is not None and classifier_prediction.confidence >= self.classifier_fast_threshold:
             decision = _decision_from_classifier_prediction(
                 classifier_prediction,

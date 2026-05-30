@@ -255,6 +255,70 @@ class-weighted loss, per-GPU batch size 8, and gradient accumulation 4. Override
 BATCH_SIZE=12 GRADIENT_ACCUMULATION=3 EPOCHS=5 make classifier-train-2x4080
 ```
 
+For the full research ablation run on 2x RTX 4080 16GB, use:
+
+```bash
+make classifier-train-2x4080-full
+```
+
+This wraps the research runner with safer 4080 defaults:
+
+```text
+NPROC_PER_NODE=2
+BATCH_SIZE=4
+EVAL_BATCH_SIZE=8
+GRADIENT_ACCUMULATION=8
+EPOCHS=8
+RUN_BIOMED_ABLATION=1
+RUN_SEED_SWEEP=1
+SEEDS="123 2026"
+```
+
+The ablation loop already trains the default best variant once with seed `47`, so the default sweep adds only `123`
+and `2026`. Final best-variant seeds are therefore `47`, `123`, and `2026` without duplicating seed `47`.
+
+If DeBERTa-large still hits OOM, rerun with:
+
+```bash
+BATCH_SIZE=2 EVAL_BATCH_SIZE=4 GRADIENT_ACCUMULATION=16 make classifier-train-2x4080-full
+```
+
+For a research run on a single H100, use the ablation runner:
+
+```bash
+make classifier-train-h100
+```
+
+It prepares leakage-checked splits and trains:
+
+- PQA-L only,
+- PQA-A + PQA-L,
+- PQA-A + PQA-L with `LONG_ANSWER` bag-of-words auxiliary supervision,
+- optional biomedical encoder ablation,
+- a 3-seed sweep for the selected best variant.
+
+The H100 runner uses bf16, gradient checkpointing, class-weighted focal loss, macro-F1 model selection, dev-only
+threshold tuning, and a JSONL command log. Large checkpoints stay under ignored `artifacts/classifier/...`; small
+audits and reports can be copied into `reports/classifier/`.
+
+At the end it writes:
+
+```text
+experiment_summary.md
+experiment_summary.json
+data_audit.md
+command_log.jsonl
+```
+
+The summary ranks runs by dev macro F1, then accuracy, then `maybe`/`no` F1, and flags obvious collapse cases such as
+zero recall or >80% predictions in one label.
+
+Audit classifier data and held-out leakage:
+
+```bash
+make classifier-audit
+```
+
 The default checkpoint path is:
 
 ```text
@@ -272,7 +336,17 @@ RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1=0.40
 RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY=0.10
 ```
 
-If the checkpoint collapses to one label on dev, the runtime quality gate disables it and the benchmark falls back to the existing evidence judge.
+For official PQA-L classifier runs, start the API with:
+
+```text
+RAG_EVIDENCE_JUDGE_METHOD=classifier
+```
+
+This makes `question + evidence -> classifier logits/probabilities -> label` the decision path. The eval wrappers now
+fail if the resulting report silently uses only `rules`.
+
+If the checkpoint collapses to one label on dev, or if calibrated metrics are stale relative to the model/dev metrics,
+the runtime quality gate disables or ignores the stale artifact instead of trusting it.
 
 After training, run:
 

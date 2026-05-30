@@ -26,6 +26,9 @@ MODE="${PUBMEDQA_EVAL_MODE:-benchmark_pqal}"
 PER_LABEL="${QUICK_PQAL_PER_LABEL:-30}"
 YES_COUNT="${QUICK_PQAL_YES_COUNT:-100}"
 
+export RAG_EVIDENCE_JUDGE_METHOD="${RAG_EVIDENCE_JUDGE_METHOD:-classifier}"
+export RAG_EVIDENCE_CLASSIFIER_ENABLED="${RAG_EVIDENCE_CLASSIFIER_ENABLED:-true}"
+
 BALANCED_COUNT=$((PER_LABEL * 3))
 BALANCED_DATASET="${QUICK_DIR}/balanced${BALANCED_COUNT}.json"
 YES_DATASET="${QUICK_DIR}/first${YES_COUNT}_yes.json"
@@ -58,6 +61,15 @@ echo "==> Running balanced PQA-L ${BALANCED_COUNT} eval in mode=${MODE}"
   --json-out "${BALANCED_JSON}" \
   --md-out "${BALANCED_MD}"
 
+if [[ "${QUICK_PQAL_REQUIRE_CLASSIFIER:-1}" == "1" ]]; then
+  "${PYTHON_BIN}" scripts/eval/check_pubmedqa_evidence_methods.py \
+    --report "${BALANCED_JSON}" \
+    --out "${REPORT_DIR}/${RUN_LABEL}_balanced${BALANCED_COUNT}.methods.json" \
+    --forbid-only-method rules \
+    --require-method-prefix deberta_classifier \
+    --min-required-count 1
+fi
+
 echo "==> Running first-${YES_COUNT}-yes PQA-L eval in mode=${MODE}"
 "${PYTHON_BIN}" scripts/rag/06_evaluate_pubmedqa_benchmark.py \
   --dataset "${YES_DATASET}" \
@@ -69,6 +81,15 @@ echo "==> Running first-${YES_COUNT}-yes PQA-L eval in mode=${MODE}"
   --mode "${MODE}" \
   --json-out "${YES_JSON}" \
   --md-out "${YES_MD}"
+
+if [[ "${QUICK_PQAL_REQUIRE_CLASSIFIER:-1}" == "1" ]]; then
+  "${PYTHON_BIN}" scripts/eval/check_pubmedqa_evidence_methods.py \
+    --report "${YES_JSON}" \
+    --out "${REPORT_DIR}/${RUN_LABEL}_first${YES_COUNT}_yes.methods.json" \
+    --forbid-only-method rules \
+    --require-method-prefix deberta_classifier \
+    --min-required-count 1
+fi
 
 echo "==> Writing quick PQA-L summary"
 "${PYTHON_BIN}" scripts/eval/write_quick_pqal_summary.py \
