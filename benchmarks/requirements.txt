@@ -1,0 +1,7 @@
+numpy
+pyarrow
+qdrant-client
+sentence-transformers
+torch
+transformers
+

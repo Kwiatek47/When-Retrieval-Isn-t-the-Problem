@@ -1,0 +1,98 @@
+{
+  "precision": "fp16",
+  "dense_vector_name": "dense",
+  "models": {
+    "medcpt": {
+      "family": "medcpt",
+      "display_name": "MedCPT",
+      "document_model": "ncbi/MedCPT-Article-Encoder",
+      "query_model": "ncbi/MedCPT-Query-Encoder",
+      "dim": 768,
+      "max_length": 512,
+      "batch_size": 96,
+      "normalize": true,
+      "input_format": "title_text_pair"
+    },
+    "neuml_biomedbert": {
+      "family": "sentence_transformer",
+      "display_name": "NeuML BioMedBERT Base Embeddings",
+      "model": "NeuML/biomedbert-base-embeddings",
+      "dim": 768,
+      "max_length": 512,
+      "batch_size": 192,
+      "normalize": true
+    },
+    "neuml_pubmedbert": {
+      "family": "sentence_transformer",
+      "display_name": "NeuML PubMedBERT Base Embeddings",
+      "model": "NeuML/pubmedbert-base-embeddings",
+      "dim": 768,
+      "max_length": 512,
+      "batch_size": 192,
+      "normalize": true
+    },
+    "medembed_large": {
+      "family": "sentence_transformer",
+      "display_name": "MedEmbed Large v0.1",
+      "model": "abhinand/MedEmbed-large-v0.1",
+      "dim": 1024,
+      "max_length": 512,
+      "batch_size": 64,
+      "normalize": true
+    },
+    "qwen3_06b": {
+      "family": "sentence_transformer",
+      "display_name": "Qwen3 Embedding 0.6B",
+      "model": "Qwen/Qwen3-Embedding-0.6B",
+      "dim": 1024,
+      "max_length": 8192,
+      "batch_size": 32,
+      "normalize": true,
+      "trust_remote_code": true,
+      "query_prefix": "Instruct: Given a medical search query, retrieve relevant PubMed abstracts that answer the query\nQuery: "
+    },
+    "bge_m3": {
+      "family": "sentence_transformer",
+      "display_name": "BAAI bge-m3",
+      "model": "BAAI/bge-m3",
+      "dim": 1024,
+      "max_length": 8192,
+      "batch_size": 64,
+      "normalize": true
+    },
+    "nomic_embed_v15": {
+      "family": "sentence_transformer",
+      "display_name": "Nomic Embed Text v1.5",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "dim": 768,
+      "max_length": 8192,
+      "batch_size": 96,
+      "normalize": true,
+      "trust_remote_code": true,
+      "document_prefix": "search_document: ",
+      "query_prefix": "search_query: "
+    },
+    "qwen3_4b": {
+      "family": "sentence_transformer",
+      "display_name": "Qwen3 Embedding 4B",
+      "model": "Qwen/Qwen3-Embedding-4B",
+      "dim": 2560,
+      "max_length": 8192,
+      "batch_size": 8,
+      "normalize": true,
+      "trust_remote_code": true,
+      "query_prefix": "Instruct: Given a medical search query, retrieve relevant PubMed abstracts that answer the query\nQuery: "
+    },
+    "qwen3_8b": {
+      "family": "sentence_transformer",
+      "display_name": "Qwen3 Embedding 8B",
+      "model": "Qwen/Qwen3-Embedding-8B",
+      "dim": 4096,
+      "max_length": 8192,
+      "batch_size": 4,
+      "normalize": true,
+      "trust_remote_code": true,
+      "query_prefix": "Instruct: Given a medical search query, retrieve relevant PubMed abstracts that answer the query\nQuery: "
+    }
+  }
+}
