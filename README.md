@@ -261,6 +261,16 @@ For the full research ablation run on 2x RTX 4080 16GB, use:
 make classifier-train-2x4080-full
 ```
 
+On a fresh server, the runner expects or bootstraps the ignored raw PubMedQA files:
+
+```text
+data/raw/pubmedqa_official/data/ori_pqal.json
+data/raw/pubmedqa_official/data/ori_pqaa.json
+```
+
+By default it tries `AUTO_DOWNLOAD_PUBMEDQA_RAW=1`. If Google Drive blocks PQA-A, manually place official
+`ori_pqaa.json` at the path above and rerun. Set `AUTO_DOWNLOAD_PUBMEDQA_RAW=0` to fail fast instead of downloading.
+
 This wraps the research runner with safer 4080 defaults:
 
 ```text
