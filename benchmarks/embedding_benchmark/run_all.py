@@ -35,8 +35,14 @@ def main() -> None:
     args.output_root.mkdir(parents=True, exist_ok=True)
 
     pipeline_log.info("Starting pipeline models=%s", selected_models)
-    stages_per_model = int(not args.skip_embedding) + int(not args.skip_index) + int(not args.skip_eval)
-    stage_total = len(selected_models) * stages_per_model + int(not args.skip_aggregate)
+    run_pubmedqa_pipeline_eval = not args.skip_pubmedqa_pipeline_eval
+    stages_per_model = (
+        int(not args.skip_embedding)
+        + int(not args.skip_index)
+        + int(not args.skip_eval)
+        + int(run_pubmedqa_pipeline_eval)
+    )
+    stage_total = len(selected_models) * stages_per_model + int(not args.skip_aggregate) + int(not args.skip_aggregate and run_pubmedqa_pipeline_eval)
     stage_done = 0
     core_models = [model for model in selected_models if model not in HEAVY_MODELS]
     core_aggregate_written = False
@@ -91,6 +97,14 @@ def main() -> None:
                     force=True,
                     extra=f"model={model_slug} stage=evaluation model_index={model_index}/{len(selected_models)}",
                 )
+            if run_pubmedqa_pipeline_eval:
+                _run_pubmedqa_pipeline_stage(args, model_slug, pipeline_log)
+                stage_done += 1
+                pipeline_progress.update(
+                    stage_done,
+                    force=True,
+                    extra=f"model={model_slug} stage=pubmedqa_pipeline model_index={model_index}/{len(selected_models)}",
+                )
 
             append_jsonl(
                 args.output_root / "pipeline_events.jsonl",
@@ -143,6 +157,10 @@ def main() -> None:
         )
         stage_done += 1
         pipeline_progress.update(stage_done, force=True, extra="stage=aggregate")
+        if run_pubmedqa_pipeline_eval:
+            _run_pubmedqa_pipeline_aggregate_stage(args, selected_models, pipeline_log)
+            stage_done += 1
+            pipeline_progress.update(stage_done, force=True, extra="stage=pubmedqa_pipeline_aggregate")
     write_json_atomic(state_path, {"updated_at": now_iso(), "stage": "complete", "models": selected_models})
     pipeline_log.info("Pipeline complete")
 
@@ -187,6 +205,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--autotune-step", type=int, default=1)
     parser.add_argument("--autotune-safety-factor", type=float, default=0.85)
     parser.add_argument("--force-autotune", action="store_true")
+    parser.add_argument("--skip-pubmedqa-pipeline-eval", action="store_true")
+    parser.add_argument("--pubmedqa-dataset", type=Path, default=Path("data/benchmarks/pubmedqa/official_pqal_test/eval.json"))
+    parser.add_argument("--pubmedqa-corpus", type=Path, default=Path("data/benchmarks/pubmedqa/official_pqal_test/corpus.json"))
+    parser.add_argument("--pubmedqa-candidate-k", type=int, default=20)
+    parser.add_argument("--pubmedqa-top-k", type=int, default=3)
+    parser.add_argument("--pubmedqa-llm-model", default=os.getenv("PUBMEDQA_EVAL_MODEL", os.getenv("OLLAMA_MODEL", "qwen2.5:7b")))
+    parser.add_argument("--pubmedqa-ollama-url", default=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+    parser.add_argument("--pubmedqa-temperature", type=float, default=float(os.getenv("PUBMEDQA_EVAL_TEMPERATURE", "0.0")))
+    parser.add_argument("--pubmedqa-cross-encoder-model", default="ncbi/MedCPT-Cross-Encoder")
+    parser.add_argument("--pubmedqa-cross-encoder-device")
+    parser.add_argument("--pubmedqa-force", action="store_true")
     parser.add_argument("--stop-on-error", action="store_true")
     return parser.parse_args()
 
@@ -515,6 +544,76 @@ def _run_aggregate_stage(args: argparse.Namespace, models: list[str], log: Any, 
             args.precision,
             "--out-dir",
             str(out_dir),
+            "--models",
+            *models,
+        ],
+        cwd=args.project_root,
+        env=_env(args),
+        log=log,
+    )
+
+
+def _run_pubmedqa_pipeline_stage(args: argparse.Namespace, model_slug: str, log: Any) -> None:
+    _run_command(
+        _base_python_args(args)
+        + [
+            "-m",
+            "embedding_benchmark.evaluate_pubmedqa_pipeline",
+            "--model",
+            model_slug,
+            "--registry",
+            str(args.registry),
+            "--dataset",
+            str(args.pubmedqa_dataset),
+            "--pubmedqa-corpus",
+            str(args.pubmedqa_corpus),
+            "--output-root",
+            str(args.output_root),
+            "--precision",
+            args.precision,
+            "--device",
+            args.eval_device,
+            "--qdrant-url",
+            args.qdrant_url,
+            "--collection-prefix",
+            args.collection_prefix,
+            "--dense-vector-name",
+            args.dense_vector_name,
+            "--candidate-k",
+            str(args.pubmedqa_candidate_k),
+            "--top-k",
+            str(args.pubmedqa_top_k),
+            "--llm-model",
+            args.pubmedqa_llm_model,
+            "--ollama-url",
+            args.pubmedqa_ollama_url,
+            "--temperature",
+            str(args.pubmedqa_temperature),
+            "--cross-encoder-model",
+            args.pubmedqa_cross_encoder_model,
+        ]
+        + (["--cross-encoder-device", args.pubmedqa_cross_encoder_device] if args.pubmedqa_cross_encoder_device else [])
+        + (["--force"] if args.pubmedqa_force else []),
+        cwd=args.project_root,
+        env=_env(args),
+        log=log,
+    )
+
+
+def _run_pubmedqa_pipeline_aggregate_stage(args: argparse.Namespace, models: list[str], log: Any) -> None:
+    _run_command(
+        _base_python_args(args)
+        + [
+            "-m",
+            "embedding_benchmark.aggregate_pubmedqa_pipeline",
+            "--registry",
+            str(args.registry),
+            "--output-root",
+            str(args.output_root),
+            "--precision",
+            args.precision,
+            "--out-dir",
+            str(args.output_root / "reports" / "pubmedqa_pipeline"),
             "--models",
             *models,
         ],

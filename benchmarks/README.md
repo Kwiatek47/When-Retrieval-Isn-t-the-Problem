@@ -12,10 +12,76 @@ pip install -r benchmarks/requirements.txt
 
 ## Run
 
-Start Qdrant separately, then:
+Run everything with one command:
 
 ```bash
 benchmarks/runall.sh
+```
+
+The wrapper checks required local services before the classifier and embedding stages start:
+
+- Qdrant: if `QDRANT_URL` is not responding, it runs `docker compose up -d qdrant`.
+- Ollama: if `OLLAMA_BASE_URL` is not responding and PubMedQA pipeline eval is enabled, it runs `ollama serve` in the background and pulls `OLLAMA_MODEL`.
+
+Useful service controls:
+
+```bash
+AUTO_START_SERVICES=0 benchmarks/runall.sh
+AUTO_START_QDRANT=0 benchmarks/runall.sh
+AUTO_START_OLLAMA=0 benchmarks/runall.sh
+AUTO_PULL_OLLAMA_MODEL=0 benchmarks/runall.sh
+OLLAMA_MODEL=qwen2.5:7b benchmarks/runall.sh
+```
+
+If you run only the static embedding retrieval benchmark with `--skip-pubmedqa-pipeline-eval`, Ollama is not required.
+
+By default the wrapper first runs the full PubMedQA classifier experiment profile from
+`scripts/classifier/run_pubmedqa_2x4080_full_experiments.sh`, then starts the embedding benchmark.
+That entrypoint sets the 2x RTX 4080 profile and delegates shared logic to
+`scripts/classifier/run_pubmedqa_research_experiments.sh`.
+Classifier outputs are written under:
+
+```text
+artifacts/classifier/pubmedqa_research_2x4080_*/
+```
+
+At the start of the classifier run, the shared runner checks:
+
+```text
+data/raw/pubmedqa_official/data/ori_pqal.json
+data/raw/pubmedqa_official/data/ori_pqaa.json
+```
+
+If either file is missing, it tries to download the official PubMedQA raw sources first. If Google Drive blocks the
+PQA-A download, manually place `ori_pqaa.json` at the path above and rerun the same command.
+
+The classifier run is independent from the embedding PubMedQA benchmark. It is produced first so the classifier artifacts
+are available for later work, but the embedding PubMedQA benchmark below does not use that classifier checkpoint.
+To run only embedding benchmarks, skip the classifier pre-run:
+
+```bash
+RUN_CLASSIFIER_FIRST=0 benchmarks/runall.sh
+```
+
+By default, the embedding benchmark also runs PubMedQA PQA-L 500 pipeline evaluation for every embedding model. It uses
+the benchmark RAG prompt and parses the generated `yes`/`no`/`maybe` answer from the LLM response:
+
+```bash
+RUN_CLASSIFIER_FIRST=0 benchmarks/runall.sh
+```
+
+This keeps the retrieval benchmark unchanged, then for each embedding model it:
+
+1. uses the model-specific Qdrant collection already built from `data/processed/chunks_shard_0.parquet` and `data/processed/chunks_shard_1.parquet`,
+2. runs PubMedQA PQA-L 500 questions against that large-corpus collection,
+3. runs the current RAG pipeline components: `PreRetriever`, benchmark-model retriever, `PostRetriever` with cross-encoder reranking and evidence filtering, PubMedQA evidence expansion, and benchmark-mode LLM answer generation.
+
+If you pass `--skip-index`, make sure the large-corpus Qdrant collections already exist for every selected model.
+
+To skip PubMedQA pipeline evaluation and run only the static embedding retrieval benchmark:
+
+```bash
+benchmarks/runall.sh --skip-pubmedqa-pipeline-eval
 ```
 
 The wrapper accepts the same arguments as `embedding_benchmark.run_all`, so a subset works like this:
@@ -106,6 +172,21 @@ data/benchmarks/embedding_benchmark/reports/full_with_qwen4b_8b/model_comparison
 
 The core report is emitted as soon as the first seven models finish, before `qwen3_4b` and `qwen3_8b` start dominating runtime.
 
+PubMedQA pipeline outputs are written separately:
+
+```text
+data/benchmarks/embedding_benchmark/<model_slug>/fp16/
+  pubmedqa_pipeline/
+    results.jsonl
+    summary.json
+    report.md
+
+data/benchmarks/embedding_benchmark/reports/pubmedqa_pipeline/
+  pubmedqa_pipeline_comparison.csv
+  pubmedqa_pipeline_comparison.json
+  pubmedqa_pipeline_comparison.md
+```
+
 Qdrant build outputs:
 
 ```text
@@ -164,6 +245,8 @@ make -C benchmarks package
 ```
 
 This creates `benchmarks/dist/embedding_benchmark_package.zip` with benchmark code, model registry, static query set, requirements and Makefile.
+The archive also includes the app pipeline modules, classifier scripts, RAG/eval scripts, root requirements, and Docker/Qdrant
+configuration because the PubMedQA pipeline eval imports the current RAG reranker/evidence-judge path.
 
 For a server-ready archive with input data included:
 
@@ -176,7 +259,23 @@ This creates `benchmarks/dist/embedding_benchmark_full_package.zip` and includes
 ```text
 benchmarks/
 benchmarks/runall.sh
-data/processed/chunks.parquet
-data/processed/chunks_shard_0.parquet
-data/processed/chunks_shard_1.parquet
+app/
+scripts/classifier/
+scripts/eval/
+scripts/rag/
+qdrant/
+services/embedding-service/
+requirements.txt
+requirements-dev.txt
+docker-compose.yml
+docker-compose.cpu.yml
+docker-compose.gpu.yml
+data/benchmarks/
 ```
+
+PubMedQA pipeline evaluation uses the large processed corpus shard parquet files under `data/processed/`, not the small
+`data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet` file. Those large shard files are intentionally excluded
+from the archive, so put them on the target machine separately before running the benchmark.
+
+If `data/raw/pubmedqa_official/` exists locally, it is included in `package-full` too. This is optional: when those raw
+files are absent, the classifier runner bootstraps them at the beginning of `make classifier-train-2x4080-full`.

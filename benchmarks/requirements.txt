@@ -4,4 +4,5 @@ qdrant-client
 sentence-transformers
 torch
 transformers
-
+httpx
+pydantic

@@ -7,24 +7,57 @@ PACKAGE_NAME ?= embedding_benchmark_package.zip
 FULL_PACKAGE_NAME ?= embedding_benchmark_full_package.zip
 DATA_DIR ?= $(PROJECT_ROOT)/data/processed
 
+COMMON_PACKAGE_PATHS := \
+	.env.example \
+	Makefile \
+	README.md \
+	pyproject.toml \
+	requirements.txt \
+	requirements-dev.txt \
+	docker-compose.yml \
+	docker-compose.cpu.yml \
+	docker-compose.gpu.yml \
+	benchmarks/embedding_benchmark \
+	benchmarks/requirements.txt \
+	benchmarks/Makefile \
+	benchmarks/README.md \
+	benchmarks/runall.sh \
+	app \
+	qdrant \
+	services/embedding-service \
+	scripts/classifier \
+	scripts/eval \
+	scripts/rag
+
+FULL_DATA_PATHS := \
+	data/benchmarks
+
+OPTIONAL_FULL_DATA_PATHS := $(patsubst ../%,%,$(wildcard ../data/raw/pubmedqa_official))
+
+ZIP_EXCLUDES := \
+	-x "*/__pycache__/*" \
+	-x "*.pyc" \
+	-x "data/processed/*.parquet" \
+	-x "data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet" \
+	-x "benchmarks/dist/*" \
+	-x "*/.pytest_cache/*" \
+	-x "*/.ruff_cache/*"
+
 .PHONY: package package-full list-models run-all run-one clean-package
 
 package:
 	mkdir -p $(DIST_DIR)
-	cd .. && zip -r benchmarks/$(DIST_DIR)/$(PACKAGE_NAME) benchmarks/embedding_benchmark benchmarks/requirements.txt benchmarks/Makefile benchmarks/README.md benchmarks/runall.sh -x "*/__pycache__/*" "*.pyc"
+	cd .. && zip -r benchmarks/$(DIST_DIR)/$(PACKAGE_NAME) \
+		$(COMMON_PACKAGE_PATHS) \
+		$(ZIP_EXCLUDES)
 
 package-full:
 	mkdir -p $(DIST_DIR)
 	cd .. && zip -r benchmarks/$(DIST_DIR)/$(FULL_PACKAGE_NAME) \
-		benchmarks/embedding_benchmark \
-		benchmarks/requirements.txt \
-		benchmarks/Makefile \
-		benchmarks/README.md \
-		benchmarks/runall.sh \
-		data/processed/chunks.parquet \
-		data/processed/chunks_shard_0.parquet \
-		data/processed/chunks_shard_1.parquet \
-		-x "*/__pycache__/*" "*.pyc"
+		$(COMMON_PACKAGE_PATHS) \
+		$(FULL_DATA_PATHS) \
+		$(OPTIONAL_FULL_DATA_PATHS) \
+		$(ZIP_EXCLUDES)
 
 list-models:
 	PYTHONPATH=$(PROJECT_ROOT)/benchmarks $(PYTHON) -c "import json; data=json.load(open('$(PROJECT_ROOT)/benchmarks/embedding_benchmark/config/model_registry.json')); print('\n'.join(data['models'].keys()))"
