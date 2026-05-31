@@ -79,7 +79,7 @@ classifier-audit:
 	$(PY) scripts/classifier/audit_pubmedqa_classifier_data.py
 
 classifier-train-h100:
-	PYTHON_BIN=$(PY) scripts/classifier/run_pubmedqa_h100_experiments.sh
+	PYTHON_BIN=$(PY) scripts/classifier/run_pubmedqa_research_experiments.sh
 
 clean-local:
 	rm -rf reports/* data/processed data/embeddings data/indexes data/telemetry .ruff_cache

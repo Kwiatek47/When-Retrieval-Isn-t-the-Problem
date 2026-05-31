@@ -293,12 +293,6 @@ If DeBERTa-large still hits OOM, rerun with:
 BATCH_SIZE=2 EVAL_BATCH_SIZE=4 GRADIENT_ACCUMULATION=16 make classifier-train-2x4080-full
 ```
 
-For a research run on a single H100, use the ablation runner:
-
-```bash
-make classifier-train-h100
-```
-
 It prepares leakage-checked splits and trains:
 
 - PQA-L only,
@@ -307,7 +301,7 @@ It prepares leakage-checked splits and trains:
 - optional biomedical encoder ablation,
 - a 3-seed sweep for the selected best variant.
 
-The H100 runner uses bf16, gradient checkpointing, class-weighted focal loss, macro-F1 model selection, dev-only
+The research runner uses bf16, gradient checkpointing, class-weighted focal loss, macro-F1 model selection, dev-only
 threshold tuning, and a JSONL command log. Large checkpoints stay under ignored `artifacts/classifier/...`; small
 audits and reports can be copied into `reports/classifier/`.
 

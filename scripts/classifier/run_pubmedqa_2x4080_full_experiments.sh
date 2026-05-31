@@ -20,4 +20,4 @@ export RUN_SEED_SWEEP="${RUN_SEED_SWEEP:-1}"
 # Sweep only the additional seeds by default, giving final seeds 47/123/2026 without duplicate work.
 export SEEDS="${SEEDS:-123 2026}"
 
-exec scripts/classifier/run_pubmedqa_h100_experiments.sh
+exec scripts/classifier/run_pubmedqa_research_experiments.sh
