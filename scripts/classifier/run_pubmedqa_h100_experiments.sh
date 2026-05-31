@@ -38,6 +38,15 @@ AUX_WEIGHT="${AUX_WEIGHT:-0.10}"
 mkdir -p "${RUN_ROOT}" "${DATA_ROOT}"
 COMMAND_LOG="${RUN_ROOT}/command_log.jsonl"
 
+echo "==> PubMedQA classifier research run"
+echo "    RUN_ROOT=${RUN_ROOT}"
+echo "    DATA_ROOT=${DATA_ROOT}"
+echo "    MODEL_NAMES=${MODEL_NAMES}"
+echo "    BIOMED_MODEL_NAMES=${BIOMED_MODEL_NAMES}"
+echo "    NPROC_PER_NODE=${NPROC_PER_NODE} BATCH_SIZE=${BATCH_SIZE} EVAL_BATCH_SIZE=${EVAL_BATCH_SIZE}"
+echo "    GRADIENT_ACCUMULATION=${GRADIENT_ACCUMULATION} EPOCHS=${EPOCHS}"
+echo "    COMMAND_LOG=${COMMAND_LOG}"
+
 log_command() {
   local name="$1"
   shift
@@ -70,6 +79,8 @@ run_prepare() {
     "$@"
   )
   log_command "prepare_${name}" "${cmd[@]}"
+  echo "==> Preparing dataset ${name}"
+  echo "    out_dir=${out_dir}"
   "${cmd[@]}"
 }
 
@@ -115,6 +126,10 @@ run_train() {
     cmd+=(--aux-long-answer-bow --aux-long-answer-bow-weight "${AUX_WEIGHT}")
   fi
   log_command "train_${dataset_name}_${safe_model}_seed_${seed}" "${cmd[@]}"
+  mkdir -p "$(dirname "${out_dir}")"
+  echo "==> Training dataset=${dataset_name} model=${model_name} seed=${seed} aux=${aux_flag}"
+  echo "    out_dir=${out_dir}"
+  echo "    live_log=${out_dir}.log"
   TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS="${OMP_NUM_THREADS:-16}" "${cmd[@]}" 2>&1 | tee "${out_dir}.log"
 }
 
