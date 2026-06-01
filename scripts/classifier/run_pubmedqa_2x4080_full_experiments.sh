@@ -15,6 +15,7 @@ export NUM_WORKERS="${NUM_WORKERS:-4}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
 export RUN_BIOMED_ABLATION="${RUN_BIOMED_ABLATION:-1}"
 export RUN_SEED_SWEEP="${RUN_SEED_SWEEP:-1}"
+export GRADIENT_CHECKPOINTING="${GRADIENT_CHECKPOINTING:-1}"
 
 # The ablation loop already trains the best default variant once with seed 47.
 # Sweep only the additional seeds by default, giving final seeds 47/123/2026 without duplicate work.

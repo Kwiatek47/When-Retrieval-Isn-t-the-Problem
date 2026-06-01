@@ -35,6 +35,7 @@ MAX_TRAIN_PER_LABEL="${MAX_TRAIN_PER_LABEL:-20000}"
 MAX_DEV_PER_LABEL="${MAX_DEV_PER_LABEL:-500}"
 FOCAL_LOSS_GAMMA="${FOCAL_LOSS_GAMMA:-1.5}"
 AUX_WEIGHT="${AUX_WEIGHT:-0.10}"
+GRADIENT_CHECKPOINTING="${GRADIENT_CHECKPOINTING:-0}"
 
 mkdir -p "${RUN_ROOT}" "${DATA_ROOT}"
 COMMAND_LOG="${RUN_ROOT}/command_log.jsonl"
@@ -48,6 +49,7 @@ echo "    MODEL_NAMES=${MODEL_NAMES}"
 echo "    BIOMED_MODEL_NAMES=${BIOMED_MODEL_NAMES}"
 echo "    NPROC_PER_NODE=${NPROC_PER_NODE} BATCH_SIZE=${BATCH_SIZE} EVAL_BATCH_SIZE=${EVAL_BATCH_SIZE}"
 echo "    GRADIENT_ACCUMULATION=${GRADIENT_ACCUMULATION} EPOCHS=${EPOCHS}"
+echo "    GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING}"
 echo "    COMMAND_LOG=${COMMAND_LOG}"
 
 log_command() {
@@ -186,7 +188,6 @@ run_train() {
     --seed "${seed}"
     --selection-metric macro_f1
     --amp bf16
-    --gradient-checkpointing
     --class-weighted-loss
     --no-balanced-sampling
     --focal-loss-gamma "${FOCAL_LOSS_GAMMA}"
@@ -195,6 +196,11 @@ run_train() {
     --num-workers "${NUM_WORKERS}"
     --log-every 25
   )
+  if [[ "${GRADIENT_CHECKPOINTING}" == "1" ]]; then
+    cmd+=(--gradient-checkpointing)
+  else
+    cmd+=(--no-gradient-checkpointing)
+  fi
   if [[ "${aux_flag}" == "aux" ]]; then
     cmd+=(--aux-long-answer-bow --aux-long-answer-bow-weight "${AUX_WEIGHT}")
   fi
