@@ -773,6 +773,7 @@ def _fit_temperature(*, torch: Any, model: Any, loader: Any, device: Any, amp: s
         for batch in loader:
             batch = {key: value.to(device, non_blocking=True) for key, value in batch.items()}
             labels = batch.pop("labels")
+            batch.pop("aux_bow", None)
             with _autocast(torch, device=device, amp=amp):
                 logits = model(**batch).logits
             logits_list.append(logits)
