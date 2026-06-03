@@ -2,6 +2,10 @@
 
 Struktura przed scaleniem do `data/processed/chunks.parquet`. Każdy korpus ma własny katalog w `data/raw/` i `data/interim/`.
 
+End-to-end instrukcja dla NICE + PubMed, transferu lokalnych artefaktów, merge,
+indeksowania Qdrant i testu cytowań jest w
+[`docs/data/rag-corpus-runbook.md`](../../docs/data/rag-corpus-runbook.md).
+
 ## Układ
 
 ```text

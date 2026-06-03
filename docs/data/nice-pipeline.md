@@ -2,6 +2,9 @@
 
 Zgodnie z notatką o architekturze RAG: najpierw **layout-aware parsing → Markdown + metadane dokumentu**, potem (na końcu) adaptacyjny chunking i jeden `chunks.parquet` łączący PubMed, wytyczne i etykiety.
 
+Praktyczny przepływ end-to-end od lokalnych parquetów do indeksu Qdrant i testu
+cytowań w chatbocie jest w [`rag-corpus-runbook.md`](rag-corpus-runbook.md).
+
 ## Pobieranie wszystkich wytycznych (bez ręcznych ID)
 
 Katalog (~2561 opublikowanych pozycji) jest pobierany ze strony NICE (`__NEXT_DATA__`, paginacja `?pa=1&ps=500`):
