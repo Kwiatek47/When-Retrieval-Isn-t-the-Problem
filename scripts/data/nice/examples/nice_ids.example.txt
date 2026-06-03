@@ -1,0 +1,5 @@
+# One NICE guidance id per line (case insensitive).
+# Examples:
+TA1158
+# NG28
+# CG181

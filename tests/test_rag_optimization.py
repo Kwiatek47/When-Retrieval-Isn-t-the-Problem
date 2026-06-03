@@ -17,7 +17,7 @@ from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDoc
 from app.rag.pipeline import RagPipeline
 from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
-from app.rag.retrieval import _expanded_candidate_limit, _metadata_boost_documents, _weighted_rrf_merge
+from app.rag.retrieval import QdrantHybridKnowledgeRetriever, _expanded_candidate_limit, _metadata_boost_documents, _weighted_rrf_merge
 from app.schemas import ChatMessage, ChatResponse, EvidenceConflictInfo, EvidenceDecisionInfo, RetrievalInfo
 
 
@@ -67,6 +67,33 @@ class RagRankingTests(unittest.TestCase):
         self.assertIn("systematic_review", ranked[0].metadata["metadataBoostReasons"])
         self.assertIn("weak_publication_type", ranked[1].metadata["metadataBoostReasons"])
 
+    def test_metadata_boost_recognizes_nice_guideline_chunks(self) -> None:
+        query = PreRetrievalResult(
+            original_query="NICE AMR1 leczenie zakażeń gram-negative",
+            normalized_query="NICE AMR1 leczenie zakażeń gram-negative",
+            search_queries=["NICE AMR1 leczenie zakażeń gram-negative"],
+            requires_retrieval=True,
+            intent="treatment",
+            preferred_publication_types=["Guideline"],
+        )
+        nice = RetrievedDocument(
+            id="nice-amr1",
+            title="Ceftazidime with avibactam",
+            content="Ceftazidime-avibactam is recommended as an option for severe drug-resistant infections.",
+            source="NICE AMR1",
+            score=0.0100,
+            metadata={
+                "sourceName": "NICE",
+                "sourceType": "guideline",
+                "externalId": "AMR1",
+                "guidanceType": "antimicrobial_resistance_guidance",
+            },
+        )
+
+        ranked = _metadata_boost_documents([nice], query=query, limit=1)
+
+        self.assertIn("nice_guideline", ranked[0].metadata["metadataBoostReasons"])
+
     def test_rerank_query_keeps_original_query_and_rewrite(self) -> None:
         post_retriever = PostRetriever(max_context_chars=1000, final_documents_limit=3)
         query = PreRetrievalResult(
@@ -85,6 +112,40 @@ class RagRankingTests(unittest.TestCase):
         self.assertIn("PAD", rerank_query)
         self.assertIn("guideline therapy", rerank_query)
         self.assertLessEqual(len(rerank_query), 512)
+
+    def test_pre_retriever_extracts_explicit_nice_filters(self) -> None:
+        pre_retriever = PreRetriever(
+            ollama_base_url="http://localhost:11434",
+            rewrite_model="",
+            rewrite_timeout=0.1,
+            active_corpus_version="medical-knowledge-v1",
+        )
+
+        filters = pre_retriever._extract_filters("NICE AMR1 ceftazidime avibactam")
+
+        self.assertEqual(filters["corpusVersion"], "medical-knowledge-v1")
+        self.assertEqual(filters["source"], "nice")
+        self.assertEqual(filters["externalId"], "AMR1")
+
+    def test_qdrant_retriever_maps_nice_payload_metadata(self) -> None:
+        retriever = QdrantHybridKnowledgeRetriever(
+            qdrant_client=object(),
+            embedding_http_client=object(),
+            collection_name="test",
+        )
+        payload = {
+            "source": "nice",
+            "sourceName": "NICE",
+            "sourceType": "guideline",
+            "externalId": "AMR1",
+            "guidanceType": "antimicrobial_resistance_guidance",
+            "headerPath": "AMR1 -> 1 Recommendations -> 1.1",
+        }
+
+        self.assertEqual(retriever._source_from_payload(payload), "NICE AMR1")
+        metadata = retriever._metadata_from_payload(payload)
+        self.assertEqual(metadata["externalId"], "AMR1")
+        self.assertEqual(metadata["headerPath"], "AMR1 -> 1 Recommendations -> 1.1")
 
     def test_evidence_scoring_uses_best_query_variant_for_term_coverage(self) -> None:
         post_retriever = PostRetriever(max_context_chars=1000, final_documents_limit=3)
@@ -268,6 +329,34 @@ class RagRankingTests(unittest.TestCase):
         self.assertIn("SOURCE_PRIORITY", context)
         self.assertIn("Use [S1] [S2] first", context)
 
+    def test_context_includes_nice_guidance_metadata(self) -> None:
+        post_retriever = PostRetriever(max_context_chars=2000, final_documents_limit=1)
+        query = PreRetrievalResult(
+            original_query="NICE AMR1 ceftazidime avibactam",
+            normalized_query="NICE AMR1 ceftazidime avibactam",
+            search_queries=["NICE AMR1 ceftazidime avibactam"],
+            requires_retrieval=True,
+            intent="treatment",
+        )
+        document = RetrievedDocument(
+            id="nice-amr1:chunk:0000",
+            title="Ceftazidime with avibactam",
+            content="Ceftazidime-avibactam is recommended as an option.",
+            source="NICE AMR1",
+            score=1.0,
+            metadata={
+                "externalId": "AMR1",
+                "guidanceType": "antimicrobial_resistance_guidance",
+                "headerPath": "Ceftazidime with avibactam -> 1 Recommendations -> 1.1",
+            },
+        )
+
+        context, citations = post_retriever._build_context([document], query)
+
+        self.assertEqual(citations[0].metadata["externalId"], "AMR1")
+        self.assertIn("Guidance ID: AMR1", context)
+        self.assertIn("Section: Ceftazidime with avibactam -> 1 Recommendations -> 1.1", context)
+
     def test_answer_guardrail_keeps_guideline_recommendation(self) -> None:
         answer = "SGLT2 inhibitors are recommended for CKD [S1]."
         source = RetrievedDocument(
@@ -276,6 +365,18 @@ class RagRankingTests(unittest.TestCase):
             content="SGLT2 inhibitors are recommended for chronic kidney disease.",
             source="pubmed",
             metadata={"publicationTypes": ["Guideline"]},
+        )
+
+        self.assertEqual(apply_answer_guardrails(answer, [source]), answer)
+
+    def test_answer_guardrail_keeps_nice_guideline_recommendation(self) -> None:
+        answer = "Ceftazidime-avibactam is recommended as an option [S1]."
+        source = RetrievedDocument(
+            id="nice-amr1",
+            title="Ceftazidime with avibactam",
+            content="Ceftazidime-avibactam is recommended as an option.",
+            source="NICE AMR1",
+            metadata={"sourceName": "NICE", "sourceType": "guideline", "externalId": "AMR1"},
         )
 
         self.assertEqual(apply_answer_guardrails(answer, [source]), answer)

@@ -192,7 +192,12 @@ def _has_guideline_citation(sentence: str, source_by_id: dict[str, RetrievedDocu
 
 def _is_guideline_source(document: RetrievedDocument) -> bool:
     publication_types = _publication_types(document.metadata.get("publicationTypes"))
-    return bool(publication_types & _GUIDELINE_TYPES)
+    if publication_types & _GUIDELINE_TYPES:
+        return True
+    source_name = str(document.metadata.get("sourceName") or "").lower()
+    source_type = str(document.metadata.get("sourceType") or "").lower()
+    guidance_type = str(document.metadata.get("guidanceType") or "").lower()
+    return source_name == "nice" or source_type == "guideline" or bool(guidance_type)
 
 
 def _publication_types(value: object) -> set[str]:

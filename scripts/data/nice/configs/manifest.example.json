@@ -1,0 +1,26 @@
+{
+  "dataset_name": "nice_guidelines_v1",
+  "corpus": "nice",
+  "source_type": "guideline",
+  "source_name": "NICE",
+  "created_at": "2026-06-02",
+  "schema_version": "documents_schema_v1",
+  "stage": "preprocessing",
+  "files": {
+    "documents": "documents.parquet",
+    "chunks": "chunks.parquet",
+    "chunks_clinical": "chunks_clinical.parquet",
+    "markdown_raw_dir": "markdown/",
+    "markdown_clean_dir": "markdown_clean/",
+    "quality_notes": "quality_notes.md"
+  },
+  "parsing": {
+    "default_parser": "pymupdf4llm",
+    "output_format": "markdown"
+  },
+  "next_steps": [
+    "boilerplate_removal",
+    "adaptive_chunking",
+    "merge_into_data_processed_chunks_parquet"
+  ]
+}

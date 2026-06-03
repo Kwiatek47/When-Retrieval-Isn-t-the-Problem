@@ -241,6 +241,8 @@ class PostRetriever:
             scores.append(1.0)
         if "guideline" in publication_types:
             scores.append(0.95)
+        if self._is_nice_guideline(metadata):
+            scores.append(1.0)
         if "systematic review" in publication_types:
             scores.append(0.90)
         if "meta-analysis" in publication_types:
@@ -317,6 +319,8 @@ class PostRetriever:
             publication_types = {item.lower() for item in self._publication_types(document.metadata)}
             if publication_types & high_authority_types:
                 return True
+            if self._is_nice_guideline(document.metadata):
+                return True
             if str(document.metadata.get("isSystematicReview")).lower() == "true":
                 return True
         return False
@@ -385,6 +389,9 @@ class PostRetriever:
                         f"Source: {document.source}",
                         f"PMID: {document.metadata.get('pmid') or '-'}",
                         f"DOI: {document.metadata.get('doi') or '-'}",
+                        f"Guidance ID: {document.metadata.get('externalId') or '-'}",
+                        f"Guidance type: {document.metadata.get('guidanceType') or '-'}",
+                        f"Section: {document.metadata.get('headerPath') or document.metadata.get('section') or '-'}",
                         f"Year: {document.metadata.get('year') or '-'}",
                         f"Publication types: {', '.join(self._publication_types(document.metadata)) or '-'}",
                         f"Evidence score: {document.score:.4f}",
@@ -585,6 +592,13 @@ class PostRetriever:
                 stripped = stripped.strip("[]")
             return [item.strip().strip("'\"") for item in re.split(r"[;,]", stripped) if item.strip().strip("'\"")]
         return [str(item).strip() for item in value if str(item).strip()]
+
+    def _is_nice_guideline(self, metadata: dict[str, Any]) -> bool:
+        source_name = str(metadata.get("sourceName") or "").lower()
+        source_type = str(metadata.get("sourceType") or "").lower()
+        guidance_type = str(metadata.get("guidanceType") or "").lower()
+        external_id = str(metadata.get("externalId") or "").lower()
+        return source_name == "nice" or source_type == "guideline" or bool(guidance_type and external_id)
 
     def _optional_int(self, value: Any) -> int | None:
         try:

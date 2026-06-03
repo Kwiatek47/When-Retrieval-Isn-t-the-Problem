@@ -40,13 +40,19 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
     "chunkId": models.PayloadSchemaType.KEYWORD,
     "documentId": models.PayloadSchemaType.KEYWORD,
     "pmid": models.PayloadSchemaType.KEYWORD,
+    "externalId": models.PayloadSchemaType.KEYWORD,
     "doi": models.PayloadSchemaType.KEYWORD,
     "title": models.PayloadSchemaType.TEXT,
     "journal": models.PayloadSchemaType.KEYWORD,
     "year": models.PayloadSchemaType.INTEGER,
     "source": models.PayloadSchemaType.KEYWORD,
+    "sourceType": models.PayloadSchemaType.KEYWORD,
+    "sourceName": models.PayloadSchemaType.KEYWORD,
     "url": models.PayloadSchemaType.KEYWORD,
     "section": models.PayloadSchemaType.KEYWORD,
+    "sectionName": models.PayloadSchemaType.KEYWORD,
+    "headerPath": models.PayloadSchemaType.TEXT,
+    "guidanceType": models.PayloadSchemaType.KEYWORD,
     "publicationDate": models.PayloadSchemaType.KEYWORD,
     "publicationTypes": models.PayloadSchemaType.KEYWORD,
     "isReview": models.PayloadSchemaType.BOOL,
@@ -544,18 +550,26 @@ def _chunk_from_row(row: dict[str, Any], *, index: int) -> dict[str, Any]:
 
     return {
         "chunk_id": chunk_id,
-        "doc_id": _clean_str(row.get("doc_id")) or chunk_id,
+        "doc_id": _clean_str(row.get("doc_id")) or _clean_str(row.get("document_id")) or chunk_id,
+        "document_id": _clean_str(row.get("document_id")) or _clean_str(row.get("doc_id")) or chunk_id,
         "pmid": _clean_str(row.get("pmid")),
+        "external_id": _clean_str(row.get("external_id")),
         "title": _clean_str(row.get("title")) or "Untitled medical chunk",
         "text": text,
         "source": _clean_str(row.get("source")) or "pubmed",
+        "source_type": _clean_str(row.get("source_type")),
+        "source_name": _clean_str(row.get("source_name")),
         "url": _clean_str(row.get("url")),
+        "source_url": _clean_str(row.get("source_url")),
         "doi": _clean_str(row.get("doi")),
         "year": _to_int(row.get("year")),
         "publication_date": _clean_str(row.get("publication_date")),
         "publication_types": _as_str_list(row.get("publication_types")),
         "journal": _clean_str(row.get("journal")),
         "section": _clean_str(row.get("section")) or "abstract",
+        "section_name": _clean_str(row.get("section_name")),
+        "header_path": _clean_str(row.get("header_path")),
+        "guidance_type": _clean_str(row.get("guidance_type")),
         "is_review": _to_bool(row.get("is_review")),
         "is_systematic_review": _to_bool(row.get("is_systematic_review")),
         "word_count": _to_int(row.get("word_count")),
@@ -648,6 +662,13 @@ def _build_point(
         "parentChunkId": chunk["parent_chunk_id"],
         "parentWordCount": chunk["parent_word_count"],
         "textHash": chunk["text_hash"],
+        "externalId": chunk["external_id"],
+        "sourceType": chunk["source_type"],
+        "sourceName": chunk["source_name"],
+        "sourceUrl": chunk["source_url"],
+        "sectionName": chunk["section_name"],
+        "headerPath": chunk["header_path"],
+        "guidanceType": chunk["guidance_type"],
         "embeddingModel": embedding_model,
         "corpusVersion": args.corpus_version,
     }
@@ -729,6 +750,9 @@ def _sparse_text(chunk: dict[str, Any]) -> str:
             chunk["text"],
             chunk["journal"],
             chunk["pmid"],
+            chunk["external_id"],
+            chunk["guidance_type"],
+            chunk["header_path"],
             chunk["doi"],
             " ".join(chunk["publication_types"]),
         ]
@@ -738,6 +762,8 @@ def _sparse_text(chunk: dict[str, Any]) -> str:
 def _source_url(chunk: dict[str, Any]) -> str:
     if chunk["url"]:
         return chunk["url"]
+    if chunk.get("source_url"):
+        return chunk["source_url"]
     if chunk["pmid"]:
         return f"https://pubmed.ncbi.nlm.nih.gov/{chunk['pmid']}/"
     return chunk["source"]

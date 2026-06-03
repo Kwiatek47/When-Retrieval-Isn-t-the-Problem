@@ -117,6 +117,22 @@ class QdrantMedicalRetriever:
                     match=models.MatchValue(value=corpus_version),
                 )
             )
+        source = str(metadata_filter.get("source") or "").strip()
+        if source:
+            must.append(
+                models.FieldCondition(
+                    key="source",
+                    match=models.MatchValue(value=source),
+                )
+            )
+        external_ids = _csv_values(metadata_filter.get("externalId"))
+        if external_ids:
+            must.append(
+                models.FieldCondition(
+                    key="externalId",
+                    match=models.MatchAny(any=external_ids),
+                )
+            )
         min_year = _optional_int(metadata_filter.get("min_year"))
         if min_year is not None:
             must.append(
@@ -154,6 +170,12 @@ class QdrantMedicalRetriever:
     def _source_from_payload(self, payload: dict[str, Any]) -> str:
         source = payload.get("source")
         pmid = payload.get("pmid")
+        external_id = payload.get("externalId")
+        source_name = payload.get("sourceName")
+        if source_name and external_id:
+            return f"{source_name} {external_id}"
+        if str(source or "").lower() == "nice" and external_id:
+            return f"NICE {external_id}"
         if source and pmid:
             return f"{source}: PMID {pmid}"
         if pmid:
@@ -164,17 +186,24 @@ class QdrantMedicalRetriever:
         metadata_keys = (
             "chunkId",
             "pmid",
+            "externalId",
             "doi",
             "journal",
             "year",
             "authors",
             "meshTerms",
             "section",
+            "sectionName",
+            "headerPath",
+            "guidanceType",
             "chunkIndex",
             "parentChunkId",
             "parentWordCount",
             "documentId",
             "url",
+            "sourceUrl",
+            "sourceType",
+            "sourceName",
             "publicationDate",
             "publicationTypes",
             "isReview",
@@ -196,3 +225,7 @@ def _optional_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _csv_values(value: Any) -> list[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
