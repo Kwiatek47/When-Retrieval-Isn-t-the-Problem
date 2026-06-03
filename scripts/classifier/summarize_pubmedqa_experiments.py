@@ -17,7 +17,7 @@ METRIC_FILES = (
 
 def main() -> None:
     args = _parse_args()
-    rows = _collect_rows(args.run_root)
+    rows = _collect_rows(args.run_root, include_datasets=set(args.include_dataset))
     report = _build_report(rows, run_root=args.run_root)
     json_out = args.json_out or args.run_root / "experiment_summary.json"
     md_out = args.md_out or args.run_root / "experiment_summary.md"
@@ -30,12 +30,18 @@ def main() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize PubMedQA classifier experiment runs.")
     parser.add_argument("--run-root", type=Path, required=True)
+    parser.add_argument(
+        "--include-dataset",
+        action="append",
+        default=[],
+        help="Only include rows whose top-level run directory matches this dataset/stage name.",
+    )
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--md-out", type=Path, default=None)
     return parser.parse_args()
 
 
-def _collect_rows(run_root: Path) -> list[dict[str, Any]]:
+def _collect_rows(run_root: Path, *, include_datasets: set[str] | None = None) -> list[dict[str, Any]]:
     rows = []
     for best_dir in sorted(run_root.rglob("best")):
         if not best_dir.is_dir():
@@ -49,6 +55,8 @@ def _collect_rows(run_root: Path) -> list[dict[str, Any]]:
         relative = best_dir.relative_to(run_root)
         parts = relative.parts
         dataset = parts[0] if len(parts) > 0 else ""
+        if include_datasets and dataset not in include_datasets:
+            continue
         model = parts[1] if len(parts) > 1 else str(training_config.get("model_name") or "")
         seed = parts[2].removeprefix("seed_") if len(parts) > 2 else str(training_config.get("seed") or "")
         row = {

@@ -36,6 +36,13 @@ MAX_DEV_PER_LABEL="${MAX_DEV_PER_LABEL:-500}"
 FOCAL_LOSS_GAMMA="${FOCAL_LOSS_GAMMA:-1.5}"
 AUX_WEIGHT="${AUX_WEIGHT:-0.10}"
 GRADIENT_CHECKPOINTING="${GRADIENT_CHECKPOINTING:-0}"
+TUNE_THRESHOLDS="${TUNE_THRESHOLDS:-1}"
+SELECTION_METRIC="${SELECTION_METRIC:-macro_f1}"
+CLASS_WEIGHTED_LOSS="${CLASS_WEIGHTED_LOSS:-1}"
+BALANCED_SAMPLING="${BALANCED_SAMPLING:-0}"
+RUN_PQAL_ONLY="${RUN_PQAL_ONLY:-1}"
+RUN_PQAA_PQAL="${RUN_PQAA_PQAL:-1}"
+RUN_PQAA_PQAL_AUX="${RUN_PQAA_PQAL_AUX:-1}"
 
 mkdir -p "${RUN_ROOT}" "${DATA_ROOT}"
 COMMAND_LOG="${RUN_ROOT}/command_log.jsonl"
@@ -50,6 +57,9 @@ echo "    BIOMED_MODEL_NAMES=${BIOMED_MODEL_NAMES}"
 echo "    NPROC_PER_NODE=${NPROC_PER_NODE} BATCH_SIZE=${BATCH_SIZE} EVAL_BATCH_SIZE=${EVAL_BATCH_SIZE}"
 echo "    GRADIENT_ACCUMULATION=${GRADIENT_ACCUMULATION} EPOCHS=${EPOCHS}"
 echo "    GRADIENT_CHECKPOINTING=${GRADIENT_CHECKPOINTING}"
+echo "    TUNE_THRESHOLDS=${TUNE_THRESHOLDS}"
+echo "    SELECTION_METRIC=${SELECTION_METRIC}"
+echo "    CLASS_WEIGHTED_LOSS=${CLASS_WEIGHTED_LOSS} BALANCED_SAMPLING=${BALANCED_SAMPLING}"
 echo "    COMMAND_LOG=${COMMAND_LOG}"
 
 log_command() {
@@ -186,16 +196,28 @@ run_train() {
     --warmup-ratio "${WARMUP_RATIO}"
     --early-stopping-patience 3
     --seed "${seed}"
-    --selection-metric macro_f1
+    --selection-metric "${SELECTION_METRIC}"
     --amp bf16
-    --class-weighted-loss
-    --no-balanced-sampling
     --focal-loss-gamma "${FOCAL_LOSS_GAMMA}"
-    --tune-thresholds
     --threshold-metric macro_f1
     --num-workers "${NUM_WORKERS}"
     --log-every 25
   )
+  if [[ "${CLASS_WEIGHTED_LOSS}" == "1" ]]; then
+    cmd+=(--class-weighted-loss)
+  else
+    cmd+=(--no-class-weighted-loss)
+  fi
+  if [[ "${BALANCED_SAMPLING}" == "1" ]]; then
+    cmd+=(--balanced-sampling)
+  else
+    cmd+=(--no-balanced-sampling)
+  fi
+  if [[ "${TUNE_THRESHOLDS}" == "1" ]]; then
+    cmd+=(--tune-thresholds)
+  else
+    cmd+=(--no-tune-thresholds)
+  fi
   if [[ "${GRADIENT_CHECKPOINTING}" == "1" ]]; then
     cmd+=(--gradient-checkpointing)
   else
@@ -229,9 +251,15 @@ run_prepare "pqaa_pqal_long_answer_aux" \
   --priority-source-name ori_pqal.json
 
 for model_name in ${MODEL_NAMES}; do
-  run_train "pqal_only" "${model_name}" "47" "no_aux"
-  run_train "pqaa_pqal" "${model_name}" "47" "no_aux"
-  run_train "pqaa_pqal_long_answer_aux" "${model_name}" "47" "aux"
+  if [[ "${RUN_PQAL_ONLY}" == "1" ]]; then
+    run_train "pqal_only" "${model_name}" "47" "no_aux"
+  fi
+  if [[ "${RUN_PQAA_PQAL}" == "1" ]]; then
+    run_train "pqaa_pqal" "${model_name}" "47" "no_aux"
+  fi
+  if [[ "${RUN_PQAA_PQAL_AUX}" == "1" ]]; then
+    run_train "pqaa_pqal_long_answer_aux" "${model_name}" "47" "aux"
+  fi
 done
 
 if [[ "${RUN_BIOMED_ABLATION:-1}" == "1" ]]; then
