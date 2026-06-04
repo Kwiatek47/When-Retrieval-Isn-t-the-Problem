@@ -166,6 +166,22 @@ W drugim terminalu zbuduj indeks:
 Do szybkiego pilota mozna dodac `--limit 500`, ale pelny test cytowan powinien
 uzywac docelowego `data/processed/chunks.parquet`.
 
+Wygodne targety Makefile dla pilota NICE:
+
+```bash
+make embed-nice
+make index-nice NICE_LIMIT=500
+```
+
+Domyslnie targety uzywaja:
+
+```text
+NICE_CHUNKS=data/interim/nice/chunks_clinical.parquet
+NICE_EMBEDDINGS=data/embeddings/nice_clinical_embeddings.parquet
+NICE_COLLECTION=MedicalChunk_nice_pilot_medcpt_20260603
+NICE_CORPUS_VERSION=nice-guidelines-v1
+```
+
 ## 5. Uruchomienie chatbota
 
 Uruchom aplikacje tak, zeby widziala Qdrant i embedding-service:
@@ -210,7 +226,48 @@ Jakie sa zalecenia NICE dotyczace uzycia ceftazidime-avibactam?
 Wtedy retrieval powinien nadal preferowac guideline NICE, ale filtr nie bedzie
 tak waski jak przy pytaniu z `AMR1`.
 
-## 7. Szybka diagnostyka
+## 7. Benchmark NICE
+
+Benchmarki PubMedQA sa nadal przydatne dla indeksu PubMed albo indeksu
+mieszanego z PubMed, ale nie sa dobra miara dla NICE-only, bo ground truth jest
+oparty o PMID. Dla NICE dodane sa male benchmarki z ground truth po
+`documentId`:
+
+```text
+data/benchmarks/retrieval/eval_nice_guidelines_sample.json
+data/benchmarks/rag/eval_nice_guidelines_sample.json
+```
+
+Po uruchomieniu API przeciwko kolekcji NICE:
+
+```bash
+make eval-nice-retrieval
+make eval-nice-rag
+```
+
+Pierwszy benchmark odpytuje `GET /search` i liczy MRR, Recall@k, Precision@k i
+nDCG@k. Drugi odpytuje `POST /api/rag/trace` oraz `POST /api/chat`, sprawdza
+status `grounded`, `source_hit_at_3`, cytowania, groundedness i wymagane termy
+w odpowiedzi.
+
+Jesli chcesz wiekszy zestaw, najpierw wygeneruj go z aktualnych NICE chunks:
+
+```bash
+make build-nice-benchmarks
+```
+
+Potem uruchom:
+
+```bash
+make eval-nice-retrieval-large
+make eval-nice-rag-large
+```
+
+Duzy retrieval benchmark ma 500 case'ow, a duzy RAG benchmark 100 case'ow.
+To nadal benchmark po `documentId`, ale z wiekszym pokryciem i lepsza
+stabilnoscia niz 5-case smoke test.
+
+## 8. Szybka diagnostyka
 
 Sprawdzenie, czy serwisy odpowiadaja:
 
@@ -223,12 +280,12 @@ curl http://localhost:8000/health
 Najczestsze problemy:
 
 - chatbot nie cytuje NICE, bo indeks byl zbudowany na starej wersji `chunks.parquet`;
-- build index i embedding-service wskazuja na rozne kolekcje Qdrant;
+- build index, API i embedding-service wskazuja na rozne kolekcje Qdrant;
 - `data/processed/chunks.parquet` zawiera tylko PubMed, bo merge nie dostal sciezki NICE;
 - dane sa na pierwszej maszynie, ale nie zostaly rozpakowane na maszynie GPU;
 - Ollama albo embedding-service nie maja pobranych modeli.
 
-## 8. Kiedy regenerowac dane
+## 9. Kiedy regenerowac dane
 
 Regeneruj NICE, gdy chcesz zaktualizowac katalog NICE, zmienic filtr prefiksow,
 zmienic polityke sekcji albo poprawic czyszczenie markdown. Nie trzeba

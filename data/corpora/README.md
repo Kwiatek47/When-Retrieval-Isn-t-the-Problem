@@ -6,6 +6,9 @@ End-to-end instrukcja dla NICE + PubMed, transferu lokalnych artefaktów, merge,
 indeksowania Qdrant i testu cytowań jest w
 [`docs/data/rag-corpus-runbook.md`](../../docs/data/rag-corpus-runbook.md).
 
+Repozytorium wersji korpusów i benchmarków jest w
+[`scripts/data/corpora/registry.json`](../../scripts/data/corpora/registry.json).
+
 ## Układ
 
 ```text
@@ -31,6 +34,12 @@ data/processed/                 # PÓŹNIEJ: jeden zbiór po merge wszystkich ko
 | PubMed | `literature` | `PubMed` | `scripts/data/pubmed/pipeline/` |
 | NICE | `guideline` | `NICE` | `scripts/data/nice/pipeline/` |
 | OpenFDA | `drug_label` | `OpenFDA` | (planowane) |
+
+Aktualne wersje logiczne:
+
+- `pubmed-reviews-v1` - PubMed reviews / systematic reviews.
+- `nice-guidelines-v1` - NICE guideline corpus, wariant broad albo clinical
+  zależnie od wybranego parquetu przy indeksowaniu.
 
 ## Pola wspólne (dokument)
 
@@ -75,3 +84,16 @@ Dla ostrożniejszego indeksu NICE można podmienić ścieżkę na
 
 Skrypt waliduje wymagane kolumny, puste teksty i unikalność `chunk_id`, a brakujące kolumny
 uzupełnia jako `null` przez wspólny schema union.
+
+## Benchmark NICE
+
+NICE nie ma PMID, więc benchmarki PubMedQA i PubMed retrieval nie są dobrą
+miarą dla indeksu NICE-only. Do szybkiego testu korpusu NICE używaj:
+
+```bash
+make eval-nice-retrieval
+make eval-nice-rag
+```
+
+Te sample używają ground truth po `documentId`, np. `nice-amr1`,
+`nice-ng127`, `nice-cg150`, `nice-ng28` i `nice-ng253`.

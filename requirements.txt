@@ -1,4 +1,5 @@
 fastapi
+python-dotenv
 httpx
 tqdm>=4.66,<5
 packaging

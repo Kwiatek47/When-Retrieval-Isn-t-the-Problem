@@ -221,8 +221,11 @@ def _precision_at_k(case: EvalCase, retrieved: list[RetrievedItem], k: int) -> f
 
 def _ndcg_at_k(case: EvalCase, retrieved: list[RetrievedItem], k: int) -> float:
     dcg = 0.0
+    seen_relevant: set[str] = set()
     for index, item in enumerate(retrieved[:k], start=1):
-        if _is_relevant(case, item):
+        relevance_key = _relevance_key(case, item)
+        if relevance_key and relevance_key not in seen_relevant:
+            seen_relevant.add(relevance_key)
             dcg += 1.0 / math.log2(index + 1)
 
     ideal_relevant = min(case.relevant_count, k)
@@ -242,21 +245,24 @@ def _first_relevant_rank(case: EvalCase, retrieved: list[RetrievedItem]) -> int 
 def _relevant_found(case: EvalCase, retrieved: list[RetrievedItem]) -> set[str]:
     found = set()
     for item in retrieved:
-        if item.chunk_id in case.relevant_document_ids:
-            found.add(item.chunk_id)
-        elif item.document_id in case.relevant_document_ids:
-            found.add(item.document_id)
-        elif item.pmid in case.relevant_pmids:
-            found.add(item.pmid)
+        relevance_key = _relevance_key(case, item)
+        if relevance_key:
+            found.add(relevance_key)
     return found
 
 
 def _is_relevant(case: EvalCase, item: RetrievedItem) -> bool:
-    return (
-        item.chunk_id in case.relevant_document_ids
-        or item.document_id in case.relevant_document_ids
-        or item.pmid in case.relevant_pmids
-    )
+    return _relevance_key(case, item) is not None
+
+
+def _relevance_key(case: EvalCase, item: RetrievedItem) -> str | None:
+    if item.chunk_id in case.relevant_document_ids:
+        return item.chunk_id
+    if item.document_id in case.relevant_document_ids:
+        return item.document_id
+    if item.pmid in case.relevant_pmids:
+        return item.pmid
+    return None
 
 
 def _build_report(

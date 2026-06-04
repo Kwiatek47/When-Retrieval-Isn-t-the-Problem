@@ -8,6 +8,34 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_QDRANT_COLLECTION = "MedicalChunk_pubmed_reviews_v1_medcpt_20260518"
 
 
+def _load_dotenv() -> None:
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        _load_simple_env(env_path)
+        return
+    load_dotenv(env_path, override=False)
+
+
+def _load_simple_env(path: Path) -> None:
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip().strip("\"'")
+        os.environ[key] = value
+
+
+_load_dotenv()
+
+
 @dataclass(frozen=True)
 class Settings:
     app_title: str
