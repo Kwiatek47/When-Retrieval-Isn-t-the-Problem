@@ -1,6 +1,6 @@
 # Embedding Benchmark
 
-Self-contained benchmark pipeline for PubMed chunk retrieval. It embeds `data/processed/chunks_shard_0.parquet` and `data/processed/chunks_shard_1.parquet`, builds one Qdrant collection per model, and evaluates retrieval against a static query set.
+Self-contained benchmark pipeline for PubMed chunk retrieval. It embeds `data/processed/chunks_shard_0.parquet` and `data/processed/chunks_shard_1.parquet`, builds one Qdrant collection per model, and evaluates retrieval against a static query set plus the PubMedQA RAG pipeline benchmark.
 
 ## Install
 
@@ -18,10 +18,10 @@ Run everything with one command:
 benchmarks/runall.sh
 ```
 
-The wrapper checks required local services before the classifier and embedding stages start:
+The wrapper checks required local services before embedding starts:
 
-- Qdrant: if `QDRANT_URL` is not responding, it runs `docker compose up -d qdrant`.
-- Ollama: if `OLLAMA_BASE_URL` is not responding and PubMedQA pipeline eval is enabled, it runs `ollama serve` in the background and pulls `OLLAMA_MODEL`.
+- Qdrant: if `QDRANT_URL` is not responding, it starts a local `qdrant` binary from `QDRANT_BIN`, `$PATH`, or `~/bin/qdrant`. Docker is only used when `QDRANT_START_MODE=docker` or `QDRANT_ALLOW_DOCKER=1`.
+- Ollama: if `OLLAMA_BASE_URL` is not responding and PubMedQA pipeline eval is enabled, it runs local `ollama serve` in the background and pulls `OLLAMA_MODEL`.
 
 Useful service controls:
 
@@ -31,43 +31,17 @@ AUTO_START_QDRANT=0 benchmarks/runall.sh
 AUTO_START_OLLAMA=0 benchmarks/runall.sh
 AUTO_PULL_OLLAMA_MODEL=0 benchmarks/runall.sh
 OLLAMA_MODEL=qwen2.5:7b benchmarks/runall.sh
+QDRANT_BIN=$HOME/bin/qdrant benchmarks/runall.sh
+QDRANT_STORAGE_DIR=$HOME/qdrant_storage benchmarks/runall.sh
 ```
 
 If you run only the static embedding retrieval benchmark with `--skip-pubmedqa-pipeline-eval`, Ollama is not required.
 
-By default the wrapper first runs the full PubMedQA classifier experiment profile from
-`scripts/classifier/run_pubmedqa_2x4080_full_experiments.sh`, then starts the embedding benchmark.
-That entrypoint sets the 2x RTX 4080 profile and delegates shared logic to
-`scripts/classifier/run_pubmedqa_research_experiments.sh`.
-Classifier outputs are written under:
-
-```text
-artifacts/classifier/pubmedqa_research_2x4080_*/
-```
-
-At the start of the classifier run, the shared runner checks:
-
-```text
-data/raw/pubmedqa_official/data/ori_pqal.json
-data/raw/pubmedqa_official/data/ori_pqaa.json
-```
-
-If either file is missing, it tries to download the official PubMedQA raw sources first. If Google Drive blocks the
-PQA-A download, manually place `ori_pqaa.json` at the path above and rerun the same command.
-
-The classifier run is independent from the embedding PubMedQA benchmark. It is produced first so the classifier artifacts
-are available for later work, but the embedding PubMedQA benchmark below does not use that classifier checkpoint.
-To run only embedding benchmarks, skip the classifier pre-run:
-
-```bash
-RUN_CLASSIFIER_FIRST=0 benchmarks/runall.sh
-```
-
 By default, the embedding benchmark also runs PubMedQA PQA-L 500 pipeline evaluation for every embedding model. It uses
-the benchmark RAG prompt and parses the generated `yes`/`no`/`maybe` answer from the LLM response:
+the real application RAG pipeline components and parses the generated `yes`/`no`/`maybe` answer from the LLM response:
 
 ```bash
-RUN_CLASSIFIER_FIRST=0 benchmarks/runall.sh
+benchmarks/runall.sh
 ```
 
 This keeps the retrieval benchmark unchanged, then for each embedding model it:
@@ -187,6 +161,14 @@ data/benchmarks/embedding_benchmark/reports/pubmedqa_pipeline/
   pubmedqa_pipeline_comparison.md
 ```
 
+By default `benchmarks/runall.sh` passes `--cleanup-model-data`. After a model finishes successfully, it keeps logs,
+metrics, evaluation summaries, PubMedQA summaries, reports, and cleanup manifests, then removes embedding parquet files,
+batch caches, local Qdrant SQLite/BM25 build files, and the model's Qdrant collection. Disable this with:
+
+```bash
+RUNALL_CLEANUP_MODEL_DATA=0 benchmarks/runall.sh
+```
+
 Qdrant build outputs:
 
 ```text
@@ -245,7 +227,7 @@ make -C benchmarks package
 ```
 
 This creates `benchmarks/dist/embedding_benchmark_package.zip` with benchmark code, model registry, static query set, requirements and Makefile.
-The archive also includes the app pipeline modules, classifier scripts, RAG/eval scripts, root requirements, and Docker/Qdrant
+The archive also includes the app pipeline modules, RAG/eval scripts, root requirements, and Docker/Qdrant
 configuration because the PubMedQA pipeline eval imports the current RAG reranker/evidence-judge path.
 
 For a server-ready archive with input data included:
@@ -260,7 +242,7 @@ This creates `benchmarks/dist/embedding_benchmark_full_package.zip` and includes
 benchmarks/
 benchmarks/runall.sh
 app/
-scripts/classifier/
+scripts/data/
 scripts/eval/
 scripts/rag/
 qdrant/
@@ -270,12 +252,25 @@ requirements-dev.txt
 docker-compose.yml
 docker-compose.cpu.yml
 docker-compose.gpu.yml
+data/processed/chunks.parquet
 data/benchmarks/
+data/sample/
+data/error_analysis_pqal500.json
 ```
 
-PubMedQA pipeline evaluation uses the large processed corpus shard parquet files under `data/processed/`, not the small
-`data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet` file. Those large shard files are intentionally excluded
-from the archive, so put them on the target machine separately before running the benchmark.
+PubMedQA pipeline evaluation uses `data/processed/chunks.parquet`. The full package includes only that source parquet
+from `data/processed/`; `benchmarks/runall.sh` splits it into three benchmark shards on the target machine.
 
-If `data/raw/pubmedqa_official/` exists locally, it is included in `package-full` too. This is optional: when those raw
-files are absent, the classifier runner bootstraps them at the beginning of `make classifier-train-2x4080-full`.
+Generated benchmark outputs are excluded by default: `data/embeddings/`, `data/benchmarks/embedding_benchmark/`,
+`artifacts/`, and `reports/`. To intentionally include generated outputs too:
+
+```bash
+make -C benchmarks package-full INCLUDE_GENERATED_OUTPUTS=1
+```
+
+The archive does not include third-party model weights, the Ollama binary, or the Qdrant binary. `benchmarks/runall.sh`
+starts local Ollama and Qdrant when their commands are available. Put `qdrant` in `$PATH` or `~/bin/qdrant`, or set
+`QDRANT_BIN=/path/to/qdrant`.
+
+If `data/raw/pubmedqa_official/` exists locally, it is included in `package-full` too. It is optional for `runall.sh`;
+the embedding benchmark uses the processed and benchmark data listed above.

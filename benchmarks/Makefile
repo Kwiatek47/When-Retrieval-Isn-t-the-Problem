@@ -6,6 +6,7 @@ DIST_DIR ?= dist
 PACKAGE_NAME ?= embedding_benchmark_package.zip
 FULL_PACKAGE_NAME ?= embedding_benchmark_full_package.zip
 DATA_DIR ?= $(PROJECT_ROOT)/data/processed
+INCLUDE_GENERATED_OUTPUTS ?= 0
 
 COMMON_PACKAGE_PATHS := \
 	.env.example \
@@ -25,39 +26,58 @@ COMMON_PACKAGE_PATHS := \
 	app \
 	qdrant \
 	services/embedding-service \
-	scripts/classifier \
+	scripts/data \
 	scripts/eval \
 	scripts/rag
 
 FULL_DATA_PATHS := \
-	data/benchmarks
+	data/processed/chunks.parquet \
+	data/benchmarks \
+	data/sample \
+	data/error_analysis_pqal500.json
 
 OPTIONAL_FULL_DATA_PATHS := $(patsubst ../%,%,$(wildcard ../data/raw/pubmedqa_official))
 
-ZIP_EXCLUDES := \
+COMMON_ZIP_EXCLUDES := \
 	-x "*/__pycache__/*" \
 	-x "*.pyc" \
-	-x "data/processed/*.parquet" \
-	-x "data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet" \
 	-x "benchmarks/dist/*" \
 	-x "*/.pytest_cache/*" \
 	-x "*/.ruff_cache/*"
+
+LIGHT_ZIP_EXCLUDES := \
+	$(COMMON_ZIP_EXCLUDES) \
+	-x "data/processed/*.parquet" \
+	-x "data/benchmarks/pubmedqa/official_pqal_test/chunks.parquet"
+
+FULL_ZIP_EXCLUDES := \
+	$(COMMON_ZIP_EXCLUDES) \
+	-x "data/embeddings/*" \
+	-x "data/benchmarks/embedding_benchmark/*" \
+	-x "artifacts/*" \
+	-x "reports/*"
+
+ifeq ($(INCLUDE_GENERATED_OUTPUTS),1)
+FULL_ZIP_EXCLUDES := $(COMMON_ZIP_EXCLUDES)
+endif
 
 .PHONY: package package-full list-models run-all run-one clean-package
 
 package:
 	mkdir -p $(DIST_DIR)
+	rm -f $(DIST_DIR)/$(PACKAGE_NAME)
 	cd .. && zip -r benchmarks/$(DIST_DIR)/$(PACKAGE_NAME) \
 		$(COMMON_PACKAGE_PATHS) \
-		$(ZIP_EXCLUDES)
+		$(LIGHT_ZIP_EXCLUDES)
 
 package-full:
 	mkdir -p $(DIST_DIR)
+	rm -f $(DIST_DIR)/$(FULL_PACKAGE_NAME)
 	cd .. && zip -r benchmarks/$(DIST_DIR)/$(FULL_PACKAGE_NAME) \
 		$(COMMON_PACKAGE_PATHS) \
 		$(FULL_DATA_PATHS) \
 		$(OPTIONAL_FULL_DATA_PATHS) \
-		$(ZIP_EXCLUDES)
+		$(FULL_ZIP_EXCLUDES)
 
 list-models:
 	PYTHONPATH=$(PROJECT_ROOT)/benchmarks $(PYTHON) -c "import json; data=json.load(open('$(PROJECT_ROOT)/benchmarks/embedding_benchmark/config/model_registry.json')); print('\n'.join(data['models'].keys()))"

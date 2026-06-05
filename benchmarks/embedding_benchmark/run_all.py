@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Any
@@ -13,6 +14,7 @@ from embedding_benchmark.common import (
     DEFAULT_REGISTRY_PATH,
     ProgressTracker,
     append_jsonl,
+    collection_name_for,
     get_model_spec,
     load_registry,
     model_output_dir,
@@ -34,7 +36,12 @@ def main() -> None:
     state_path = args.output_root / "pipeline_state.json"
     args.output_root.mkdir(parents=True, exist_ok=True)
 
-    pipeline_log.info("Starting pipeline models=%s", selected_models)
+    pipeline_log.info(
+        "Starting pipeline models=%s shards=%s eval_device=%s",
+        selected_models,
+        [str(args.shard_0), str(args.shard_1)],
+        args.eval_device,
+    )
     run_pubmedqa_pipeline_eval = not args.skip_pubmedqa_pipeline_eval
     stages_per_model = (
         int(not args.skip_embedding)
@@ -47,10 +54,41 @@ def main() -> None:
     core_models = [model for model in selected_models if model not in HEAVY_MODELS]
     core_aggregate_written = False
     pipeline_progress = ProgressTracker(total=stage_total, label="pipeline", logger=pipeline_log, log_every_seconds=5.0)
+    resume_completed_models = _resume_completed_models_enabled(args)
     for model_index, model_slug in enumerate(selected_models, start=1):
         spec = get_model_spec(registry, model_slug)
         output_dir = model_output_dir(args.output_root, model_slug, args.precision)
         output_dir.mkdir(parents=True, exist_ok=True)
+        if resume_completed_models and _model_outputs_complete(args, model_slug, run_pubmedqa_pipeline_eval):
+            stage_done += stages_per_model
+            _write_model_complete_marker(args, model_slug, spec, run_pubmedqa_pipeline_eval)
+            append_jsonl(
+                args.output_root / "pipeline_events.jsonl",
+                {
+                    "event": "model_skipped_completed",
+                    "created_at": now_iso(),
+                    "model": model_slug,
+                    "output_dir": str(output_dir),
+                },
+            )
+            write_json_atomic(
+                state_path,
+                {
+                    "updated_at": now_iso(),
+                    "stage": "model_skipped_completed",
+                    "model": model_slug,
+                    "models": selected_models,
+                },
+            )
+            pipeline_log.info("Skipping completed model=%s output_dir=%s", model_slug, output_dir)
+            if args.cleanup_model_data and not (output_dir / "cleanup_manifest.json").exists():
+                _cleanup_model_data(args, model_slug, spec, pipeline_log)
+            pipeline_progress.update(
+                stage_done,
+                force=True,
+                extra=f"model={model_slug} stage=skipped_completed model_index={model_index}/{len(selected_models)}",
+            )
+            continue
         append_jsonl(
             args.output_root / "pipeline_events.jsonl",
             {
@@ -119,6 +157,7 @@ def main() -> None:
                     "models": selected_models,
                 },
             )
+            _write_model_complete_marker(args, model_slug, spec, run_pubmedqa_pipeline_eval)
             pipeline_log.info("Completed model=%s display_name=%s", model_slug, spec.display_name)
             if (
                 not args.skip_aggregate
@@ -133,6 +172,8 @@ def main() -> None:
                     out_dir=args.output_root / "reports" / "core_without_qwen4b_8b",
                 )
                 core_aggregate_written = True
+            if args.cleanup_model_data:
+                _cleanup_model_data(args, model_slug, spec, pipeline_log)
         except Exception as exc:
             failure_payload = {
                 "created_at": now_iso(),
@@ -195,6 +236,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-eval", action="store_true")
     parser.add_argument("--skip-aggregate", action="store_true")
     parser.add_argument("--keep-batches", action="store_true")
+    parser.add_argument("--cleanup-model-data", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--resume-completed-models", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--recreate-index", action="store_true")
     parser.add_argument("--force-eval", action="store_true")
     parser.add_argument("--no-resume", action="store_true")
@@ -220,11 +263,81 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _resume_completed_models_enabled(args: argparse.Namespace) -> bool:
+    if args.no_resume or not args.resume_completed_models:
+        return False
+    return not any(
+        (
+            args.force_autotune and not args.skip_autotune,
+            args.force_eval and not args.skip_eval,
+            args.pubmedqa_force and not args.skip_pubmedqa_pipeline_eval,
+            args.recreate_index and not args.skip_index,
+        )
+    )
+
+
+def _model_outputs_complete(args: argparse.Namespace, model_slug: str, run_pubmedqa_pipeline_eval: bool) -> bool:
+    output_dir = model_output_dir(args.output_root, model_slug, args.precision)
+    complete_marker = output_dir / "model_complete.json"
+    cleanup_marker = output_dir / "cleanup_manifest.json"
+
+    checks: list[Path] = []
+    if not args.skip_eval:
+        checks.extend(
+            [
+                output_dir / "evaluation" / "summary.json",
+                output_dir / "evaluation" / "qdrant_results.jsonl",
+            ]
+        )
+    if run_pubmedqa_pipeline_eval:
+        checks.extend(
+            [
+                output_dir / "pubmedqa_pipeline" / "summary.json",
+                output_dir / "pubmedqa_pipeline" / "results.jsonl",
+            ]
+        )
+
+    if checks:
+        return all(_path_is_ready(path) for path in checks)
+    return complete_marker.exists() or cleanup_marker.exists()
+
+
+def _write_model_complete_marker(
+    args: argparse.Namespace,
+    model_slug: str,
+    spec: Any,
+    run_pubmedqa_pipeline_eval: bool,
+) -> None:
+    output_dir = model_output_dir(args.output_root, model_slug, args.precision)
+    payload = {
+        "created_at": now_iso(),
+        "model": model_slug,
+        "display_name": spec.display_name,
+        "precision": args.precision,
+        "requested_stages": {
+            "embedding": not args.skip_embedding,
+            "index": not args.skip_index,
+            "eval": not args.skip_eval,
+            "pubmedqa_pipeline_eval": run_pubmedqa_pipeline_eval,
+        },
+        "outputs": {
+            "evaluation_summary": str(output_dir / "evaluation" / "summary.json"),
+            "pubmedqa_pipeline_summary": str(output_dir / "pubmedqa_pipeline" / "summary.json"),
+            "qdrant_index_manifest": str(output_dir / "qdrant" / "qdrant_index_manifest.json"),
+        },
+    }
+    write_json_atomic(output_dir / "model_complete.json", payload)
+
+
+def _path_is_ready(path: Path) -> bool:
+    return path.exists() and path.stat().st_size > 0
+
+
 def _run_autotune_stage(args: argparse.Namespace, model_slug: str, log: Any) -> int:
     commands = [
         (
-            args.device_0,
-            args.shard_0,
+            device,
+            shard,
             _base_python_args(args)
             + [
                 "-m",
@@ -234,13 +347,13 @@ def _run_autotune_stage(args: argparse.Namespace, model_slug: str, log: Any) -> 
                 "--registry",
                 str(args.registry),
                 "--chunks-shard",
-                str(args.shard_0),
+                str(shard),
                 "--output-root",
                 str(args.output_root),
                 "--precision",
                 args.precision,
                 "--device",
-                args.device_0,
+                device,
                 "--sample-size",
                 str(args.autotune_sample_size),
                 "--min-batch",
@@ -253,39 +366,8 @@ def _run_autotune_stage(args: argparse.Namespace, model_slug: str, log: Any) -> 
                 str(args.autotune_safety_factor),
             ]
             + (["--force"] if args.force_autotune else []),
-        ),
-        (
-            args.device_1,
-            args.shard_1,
-            _base_python_args(args)
-            + [
-                "-m",
-                "embedding_benchmark.autotune_batch",
-                "--model",
-                model_slug,
-                "--registry",
-                str(args.registry),
-                "--chunks-shard",
-                str(args.shard_1),
-                "--output-root",
-                str(args.output_root),
-                "--precision",
-                args.precision,
-                "--device",
-                args.device_1,
-                "--sample-size",
-                str(args.autotune_sample_size),
-                "--min-batch",
-                str(args.autotune_min_batch),
-                "--max-batch",
-                str(args.autotune_max_batch),
-                "--step",
-                str(args.autotune_step),
-                "--safety-factor",
-                str(args.autotune_safety_factor),
-            ]
-            + (["--force"] if args.force_autotune else []),
-        ),
+        )
+        for device, shard in ((args.device_0, args.shard_0), (args.device_1, args.shard_1))
     ]
     if args.sequential_shards:
         for _, _, command in commands:
@@ -356,43 +438,21 @@ def _run_embedding_stage_once(
             "--registry",
             str(args.registry),
             "--chunks-shard",
-            str(args.shard_0),
+            str(shard),
             "--shard-index",
-            "0",
+            str(shard_index),
             "--output-root",
             str(args.output_root),
             "--precision",
             args.precision,
             "--device",
-            args.device_0,
+            device,
             "--read-batch-size",
             str(args.embed_read_batch_size),
         ]
         + (["--batch-size", str(batch_size)] if batch_size is not None else [])
-        + (["--keep-batches"] if args.keep_batches else []),
-        _base_python_args(args)
-        + [
-            "-m",
-            "embedding_benchmark.embed_corpus",
-            "--model",
-            model_slug,
-            "--registry",
-            str(args.registry),
-            "--chunks-shard",
-            str(args.shard_1),
-            "--shard-index",
-            "1",
-            "--output-root",
-            str(args.output_root),
-            "--precision",
-            args.precision,
-            "--device",
-            args.device_1,
-            "--read-batch-size",
-            str(args.embed_read_batch_size),
-        ]
-        + (["--batch-size", str(batch_size)] if batch_size is not None else [])
-        + (["--keep-batches"] if args.keep_batches else []),
+        + (["--keep-batches"] if args.keep_batches else [])
+        for shard_index, (shard, device) in enumerate(((args.shard_0, args.device_0), (args.shard_1, args.device_1)))
     ]
     if args.sequential_shards:
         log.info(
@@ -439,25 +499,35 @@ def _batch_attempts(batch_size: int | None, *, min_batch: int) -> list[int | Non
 
 def _remove_partial_embedding_outputs(args: argparse.Namespace, model_slug: str, *, log: Any) -> None:
     output_dir = model_output_dir(args.output_root, model_slug, args.precision)
-    paths = [
-        output_dir / "embeddings_shard_0.parquet",
-        output_dir / "embeddings_shard_1.parquet",
-        output_dir / "embedding_manifest_shard_0.json",
-        output_dir / "embedding_manifest_shard_1.json",
-    ]
-    for path in paths:
-        if path.exists():
-            path.unlink()
-            log.info("Removed partial output before retry: %s", path)
+    completed_shards = set()
+    for shard_index in range(2):
+        final_path = output_dir / f"embeddings_shard_{shard_index}.parquet"
+        manifest_path = output_dir / f"embedding_manifest_shard_{shard_index}.json"
+        if final_path.exists():
+            completed_shards.add(shard_index)
+            log.info("Preserving completed shard before retry: %s", final_path)
+            continue
+        if manifest_path.exists():
+            manifest_path.unlink()
+            log.info("Removed stale manifest before retry: %s", manifest_path)
+
     batch_root = output_dir / "batches"
     if batch_root.exists():
-        for path in batch_root.rglob("*.parquet"):
-            path.unlink()
-        log.info("Removed partial batch files before retry: %s", batch_root)
+        for shard_index in range(2):
+            if shard_index in completed_shards:
+                continue
+            shard_batch_dir = batch_root / f"shard_{shard_index}"
+            if not shard_batch_dir.exists():
+                continue
+            for path in shard_batch_dir.rglob("*.parquet"):
+                path.unlink()
+            log.info("Removed partial batch files before retry: %s", shard_batch_dir)
 
 
 def _run_index_stage(args: argparse.Namespace, model_slug: str, log: Any) -> None:
     upsert_batch_size = args.qdrant_fast_upsert_batch_size if args.qdrant_fast_bulk else args.upsert_batch_size
+    output_dir = model_output_dir(args.output_root, model_slug, args.precision)
+    embedding_paths = [output_dir / "embeddings_shard_0.parquet", output_dir / "embeddings_shard_1.parquet"]
     command = (
         _base_python_args(args)
         + [
@@ -471,6 +541,8 @@ def _run_index_stage(args: argparse.Namespace, model_slug: str, log: Any) -> Non
             str(args.output_root),
             "--precision",
             args.precision,
+            "--embeddings",
+            *[str(path) for path in embedding_paths],
             "--qdrant-url",
             args.qdrant_url,
             "--collection-prefix",
@@ -621,6 +693,103 @@ def _run_pubmedqa_pipeline_aggregate_stage(args: argparse.Namespace, models: lis
         env=_env(args),
         log=log,
     )
+def _cleanup_model_data(args: argparse.Namespace, model_slug: str, spec: Any, log: Any) -> None:
+    output_dir = model_output_dir(args.output_root, model_slug, args.precision)
+    removed: list[str] = []
+    missing: list[str] = []
+
+    collection = collection_name_for(spec, prefix=args.collection_prefix, dtype="f16")
+    try:
+        from qdrant_client import QdrantClient
+
+        client = QdrantClient(url=args.qdrant_url, timeout=120.0)
+        try:
+            if _collection_exists(client, collection):
+                client.delete_collection(collection_name=collection)
+                removed.append(f"qdrant_collection:{collection}")
+                log.info("Deleted Qdrant collection after successful model eval: %s", collection)
+            else:
+                missing.append(f"qdrant_collection:{collection}")
+        finally:
+            close = getattr(client, "close", None)
+            if close is not None:
+                close()
+    except Exception as exc:
+        log.warning("Could not delete Qdrant collection during cleanup collection=%s error=%r", collection, exc)
+
+    for pattern in (
+        "embeddings_shard_*.parquet",
+        "embeddings_shard_*.parquet.tmp",
+        "embedding_manifest_shard_*.json",
+        "embed_checkpoint_shard_*.json",
+    ):
+        for path in output_dir.glob(pattern):
+            _remove_path(path, removed=removed, missing=missing, log=log)
+
+    for path in (
+        output_dir / "batches",
+        output_dir / "qdrant" / "chunk_store.sqlite",
+        output_dir / "qdrant" / "bm25_stats.json",
+        output_dir / "qdrant" / "index_checkpoint.json",
+    ):
+        _remove_path(path, removed=removed, missing=missing, log=log)
+
+    cleanup_payload = {
+        "created_at": now_iso(),
+        "model": model_slug,
+        "collection": collection,
+        "removed": removed,
+        "missing": missing,
+        "retained": [
+            str(output_dir / "logs"),
+            str(output_dir / "metrics.jsonl"),
+            str(output_dir / "evaluation"),
+            str(output_dir / "pubmedqa_pipeline"),
+            str(output_dir / "qdrant" / "qdrant_index_manifest.json"),
+        ],
+    }
+    write_json_atomic(output_dir / "cleanup_manifest.json", cleanup_payload)
+    append_jsonl(args.output_root / "pipeline_events.jsonl", {"event": "model_data_cleaned", **cleanup_payload})
+    log.info("Cleanup complete model=%s removed_count=%d", model_slug, len(removed))
+
+
+def _collection_exists(client: Any, collection: str) -> bool:
+    collection_exists = getattr(client, "collection_exists", None)
+    if collection_exists is not None:
+        try:
+            return bool(collection_exists(collection_name=collection))
+        except Exception as exc:
+            if not _is_collection_exists_route_error(exc):
+                raise
+    try:
+        client.get_collection(collection_name=collection)
+        return True
+    except Exception as exc:
+        if _is_missing_collection_error(exc):
+            return False
+        raise
+
+
+def _is_collection_exists_route_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "/exists" in text or "collection `exists`" in text
+
+
+def _is_missing_collection_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "404" in text or "not found" in text or "doesn't exist" in text or "does not exist" in text
+
+
+def _remove_path(path: Path, *, removed: list[str], missing: list[str], log: Any) -> None:
+    if not path.exists():
+        missing.append(str(path))
+        return
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+    removed.append(str(path))
+    log.info("Removed model data path=%s", path)
 
 
 def _all_model_summaries_exist(args: argparse.Namespace, models: list[str]) -> bool:
