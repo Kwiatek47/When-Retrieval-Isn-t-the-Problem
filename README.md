@@ -17,9 +17,10 @@ services/embedding-service/  standalone MedCPT embedding and hybrid-search servi
 qdrant/                      Qdrant collection initialization
 static/                      browser chat UI
 scripts/rag/                 ingest, index, search, retrieval/RAG/PubMedQA eval scripts
+scripts/classifier/          PubMedQA evidence classifier and option-ranker training/eval scripts
 scripts/embeddings/          chunk inspection, embedding, validation scripts
 scripts/data/pubmed/         PubMed data pipeline scripts and repo-safe configs
-scripts/eval/                prompt regression evaluation
+scripts/eval/                regression gates, medical suite, direct-judge and Colab ablation runners
 data/sample/                 small tracked samples for smoke tests
 data/benchmarks/             small tracked benchmark/eval datasets
 docs/                        current technical docs
@@ -77,6 +78,7 @@ make build-index     # build Qdrant index from data/processed/chunks.parquet
 make eval-retrieval  # run retrieval benchmark
 make eval-pubmedqa   # run PubMedQA benchmark
 make eval-medical-suite # run core medical eval: PQA-L regression + clinical safety gates
+make classifier-audit # audit PubMedQA classifier data leakage and label balance
 make clean-local     # remove generated local reports/data artifacts
 ```
 
@@ -126,7 +128,12 @@ The app reads settings from `app/core/config.py`; the embedding service reads `s
 
 ## Runtime Architecture
 
-`POST /api/chat` runs:
+The API has two explicit chat modes:
+
+- `medical_chat` is the default product mode. It is conservative, patient-facing, and uses refusal/guardrail behavior when evidence is weak or symptoms are high-risk.
+- `benchmark_pqal` is an evaluation mode for PubMedQA/PQA-L. It is not patient advice. It disables query rewriting and can expand the retrieved PMID to the full official abstract so the decision layer is tested on paper-level evidence.
+
+`POST /api/chat` in `medical_chat` mode runs:
 
 1. `PreRetriever` normalizes the last user question, decides whether retrieval is needed, expands acronyms, sets filters, and optionally rewrites the query.
 2. `MedicalKnowledgeRetriever` retrieves candidates through `embedding-service` by default. The service computes MedCPT query embeddings and runs hybrid dense+BM25 search in Qdrant.
@@ -163,7 +170,7 @@ The official PubMedQA PQA-L 500 repo-safe benchmark artifacts live in:
 data/benchmarks/pubmedqa/official_pqal_test/
 ```
 
-Full PubMed corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract.
+Generated PubMed corpora, non-benchmark Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract.
 
 ## Indexing And Evaluation
 
@@ -211,16 +218,25 @@ The core medical eval suite intentionally stays small and high-signal:
 - `eval-quick-pqal` runs deterministic diagnostics before the full gate: `balanced90` plus `first100_yes`.
 - `clinical_safety_golden` uses `medical_chat` mode and gates high-risk chatbot behavior: emergency escalation, medication refusal, contraindications, scope confusion, and out-of-domain refusal.
 
+Official PQA-L reports separate metrics that should not be collapsed into one number:
+
+- `label_accuracy`: correctness of the yes/no/maybe conclusion.
+- `source_hit_at_1` / `source_hit_at_3`: whether retrieval found the expected PMID.
+- `citation_pass_rate`: whether returned citations are structurally valid.
+- `case_pass_rate`: label + retrieval + citation pass.
+- `strict_case_pass_rate`: `case_pass_rate` plus answer-quality pass. This can be too strict for classifier-only benchmark answers because the classifier returns a short decision rather than a generated clinical paragraph.
+
 In `benchmark_pqal` mode the pipeline expands the selected retrieved PMID to the full official PQA-L abstract from
 `PUBMEDQA_OFFICIAL_CORPUS_PATH`. This is benchmark-only: it does not affect patient-facing `medical_chat`, and it does
 not use gold labels.
 
 The registry for active and planned benchmark adapters is `data/benchmarks/medical_eval_registry.json`.
 
-## PubMedQA DeBERTa Evidence Classifier
+## PubMedQA Evidence Decision Models
 
-The `benchmark_pqal` mode can use a local DeBERTa classifier for `question + evidence -> yes/no/maybe`.
-Official PQA-L 500 is treated as held-out and is excluded from classifier train/dev data.
+The `benchmark_pqal` mode can use a local biomedical encoder classifier for `question + evidence -> yes/no/maybe`.
+Supported research scripts currently cover DeBERTa-style classifiers, BioLinkBERT checkpoints, and an experimental
+option-ranker. Official PQA-L 500 is treated as held-out and is excluded from classifier train/dev data.
 
 Prepare official PubMedQA data:
 
@@ -329,7 +345,7 @@ The default checkpoint path is:
 artifacts/classifier/pubmedqa_deberta/best
 ```
 
-Runtime integration is controlled by:
+Runtime integration is optional and disabled by default on a fresh checkout:
 
 ```text
 RAG_EVIDENCE_CLASSIFIER_ENABLED=false
@@ -359,6 +375,32 @@ After training, run:
 make eval-quick-pqal
 make eval-official-pqal500
 ```
+
+## Research And Colab Runners
+
+The Colab runners are for reproducing paper-oriented ablations on GPU machines. They write outputs under Google Drive
+or the configured `RUN_ROOT`; generated reports and checkpoints should not be committed.
+
+```bash
+# Compare LLM evidence judges, e.g. Qwen/BioMistral/MedGemma.
+bash scripts/eval/run_colab_llm_evidence_ablation.sh
+
+# Run staged diagnostics: direct judge, oracle evidence prompts, RAG, classifier layer.
+bash scripts/eval/run_colab_pubmedqa_diagnostic_ablation.sh
+
+# Train/evaluate the experimental option-ranker.
+bash scripts/classifier/run_colab_option_ranker.sh
+```
+
+The option-ranker scores three inputs per case:
+
+```text
+question + evidence + yes    -> score
+question + evidence + no     -> score
+question + evidence + maybe  -> score
+```
+
+It is intentionally separate from runtime integration until it passes held-out checks, especially `maybe` recall.
 
 ## Tests
 
