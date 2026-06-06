@@ -38,14 +38,59 @@ python3 scripts/rag/01_build_index.py \
 
 ## Run Eval
 
-Start the API against the indexed corpus, then run:
+Start Qdrant, the embedding service, and the API against the indexed corpus, then run the reproducible end-to-end wrapper:
+
+```bash
+make eval-official-pqal500
+```
+
+The official wrapper uses API mode:
+
+```text
+benchmark_pqal
+```
+
+That mode treats PQA-L as evidence classification, not patient advice. It avoids patient red-flag routing and skips query rewriting/adaptive retrieval so the benchmark is easier to compare across runs.
+
+For the recommended full medical eval gate, run:
+
+```bash
+make eval-medical-suite
+```
+
+That combines this PQA-L regression suite with the clinical safety golden suite.
+
+The wrapper performs:
+
+```text
+index official chunks -> rebuild BM25 stats -> run eval -> seed error analysis -> check regression gate -> write report and lockfile
+```
+
+It writes reports to `reports/official_pqal500/`, seeds `data/error_analysis_pqal500.json`, and copies the latest reproducibility lockfile to `eval_lock.json`.
+
+The default CI gate is:
+
+```text
+summary.label_accuracy >= previous_best_score - 0.01
+```
+
+The baseline is stored in `previous_best.json`. Override the gate only explicitly, for example:
+
+```bash
+OFFICIAL_PQAL500_GATE_METRIC=summary.case_pass_rate \
+OFFICIAL_PQAL500_ALLOWED_DROP=0.005 \
+make eval-official-pqal500
+```
+
+To run only the underlying eval script manually:
 
 ```bash
 PUBMEDQA_EVAL_LABEL=pubmedqa_official_pqal_test_v3 \
 python3 scripts/rag/06_evaluate_pubmedqa_benchmark.py \
   --dataset data/benchmarks/pubmedqa/official_pqal_test/eval.json \
   --candidate-k 20 \
-  --top-k 1
+  --top-k 1 \
+  --mode benchmark_pqal
 ```
 
 For the local run that produced the tracked report, the API used:

@@ -1,0 +1,7 @@
+{
+  "benchmark": "PubMedQA official PQA-L 500",
+  "metric_path": "summary.label_accuracy",
+  "previous_best_score": 0.496,
+  "source": "docs/audits/rag-architecture-audit-2026-05-20.md",
+  "notes": "Baseline from the tracked audit: qwen2.5:7b, Evidence Judge v3, 248/500 correct labels. CI gate allows at most 1 percentage point regression by default."
+}

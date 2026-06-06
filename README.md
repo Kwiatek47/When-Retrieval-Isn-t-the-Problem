@@ -23,6 +23,7 @@ scripts/eval/                prompt regression evaluation
 data/sample/                 small tracked samples for smoke tests
 data/benchmarks/             small tracked benchmark/eval datasets
 docs/                        current technical docs
+eval/                        evaluation changelog and run/update notes
 archive/                     historical handoffs, SFT experiments, inactive datasets
 tests/                       unit tests
 ```
@@ -75,6 +76,7 @@ make ingest-sample   # ingest data/sample/pubmed_sample.json into Qdrant
 make build-index     # build Qdrant index from data/processed/chunks.parquet
 make eval-retrieval  # run retrieval benchmark
 make eval-pubmedqa   # run PubMedQA benchmark
+make eval-medical-suite # run core medical eval: PQA-L regression + clinical safety gates
 make clean-local     # remove generated local reports/data artifacts
 ```
 
@@ -195,7 +197,167 @@ Evaluation:
 ```bash
 make eval-retrieval
 make eval-pubmedqa
+make eval-quick-pqal
+make eval-official-pqal500
+make eval-medical-suite
 .venv/bin/python scripts/eval/run_prompt_eval.py --candidate v2
+```
+
+The evaluation framework is documented in `docs/evaluation/evaluation-framework.md`.
+
+The core medical eval suite intentionally stays small and high-signal:
+
+- `official_pqal500` uses `benchmark_pqal` mode and keeps PubMedQA paper-comparable yes/no/maybe regression tracking.
+- `eval-quick-pqal` runs deterministic diagnostics before the full gate: `balanced90` plus `first100_yes`.
+- `clinical_safety_golden` uses `medical_chat` mode and gates high-risk chatbot behavior: emergency escalation, medication refusal, contraindications, scope confusion, and out-of-domain refusal.
+
+In `benchmark_pqal` mode the pipeline expands the selected retrieved PMID to the full official PQA-L abstract from
+`PUBMEDQA_OFFICIAL_CORPUS_PATH`. This is benchmark-only: it does not affect patient-facing `medical_chat`, and it does
+not use gold labels.
+
+The registry for active and planned benchmark adapters is `data/benchmarks/medical_eval_registry.json`.
+
+## PubMedQA DeBERTa Evidence Classifier
+
+The `benchmark_pqal` mode can use a local DeBERTa classifier for `question + evidence -> yes/no/maybe`.
+Official PQA-L 500 is treated as held-out and is excluded from classifier train/dev data.
+
+Prepare official PubMedQA data:
+
+```bash
+make classifier-prepare
+```
+
+For faster local iteration on a MacBook, use the smaller official-data split:
+
+```bash
+make classifier-prepare-local
+make classifier-train-local
+```
+
+For the fuller research run, use:
+
+```bash
+make classifier-train
+```
+
+For a 2x RTX 4080 Linux box, use the DDP runner:
+
+```bash
+make classifier-prepare
+make classifier-train-2x4080
+```
+
+This calls `torch.distributed.run` with `nproc_per_node=2`, DDP/NCCL, `bf16` autocast, gradient checkpointing,
+class-weighted loss, per-GPU batch size 8, and gradient accumulation 4. Override defaults with env vars, for example:
+
+```bash
+BATCH_SIZE=12 GRADIENT_ACCUMULATION=3 EPOCHS=5 make classifier-train-2x4080
+```
+
+For the full research ablation run on 2x RTX 4080 16GB, use:
+
+```bash
+make classifier-train-2x4080-full
+```
+
+On a fresh server, the runner expects or bootstraps the ignored raw PubMedQA files:
+
+```text
+data/raw/pubmedqa_official/data/ori_pqal.json
+data/raw/pubmedqa_official/data/ori_pqaa.json
+```
+
+By default it tries `AUTO_DOWNLOAD_PUBMEDQA_RAW=1`. If Google Drive blocks PQA-A, manually place official
+`ori_pqaa.json` at the path above and rerun. Set `AUTO_DOWNLOAD_PUBMEDQA_RAW=0` to fail fast instead of downloading.
+
+This wraps the research runner with safer 4080 defaults:
+
+```text
+NPROC_PER_NODE=2
+BATCH_SIZE=4
+EVAL_BATCH_SIZE=8
+GRADIENT_ACCUMULATION=8
+EPOCHS=8
+RUN_BIOMED_ABLATION=1
+RUN_SEED_SWEEP=1
+SEEDS="123 2026"
+```
+
+The ablation loop already trains the default best variant once with seed `47`, so the default sweep adds only `123`
+and `2026`. Final best-variant seeds are therefore `47`, `123`, and `2026` without duplicating seed `47`.
+
+If DeBERTa-large still hits OOM, rerun with:
+
+```bash
+BATCH_SIZE=2 EVAL_BATCH_SIZE=4 GRADIENT_ACCUMULATION=16 make classifier-train-2x4080-full
+```
+
+It prepares leakage-checked splits and trains:
+
+- PQA-L only,
+- PQA-A + PQA-L,
+- PQA-A + PQA-L with `LONG_ANSWER` bag-of-words auxiliary supervision,
+- optional biomedical encoder ablation,
+- a 3-seed sweep for the selected best variant.
+
+The research runner uses bf16, gradient checkpointing, class-weighted focal loss, macro-F1 model selection, dev-only
+threshold tuning, and a JSONL command log. Large checkpoints stay under ignored `artifacts/classifier/...`; small
+audits and reports can be copied into `reports/classifier/`.
+
+At the end it writes:
+
+```text
+experiment_summary.md
+experiment_summary.json
+data_audit.md
+command_log.jsonl
+```
+
+The summary ranks runs by dev macro F1, then accuracy, then `maybe`/`no` F1, and flags obvious collapse cases such as
+zero recall or >80% predictions in one label.
+
+Audit classifier data and held-out leakage:
+
+```bash
+make classifier-audit
+```
+
+The default checkpoint path is:
+
+```text
+artifacts/classifier/pubmedqa_deberta/best
+```
+
+Runtime integration is controlled by:
+
+```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=false
+RAG_EVIDENCE_CLASSIFIER_MODEL_PATH=artifacts/classifier/pubmedqa_deberta/best
+RAG_EVIDENCE_CLASSIFIER_FAST_THRESHOLD=0.80
+RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD=0.55
+RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1=0.40
+RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY=0.10
+```
+
+For official PQA-L classifier runs, enable the classifier explicitly and start the API with:
+
+```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=true
+RAG_EVIDENCE_JUDGE_METHOD=classifier
+```
+
+This makes `question + evidence -> classifier logits/probabilities -> label` the decision path. The eval wrappers now
+fail if the resulting report silently uses only `rules`.
+
+If the checkpoint collapses to one label on dev, or if calibrated metrics are stale relative to the model/dev metrics,
+the runtime quality gate disables or ignores the stale artifact instead of trusting it.
+
+After training, run:
+
+```bash
+make eval-quick-pqal
+make eval-official-pqal500
 ```
 
 ## Tests
@@ -231,5 +393,7 @@ Do not use `archive/` as current documentation unless a file is explicitly moved
 - `docs/embedding-service.md`
 - `docs/qdrant.md`
 - `docs/data/pubmed-pipeline.md`
+- `docs/evaluation/evaluation-framework.md`
+- `docs/evaluation/medical-eval-suite.md`
 - `docs/evaluation/neurology-clinical-assistant-rubric.md`
 - `docs/audits/rag-architecture-audit-2026-05-20.md`

@@ -1,0 +1,21 @@
+{
+  "source_dataset": "data/benchmarks/pubmedqa/official_pqal_test/eval.json",
+  "balanced": {
+    "path": "data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json",
+    "count": 90,
+    "labels": {
+      "yes": 30,
+      "no": 30,
+      "maybe": 30
+    }
+  },
+  "first_yes": {
+    "path": "data/benchmarks/pubmedqa/official_pqal_test/quick/first100_yes.json",
+    "count": 100,
+    "labels": {
+      "yes": 100,
+      "no": 0,
+      "maybe": 0
+    }
+  }
+}

@@ -3,11 +3,28 @@ const chatViewport = document.querySelector("#chatViewport");
 const messagesEl = document.querySelector("#messages");
 const medicalModelBadge = document.querySelector("#medicalModelBadge");
 const modelSelect = document.querySelector("#modelSelect");
+const modeButtons = Array.from(document.querySelectorAll("[data-chat-mode]"));
 const promptInput = document.querySelector("#promptInput");
 const sendButton = document.querySelector("#sendButton");
 
 const messages = [];
 let isSending = false;
+let chatMode = "medical_chat";
+
+function welcomeTextForMode() {
+  if (chatMode === "benchmark_pqal") {
+    return "PQA-L benchmark mode. Paste a PubMedQA yes/no/maybe question.";
+  }
+  return "Hello, I am MedChat. Ask a health question and I will keep the answer concise.";
+}
+
+function renderWelcomeMessage() {
+  messages.length = 0;
+  const welcome = document.createElement("article");
+  welcome.className = "max-w-2xl text-[15px] leading-7 text-zinc-700";
+  welcome.textContent = welcomeTextForMode();
+  messagesEl.replaceChildren(welcome);
+}
 
 function renderAssistantMarkdown(markdown) {
   const md =
@@ -60,6 +77,21 @@ function syncMedicalBadge() {
   const isMedicalModel = selectedOption?.dataset.medical === "true";
   medicalModelBadge.classList.toggle("hidden", !isMedicalModel);
   medicalModelBadge.classList.toggle("inline-flex", isMedicalModel);
+}
+
+function syncModeButtons() {
+  modeButtons.forEach((button) => {
+    const isActive = button.dataset.chatMode === chatMode;
+    button.setAttribute("aria-pressed", String(isActive));
+    button.classList.toggle("bg-zinc-950", isActive);
+    button.classList.toggle("text-white", isActive);
+    button.classList.toggle("text-zinc-600", !isActive);
+    button.classList.toggle("hover:bg-zinc-100", !isActive);
+  });
+  promptInput.placeholder =
+    chatMode === "benchmark_pqal"
+      ? "Ask a PubMedQA yes/no/maybe question"
+      : "Ask a medical question";
 }
 
 function getCitedSourceIds(content, citationValidation) {
@@ -349,6 +381,7 @@ async function sendMessage(content) {
         model: modelSelect.value,
         messages,
         temperature: 0.2,
+        mode: chatMode,
       }),
     });
 
@@ -393,6 +426,19 @@ promptInput.addEventListener("keydown", (event) => {
 
 modelSelect.addEventListener("change", syncMedicalBadge);
 
+modeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextMode = button.dataset.chatMode;
+    if (!nextMode || nextMode === chatMode || isSending) {
+      return;
+    }
+    chatMode = nextMode;
+    syncModeButtons();
+    renderWelcomeMessage();
+    promptInput.focus();
+  });
+});
+
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const content = promptInput.value.trim();
@@ -407,4 +453,5 @@ chatForm.addEventListener("submit", async (event) => {
 
 autoResizeTextarea();
 syncMedicalBadge();
+syncModeButtons();
 syncSendButton();

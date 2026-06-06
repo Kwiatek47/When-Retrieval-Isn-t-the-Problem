@@ -1,0 +1,1712 @@
+[
+  {
+    "id": "pubmedqa-official-12377809",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is anorectal endosonography valuable in dyschesia?",
+    "benchmark_question": "Is anorectal endosonography valuable in dyschesia?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12377809"
+    ],
+    "relevant_pmids": [
+      "12377809"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12377809/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24577079",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does strategy training reduce age-related deficits in working memory?",
+    "benchmark_question": "Does strategy training reduce age-related deficits in working memory?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24577079"
+    ],
+    "relevant_pmids": [
+      "24577079"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24577079/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18284441",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Expression of c-kit protooncogen in hepatitis B virus-induced chronic hepatitis, cirrhosis and hepatocellular carcinoma: has it a diagnostic role?",
+    "benchmark_question": "Expression of c-kit protooncogen in hepatitis B virus-induced chronic hepatitis, cirrhosis and hepatocellular carcinoma: has it a diagnostic role?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18284441"
+    ],
+    "relevant_pmids": [
+      "18284441"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18284441/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-26163474",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is there a connection between sublingual varices and hypertension?",
+    "benchmark_question": "Is there a connection between sublingual varices and hypertension?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-26163474"
+    ],
+    "relevant_pmids": [
+      "26163474"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/26163474/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24669960",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does the sex of acute stroke patients influence the effectiveness of rt-PA?",
+    "benchmark_question": "Does the sex of acute stroke patients influence the effectiveness of rt-PA?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24669960"
+    ],
+    "relevant_pmids": [
+      "24669960"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24669960/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18802997",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can calprotectin predict relapse risk in inflammatory bowel disease?",
+    "benchmark_question": "Can calprotectin predict relapse risk in inflammatory bowel disease?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18802997"
+    ],
+    "relevant_pmids": [
+      "18802997"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18802997/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19100463",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is the affinity column-mediated immunoassay method suitable as an alternative to the microparticle enzyme immunoassay method as a blood tacrolimus assay?",
+    "benchmark_question": "Is the affinity column-mediated immunoassay method suitable as an alternative to the microparticle enzyme immunoassay method as a blood tacrolimus assay?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19100463"
+    ],
+    "relevant_pmids": [
+      "19100463"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19100463/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-15502995",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does the early adopter of drugs exist?",
+    "benchmark_question": "Does the early adopter of drugs exist?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-15502995"
+    ],
+    "relevant_pmids": [
+      "15502995"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/15502995/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-17621202",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does shaving the incision site increase the infection rate after spinal surgery?",
+    "benchmark_question": "Does shaving the incision site increase the infection rate after spinal surgery?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-17621202"
+    ],
+    "relevant_pmids": [
+      "17621202"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/17621202/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18537964",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does a physician's specialty influence the recording of medication history in patients' case notes?",
+    "benchmark_question": "Does a physician's specialty influence the recording of medication history in patients' case notes?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18537964"
+    ],
+    "relevant_pmids": [
+      "18537964"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18537964/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21214884",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can 'high-risk' human papillomaviruses (HPVs) be detected in human breast milk?",
+    "benchmark_question": "Can 'high-risk' human papillomaviruses (HPVs) be detected in human breast milk?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21214884"
+    ],
+    "relevant_pmids": [
+      "21214884"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21214884/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11411430",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Antral follicle assessment as a tool for predicting outcome in IVF--is it a better predictor than age and FSH?",
+    "benchmark_question": "Antral follicle assessment as a tool for predicting outcome in IVF--is it a better predictor than age and FSH?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11411430"
+    ],
+    "relevant_pmids": [
+      "11411430"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11411430/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12913878",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Locoregional opening of the rodent blood-brain barrier for paclitaxel using Nd:YAG laser-induced thermo therapy: a new concept of adjuvant glioma therapy?",
+    "benchmark_question": "Locoregional opening of the rodent blood-brain barrier for paclitaxel using Nd:YAG laser-induced thermo therapy: a new concept of adjuvant glioma therapy?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12913878"
+    ],
+    "relevant_pmids": [
+      "12913878"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12913878/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24476003",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is nasogastric decompression useful in prevention of leaks after laparoscopic sleeve gastrectomy?",
+    "benchmark_question": "Is nasogastric decompression useful in prevention of leaks after laparoscopic sleeve gastrectomy?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24476003"
+    ],
+    "relevant_pmids": [
+      "24476003"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24476003/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-26708803",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Treatment of contralateral hydrocele in neonatal testicular torsion: Is less more?",
+    "benchmark_question": "Treatment of contralateral hydrocele in neonatal testicular torsion: Is less more?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-26708803"
+    ],
+    "relevant_pmids": [
+      "26708803"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/26708803/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12765819",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Spinal subdural hematoma: a sequela of a ruptured intracranial aneurysm?",
+    "benchmark_question": "Spinal subdural hematoma: a sequela of a ruptured intracranial aneurysm?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12765819"
+    ],
+    "relevant_pmids": [
+      "12765819"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12765819/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22758782",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Regional anesthesia as compared with general anesthesia for surgery in geriatric patients with hip fracture: does it decrease morbidity, mortality, and health care costs?",
+    "benchmark_question": "Regional anesthesia as compared with general anesthesia for surgery in geriatric patients with hip fracture: does it decrease morbidity, mortality, and health care costs?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22758782"
+    ],
+    "relevant_pmids": [
+      "22758782"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22758782/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25079920",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do parents recall and understand children's weight status information after BMI screening?",
+    "benchmark_question": "Do parents recall and understand children's weight status information after BMI screening?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25079920"
+    ],
+    "relevant_pmids": [
+      "25079920"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25079920/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25475395",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is there a correlation between androgens and sexual desire in women?",
+    "benchmark_question": "Is there a correlation between androgens and sexual desire in women?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25475395"
+    ],
+    "relevant_pmids": [
+      "25475395"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25475395/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-14627582",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Double reading of barium enemas: is it necessary?",
+    "benchmark_question": "Double reading of barium enemas: is it necessary?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-14627582"
+    ],
+    "relevant_pmids": [
+      "14627582"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/14627582/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25793749",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do Web-based and clinic samples of gay men living with HIV differ on self-reported physical and psychological symptoms?",
+    "benchmark_question": "Do Web-based and clinic samples of gay men living with HIV differ on self-reported physical and psychological symptoms?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25793749"
+    ],
+    "relevant_pmids": [
+      "25793749"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25793749/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19130332",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is the zeolite hemostatic agent beneficial in reducing blood loss during arterial injury?",
+    "benchmark_question": "Is the zeolite hemostatic agent beneficial in reducing blood loss during arterial injury?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19130332"
+    ],
+    "relevant_pmids": [
+      "19130332"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19130332/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24666444",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is there any evidence of a \"July effect\" in patients undergoing major cancer surgery?",
+    "benchmark_question": "Is there any evidence of a \"July effect\" in patients undergoing major cancer surgery?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24666444"
+    ],
+    "relevant_pmids": [
+      "24666444"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24666444/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19103915",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are home sampling kits for sexually transmitted infections acceptable among men who have sex with men?",
+    "benchmark_question": "Are home sampling kits for sexually transmitted infections acceptable among men who have sex with men?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19103915"
+    ],
+    "relevant_pmids": [
+      "19103915"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19103915/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-9427037",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are endothelial cell patterns of astrocytomas indicative of grade?",
+    "benchmark_question": "Are endothelial cell patterns of astrocytomas indicative of grade?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-9427037"
+    ],
+    "relevant_pmids": [
+      "9427037"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/9427037/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18496363",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Characterization of the gender dimorphism after injury and hemorrhagic shock: are hormonal differences responsible?",
+    "benchmark_question": "Characterization of the gender dimorphism after injury and hemorrhagic shock: are hormonal differences responsible?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18496363"
+    ],
+    "relevant_pmids": [
+      "18496363"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18496363/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11867487",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does rugby headgear prevent concussion?",
+    "benchmark_question": "Does rugby headgear prevent concussion?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11867487"
+    ],
+    "relevant_pmids": [
+      "11867487"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11867487/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24481006",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Should cavitation in proximal surfaces be reported in cone beam computed tomography examination?",
+    "benchmark_question": "Should cavitation in proximal surfaces be reported in cone beam computed tomography examination?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24481006"
+    ],
+    "relevant_pmids": [
+      "24481006"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24481006/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12040336",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Cardiogenic shock complicating acute myocardial infarction in elderly patients: does admission to a tertiary center improve survival?",
+    "benchmark_question": "Cardiogenic shock complicating acute myocardial infarction in elderly patients: does admission to a tertiary center improve survival?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12040336"
+    ],
+    "relevant_pmids": [
+      "12040336"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12040336/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12630042",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does body mass index (BMI) influence morbidity and long-term survival in gastric cancer patients after gastrectomy?",
+    "benchmark_question": "Does body mass index (BMI) influence morbidity and long-term survival in gastric cancer patients after gastrectomy?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12630042"
+    ],
+    "relevant_pmids": [
+      "12630042"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12630042/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-8165771",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging?",
+    "benchmark_question": "Ultrasound in squamous cell carcinoma of the penis; a useful addition to clinical staging?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-8165771"
+    ],
+    "relevant_pmids": [
+      "8165771"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/8165771/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-14631523",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Sub-classification of low-grade cerebellar astrocytoma: is it clinically meaningful?",
+    "benchmark_question": "Sub-classification of low-grade cerebellar astrocytoma: is it clinically meaningful?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-14631523"
+    ],
+    "relevant_pmids": [
+      "14631523"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/14631523/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19468282",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is determination between complete and incomplete traumatic spinal cord injury clinically relevant?",
+    "benchmark_question": "Is determination between complete and incomplete traumatic spinal cord injury clinically relevant?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19468282"
+    ],
+    "relevant_pmids": [
+      "19468282"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19468282/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22680064",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can third trimester ultrasound predict the presentation of the first twin at delivery?",
+    "benchmark_question": "Can third trimester ultrasound predict the presentation of the first twin at delivery?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22680064"
+    ],
+    "relevant_pmids": [
+      "22680064"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22680064/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21823940",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Department of Transportation vs self-reported data on motor vehicle collisions and driving convictions for stroke survivors: do they agree?",
+    "benchmark_question": "Department of Transportation vs self-reported data on motor vehicle collisions and driving convictions for stroke survivors: do they agree?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21823940"
+    ],
+    "relevant_pmids": [
+      "21823940"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21823940/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-16538201",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does use of hydrophilic guidewires significantly improve technical success rates of peripheral PTA?",
+    "benchmark_question": "Does use of hydrophilic guidewires significantly improve technical success rates of peripheral PTA?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-16538201"
+    ],
+    "relevant_pmids": [
+      "16538201"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/16538201/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22540518",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is micro-computed tomography reliable to determine the microstructure of the maxillary alveolar bone?",
+    "benchmark_question": "Is micro-computed tomography reliable to determine the microstructure of the maxillary alveolar bone?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22540518"
+    ],
+    "relevant_pmids": [
+      "22540518"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22540518/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-17971187",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Cholesterol screening in school children: is family history reliable to choose the ones to screen?",
+    "benchmark_question": "Cholesterol screening in school children: is family history reliable to choose the ones to screen?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-17971187"
+    ],
+    "relevant_pmids": [
+      "17971187"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/17971187/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-20971618",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are lifetime prevalence of impetigo, molluscum and herpes infection really increased in children having atopic dermatitis?",
+    "benchmark_question": "Are lifetime prevalence of impetigo, molluscum and herpes infection really increased in children having atopic dermatitis?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-20971618"
+    ],
+    "relevant_pmids": [
+      "20971618"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/20971618/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-20629769",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is primary angioplasty an acceptable alternative to thrombolysis?",
+    "benchmark_question": "Is primary angioplasty an acceptable alternative to thrombolysis?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-20629769"
+    ],
+    "relevant_pmids": [
+      "20629769"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/20629769/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-27642458",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Did the call for boycott by the Catholic bishops affect the polio vaccination coverage in Kenya in 2015?",
+    "benchmark_question": "Did the call for boycott by the Catholic bishops affect the polio vaccination coverage in Kenya in 2015?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-27642458"
+    ],
+    "relevant_pmids": [
+      "27642458"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/27642458/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24336869",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can routinely collected ambulance data about assaults contribute to reduction in community violence?",
+    "benchmark_question": "Can routinely collected ambulance data about assaults contribute to reduction in community violence?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24336869"
+    ],
+    "relevant_pmids": [
+      "24336869"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24336869/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21726930",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is endometrial polyp formation associated with increased expression of vascular endothelial growth factor and transforming growth factor-beta1?",
+    "benchmark_question": "Is endometrial polyp formation associated with increased expression of vascular endothelial growth factor and transforming growth factor-beta1?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21726930"
+    ],
+    "relevant_pmids": [
+      "21726930"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21726930/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12970636",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does early discharge with nurse home visits affect adequacy of newborn metabolic screening?",
+    "benchmark_question": "Does early discharge with nurse home visits affect adequacy of newborn metabolic screening?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12970636"
+    ],
+    "relevant_pmids": [
+      "12970636"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12970636/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-20197761",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is irritable bowel syndrome a diagnosis of exclusion?",
+    "benchmark_question": "Is irritable bowel syndrome a diagnosis of exclusion?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-20197761"
+    ],
+    "relevant_pmids": [
+      "20197761"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/20197761/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21481154",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Improvements in survival of gynaecological cancer in the Anglia region of England: are these an effect of centralisation of care and use of multidisciplinary management?",
+    "benchmark_question": "Improvements in survival of gynaecological cancer in the Anglia region of England: are these an effect of centralisation of care and use of multidisciplinary management?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21481154"
+    ],
+    "relevant_pmids": [
+      "21481154"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21481154/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11138995",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is alexithymia a risk factor for unexplained physical symptoms in general medical outpatients?",
+    "benchmark_question": "Is alexithymia a risk factor for unexplained physical symptoms in general medical outpatients?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11138995"
+    ],
+    "relevant_pmids": [
+      "11138995"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11138995/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-16968876",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is a patient's self-reported health-related quality of life a prognostic factor for survival in non-small-cell lung cancer patients?",
+    "benchmark_question": "Is a patient's self-reported health-related quality of life a prognostic factor for survival in non-small-cell lung cancer patients?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-16968876"
+    ],
+    "relevant_pmids": [
+      "16968876"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/16968876/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22902073",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Estimated fetal weight by ultrasound: a modifiable risk factor for cesarean delivery?",
+    "benchmark_question": "Estimated fetal weight by ultrasound: a modifiable risk factor for cesarean delivery?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22902073"
+    ],
+    "relevant_pmids": [
+      "22902073"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22902073/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-15388567",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are sports medicine journals relevant and applicable to practitioners and athletes?",
+    "benchmark_question": "Are sports medicine journals relevant and applicable to practitioners and athletes?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-15388567"
+    ],
+    "relevant_pmids": [
+      "15388567"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/15388567/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-26778755",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Vaginal dose assessment in image-guided brachytherapy for cervical cancer: Can we really rely on dose-point evaluation?",
+    "benchmark_question": "Vaginal dose assessment in image-guided brachytherapy for cervical cancer: Can we really rely on dose-point evaluation?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-26778755"
+    ],
+    "relevant_pmids": [
+      "26778755"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/26778755/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-26370095",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are financial incentives cost-effective to support smoking cessation during pregnancy?",
+    "benchmark_question": "Are financial incentives cost-effective to support smoking cessation during pregnancy?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-26370095"
+    ],
+    "relevant_pmids": [
+      "26370095"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/26370095/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19142546",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does quantitative left ventricular regional wall motion change after fibrous tissue resection in endomyocardial fibrosis?",
+    "benchmark_question": "Does quantitative left ventricular regional wall motion change after fibrous tissue resection in endomyocardial fibrosis?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19142546"
+    ],
+    "relevant_pmids": [
+      "19142546"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19142546/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18568290",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is there a role for endothelin-1 in the hemodynamic changes during hemodialysis?",
+    "benchmark_question": "Is there a role for endothelin-1 in the hemodynamic changes during hemodialysis?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18568290"
+    ],
+    "relevant_pmids": [
+      "18568290"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18568290/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18041059",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do adjuvant aromatase inhibitors increase the cardiovascular risk in postmenopausal women with early breast cancer?",
+    "benchmark_question": "Do adjuvant aromatase inhibitors increase the cardiovascular risk in postmenopausal women with early breast cancer?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18041059"
+    ],
+    "relevant_pmids": [
+      "18041059"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18041059/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-8921484",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does gestational age misclassification explain the difference in birthweights for Australian aborigines and whites?",
+    "benchmark_question": "Does gestational age misclassification explain the difference in birthweights for Australian aborigines and whites?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-8921484"
+    ],
+    "relevant_pmids": [
+      "8921484"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/8921484/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25371231",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is vitamin D insufficiency or deficiency related to the development of osteochondritis dissecans?",
+    "benchmark_question": "Is vitamin D insufficiency or deficiency related to the development of osteochondritis dissecans?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25371231"
+    ],
+    "relevant_pmids": [
+      "25371231"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25371231/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-15041506",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is fear of anaphylactic shock discouraging surgeons from more widely adopting percutaneous and laparoscopic techniques in the treatment of liver hydatid cyst?",
+    "benchmark_question": "Is fear of anaphylactic shock discouraging surgeons from more widely adopting percutaneous and laparoscopic techniques in the treatment of liver hydatid cyst?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-15041506"
+    ],
+    "relevant_pmids": [
+      "15041506"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/15041506/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-26209118",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Utility of unenhanced fat-suppressed T1-weighted MRI in children with sickle cell disease -- can it differentiate bone infarcts from acute osteomyelitis?",
+    "benchmark_question": "Utility of unenhanced fat-suppressed T1-weighted MRI in children with sickle cell disease -- can it differentiate bone infarcts from acute osteomyelitis?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-26209118"
+    ],
+    "relevant_pmids": [
+      "26209118"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/26209118/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25394614",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does timing of initial surfactant treatment make a difference in rates of chronic lung disease or mortality in premature infants?",
+    "benchmark_question": "Does timing of initial surfactant treatment make a difference in rates of chronic lung disease or mortality in premature infants?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25394614"
+    ],
+    "relevant_pmids": [
+      "25394614"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25394614/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11146778",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Risk stratification in emergency surgical patients: is the APACHE II score a reliable marker of physiological impairment?",
+    "benchmark_question": "Risk stratification in emergency surgical patients: is the APACHE II score a reliable marker of physiological impairment?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11146778"
+    ],
+    "relevant_pmids": [
+      "11146778"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11146778/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22668852",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do African American women require fewer calories to maintain weight?",
+    "benchmark_question": "Do African American women require fewer calories to maintain weight?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22668852"
+    ],
+    "relevant_pmids": [
+      "22668852"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22668852/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11570976",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is it Crohn's disease?",
+    "benchmark_question": "Is it Crohn's disease?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11570976"
+    ],
+    "relevant_pmids": [
+      "11570976"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11570976/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-27281318",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can Flexible Instruments Create Adequate Femoral Tunnel Lengths at 90° of Knee Flexion in Anterior Cruciate Ligament Reconstruction?",
+    "benchmark_question": "Can Flexible Instruments Create Adequate Femoral Tunnel Lengths at 90° of Knee Flexion in Anterior Cruciate Ligament Reconstruction?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-27281318"
+    ],
+    "relevant_pmids": [
+      "27281318"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/27281318/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18019905",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: The use of audit to identify maternal mortality in different settings: is it just a difference between the rich and the poor?",
+    "benchmark_question": "The use of audit to identify maternal mortality in different settings: is it just a difference between the rich and the poor?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18019905"
+    ],
+    "relevant_pmids": [
+      "18019905"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18019905/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-16816043",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do French lay people and health professionals find it acceptable to breach confidentiality to protect a patient's wife from a sexually transmitted disease?",
+    "benchmark_question": "Do French lay people and health professionals find it acceptable to breach confidentiality to protect a patient's wife from a sexually transmitted disease?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-16816043"
+    ],
+    "relevant_pmids": [
+      "16816043"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/16816043/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21645374",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do mitochondria play a role in remodelling lace plant leaves during programmed cell death?",
+    "benchmark_question": "Do mitochondria play a role in remodelling lace plant leaves during programmed cell death?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21645374"
+    ],
+    "relevant_pmids": [
+      "21645374"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21645374/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18378554",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are wandering and physically nonaggressive agitation equivalent?",
+    "benchmark_question": "Are wandering and physically nonaggressive agitation equivalent?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18378554"
+    ],
+    "relevant_pmids": [
+      "18378554"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18378554/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12805495",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Can patients be anticoagulated after intracerebral hemorrhage?",
+    "benchmark_question": "Can patients be anticoagulated after intracerebral hemorrhage?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12805495"
+    ],
+    "relevant_pmids": [
+      "12805495"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12805495/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-9465206",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: \"Occult\" posttraumatic lesions of the knee: can magnetic resonance substitute for diagnostic arthroscopy?",
+    "benchmark_question": "\"Occult\" posttraumatic lesions of the knee: can magnetic resonance substitute for diagnostic arthroscopy?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-9465206"
+    ],
+    "relevant_pmids": [
+      "9465206"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/9465206/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24073931",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is the covering of the resection margin after distal pancreatectomy advantageous?",
+    "benchmark_question": "Is the covering of the resection margin after distal pancreatectomy advantageous?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24073931"
+    ],
+    "relevant_pmids": [
+      "24073931"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24073931/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25571931",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do elderly patients call 911 when presented with clinical scenarios suggestive of acute stroke?",
+    "benchmark_question": "Do elderly patients call 911 when presented with clinical scenarios suggestive of acute stroke?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25571931"
+    ],
+    "relevant_pmids": [
+      "25571931"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25571931/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25887165",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does Sensation Return to the Nasal Tip After Microfat Grafting?",
+    "benchmark_question": "Does Sensation Return to the Nasal Tip After Microfat Grafting?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25887165"
+    ],
+    "relevant_pmids": [
+      "25887165"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25887165/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-7547656",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does continuous intravenous infusion of low-concentration epinephrine impair uterine blood flow in pregnant ewes?",
+    "benchmark_question": "Does continuous intravenous infusion of low-concentration epinephrine impair uterine blood flow in pregnant ewes?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-7547656"
+    ],
+    "relevant_pmids": [
+      "7547656"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/7547656/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19578820",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Are opioid dependence and methadone maintenance treatment (MMT) documented in the medical record?",
+    "benchmark_question": "Are opioid dependence and methadone maintenance treatment (MMT) documented in the medical record?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19578820"
+    ],
+    "relevant_pmids": [
+      "19578820"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19578820/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-15995461",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do some U.S. states have higher/lower injury mortality rates than others?",
+    "benchmark_question": "Do some U.S. states have higher/lower injury mortality rates than others?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-15995461"
+    ],
+    "relevant_pmids": [
+      "15995461"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/15995461/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-28359277",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do healthier lifestyles lead to less utilization of healthcare resources?",
+    "benchmark_question": "Do healthier lifestyles lead to less utilization of healthcare resources?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-28359277"
+    ],
+    "relevant_pmids": [
+      "28359277"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/28359277/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18243752",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Should chest wall irradiation be included after mastectomy and negative node breast cancer?",
+    "benchmark_question": "Should chest wall irradiation be included after mastectomy and negative node breast cancer?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18243752"
+    ],
+    "relevant_pmids": [
+      "18243752"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18243752/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21850494",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Hepatorenal syndrome: are we missing some prognostic factors?",
+    "benchmark_question": "Hepatorenal syndrome: are we missing some prognostic factors?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21850494"
+    ],
+    "relevant_pmids": [
+      "21850494"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21850494/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18667100",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Do risk factors for suicidal behavior differ by affective disorder polarity?",
+    "benchmark_question": "Do risk factors for suicidal behavior differ by affective disorder polarity?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18667100"
+    ],
+    "relevant_pmids": [
+      "18667100"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18667100/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11458136",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does managed care enable more low income persons to identify a usual source of care?",
+    "benchmark_question": "Does managed care enable more low income persons to identify a usual source of care?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11458136"
+    ],
+    "relevant_pmids": [
+      "11458136"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11458136/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-19106867",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: The Main Gate Syndrome: a new format in mass-casualty victim \"surge\" management?",
+    "benchmark_question": "The Main Gate Syndrome: a new format in mass-casualty victim \"surge\" management?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-19106867"
+    ],
+    "relevant_pmids": [
+      "19106867"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/19106867/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-10781708",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Thrombosis prophylaxis in hospitalised medical patients: does prophylaxis in all patients make sense?",
+    "benchmark_question": "Thrombosis prophylaxis in hospitalised medical patients: does prophylaxis in all patients make sense?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-10781708"
+    ],
+    "relevant_pmids": [
+      "10781708"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/10781708/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-12790890",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is the cell death in mesial temporal sclerosis apoptotic?",
+    "benchmark_question": "Is the cell death in mesial temporal sclerosis apoptotic?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-12790890"
+    ],
+    "relevant_pmids": [
+      "12790890"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/12790890/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-21342862",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is EQ-5D a valid quality of life instrument in patients with acute coronary syndrome?",
+    "benchmark_question": "Is EQ-5D a valid quality of life instrument in patients with acute coronary syndrome?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-21342862"
+    ],
+    "relevant_pmids": [
+      "21342862"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/21342862/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-22522271",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is late-night salivary cortisol a better screening test for possible cortisol excess than standard screening tests in obese patients with Type 2 diabetes?",
+    "benchmark_question": "Is late-night salivary cortisol a better screening test for possible cortisol excess than standard screening tests in obese patients with Type 2 diabetes?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-22522271"
+    ],
+    "relevant_pmids": [
+      "22522271"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/22522271/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-18714572",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does vaginal intraepithelial neoplasia have the same evolution as cervical intraepithelial neoplasia?",
+    "benchmark_question": "Does vaginal intraepithelial neoplasia have the same evolution as cervical intraepithelial neoplasia?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-18714572"
+    ],
+    "relevant_pmids": [
+      "18714572"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/18714572/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-24352924",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Is portable ultrasonography accurate in the evaluation of Schanz pin placement during extremity fracture fixation in austere environments?",
+    "benchmark_question": "Is portable ultrasonography accurate in the evaluation of Schanz pin placement during extremity fracture fixation in austere environments?",
+    "expected_label": "yes",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-24352924"
+    ],
+    "relevant_pmids": [
+      "24352924"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/24352924/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-11955750",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does escalation of the apical dose change treatment outcome in beta-radiation of posterior choroidal melanomas with 106Ru plaques?",
+    "benchmark_question": "Does escalation of the apical dose change treatment outcome in beta-radiation of posterior choroidal melanomas with 106Ru plaques?",
+    "expected_label": "no",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-11955750"
+    ],
+    "relevant_pmids": [
+      "11955750"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/11955750/"
+    ],
+    "strict": true,
+    "official_test": true
+  },
+  {
+    "id": "pubmedqa-official-25103647",
+    "benchmark": "PubMedQA PQA-L official test",
+    "question": "Answer yes, no, or maybe based on retrieved evidence: Does government assistance improve utilization of eye care services by low-income individuals?",
+    "benchmark_question": "Does government assistance improve utilization of eye care services by low-income individuals?",
+    "expected_label": "maybe",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "pubmedqa-official-25103647"
+    ],
+    "relevant_pmids": [
+      "25103647"
+    ],
+    "source_urls": [
+      "https://pubmed.ncbi.nlm.nih.gov/25103647/"
+    ],
+    "strict": true,
+    "official_test": true
+  }
+]
