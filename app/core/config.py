@@ -119,7 +119,7 @@ def get_settings() -> Settings:
         rag_evidence_judge_max_sources=int(os.getenv("RAG_EVIDENCE_JUDGE_MAX_SOURCES", "3")),
         rag_evidence_judge_voting_enabled=_bool_env("RAG_EVIDENCE_JUDGE_VOTING_ENABLED", False),
         rag_evidence_judge_votes=int(os.getenv("RAG_EVIDENCE_JUDGE_VOTES", "3")),
-        rag_evidence_classifier_enabled=_bool_env("RAG_EVIDENCE_CLASSIFIER_ENABLED", True),
+        rag_evidence_classifier_enabled=_bool_env("RAG_EVIDENCE_CLASSIFIER_ENABLED", False),
         rag_evidence_classifier_model_path=Path(
             os.getenv(
                 "RAG_EVIDENCE_CLASSIFIER_MODEL_PATH",

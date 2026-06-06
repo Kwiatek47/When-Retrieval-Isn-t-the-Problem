@@ -332,7 +332,7 @@ artifacts/classifier/pubmedqa_deberta/best
 Runtime integration is controlled by:
 
 ```text
-RAG_EVIDENCE_CLASSIFIER_ENABLED=true
+RAG_EVIDENCE_CLASSIFIER_ENABLED=false
 RAG_EVIDENCE_CLASSIFIER_MODEL_PATH=artifacts/classifier/pubmedqa_deberta/best
 RAG_EVIDENCE_CLASSIFIER_FAST_THRESHOLD=0.80
 RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD=0.55
@@ -340,9 +340,10 @@ RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1=0.40
 RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY=0.10
 ```
 
-For official PQA-L classifier runs, start the API with:
+For official PQA-L classifier runs, enable the classifier explicitly and start the API with:
 
 ```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=true
 RAG_EVIDENCE_JUDGE_METHOD=classifier
 ```
 

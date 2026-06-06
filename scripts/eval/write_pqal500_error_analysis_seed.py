@@ -25,7 +25,7 @@ def main() -> None:
     if not isinstance(cases, list):
         raise RuntimeError(f"Expected `cases` list in {args.report}.")
 
-    error_items = [_error_item(case) for case in cases if not bool(case.get("case_pass"))]
+    error_items = [_error_item(case) for case in cases if not bool(case.get("label_pass"))]
     pair_counts = Counter(f"{item['true_label']}->{item['predicted_label']}" for item in error_items)
     data = {
         "benchmark": "PubMedQA official PQA-L 500",
@@ -33,6 +33,7 @@ def main() -> None:
         "source_report": str(args.report),
         "error_type_taxonomy": ERROR_TYPES,
         "manual_fields": ["error_type", "evidence_excerpt", "difficulty", "notes"],
+        "selection": "label_errors_only",
         "summary": {
             "error_count": len(error_items),
             "predicted_vs_true": dict(sorted(pair_counts.items())),

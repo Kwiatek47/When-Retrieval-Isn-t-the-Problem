@@ -63,8 +63,15 @@ class PubMedQAResult:
             and self.source_hit_at_3
             and self.citation_pass
             and self.label_pass
-            and (self.hallucination_rate is None or self.hallucination_rate <= 0.25)
         )
+
+    @property
+    def answer_quality_pass(self) -> bool:
+        return self.hallucination_rate is None or self.hallucination_rate <= 0.25
+
+    @property
+    def strict_case_pass(self) -> bool:
+        return self.case_pass and self.answer_quality_pass
 
 
 def main() -> None:
@@ -254,7 +261,9 @@ def _build_report(
         "model": args.model,
         "case_count": len(results),
         "case_pass_rate": _rate(result.case_pass for result in results),
+        "strict_case_pass_rate": _rate(result.strict_case_pass for result in results),
         "label_accuracy": _rate(result.label_pass for result in results),
+        "answer_quality_pass_rate": _rate(result.answer_quality_pass for result in results),
         "grounded_status_rate": _rate(result.retrieval_status == "grounded" for result in results),
         "source_hit_at_1": _rate(result.source_hit_at_1 for result in results),
         "source_hit_at_3": _rate(result.source_hit_at_3 for result in results),
@@ -276,6 +285,7 @@ def _build_report(
         "confusion_matrix": confusion_matrix,
         "prediction_pairs": _prediction_pairs(results),
         "error_buckets": _counts(_error_bucket(result) for result in results if not result.case_pass),
+        "answer_quality_fail_count": sum(1 for result in results if not result.answer_quality_pass),
         "predicted_labels": {
             label: sum(1 for result in results if result.predicted_label == label)
             for label in ("yes", "no", "maybe")
@@ -304,6 +314,8 @@ def _build_report(
             "RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD": os.getenv("RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD", ""),
             "RAG_ANSWER_QUALITY_GATE_ENABLED": os.getenv("RAG_ANSWER_QUALITY_GATE_ENABLED", ""),
             "RAG_CORPUS_VERSION": os.getenv("RAG_CORPUS_VERSION", ""),
+            "RAG_RETRIEVER": os.getenv("RAG_RETRIEVER", ""),
+            "CROSS_ENCODER_MODEL": os.getenv("CROSS_ENCODER_MODEL", ""),
         },
     }
     return {
@@ -344,6 +356,8 @@ def _case_to_dict(result: PubMedQAResult) -> dict[str, Any]:
         "hallucination_rate": result.hallucination_rate,
         "latency_ms": result.latency_ms,
         "case_pass": result.case_pass,
+        "strict_case_pass": result.strict_case_pass,
+        "answer_quality_pass": result.answer_quality_pass,
         "error_bucket": error_bucket,
         "answer": result.answer,
         "evidence_decision": result.evidence_decision,
@@ -405,13 +419,13 @@ def _error_bucket(result: PubMedQAResult) -> str:
         return f"retrieval_status_{result.retrieval_status or 'unknown'}"
     if not result.citation_pass:
         return "citation_fail"
-    if result.hallucination_rate is not None and result.hallucination_rate > 0.25:
-        return "hallucination_fail"
     if not result.label_pass:
         decision_label = result.evidence_decision.get("answer_label")
         if decision_label == result.predicted_label:
             return "evidence_judge_label_error"
         return "answer_label_extraction_or_writer_error"
+    if not result.answer_quality_pass:
+        return "answer_quality_fail"
     return "other_case_fail"
 
 
@@ -434,7 +448,9 @@ def _write_markdown(path: Path, report: dict[str, Any]) -> None:
         f"- Model: `{summary['model']}`",
         f"- Cases: {summary['case_count']}",
         f"- Case pass rate: {summary['case_pass_rate']:.3f}",
+        f"- Strict case pass rate: {summary['strict_case_pass_rate']:.3f}",
         f"- Label accuracy: {summary['label_accuracy']:.3f}",
+        f"- Answer quality pass rate: {summary['answer_quality_pass_rate']:.3f}",
         f"- Grounded status rate: {summary['grounded_status_rate']:.3f}",
         f"- Source hit@1: {summary['source_hit_at_1']:.3f}",
         f"- Source hit@3: {summary['source_hit_at_3']:.3f}",
