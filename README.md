@@ -226,6 +226,17 @@ Official PQA-L reports separate metrics that should not be collapsed into one nu
 - `case_pass_rate`: label + retrieval + citation pass.
 - `strict_case_pass_rate`: `case_pass_rate` plus answer-quality pass. This can be too strict for classifier-only benchmark answers because the classifier returns a short decision rather than a generated clinical paragraph.
 
+Current best tracked full PQA-L 500 run:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+label_accuracy=0.720
+source_hit_at_1=0.980
+citation_pass_rate=1.000
+```
+
+This is the main paper-facing value for the current pipeline. Smaller quick runs, such as balanced90 diagnostics, are used to find failure modes and should not be reported as the main result.
+
 In `benchmark_pqal` mode the pipeline expands the selected retrieved PMID to the full official PQA-L abstract from
 `PUBMEDQA_OFFICIAL_CORPUS_PATH`. This is benchmark-only: it does not affect patient-facing `medical_chat`, and it does
 not use gold labels.

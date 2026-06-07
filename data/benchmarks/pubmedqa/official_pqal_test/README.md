@@ -74,7 +74,17 @@ The default CI gate is:
 summary.label_accuracy >= previous_best_score - 0.01
 ```
 
-The baseline is stored in `previous_best.json`. Override the gate only explicitly, for example:
+The baseline is stored in `previous_best.json`. The current tracked best full PQA-L 500 run is:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+label_accuracy=0.720
+source_hit_at_1=0.980
+citation_pass_rate=1.000
+```
+
+With the default 1 percentage point tolerance, the regression threshold is therefore `0.710`.
+Override the gate only explicitly, for example:
 
 ```bash
 OFFICIAL_PQAL500_GATE_METRIC=summary.case_pass_rate \

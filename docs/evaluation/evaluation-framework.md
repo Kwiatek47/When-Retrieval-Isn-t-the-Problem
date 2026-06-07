@@ -152,7 +152,13 @@ Gate:
 summary.label_accuracy >= previous_best_score - 0.01
 ```
 
-Czyli jesli poprzedni najlepszy wynik to `49.6%`, to domyslnie nie mozemy zejsc ponizej `48.6%`.
+Aktualny najlepszy pelny wynik PQA-L 500 to `72.0%` label accuracy dla runu:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+```
+
+Czyli domyslnie nie mozemy zejsc ponizej `71.0%`, chyba ze swiadomie resetujemy baseline lub porownujemy osobny wariant eksperymentalny.
 
 Wazne: PQA-L nie mowi, czy chatbot jest bezpieczny dla pacjenta. On mowi tylko, czy evidence classifier dziala.
 
@@ -164,6 +170,27 @@ W trybie `benchmark_pqal` evidence jest traktowane inaczej niz w czacie pacjenta
 - gold label nie jest uzywany ani do wyboru PMID, ani do decyzji.
 
 To jest celowo ograniczone do benchmarku. `medical_chat` nadal uzywa zwyklego safety-first RAG, odmow i red flags.
+
+Current best PQA-L 500 snapshot:
+
+| Metric | Value |
+|---|---:|
+| Cases | 500 |
+| Label accuracy | 72.0% |
+| Source hit@1 | 98.0% |
+| Source hit@3 | 98.0% |
+| Citation pass rate | 100.0% |
+| Case pass rate | 71.6% |
+
+Per-label accuracy in that run:
+
+| Label | Count | Accuracy |
+|---|---:|---:|
+| yes | 276 | 76.1% |
+| no | 169 | 86.4% |
+| maybe | 55 | 7.3% |
+
+Interpretacja: warstwa BioLinkBERT/classifier robi duzy skok wzgledem LLM judge baseline, ale `maybe` pozostaje glownym bottleneckiem badawczym.
 
 ### Evidence Classifier v1
 

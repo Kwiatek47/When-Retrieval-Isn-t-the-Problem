@@ -54,6 +54,14 @@ Default gate:
 summary.label_accuracy >= previous_best_score - 0.01
 ```
 
+Current best full PQA-L 500 baseline is `0.720` label accuracy from:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+```
+
+That run uses the classifier decision path over retrieved official abstracts and reaches `source_hit_at_1=0.980` and `citation_pass_rate=1.000`. The key remaining weakness is the `maybe` class, so future changes should not be judged only by aggregate accuracy.
+
 This is intentionally a regression gate, not a product-quality score. PQA-L does not test patient-style open answers, emergency escalation, medication safety, or refusal quality.
 
 ### 2. `clinical_safety_golden`
