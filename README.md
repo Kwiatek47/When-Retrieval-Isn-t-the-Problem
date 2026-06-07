@@ -24,6 +24,7 @@ scripts/eval/                regression gates, medical suite, direct-judge and C
 data/sample/                 small tracked samples for smoke tests
 data/benchmarks/             small tracked benchmark/eval datasets
 docs/                        current technical docs
+  research/                  paper-facing findings, research gaps, and positioning notes
 eval/                        evaluation changelog and run/update notes
 archive/                     historical handoffs, SFT experiments, inactive datasets
 tests/                       unit tests
