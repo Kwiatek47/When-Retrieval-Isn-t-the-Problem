@@ -23,9 +23,11 @@ COMMON_PACKAGE_PATHS := \
 	benchmarks/Makefile \
 	benchmarks/README.md \
 	benchmarks/runall.sh \
+	docs/colab-h100-embedding-benchmark.md \
 	app \
 	qdrant \
 	services/embedding-service \
+	scripts/colab \
 	scripts/data \
 	scripts/eval \
 	scripts/rag

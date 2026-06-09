@@ -37,8 +37,10 @@ class EmbeddingAdapter(ABC):
 class SentenceTransformerAdapter(EmbeddingAdapter):
     def __init__(self, spec: ModelSpec, *, device: str, precision: str) -> None:
         super().__init__(spec, device=device, precision=precision)
+        import torch
         from sentence_transformers import SentenceTransformer
 
+        self.torch = torch
         kwargs: dict[str, Any] = {
             "device": device,
             "trust_remote_code": bool(spec.config.get("trust_remote_code", False)),
@@ -50,7 +52,9 @@ class SentenceTransformerAdapter(EmbeddingAdapter):
 
         if precision == "fp16":
             self.model = self.model.half()
-        elif precision not in {"fp32", "bf16"}:
+        elif precision == "bf16":
+            self.model = self.model.to(dtype=torch.bfloat16)
+        elif precision != "fp32":
             raise RuntimeError(f"Unsupported precision for SentenceTransformerAdapter: {precision}")
 
     def encode_documents(self, records: list[TextRecord], *, batch_size: int) -> np.ndarray:
@@ -95,6 +99,9 @@ class MedCPTAdapter(EmbeddingAdapter):
         if precision == "fp16":
             self.document_model.half()
             self.query_model.half()
+        elif precision == "bf16":
+            self.document_model.to(dtype=torch.bfloat16)
+            self.query_model.to(dtype=torch.bfloat16)
         elif precision != "fp32":
             raise RuntimeError(f"Unsupported precision for MedCPTAdapter: {precision}")
 
@@ -176,4 +183,3 @@ def _validate_embeddings(embeddings: np.ndarray, *, expected_rows: int, expected
     zero_rows = np.linalg.norm(embeddings, axis=1) == 0
     if bool(zero_rows.any()):
         raise RuntimeError(f"{label}: embeddings contain {int(zero_rows.sum())} zero vectors.")
-

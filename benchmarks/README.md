@@ -18,6 +18,19 @@ Run everything with one command:
 benchmarks/runall.sh
 ```
 
+On Google Colab A100/H100, use the dedicated wrapper instead. The script names still
+contain `h100`, but A100 is supported by setting `REQUIRE_H100=0`:
+
+```bash
+REQUIRE_H100=0 INSTALL_QDRANT=0 bash scripts/colab/setup_embedding_benchmark_h100.sh
+MODELS="neuml_pubmedbert" RUN_SETUP=0 REQUIRE_H100=0 bash scripts/colab/run_embedding_benchmark_h100.sh
+```
+
+See `docs/colab-h100-embedding-benchmark.md`. The Colab wrapper uses one GPU (`cuda:0`) sequentially for both shards,
+splits `data/processed/chunks.parquet` into benchmark shards when needed, and defaults to the static embedding retrieval
+benchmark without Ollama. On Colab, prefer the musl Qdrant binary documented in the runbook; the default GNU Qdrant
+release can fail with `GLIBC_2.38 not found`.
+
 The wrapper checks required local services before embedding starts:
 
 - Qdrant: if `QDRANT_URL` is not responding, it starts a local `qdrant` binary from `QDRANT_BIN`, `$PATH`, or `~/bin/qdrant`. Docker is only used when `QDRANT_START_MODE=docker` or `QDRANT_ALLOW_DOCKER=1`.
@@ -111,10 +124,11 @@ Default `benchmarks/runall.sh` runs all models in this order:
 
 ## Outputs
 
-Each model writes to:
+Each model writes to a precision-specific directory. The Colab wrapper uses `bf16`;
+default local examples may use `fp16`.
 
 ```text
-data/benchmarks/embedding_benchmark/<model_slug>/fp16/
+data/benchmarks/embedding_benchmark/<model_slug>/<precision>/
   embeddings_shard_0.parquet
   embeddings_shard_1.parquet
   embedding_manifest_shard_0.json
@@ -149,7 +163,7 @@ The core report is emitted as soon as the first seven models finish, before `qwe
 PubMedQA pipeline outputs are written separately:
 
 ```text
-data/benchmarks/embedding_benchmark/<model_slug>/fp16/
+data/benchmarks/embedding_benchmark/<model_slug>/<precision>/
   pubmedqa_pipeline/
     results.jsonl
     summary.json
@@ -172,7 +186,7 @@ RUNALL_CLEANUP_MODEL_DATA=0 benchmarks/runall.sh
 Qdrant build outputs:
 
 ```text
-data/benchmarks/embedding_benchmark/<model_slug>/fp16/qdrant/
+data/benchmarks/embedding_benchmark/<model_slug>/<precision>/qdrant/
   chunk_store.sqlite
   bm25_stats.json
   qdrant_index_manifest.json

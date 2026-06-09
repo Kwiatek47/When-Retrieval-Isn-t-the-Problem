@@ -123,7 +123,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--chunks-shard", type=Path)
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
-    parser.add_argument("--precision", default="fp16", choices=["fp16", "fp32"])
+    parser.add_argument("--precision", default="fp16", choices=["fp16", "bf16", "fp32"])
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--read-batch-size", type=int, default=4096)
