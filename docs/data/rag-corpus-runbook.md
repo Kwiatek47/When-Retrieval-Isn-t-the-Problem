@@ -1,8 +1,15 @@
 # RAG corpus runbook
 
 Ten runbook opisuje praktyczny przeplyw dla korpusu wiedzy chatbota medycznego:
-NICE jako guideline corpus, PubMed jako literature corpus, merge do jednego
-`chunks.parquet`, indeksowanie w Qdrant i szybki test cytowan w chatbocie.
+PubMed jako literature corpus, NICE jako guideline corpus, StatPearls jako
+clinical-overview corpus, merge do jednego `data/processed/chunks.parquet`,
+indeksowanie w Qdrant i szybki test cytowan w chatbocie.
+
+Merge dziala przez nowy komponent `scripts/data/corpora/build_processed_chunks.py`
+oparty o canonical schema (`scripts/data/corpora/schema.py`) i per-corpus
+adaptery (`scripts/data/corpora/adapters/`).  Rejestr korpusow zyje w
+`scripts/data/corpora/registry.json` i jest jedynym zrodlem prawdy o wersjach
+i sciezkach.
 
 ## Co jest w git, a co jest lokalne
 
@@ -115,34 +122,77 @@ tar -xzf artifacts/nice_corpus_20260603.tar.gz
 sha256sum artifacts/nice_corpus_20260603.tar.gz
 ```
 
-## 3. Merge NICE z PubMed
+## 3. StatPearls (opcjonalny, generowany online)
 
-PubMed musi byc dostarczony jako osobny lokalny parquet, np.
-`/path/to/pubmed/chunks.parquet`. Merge tworzy jeden wspolny artefakt RAG:
-
-```bash
-.venv/bin/python scripts/data/merge_corpora.py \
-  --chunks pubmed=/path/to/pubmed/chunks.parquet nice=data/interim/nice/chunks.parquet \
-  --out-chunks data/processed/chunks.parquet \
-  --manifest-out data/processed/manifest.json
-```
-
-Test NICE-only, bez PubMed:
+StatPearls ma osobny pipeline online z NCBI Bookshelf i produkuje
+`data/interim/statpearls/chunks.parquet`. Wymaga wolnego kanalu do
+`www.ncbi.nlm.nih.gov` i (opcjonalnie) `NCBI_API_KEY` do wyzszego rate limit.
 
 ```bash
-.venv/bin/python scripts/data/merge_corpora.py \
-  --chunks nice=data/interim/nice/chunks.parquet \
-  --out-chunks data/processed/chunks.parquet \
-  --manifest-out data/processed/manifest.json
+export NCBI_EMAIL=...
+
+# manifest rozdzialow (~9k)
+make discover-statpearls
+
+# chunki (~1-2h przy default request-delay=0.2s)
+make build-statpearls-chunks
+
+# pilot na 50 rozdzialach
+make build-statpearls-chunks STATPEARLS_LIMIT=50
 ```
 
-Wynikowy `data/processed/chunks.parquet` ma wspolne pola RAG, m.in.
-`chunk_id`, `doc_id`, `source`, `title`, `text`, `url`, `section`,
-`word_count`, `text_hash` i `chunk_index`. Pola specyficzne dla NICE, takie jak
-`external_id`, `guidance_type`, `source_name` i `header_path`, zostaja zachowane
-jako metadane i sa potem uzywane w filtrach, boostingu i cytowaniach.
+Native schemat StatPearls parquet jest opisany w
+`scripts/data/statpearls/build_chunks.py`; adapter kanonizuje go w
+`scripts/data/corpora/adapters/statpearls.py`.
 
-## 4. Uruchomienie Qdrant i embedding-service na GPU
+## 4. Merge korpusow
+
+Zamiast osobnego wywolania mergera na kazdy korpus uzywamy jednego
+skryptu opartego o registry:
+
+```bash
+# wszystkie korpusy z default_include=true, ktorych local_chunks_path istnieje
+make build-processed-chunks
+
+# jawnie wybrane korpusy (np. tylko PubMed + NICE, bez StatPearls)
+make build-processed-chunks CORPORA="pubmed_reviews_v1 nice_guidelines_v1"
+
+# clinical wariant NICE zamiast broad (nadpisuje default_include=false)
+make build-processed-chunks CORPORA="pubmed_reviews_v1 nice_guidelines_clinical_v1"
+```
+
+Skrypt czyta `scripts/data/corpora/registry.json`, dla kazdego wybranego
+korpusu wywoluje adapter (mapowanie na canonical schema), wykonuje
+cross-corpus dedupe (pmid -> doi -> opcjonalnie title_hash, priorytet z
+`dedupe_priority`), waliduje unikalnosc `chunk_id` i pisze
+`data/processed/chunks.parquet` + `manifest.json` z dedupe_stats i licznikami
+per source.
+
+Do miekkiego dedupe po znormalizowanym tytule dodaj `--dedupe-titles`:
+
+```bash
+$(PY) scripts/data/corpora/build_processed_chunks.py \
+  --corpora pubmed_reviews_v1 statpearls_v1 \
+  --dedupe-titles
+```
+
+Weryfikacja pojedynczego korpusu przed merge:
+
+```bash
+$(PY) scripts/data/corpora/validate_chunks.py data/interim/nice/chunks.parquet
+```
+
+Wynikowy `data/processed/chunks.parquet` ma jednolity, ustalony
+`chunks_schema_v2` (patrz `scripts/data/corpora/schema.py`). Wspolne pola to
+`chunk_id`, `doc_id`, `source`, `source_type`, `source_name`, `title`, `text`,
+`text_hash`, `word_count`, `chunk_index`, `corpus_version`. Kazda kolumna ma
+staly typ - concatenacja jest deterministyczna, koniec z
+`concat_tables(promote_options="default")`. Pola specyficzne dla
+poszczegolnych korpusow (np. `external_id`, `guidance_type`, `header_path`
+dla NICE, `pmid`, `doi`, `journal` dla PubMed) zostaja zachowane jako
+metadane i sa potem uzywane w filtrach, boostingu i cytowaniach.
+
+## 5. Uruchomienie Qdrant i embedding-service na GPU
 
 Najprostszy wariant uzywa domyslnej kolekcji z `docker-compose.yml`:
 `MedicalChunk_pubmed_reviews_v1_medcpt_20260518`. Najwazniejsze jest, zeby
@@ -182,7 +232,7 @@ NICE_COLLECTION=MedicalChunk_nice_pilot_medcpt_20260603
 NICE_CORPUS_VERSION=nice-guidelines-v1
 ```
 
-## 5. Uruchomienie chatbota
+## 6. Uruchomienie chatbota
 
 Uruchom aplikacje tak, zeby widziala Qdrant i embedding-service:
 
@@ -201,7 +251,7 @@ ollama list
 ollama pull qwen2.5:7b
 ```
 
-## 6. Test cytowania NICE
+## 7. Test cytowania NICE
 
 Najlatwiejszy test to pytanie z jawnym ID NICE, bo pre-retrieval doda wtedy filtr
 `externalId`:
@@ -226,7 +276,7 @@ Jakie sa zalecenia NICE dotyczace uzycia ceftazidime-avibactam?
 Wtedy retrieval powinien nadal preferowac guideline NICE, ale filtr nie bedzie
 tak waski jak przy pytaniu z `AMR1`.
 
-## 7. Benchmark NICE
+## 8. Benchmark NICE i StatPearls
 
 Benchmarki PubMedQA sa nadal przydatne dla indeksu PubMed albo indeksu
 mieszanego z PubMed, ale nie sa dobra miara dla NICE-only, bo ground truth jest
@@ -267,7 +317,44 @@ Duzy retrieval benchmark ma 500 case'ow, a duzy RAG benchmark 100 case'ow.
 To nadal benchmark po `documentId`, ale z wiekszym pokryciem i lepsza
 stabilnoscia niz 5-case smoke test.
 
-## 8. Szybka diagnostyka
+Dla StatPearls dodany jest maly case-based sample retrieval z ground truth
+po `doc_id` (StatPearls nie ma PMID):
+
+```text
+data/benchmarks/retrieval/eval_statpearls_sample.json
+```
+
+```bash
+make eval-statpearls-retrieval
+```
+
+`doc_id` w benchmarku to `statpearls:{nbk_id_lower}`. Sample zawiera 12
+case-based pytan (treatment / diagnosis / mechanism / adverse_effects) i
+NBK IDs sa przyblizone; po zbudowaniu `data/interim/statpearls/chunks.parquet`
+sprawdz, czy kazdy `nbk_id` w benchmarku wystepuje w `chapter_manifest.jsonl`
+- jesli nie, zaktualizuj pole `relevant_document_ids` na najblizszy pasujacy
+rozdzial.
+
+## Ablation study
+
+Do porownania wplywu poszczegolnych korpusow na jakosc retrieval sluzy
+`scripts/data/corpora/run_ablation.py`. Skrypt buduje osobne
+`data/processed/chunks_{name}.parquet` dla kazdej konfiguracji
+(`pubmed_only`, `pubmed_plus_nice`, `pubmed_plus_statpearls`, `all`) i
+odpala 3 benchmarki (PubMedQA, NICE, StatPearls) per konfiguracja.
+
+```bash
+# tylko wygeneruj polecenia bez uruchamiania (pilot)
+$(PY) scripts/data/corpora/run_ablation.py --dry-run
+
+# pelny run (uwaga: kazdy konfig wymaga rebuildu Qdrant miedzy krokami)
+make corpus-ablation
+```
+
+Wyniki lezacy w `reports/ablation_{name}_{bench}.json/.md` i podsumowanie
+w `reports/corpus_ablation.md` + `reports/corpus_ablation_summary.json`.
+
+## 9. Szybka diagnostyka
 
 Sprawdzenie, czy serwisy odpowiadaja:
 
@@ -285,7 +372,7 @@ Najczestsze problemy:
 - dane sa na pierwszej maszynie, ale nie zostaly rozpakowane na maszynie GPU;
 - Ollama albo embedding-service nie maja pobranych modeli.
 
-## 9. Kiedy regenerowac dane
+## 10. Kiedy regenerowac dane
 
 Regeneruj NICE, gdy chcesz zaktualizowac katalog NICE, zmienic filtr prefiksow,
 zmienic polityke sekcji albo poprawic czyszczenie markdown. Nie trzeba

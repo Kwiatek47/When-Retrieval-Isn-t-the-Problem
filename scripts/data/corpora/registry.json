@@ -1,5 +1,5 @@
 {
-  "schema_version": "corpus_registry_v1",
+  "schema_version": "corpus_registry_v2",
   "corpora": [
     {
       "corpus_id": "pubmed_reviews_v1",
@@ -7,9 +7,13 @@
       "source": "pubmed",
       "source_type": "literature",
       "source_name": "PubMed",
+      "adapter_class": "scripts.data.corpora.adapters.pubmed.PubmedAdapter",
       "priority": "P0",
       "status": "active",
-      "chunks_path": "data/processed/chunks.parquet",
+      "dedupe_priority": 100,
+      "default_include": true,
+      "local_chunks_path": "data/interim/pubmed/chunks.parquet",
+      "documents_path": "data/interim/pubmed/documents.parquet",
       "publication_types": ["Review", "Systematic Review", "Meta-Analysis", "Practice Guideline"],
       "notes": "Review-heavy PubMed corpus for literature-backed medical QA."
     },
@@ -19,9 +23,12 @@
       "source": "nice",
       "source_type": "guideline",
       "source_name": "NICE",
+      "adapter_class": "scripts.data.corpora.adapters.nice.NiceAdapter",
       "priority": "P0",
       "status": "pilot",
-      "chunks_path": "data/interim/nice/chunks.parquet",
+      "dedupe_priority": 90,
+      "default_include": true,
+      "local_chunks_path": "data/interim/nice/chunks.parquet",
       "documents_path": "data/interim/nice/documents.parquet",
       "manifest_path": "data/interim/nice/manifest.json",
       "publication_types": ["Practice Guideline", "Guideline"],
@@ -33,13 +40,32 @@
       "source": "nice",
       "source_type": "guideline",
       "source_name": "NICE",
+      "adapter_class": "scripts.data.corpora.adapters.nice.NiceAdapter",
       "priority": "P0",
       "status": "pilot_clinical",
-      "chunks_path": "data/interim/nice/chunks_clinical.parquet",
+      "dedupe_priority": 90,
+      "default_include": false,
+      "local_chunks_path": "data/interim/nice/chunks_clinical.parquet",
       "documents_path": "data/interim/nice/documents.parquet",
       "manifest_path": "data/interim/nice/manifest.json",
       "publication_types": ["Practice Guideline", "Guideline"],
       "notes": "Conservative clinical NICE subset used for fast local pilot indexing and NICE benchmarks."
+    },
+    {
+      "corpus_id": "statpearls_v1",
+      "corpus_version": "statpearls-v1",
+      "source": "statpearls",
+      "source_type": "clinical_overview",
+      "source_name": "StatPearls",
+      "adapter_class": "scripts.data.corpora.adapters.statpearls.StatPearlsAdapter",
+      "priority": "P0",
+      "status": "pilot",
+      "dedupe_priority": 80,
+      "default_include": true,
+      "local_chunks_path": "data/interim/statpearls/chunks.parquet",
+      "manifest_path": "data/raw/statpearls/chapter_manifest.jsonl",
+      "publication_types": ["Clinical Overview"],
+      "notes": "NCBI Bookshelf StatPearls chapters; case-based and exam-style clinical overviews."
     }
   ],
   "benchmark_datasets": [
@@ -68,6 +94,13 @@
       "type": "rag_end_to_end",
       "expected_corpus_version": "nice-guidelines-v1",
       "notes": "Larger NICE end-to-end benchmark generated from NICE chunks."
+    },
+    {
+      "id": "statpearls_retrieval_sample",
+      "path": "data/benchmarks/retrieval/eval_statpearls_sample.json",
+      "type": "retrieval",
+      "expected_corpus_version": "statpearls-v1",
+      "notes": "Case-based StatPearls retrieval sample; ground truth is doc_id (nbk_id-based)."
     }
   ]
 }

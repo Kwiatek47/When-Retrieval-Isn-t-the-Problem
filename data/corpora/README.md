@@ -33,6 +33,7 @@ data/processed/                 # PÓŹNIEJ: jeden zbiór po merge wszystkich ko
 |--------|---------------|---------------|---------|
 | PubMed | `literature` | `PubMed` | `scripts/data/pubmed/pipeline/` |
 | NICE | `guideline` | `NICE` | `scripts/data/nice/pipeline/` |
+| StatPearls | `clinical_overview` | `StatPearls` | `scripts/data/statpearls/` |
 | OpenFDA | `drug_label` | `OpenFDA` | (planowane) |
 
 Aktualne wersje logiczne:
@@ -40,6 +41,8 @@ Aktualne wersje logiczne:
 - `pubmed-reviews-v1` - PubMed reviews / systematic reviews.
 - `nice-guidelines-v1` - NICE guideline corpus, wariant broad albo clinical
   zależnie od wybranego parquetu przy indeksowaniu.
+- `statpearls-v1` - StatPearls chapters (NCBI Bookshelf), rozbite na
+  sekcje/paragrafy.
 
 ## Pola wspólne (dokument)
 
@@ -52,38 +55,60 @@ Zgodnie z notatką o `chunks.parquet` — na etapie preprocessingu w `documents.
 
 ## Pola wspólne (chunk)
 
-Każdy korpus może mieć własne kolumny dodatkowe, ale merge do `data/processed/chunks.parquet`
-opiera się na wspólnym minimum:
+Canonical schema (`chunks_schema_v2`, patrz
+[`scripts/data/corpora/schema.py`](../../scripts/data/corpora/schema.py))
+używa jednolitych, stałych typów PyArrow. Wymagane kolumny (non-null):
 
-- `chunk_id`, `doc_id`, `text`, `title`
-- `source`, np. `pubmed`, `nice`
-- `url` / `source_url`
-- `section`, `word_count`, `chunk_index`, `text_hash`
+- `chunk_id`, `doc_id`, `source`, `source_type`, `source_name`
+- `title`, `text`, `text_hash`
+- `word_count`, `chunk_index`, `corpus_version`
 
-Kolumny specyficzne dla korpusu zostają jako opcjonalne:
+Opcjonalne, nullable:
 
-- PubMed: `pmid`, `doi`, `journal`, `year`, `publication_types`, `is_review`
-- NICE: `external_id`, `guidance_type`, `header_path`, `source_type`, `source_name`
+- `url`, `section`, `header_path`, `parent_chunk_id`, `parent_word_count`
+- `pmid`, `doi`, `journal`, `year`, `publication_date`, `publication_types`,
+  `is_review`, `is_systematic_review`
+- `external_id`, `guidance_type`
+- `metadata` (JSON string dowolnych dodatkowych pól per corpus)
+
+Które opcjonalne pola są wypełniane, zależy od adaptera:
+
+- PubMed: `pmid`, `doi`, `journal`, `year`, `publication_types`, `is_review`,
+  `is_systematic_review`, `url` (pubmed.ncbi.nlm.nih.gov/{pmid}/)
+- NICE: `external_id`, `guidance_type`, `header_path`, `publication_date`,
+  `publication_types` = ["Practice Guideline", "Guideline"]
+- StatPearls: `external_id` (NBK id), `journal` = "StatPearls",
+  `publication_types` = ["Clinical Overview"], `year`, `is_review` = true
 
 ## Merge lokalnych artefaktów
 
 Wygenerowane parquet nie są trzymane w git. Zakładamy, że duże pliki są pobierane lokalnie
-z dysku/S3/handoffu do katalogów `data/interim/{corpus}/` albo innej lokalnej ścieżki.
+z dysku/Google Drive/handoffu do katalogów `data/interim/{corpus}/` albo innej lokalnej ścieżki.
 
-Przykład scalenia po pobraniu PubMed i wygenerowaniu NICE:
+Merge korzysta z registry (`scripts/data/corpora/registry.json`) - jedno miejsce
+z definicjami wersji, dedupe_priority, ścieżek per corpus i adapterów:
 
 ```bash
-.venv/bin/python scripts/data/merge_corpora.py \
-  --chunks pubmed=/path/to/pubmed/chunks.parquet nice=data/interim/nice/chunks.parquet \
+# domyślnie: wszystkie korpusy z default_include=true, których local_chunks_path istnieje
+.venv/bin/python scripts/data/corpora/build_processed_chunks.py
+
+# jawnie wybrane korpusy
+.venv/bin/python scripts/data/corpora/build_processed_chunks.py \
+  --corpora pubmed_reviews_v1 nice_guidelines_v1 statpearls_v1 \
   --out-chunks data/processed/chunks.parquet \
   --manifest-out data/processed/manifest.json
+
+# clinical wariant NICE zamiast broad
+.venv/bin/python scripts/data/corpora/build_processed_chunks.py \
+  --corpora pubmed_reviews_v1 nice_guidelines_clinical_v1
 ```
 
-Dla ostrożniejszego indeksu NICE można podmienić ścieżkę na
-`data/interim/nice/chunks_clinical.parquet`.
-
-Skrypt waliduje wymagane kolumny, puste teksty i unikalność `chunk_id`, a brakujące kolumny
-uzupełnia jako `null` przez wspólny schema union.
+Skrypt uruchamia per-corpus adapter (canonical schema mapping), robi
+cross-corpus dedupe po `pmid` → `doi` → opcjonalnie `title_hash`
+(`--dedupe-titles`) z priorytetem z `dedupe_priority`, waliduje unikalność
+`chunk_id`, puste teksty i deterministyczny schemat PyArrow, potem zapisuje
+`data/processed/chunks.parquet` i `manifest.json` z licznikami per source /
+per corpus_version i statystyką dedupe.
 
 ## Benchmark NICE
 

@@ -187,6 +187,7 @@ def _prepare_chunk_store(
             return chunk_count, BM25SparseEncoder.from_file(args.bm25_stats_out)
 
     _initialize_store(conn, reset=True)
+    _log_corpus_version_source(args)
     document_frequency: Counter[str] = Counter()
     total_document_length = 0
     chunk_count = 0
@@ -577,6 +578,7 @@ def _chunk_from_row(row: dict[str, Any], *, index: int) -> dict[str, Any]:
         "parent_word_count": _to_int(row.get("parent_word_count")),
         "text_hash": _clean_str(row.get("text_hash")),
         "chunk_index": _to_int(row.get("chunk_index")) or index,
+        "corpus_version": _clean_str(row.get("corpus_version")),
     }
 
 
@@ -670,7 +672,7 @@ def _build_point(
         "headerPath": chunk["header_path"],
         "guidanceType": chunk["guidance_type"],
         "embeddingModel": embedding_model,
-        "corpusVersion": args.corpus_version,
+        "corpusVersion": chunk.get("corpus_version") or args.corpus_version,
     }
     return models.PointStruct(
         id=str(uuid5(NAMESPACE_URL, chunk["chunk_id"])),
@@ -793,6 +795,35 @@ def _require_columns(column_names: list[str], required: set[str], path: Path) ->
     missing = sorted(required - set(column_names))
     if missing:
         raise RuntimeError(f"{path} is missing required columns: {', '.join(missing)}")
+
+
+def _log_corpus_version_source(args: argparse.Namespace) -> None:
+    """Print whether payload ``corpusVersion`` will come from the parquet or --corpus-version.
+
+    Multi-corpus merged chunks parquet has a per-row ``corpus_version`` column;
+    legacy single-corpus parquets do not and fall back to the CLI argument.
+    Payload filtering (A/B per corpus) requires per-row values, so this log is
+    important during index rebuilds.
+    """
+
+    try:
+        columns = set(pq.ParquetFile(args.chunks).schema_arrow.names)
+    except Exception as exc:
+        print(f"WARNING: failed to inspect chunks schema at {args.chunks}: {exc}", flush=True)
+        return
+    if "corpus_version" in columns:
+        print(
+            f"corpus_version column present in {args.chunks}: payload corpusVersion will be per-row "
+            f"(fallback to --corpus-version={args.corpus_version!r} for null rows).",
+            flush=True,
+        )
+    else:
+        print(
+            f"WARNING: {args.chunks} has no 'corpus_version' column - all points will use "
+            f"--corpus-version={args.corpus_version!r}. This is fine for a single-corpus index but "
+            "means multi-corpus payload filtering will not work.",
+            flush=True,
+        )
 
 
 def _request_json(method: str, url: str, payload: dict[str, Any]) -> dict[str, Any]:

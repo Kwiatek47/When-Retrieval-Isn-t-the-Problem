@@ -1,0 +1,122 @@
+[
+  {
+    "id": "statpearls-acetaminophen-toxicity",
+    "question": "acetaminophen paracetamol overdose N-acetylcysteine treatment threshold Rumack-Matthew nomogram",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk430685"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls acetaminophen toxicity chapter covers Rumack-Matthew nomogram assessment and N-acetylcysteine as the antidote for acute hepatotoxic overdose."
+  },
+  {
+    "id": "statpearls-aspirin-mechanism",
+    "question": "aspirin acetylsalicylic acid mechanism antiplatelet cyclooxygenase COX-1 irreversible",
+    "intent": "mechanism",
+    "relevant_document_ids": ["statpearls:nbk519056"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls describes aspirin as an irreversible COX-1 inhibitor that inactivates platelet thromboxane A2 production, underlying its antiplatelet effect."
+  },
+  {
+    "id": "statpearls-sepsis-adults",
+    "question": "sepsis adults recognition Sequential Organ Failure Assessment SOFA lactate initial resuscitation",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["statpearls:nbk430762"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls sepsis chapter covers SOFA-based organ dysfunction assessment, lactate as a perfusion marker, and initial fluid resuscitation and antibiotic timing."
+  },
+  {
+    "id": "statpearls-anaphylaxis-management",
+    "question": "anaphylaxis intramuscular epinephrine adrenaline first-line dose adults children",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk482124"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls anaphylaxis chapter recommends prompt intramuscular epinephrine as first-line, with weight-based dosing for children and standard adult dosing."
+  },
+  {
+    "id": "statpearls-acute-mi-stemi",
+    "question": "acute myocardial infarction STEMI diagnosis ST elevation troponin early reperfusion",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["statpearls:nbk441960"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls describes acute STEMI diagnosis using ECG ST elevation and cardiac troponin, with early primary PCI or fibrinolysis for reperfusion."
+  },
+  {
+    "id": "statpearls-dka-management",
+    "question": "diabetic ketoacidosis DKA insulin infusion potassium replacement fluid resuscitation",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk430975"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls diabetic ketoacidosis chapter covers isotonic fluid resuscitation, insulin infusion, potassium repletion and gap closure monitoring."
+  },
+  {
+    "id": "statpearls-copd-exacerbation",
+    "question": "chronic obstructive pulmonary disease COPD acute exacerbation bronchodilators corticosteroids antibiotics",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk559281"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls COPD chapter covers acute exacerbation management with short-acting bronchodilators, systemic corticosteroids and antibiotics for infective exacerbations."
+  },
+  {
+    "id": "statpearls-community-acquired-pneumonia",
+    "question": "community acquired pneumonia CAP CURB-65 severity antibiotic selection outpatient inpatient",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk430749"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls community-acquired pneumonia chapter covers CURB-65 severity, outpatient versus inpatient management, and empiric antibiotic regimens."
+  },
+  {
+    "id": "statpearls-acute-pancreatitis",
+    "question": "acute pancreatitis lipase elevation biliary etiology conservative management fluid resuscitation",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["statpearls:nbk482468"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls acute pancreatitis chapter covers lipase elevation for diagnosis, biliary and alcoholic etiologies, and early aggressive fluid resuscitation."
+  },
+  {
+    "id": "statpearls-alcohol-withdrawal-ciwa",
+    "question": "alcohol withdrawal syndrome CIWA-Ar benzodiazepines symptom-triggered protocol",
+    "intent": "treatment",
+    "relevant_document_ids": ["statpearls:nbk441882"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls alcohol withdrawal chapter covers CIWA-Ar scoring and symptom-triggered benzodiazepine protocols."
+  },
+  {
+    "id": "statpearls-warfarin-inr-reversal",
+    "question": "warfarin INR elevated bleeding reversal vitamin K prothrombin complex concentrate PCC",
+    "intent": "adverse_effects",
+    "relevant_document_ids": ["statpearls:nbk470313"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls warfarin chapter covers INR-based reversal with vitamin K and prothrombin complex concentrate for major bleeding."
+  },
+  {
+    "id": "statpearls-deep-vein-thrombosis",
+    "question": "deep vein thrombosis DVT Wells score compression ultrasound anticoagulation",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["statpearls:nbk507708"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Clinical Overview"],
+    "must_not_answer_without_sources": true,
+    "answer": "StatPearls deep vein thrombosis chapter covers Wells score risk stratification, compression ultrasound diagnosis, and anticoagulant therapy choice."
+  }
+]

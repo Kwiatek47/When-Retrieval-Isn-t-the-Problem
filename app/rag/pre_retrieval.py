@@ -102,6 +102,7 @@ class PreRetriever:
             "Review",
             "Randomized Controlled Trial",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "diagnosis": [
             "Practice Guideline",
@@ -110,6 +111,7 @@ class PreRetriever:
             "Meta-Analysis",
             "Review",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "adverse_effects": [
             "Practice Guideline",
@@ -118,6 +120,7 @@ class PreRetriever:
             "Meta-Analysis",
             "Review",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "prognosis": [
             "Systematic Review",
@@ -137,6 +140,7 @@ class PreRetriever:
             "Review",
             "Practice Guideline",
             "Guideline",
+            "Clinical Overview",
         ],
     }
     _ACRONYM_EXPANSIONS = {

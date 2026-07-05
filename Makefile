@@ -16,7 +16,18 @@ NICE_CORPUS_VERSION ?= nice-guidelines-v1
 NICE_LIMIT ?=
 NICE_INDEX_LIMIT_ARG := $(if $(NICE_LIMIT),--limit $(NICE_LIMIT),)
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large clean-local
+STATPEARLS_LIMIT ?=
+STATPEARLS_MANIFEST ?= data/raw/statpearls/chapter_manifest.jsonl
+STATPEARLS_CHUNKS ?= data/interim/statpearls/chunks.parquet
+STATPEARLS_LIMIT_ARG := $(if $(STATPEARLS_LIMIT),--limit $(STATPEARLS_LIMIT),)
+
+PROCESSED_CHUNKS ?= data/processed/chunks.parquet
+PROCESSED_MANIFEST ?= data/processed/manifest.json
+CORPORA_REGISTRY ?= scripts/data/corpora/registry.json
+CORPORA ?=
+CORPORA_ARG := $(if $(CORPORA),--corpora $(CORPORA),)
+
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -111,6 +122,34 @@ eval-nice-rag-large:
 		--dataset data/benchmarks/nice/eval_nice_guidelines_rag_100.json \
 		--candidate-k 20 \
 		--top-k 3
+
+discover-statpearls:
+	$(PY) scripts/data/statpearls/discover_chapters.py \
+		--out $(STATPEARLS_MANIFEST) $(STATPEARLS_LIMIT_ARG)
+
+build-statpearls-chunks:
+	$(PY) scripts/data/statpearls/build_chunks.py \
+		--manifest $(STATPEARLS_MANIFEST) \
+		--output $(STATPEARLS_CHUNKS) $(STATPEARLS_LIMIT_ARG)
+
+build-processed-chunks:
+	$(PY) scripts/data/corpora/build_processed_chunks.py \
+		--registry $(CORPORA_REGISTRY) \
+		--out-chunks $(PROCESSED_CHUNKS) \
+		--manifest-out $(PROCESSED_MANIFEST) $(CORPORA_ARG)
+
+validate-corpus:
+	$(PY) scripts/data/corpora/validate_chunks.py $(PROCESSED_CHUNKS)
+
+corpus-ablation:
+	$(PY) scripts/data/corpora/run_ablation.py
+
+eval-statpearls-retrieval:
+	$(PY) scripts/rag/03_evaluate_retrieval.py \
+		--dataset data/benchmarks/retrieval/eval_statpearls_sample.json \
+		--top-k 5,10 \
+		--json-out reports/statpearls_retrieval_quality_report.json \
+		--md-out reports/statpearls_retrieval_quality_report.md
 
 clean-local:
 	rm -rf reports/* data/processed data/embeddings data/indexes data/telemetry .ruff_cache
