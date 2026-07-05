@@ -1,7 +1,10 @@
 import asyncio
 import importlib.util
+import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 import types
 import unittest
 
@@ -12,6 +15,9 @@ except ModuleNotFoundError:
 
 from app.rag.answer_contract import enforce_yes_no_maybe_contract, is_yes_no_maybe_task
 from app.rag.answer_guardrails import apply_answer_guardrails, repair_missing_citations
+from app.rag.benchmark_evidence import expand_pubmedqa_benchmark_evidence
+from app.rag.evidence_classifier import EvidenceClassifier, EvidenceClassifierPrediction
+from app.rag import evidence_classifier as evidence_classifier_module
 from app.rag.evidence_judge import EvidenceJudge, answer_from_evidence_decision
 from app.rag.models import PostRetrievalResult, PreRetrievalResult, RetrievedDocument, RetrievalResult
 from app.rag.pipeline import RagPipeline
@@ -19,6 +25,7 @@ from app.rag.post_retrieval import PostRetriever
 from app.rag.pre_retrieval import PreRetriever
 from app.rag.retrieval import _expanded_candidate_limit, _metadata_boost_documents, _weighted_rrf_merge
 from app.schemas import ChatMessage, ChatResponse, EvidenceConflictInfo, EvidenceDecisionInfo, RetrievalInfo
+from app.services.chat_service import has_urgent_red_flags, low_evidence_refusal, urgent_red_flag_response
 
 
 class RagRankingTests(unittest.TestCase):
@@ -446,6 +453,516 @@ class EvidenceJudgeArchitectureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(decision.method, "rules")
         self.assertEqual(decision.answer_label, "yes")
 
+    async def test_rules_evidence_judge_uses_direct_no_veto(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does training reduce deficits?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does training reduce deficits?",
+            search_queries=["Does training reduce deficits?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Training study",
+            content=(
+                "Abstract context: Objective: To evaluate training. "
+                "Both groups improved after training, but the age-related deficit was not greatly affected "
+                "and gains did not transfer to other tasks."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "no")
+        self.assertTrue(any("direct_no=" in note for note in decision.notes))
+
+    async def test_rules_evidence_judge_keeps_suggestive_result_as_maybe(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Can biomarker predict relapse?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Can biomarker predict relapse?",
+            search_queries=["Can biomarker predict relapse?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Biomarker study",
+            content=(
+                "Abstract context: The test was significantly associated with relapse in a selected subgroup. "
+                "The authors conclude that the biomarker may help identify patients at higher risk."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertTrue(any("direct_maybe=" in note for note in decision.notes))
+
+    async def test_rules_evidence_judge_detects_no_dna_detected_as_no(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Can high-risk HPVs be detected in human breast milk?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Can high-risk HPVs be detected in human breast milk?",
+            search_queries=["Can high-risk HPVs be detected in human breast milk?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="HPV in breast milk",
+            content="Abstract context: No high-risk HPV DNA was detected in the breast milk samples.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "no")
+        self.assertTrue(any("direct_no=" in note for note in decision.notes))
+
+    async def test_rules_evidence_judge_prioritizes_tail_null_result_as_no(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Does admission to a tertiary center improve survival?"
+            ),
+            normalized_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Does admission to a tertiary center improve survival?"
+            ),
+            search_queries=["Does admission to a tertiary center improve survival?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Cardiogenic shock outcomes",
+            content=(
+                "Abstract context: Patients admitted to hospitals with revascularization services were more likely "
+                "to undergo coronary revascularization. After adjustment, onsite revascularization services were "
+                "not associated with a significantly lower 30-day or 1-year mortality."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "no")
+        self.assertEqual(decision.status, "refuted")
+        self.assertTrue(any("tail_no=" in note for note in decision.notes))
+
+    async def test_rules_evidence_judge_uses_high_predictive_value_as_yes(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Can third trimester ultrasound predict presentation at delivery?"
+            ),
+            normalized_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Can third trimester ultrasound predict presentation at delivery?"
+            ),
+            search_queries=["Can third trimester ultrasound predict presentation at delivery?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Third trimester ultrasound",
+            content=(
+                "Abstract context: The positive predictive value of cephalic presentation as determined by "
+                "ultrasound reached 95% after 28 weeks gestation. The positive predictive value for noncephalic "
+                "presentation was greater than 90% after 32 weeks gestation."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "yes")
+        self.assertEqual(decision.status, "supported")
+
+    async def test_rules_evidence_judge_calibrates_really_question_to_maybe(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Are inflammatory asthma phenotypes really non-inflammatory?"
+            ),
+            normalized_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Are inflammatory asthma phenotypes really non-inflammatory?"
+            ),
+            search_queries=["Are inflammatory asthma phenotypes really non-inflammatory?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Asthma phenotypes",
+            content=(
+                "Abstract context: Sputum eosinophils were increased in all asthma phenotypes compared to healthy "
+                "subjects. Neutrophilic asthma had raised CRP while eosinophilic asthma only showed raised fibrinogen."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertEqual(decision.status, "uncertain")
+        self.assertTrue(any("Calibrated" in note and "to maybe" in note for note in decision.notes))
+
+    async def test_rules_evidence_judge_calibrates_acceptable_with_concerns_to_maybe(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Are home sampling kits acceptable?"
+            ),
+            normalized_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Are home sampling kits acceptable?"
+            ),
+            search_queries=["Are home sampling kits acceptable?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Home sampling kits",
+            content=(
+                "Abstract context: The concept was generally viewed as positive, with many benefits identified. "
+                "Concerns about accuracy, delays in receiving results, and possible lack of support were raised."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertEqual(decision.status, "uncertain")
+
+    async def test_rules_evidence_judge_marks_compound_mixed_answer_as_maybe(self) -> None:
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Do parents recall and understand children's weight status information?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Do parents recall and understand children's weight status information?",
+            search_queries=["Do parents recall and understand children's weight status information?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Parent recall and understanding",
+            content=(
+                "Abstract context: Most parents recalled receiving weight status information, "
+                "but fewer than 10 parents could accurately describe its meaning."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertTrue(any("compound_question=True" in note for note in decision.notes))
+
+    async def test_classifier_fast_path_skips_llm_judge_for_high_confidence(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"refuted","answer":"no","confidence":0.99,"rationale":"Wrong LLM decision [S1]."}'
+        )
+        classifier = _FakeEvidenceClassifier(label="yes", confidence=0.91)
+        judge = EvidenceJudge(
+            enabled=True,
+            method="llm",
+            max_sources=1,
+            classifier=classifier,
+            classifier_fast_threshold=0.80,
+            classifier_hint_threshold=0.55,
+        )
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            search_queries=["Does treatment help?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Treatment study",
+            content="Abstract context: Treatment significantly improved outcomes.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.method, "deberta_classifier_fast_path")
+        self.assertEqual(decision.answer_label, "yes")
+        self.assertEqual(len(provider.messages), 0)
+        self.assertEqual(classifier.calls, 1)
+
+    async def test_classifier_hint_is_passed_to_llm_judge_for_medium_confidence(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"supported","answer":"yes","confidence":0.61,"rationale":"The result improved outcomes [S1]."}'
+        )
+        classifier = _FakeEvidenceClassifier(label="yes", confidence=0.70)
+        judge = EvidenceJudge(
+            enabled=True,
+            method="llm",
+            max_sources=1,
+            classifier=classifier,
+            classifier_fast_threshold=0.80,
+            classifier_hint_threshold=0.55,
+        )
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            search_queries=["Does treatment help?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Treatment study",
+            content="Abstract context: Treatment significantly improved outcomes.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.method, "llm")
+        self.assertEqual(decision.answer_label, "yes")
+        self.assertTrue(any("Classifier hint label=yes" in note for note in decision.notes))
+        self.assertIn("Classifier hint", provider.messages[0][1].content)
+
+    async def test_classifier_is_not_used_for_medical_chat_question(self) -> None:
+        classifier = _FakeEvidenceClassifier(label="yes", confidence=0.99)
+        judge = EvidenceJudge(enabled=True, method="rules", max_sources=1, classifier=classifier)
+        query = PreRetrievalResult(
+            original_query="What should I do about a headache?",
+            normalized_query="What should I do about a headache?",
+            search_queries=["headache"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Headache review",
+            content="Headache evidence.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=None,
+            model="",
+        )
+
+        self.assertEqual(classifier.calls, 0)
+        self.assertIsNone(decision.answer_label)
+
+    def test_evidence_classifier_quality_gate_rejects_collapsed_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir)
+            (model_path / "dev_metrics_calibrated.json").write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.24,
+                        "per_label": {
+                            "yes": {"support": 27, "accuracy": 1.0},
+                            "no": {"support": 16, "accuracy": 0.0},
+                            "maybe": {"support": 5, "accuracy": 0.0},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            classifier = EvidenceClassifier(
+                enabled=True,
+                model_path=model_path,
+                min_macro_f1=0.40,
+                min_per_label_accuracy=0.10,
+            )
+
+            self.assertFalse(classifier.available)
+            self.assertIn("quality gate", classifier.load_error)
+
+    def test_evidence_classifier_quality_gate_rejects_stale_metrics_without_fresh_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir)
+            metrics_path = model_path / "dev_metrics_calibrated.json"
+            model_artifact = model_path / "model.safetensors"
+            metrics_path.write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.90,
+                        "per_label": {
+                            "yes": {"support": 10, "accuracy": 0.9},
+                            "no": {"support": 10, "accuracy": 0.9},
+                            "maybe": {"support": 10, "accuracy": 0.9},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_artifact.write_text("newer model", encoding="utf-8")
+            os.utime(metrics_path, (1000, 1000))
+            os.utime(model_artifact, (2000, 2000))
+
+            classifier = EvidenceClassifier(
+                enabled=True,
+                model_path=model_path,
+                min_macro_f1=0.40,
+                min_per_label_accuracy=0.10,
+            )
+
+            self.assertFalse(classifier.available)
+            self.assertIn("stale metrics", classifier.load_error)
+
+    def test_evidence_classifier_quality_gate_uses_fresh_uncalibrated_metrics_when_calibrated_is_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir)
+            calibrated_metrics_path = model_path / "dev_metrics_calibrated.json"
+            fresh_metrics_path = model_path / "dev_metrics.json"
+            model_artifact = model_path / "model.safetensors"
+            calibrated_metrics_path.write_text(
+                json.dumps({"macro_f1": 0.05, "per_label": {"maybe": {"support": 10, "accuracy": 1.0}}}),
+                encoding="utf-8",
+            )
+            fresh_metrics_path.write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.55,
+                        "per_label": {
+                            "yes": {"support": 10, "accuracy": 0.5},
+                            "no": {"support": 10, "accuracy": 0.6},
+                            "maybe": {"support": 10, "accuracy": 0.3},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_artifact.write_text("model", encoding="utf-8")
+            os.utime(calibrated_metrics_path, (1000, 1000))
+            os.utime(model_artifact, (2000, 2000))
+            os.utime(fresh_metrics_path, (3000, 3000))
+
+            error = evidence_classifier_module._quality_gate_error(
+                metrics_path=calibrated_metrics_path,
+                fallback_metrics_path=fresh_metrics_path,
+                reference_paths=evidence_classifier_module._quality_reference_paths(model_path),
+                min_macro_f1=0.40,
+                min_per_label_accuracy=0.10,
+            )
+
+            self.assertEqual(error, "")
+
+    async def test_classifier_method_uses_classifier_even_below_fast_path_threshold(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"refuted","answer":"no","confidence":0.99,"rationale":"Wrong LLM decision [S1]."}'
+        )
+        classifier = _FakeEvidenceClassifier(label="maybe", confidence=0.34)
+        judge = EvidenceJudge(
+            enabled=True,
+            method="classifier",
+            max_sources=1,
+            classifier=classifier,
+            classifier_fast_threshold=0.80,
+            classifier_hint_threshold=0.55,
+        )
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?",
+            search_queries=["Does treatment help?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Treatment study",
+            content="Abstract context: Results were mixed and indirect.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.method, "deberta_classifier")
+        self.assertEqual(decision.answer_label, "maybe")
+        self.assertEqual(len(provider.messages), 0)
+
     async def test_llm_evidence_judge_adds_primary_citation_when_missing(self) -> None:
         provider = _FakeJudgeProvider(
             '{"status":"supported","answer":"yes","rationale":"The abstract reports improved outcomes."}'
@@ -571,7 +1088,113 @@ class EvidenceJudgeArchitectureTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(decision.answer_label, "yes")
         self.assertEqual(decision.status, "supported")
-        self.assertEqual(decision.notes, [])
+        self.assertTrue(any("Judge prompt profile: benchmark_pqal" in note for note in decision.notes))
+        self.assertTrue(any("Benchmark evidence scores" in note for note in decision.notes))
+
+    async def test_llm_evidence_judge_calibrates_direct_positive_maybe_to_yes(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"uncertain","answer":"maybe","confidence":0.72,'
+            '"rationale":"The intervention significantly improved outcomes and was associated with lower risk [S1]."}'
+        )
+        judge = EvidenceJudge(enabled=True, method="llm", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does the intervention improve outcomes?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does the intervention improve outcomes?",
+            search_queries=["Does the intervention improve outcomes?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Outcome trial",
+            content="Abstract context: The intervention significantly improved outcomes and was associated with lower risk.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.answer_label, "yes")
+        self.assertEqual(decision.status, "supported")
+        self.assertTrue(any("Calibrated maybe to yes" in note for note in decision.notes))
+
+    async def test_llm_evidence_judge_promotes_dominant_positive_signal_to_yes(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"refuted","answer":"no","confidence":0.74,'
+            '"rationale":"The judge treated the evidence as too uncertain [S1]."}'
+        )
+        judge = EvidenceJudge(enabled=True, method="llm", max_sources=1)
+        query = PreRetrievalResult(
+            original_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Should cavitation in proximal surfaces be reported?"
+            ),
+            normalized_query=(
+                "Answer yes, no, or maybe based on retrieved evidence: "
+                "Should cavitation in proximal surfaces be reported?"
+            ),
+            search_queries=["Should cavitation in proximal surfaces be reported?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="CBCT cavitation study",
+            content=(
+                "Abstract context: The study significantly improved detection of cavitation. "
+                "The method had higher sensitivity and specificity, was more accurate, and detected lesions better."
+            ),
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.answer_label, "yes")
+        self.assertEqual(decision.status, "supported")
+        self.assertTrue(any("Promoted no to yes" in note for note in decision.notes))
+
+    async def test_llm_evidence_judge_keeps_direct_negative_no(self) -> None:
+        provider = _FakeJudgeProvider(
+            '{"status":"refuted","answer":"no","confidence":0.82,'
+            '"rationale":"The study reports no significant benefit [S1]."}'
+        )
+        judge = EvidenceJudge(enabled=True, method="llm", max_sources=1)
+        query = PreRetrievalResult(
+            original_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment improve outcomes?",
+            normalized_query="Answer yes, no, or maybe based on retrieved evidence: Does treatment improve outcomes?",
+            search_queries=["Does treatment improve outcomes?"],
+            requires_retrieval=True,
+        )
+        document = RetrievedDocument(
+            id="doc-1",
+            title="Outcome study",
+            content="Abstract context: Treatment did not improve outcomes and showed no significant benefit.",
+            source="pubmed",
+        )
+
+        decision = await judge.judge(
+            messages=[ChatMessage(role="user", content=query.original_query)],
+            pre_retrieval=query,
+            source_documents=[document],
+            retrieval_status="grounded",
+            llm_provider=provider,
+            model="fake-judge",
+        )
+
+        self.assertEqual(decision.answer_label, "no")
+        self.assertEqual(decision.status, "refuted")
+        self.assertFalse(any("Promoted no to yes" in note for note in decision.notes))
 
     async def test_llm_evidence_judge_v3_fixes_contradictory_no_rationale(self) -> None:
         provider = _FakeJudgeProvider(
@@ -765,6 +1388,87 @@ class PubMedQADatasetBuilderTests(unittest.TestCase):
         self.assertNotIn("pubmedqaFinalDecision", corpus_item["metadata"])
         self.assertNotIn("pubmedqaLabels", corpus_item["metadata"])
 
+    def test_deberta_dataset_builder_excludes_official_pqal_heldout_pmids(self) -> None:
+        module = _load_deberta_dataset_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "official.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "1": {
+                            "pmid": "heldout",
+                            "QUESTION": "Does heldout treatment help?",
+                            "CONTEXTS": ["Heldout result."],
+                            "final_decision": "yes",
+                        },
+                        "2": {
+                            "pmid": "train-1",
+                            "QUESTION": "Does train treatment help?",
+                            "CONTEXTS": ["Train result."],
+                            "LONG_ANSWER": "Train conclusion is negative.",
+                            "final_decision": "no",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            examples = module._load_examples([source], heldout_pmids={"heldout"})
+
+        self.assertEqual(len(examples), 1)
+        self.assertEqual(examples[0].pmid, "train-1")
+        self.assertEqual(examples[0].label, "no")
+        self.assertEqual(examples[0].long_answer, "Train conclusion is negative.")
+
+
+class PubMedQABenchmarkEvidenceTests(unittest.TestCase):
+    def test_expands_selected_chunk_to_full_official_abstract_by_pmid(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            corpus_path = Path(temp_dir) / "corpus.json"
+            corpus_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": "pubmedqa-official-1",
+                            "title": "Can test be detected?",
+                            "source": "https://pubmed.ncbi.nlm.nih.gov/1/",
+                            "content": "Abstract context: Method sentence. No target DNA was detected.",
+                            "metadata": {"pmid": "1", "publicationTypes": ["PubMedQA Benchmark"]},
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = PostRetrievalResult(
+                messages=[],
+                citations=[],
+                retrieval=RetrievalInfo(
+                    enabled=True,
+                    status="low_evidence",
+                    provider="qdrant",
+                    query="Can test be detected?",
+                    documents_count=1,
+                ),
+                evidence_conflicts=EvidenceConflictInfo(detected=False),
+                source_documents=[
+                    RetrievedDocument(
+                        id="chunk-1",
+                        title="Can test be detected?",
+                        content="Method sentence.",
+                        source="qdrant",
+                        score=0.5,
+                        metadata={"pmid": "1", "chunkId": "chunk-1"},
+                    )
+                ],
+            )
+
+            expanded = expand_pubmedqa_benchmark_evidence(result, corpus_path=corpus_path)
+
+        self.assertEqual(expanded.retrieval.status, "grounded")
+        self.assertIn("No target DNA was detected", expanded.source_documents[0].content)
+        self.assertTrue(expanded.source_documents[0].metadata["benchmarkFullEvidence"])
+        self.assertEqual(expanded.citations[0].url, "https://pubmed.ncbi.nlm.nih.gov/1/")
+
 
 class AdaptiveRetrievalTests(unittest.TestCase):
     def test_low_evidence_runs_one_adaptive_round(self) -> None:
@@ -788,6 +1492,31 @@ class AdaptiveRetrievalTests(unittest.TestCase):
 
         self.assertEqual(retriever.calls, 2)
         self.assertEqual(result.retrieval.status, "grounded")
+        self.assertEqual(pre_retriever.allow_rewrite_values, [True])
+
+    def test_benchmark_mode_skips_query_rewrite_and_adaptive_retrieval(self) -> None:
+        pre_retriever = _FakePreRetriever()
+        retriever = _FakeRetriever()
+        pipeline = RagPipeline(
+            pre_retriever=pre_retriever,
+            retriever=retriever,
+            post_retriever=PostRetriever(max_context_chars=2000, final_documents_limit=5),
+            retrieval_candidate_limit=5,
+            adaptive_retrieval_enabled=True,
+            adaptive_max_rounds=1,
+        )
+
+        result = asyncio.run(
+            pipeline.run(
+                messages=[ChatMessage(role="user", content="Answer yes, no, or maybe based on retrieved evidence: Does treatment help?")],
+                system_prompt="System prompt.",
+                mode="benchmark_pqal",
+            )
+        )
+
+        self.assertEqual(pre_retriever.allow_rewrite_values, [False])
+        self.assertEqual(retriever.calls, 1)
+        self.assertEqual(result.retrieval.status, "low_evidence")
 
     def test_adaptive_query_adds_intent_specific_follow_up_terms(self) -> None:
         pipeline = RagPipeline(
@@ -813,8 +1542,50 @@ class AdaptiveRetrievalTests(unittest.TestCase):
         self.assertIn("safety", adaptive.search_queries[-1])
 
 
+class LowEvidenceSafetyRefusalTests(unittest.TestCase):
+    def test_low_evidence_refusal_adds_emergency_instruction_for_red_flags(self) -> None:
+        messages = [
+            ChatMessage(
+                role="user",
+                content="I have sudden weakness on one side of the body and trouble speaking. What should I do?",
+            )
+        ]
+
+        refusal = low_evidence_refusal(messages, [])
+
+        self.assertTrue(has_urgent_red_flags(messages))
+        self.assertIn("seek emergency care immediately", refusal)
+        self.assertIn("cannot provide a reliable cited medical answer", refusal)
+
+    def test_urgent_red_flag_response_is_immediate_and_explicit(self) -> None:
+        messages = [
+            ChatMessage(
+                role="user",
+                content="I have crushing chest pain, shortness of breath, and sweating. Can I wait until tomorrow?",
+            )
+        ]
+
+        response = urgent_red_flag_response(messages)
+
+        self.assertTrue(has_urgent_red_flags(messages))
+        self.assertIn("Seek emergency care immediately", response)
+        self.assertIn("911/112", response)
+
+    def test_low_evidence_refusal_does_not_add_emergency_instruction_for_routine_question(self) -> None:
+        messages = [ChatMessage(role="user", content="What is known about mild seasonal allergies?")]
+
+        refusal = low_evidence_refusal(messages, [])
+
+        self.assertFalse(has_urgent_red_flags(messages))
+        self.assertNotIn("seek emergency care immediately", refusal)
+
+
 class _FakePreRetriever:
-    async def prepare(self, _messages: list[ChatMessage]) -> PreRetrievalResult:
+    def __init__(self) -> None:
+        self.allow_rewrite_values: list[bool] = []
+
+    async def prepare(self, _messages: list[ChatMessage], *, allow_rewrite: bool = True) -> PreRetrievalResult:
+        self.allow_rewrite_values.append(allow_rewrite)
         return PreRetrievalResult(
             original_query="leczenie PAD",
             normalized_query="leczenie PAD",
@@ -885,6 +1656,23 @@ class _FakeJudgeProvider:
         )
 
 
+class _FakeEvidenceClassifier:
+    def __init__(self, *, label: str, confidence: float) -> None:
+        self.label = label
+        self.confidence = confidence
+        self.calls = 0
+
+    def predict(self, *, question: str, source_documents: list[RetrievedDocument]) -> EvidenceClassifierPrediction:
+        self.calls += 1
+        return EvidenceClassifierPrediction(
+            label=self.label,
+            confidence=self.confidence,
+            probabilities={"yes": self.confidence if self.label == "yes" else 0.05, "no": 0.05, "maybe": 0.05},
+            rationale=f"Fake classifier predicted {self.label} [S1].",
+            model_path="fake-deberta",
+        )
+
+
 def _load_child_chunk_module():
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "rag" / "00_build_child_chunks.py"
     spec = importlib.util.spec_from_file_location("build_child_chunks", script_path)
@@ -899,6 +1687,16 @@ def _load_pubmedqa_builder_module():
     spec = importlib.util.spec_from_file_location("build_pubmedqa_benchmark_dataset", script_path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_deberta_dataset_module():
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "classifier" / "prepare_pubmedqa_deberta_dataset.py"
+    spec = importlib.util.spec_from_file_location("prepare_pubmedqa_deberta_dataset", script_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 

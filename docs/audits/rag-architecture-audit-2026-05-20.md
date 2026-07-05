@@ -5,20 +5,23 @@ Branch: `rag-improvement-rag-optimization`
 Zakres: dane -> embeddingi -> indeks -> retrieval -> evidence judge -> writer -> API -> eval
 
 > Uwaga po reorganizacji repo: ten dokument jest historycznym audytem z 2026-05-20. Niektore sciezki opisane ponizej odnosza sie do struktury sprzed porzadkowania repozytorium. Aktualna mapa projektu jest w root `README.md`.
+>
+> Aktualizacja 2026-06-07: historyczny wynik `49.6%` ponizej dotyczy LLM/rules Evidence Judge v3. Aktualny najlepszy pelny run PQA-L 500 to `72.0%` label accuracy z warstwa BioLinkBERT classifier, przy `source_hit_at_1=98.0%` i `citation_pass_rate=100.0%`. Ten nowszy wynik jest glowna wartoscia do raportowania w paperze.
 
 ## 1. Najkrotsza diagnoza
 
 Mamy juz duzo wiecej niz prosty RAG. System ma pipeline danych, embeddingi MedCPT, hybrydowe wyszukiwanie dense + BM25, reranking/scoring, guardraile cytowan, endpoint trace i osobny `EvidenceJudge`, ktory podejmuje decyzje przed writerem.
 
-Najmocniejsza czesc systemu to obecnie retrieval. Na oficjalnym PubMedQA 500 test system znajduje poprawne zrodlo na pierwszej pozycji w `98.2%` przypadkow. To znaczy, ze problem nie jest glownie w tym, ze RAG nie znajduje papieru.
+Najmocniejsza czesc systemu to obecnie retrieval. Na oficjalnym PubMedQA 500 test system znajduje poprawne zrodlo na pierwszej pozycji w okolo `98%` przypadkow. To znaczy, ze problem nie jest glownie w tym, ze RAG nie znajduje papieru.
 
-Najslabsza czesc systemu to decyzja z evidence: czy zrodlo oznacza `yes`, `no` czy `maybe`. Na oficjalnym PubMedQA 500 mamy `49.6%` accuracy przy modelu `qwen2.5:7b`. To jest ponizej paperowego majority baseline PubMedQA okolo `55.2%`, mimo ze retrieval trafia bardzo dobrze.
+Historycznie na oficjalnym PubMedQA 500 mielismy `49.6%` accuracy przy LLM/rules judge opartym o `qwen2.5:7b`. Po dodaniu uczonej warstwy BioLinkBERT classifier aktualny najlepszy pelny wynik to `72.0%`. Najwiekszy bottleneck przesunal sie z ogolnej decyzji `yes/no/maybe` na klase `maybe`, gdzie recall/accuracy nadal jest slabe.
 
 Najprosciej:
 
 ```text
 retriever dowozi zrodlo
-judge nie zawsze dobrze rozumie, co z tego zrodla wynika
+BioLinkBERT classifier poprawia yes/no
+maybe nadal jest najtrudniejszym przypadkiem
 writer i cytowania sa juz mocno ograniczone guardrailami
 ```
 
@@ -438,7 +441,7 @@ retrieval prawie zawsze trafia zrodlo
 
 ### Official PubMedQA PQA-L test 500
 
-Raport:
+Historyczny raport LLM/rules judge z audytu:
 
 ```text
 reports/pubmedqa_official_pqal_test_v3.md
@@ -452,7 +455,7 @@ Model:
 qwen2.5:7b
 ```
 
-Wyniki:
+Historyczne wyniki:
 
 | Metryka | Wynik |
 |---|---:|
@@ -493,9 +496,44 @@ label reasoning: za slaby
 
 System za czesto mowi `maybe`, kiedy powinien powiedziec `yes`, i nadal myli czesc `no`.
 
+Aktualny najlepszy pelny run PQA-L 500:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+```
+
+| Metryka | Wynik |
+|---|---:|
+| Cases | 500 |
+| Label accuracy | 72.0% |
+| Case pass rate | 71.6% |
+| Source hit@1 | 98.0% |
+| Source hit@3 | 98.0% |
+| Citation pass rate | 100.0% |
+| Mean latency | 1.37s |
+
+Per label:
+
+| Label | Count | Accuracy |
+|---|---:|---:|
+| yes | 276 | 76.1% |
+| no | 169 | 86.4% |
+| maybe | 55 | 7.3% |
+
+Najwazniejszy nowszy wniosek:
+
+```text
+retrieval: bardzo dobry
+cytowania: bardzo dobre
+BioLinkBERT decision layer: duzy skok wzgledem LLM judge
+maybe/inconclusive: nadal glowny bottleneck
+```
+
+To jest obecnie najwazniejsza liczba do paperu: `72.0%` na pelnym official PQA-L 500, nie quick-run `64.4%` ani historyczny LLM judge `49.6%`.
+
 ## 14. Porownanie do paper results
 
-To nie jest jeszcze paper-level accuracy.
+Historyczny LLM/rules judge nie byl jeszcze paper-level accuracy.
 
 Dla orientacji PubMedQA paper raportowal mniej wiecej:
 
@@ -505,17 +543,24 @@ BioBERT:           ok. 68.1%
 human:             ok. 78.0%
 ```
 
-Nasz official 500 wynik:
+Historyczny official 500 wynik LLM/rules judge:
 
 ```text
 49.6%
 ```
 
+Aktualny official 500 wynik z BioLinkBERT classifier:
+
+```text
+72.0%
+```
+
 Czyli:
 
-- jestesmy ponizej prostego majority baseline,
-- nie jestesmy jeszcze blisko BioBERT paper result,
-- ale retrieval nie jest glownym winowajca, bo `source@1` jest `98.2%`.
+- historyczny LLM/rules judge byl ponizej prostego majority baseline,
+- aktualny classifier przekracza majority baseline i historyczny BioBERT-style punkt odniesienia z PubMedQA,
+- nadal nie twierdzimy SOTA; najmocniejszy claim to rozdzielenie retrievalu od decyzji i pokazanie, ze uczona warstwa evidence-to-conclusion daje realny skok,
+- retrieval nie jest glownym winowajca, bo `source@1` jest okolo `98%`.
 
 To jest wazne. Gdyby source@1 bylo np. 60%, najpierw naprawialibysmy retrieval. Tutaj glowna strata jest juz po znalezieniu dobrego zrodla.
 
@@ -543,7 +588,7 @@ Zrobione rzeczy:
 
 ### 16.1. Dobry retriever biomedyczny
 
-MedCPT + BM25 + RRF to sensowny stack do PubMed. Wynik `98.2% Source@1` na official PubMedQA potwierdza, ze dla tego benchmarku retriever znajduje wlasciwe zrodla.
+MedCPT + BM25 + RRF to sensowny stack do PubMed. Wynik okolo `98% Source@1` na official PubMedQA potwierdza, ze dla tego benchmarku retriever znajduje wlasciwe zrodla.
 
 ### 16.2. Query planning jest juz praktyczny
 
@@ -559,32 +604,33 @@ Bez `/api/rag/trace` kazda optymalizacja bylaby zgadywaniem. Teraz mozemy sprawd
 
 ### 16.5. Writer jest ograniczony
 
-Cytowania, guardraile i extractive fallback zmniejszaja ryzyko halucynacji. Na official 500 citation pass to `99.8%`, a mean hallucination rate to `1.8%`.
+Cytowania, guardraile i extractive fallback zmniejszaja ryzyko halucynacji. W aktualnym classifier run official 500 citation pass to `100.0%`. Metryki answer-quality/hallucination dla classifier-only odpowiedzi trzeba czytac ostroznie, bo classifier zwraca krotka decyzje benchmarkowa, a nie pelny akapit kliniczny.
 
 ## 17. Slabe punkty
 
-### 17.1. Evidence Judge nie jest jeszcze wystarczajaco dobry
+### 17.1. Klasa `maybe` nie jest jeszcze wystarczajaco dobra
 
 To jest najwiekszy problem.
 
 Objawy:
 
-- official 500 accuracy tylko `49.6%`,
-- zbyt duzo odpowiedzi `maybe`,
-- `yes` ma tylko `46.7%` per-label accuracy,
-- wynik jest ponizej majority baseline.
+- aktualny official 500 accuracy wzrosl do `72.0%`,
+- `yes` ma `76.1%` accuracy,
+- `no` ma `86.4%` accuracy,
+- `maybe` ma tylko `7.3%` accuracy,
+- model nadal zbyt czesto zamienia niejednoznaczne evidence na twarde `yes` albo `no`.
 
-To znaczy, ze judge jest zbyt ostrozny albo nie rozpoznaje wystarczajaco dobrze, kiedy evidence jasno wspiera teze.
+To znaczy, ze warstwa decyzyjna zaczela dobrze lapac jasne `yes/no`, ale nadal nie umie stabilnie rozpoznac, kiedy wynik badania jest niekonkluzywny.
 
-### 17.2. Brakuje uczonego evidence filtera
+### 17.2. Uczony evidence classifier istnieje, ale potrzebuje lepszej obslugi uncertainty
 
-Mamy heurystyki i LLM judge. Nie mamy jeszcze malego modelu/fine-tuned classifiera, ktory bylby uczony konkretnie do:
+Mamy juz maly model/fine-tuned classifier uczony konkretnie do:
 
 ```text
 question + evidence -> supported/refuted/uncertain
 ```
 
-To nie jest "trenowanie pod test". Poprawny cel to nauczenie modelu rozpoznawania relacji miedzy pytaniem a wynikiem badania.
+To nie jest "trenowanie pod test". Poprawny cel to nauczenie modelu rozpoznawania relacji miedzy pytaniem a wynikiem badania. Nastepny krok to poprawa klasy `maybe`, np. przez option-ranker, rebalancing, calibration albo osobna warstwe sufficiency.
 
 ### 17.3. Mamy jeden glowny corpus
 
