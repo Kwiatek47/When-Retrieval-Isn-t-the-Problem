@@ -8,6 +8,20 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_QDRANT_COLLECTION = "MedicalChunk_pubmed_reviews_v1_medcpt_20260518"
 
 
+def _load_dotenv() -> None:
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(env_path, override=False)
+
+
+_load_dotenv()
+
+
 @dataclass(frozen=True)
 class Settings:
     app_title: str

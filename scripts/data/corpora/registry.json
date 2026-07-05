@@ -1,0 +1,26 @@
+{
+  "schema_version": "corpus_registry_v1",
+  "corpora": [
+    {
+      "corpus_id": "pubmed_reviews_v1",
+      "corpus_version": "pubmed-reviews-v1",
+      "source": "pubmed",
+      "priority": "P0",
+      "status": "active",
+      "chunks_path": "data/processed/chunks.parquet",
+      "publication_types": ["Review", "Systematic Review", "Meta-Analysis", "Practice Guideline"],
+      "notes": "Default review-heavy PubMed corpus for general medical QA."
+    },
+    {
+      "corpus_id": "statpearls_v1",
+      "corpus_version": "statpearls_v1",
+      "source": "statpearls",
+      "priority": "P0",
+      "status": "pilot",
+      "chunks_path": "data/processed/statpearls/chunks.parquet",
+      "manifest_path": "data/raw/statpearls/chapter_manifest.jsonl",
+      "publication_types": ["Clinical Overview"],
+      "notes": "NCBI Bookshelf StatPearls chapters; best for case-based and exam-style questions."
+    }
+  ]
+}

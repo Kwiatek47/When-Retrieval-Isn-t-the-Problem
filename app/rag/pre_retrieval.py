@@ -97,6 +97,7 @@ class PreRetriever:
         "treatment": [
             "Practice Guideline",
             "Guideline",
+            "Clinical Overview",
             "Systematic Review",
             "Meta-Analysis",
             "Review",
@@ -106,6 +107,7 @@ class PreRetriever:
         "diagnosis": [
             "Practice Guideline",
             "Guideline",
+            "Clinical Overview",
             "Systematic Review",
             "Meta-Analysis",
             "Review",
@@ -135,6 +137,7 @@ class PreRetriever:
             "Systematic Review",
             "Meta-Analysis",
             "Review",
+            "Clinical Overview",
             "Practice Guideline",
             "Guideline",
         ],

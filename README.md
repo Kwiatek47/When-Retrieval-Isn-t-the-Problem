@@ -171,7 +171,17 @@ The official PubMedQA PQA-L 500 repo-safe benchmark artifacts live in:
 data/benchmarks/pubmedqa/official_pqal_test/
 ```
 
-Generated PubMed corpora, non-benchmark Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract.
+Full PubMed corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract and `docs/data/corpus-roadmap.md` for multi-corpus expansion (StatPearls P0 pilot).
+
+StatPearls pilot ingest:
+
+```bash
+export NCBI_EMAIL="your.email@example.com"
+make discover-statpearls STATPEARLS_DISCOVER_LIMIT=200
+make build-statpearls-chunks STATPEARLS_LIMIT=50
+make index-statpearls
+export RAG_CORPUS_VERSION=statpearls_v1
+```
 
 ## Indexing And Evaluation
 
@@ -429,7 +439,7 @@ If tests fail in a fresh shell, run `make setup` first. The unit suite depends o
 Active runtime:
 
 - `app/`, `static/`, `services/embedding-service/`, `qdrant/`
-- `scripts/rag/`, `scripts/embeddings/`, `scripts/data/pubmed/`
+- `scripts/rag/`, `scripts/embeddings/`, `scripts/data/pubmed/`, `scripts/data/statpearls/`
 - `data/sample/`, `data/benchmarks/`
 - `docs/`
 
@@ -447,7 +457,6 @@ Do not use `archive/` as current documentation unless a file is explicitly moved
 - `docs/embedding-service.md`
 - `docs/qdrant.md`
 - `docs/data/pubmed-pipeline.md`
-- `docs/evaluation/evaluation-framework.md`
-- `docs/evaluation/medical-eval-suite.md`
+- `docs/data/corpus-roadmap.md`
 - `docs/evaluation/neurology-clinical-assistant-rubric.md`
 - `docs/audits/rag-architecture-audit-2026-05-20.md`
