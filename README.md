@@ -17,12 +17,15 @@ services/embedding-service/  standalone MedCPT embedding and hybrid-search servi
 qdrant/                      Qdrant collection initialization
 static/                      browser chat UI
 scripts/rag/                 ingest, index, search, retrieval/RAG/PubMedQA eval scripts
+scripts/classifier/          PubMedQA evidence classifier and option-ranker training/eval scripts
 scripts/embeddings/          chunk inspection, embedding, validation scripts
 scripts/data/pubmed/         PubMed data pipeline scripts and repo-safe configs
-scripts/eval/                prompt regression evaluation
+scripts/eval/                regression gates, medical suite, direct-judge and Colab ablation runners
 data/sample/                 small tracked samples for smoke tests
 data/benchmarks/             small tracked benchmark/eval datasets
 docs/                        current technical docs
+  research/                  paper-facing findings, research gaps, and positioning notes
+eval/                        evaluation changelog and run/update notes
 archive/                     historical handoffs, SFT experiments, inactive datasets
 tests/                       unit tests
 ```
@@ -80,6 +83,8 @@ make eval-retrieval  # run retrieval benchmark
 make eval-pubmedqa   # run PubMedQA benchmark
 make eval-nice-retrieval # run NICE retrieval benchmark
 make eval-nice-rag   # run NICE end-to-end RAG benchmark
+make eval-medical-suite # run core medical eval: PQA-L regression + clinical safety gates
+make classifier-audit # audit PubMedQA classifier data leakage and label balance
 make clean-local     # remove generated local reports/data artifacts
 ```
 
@@ -129,7 +134,12 @@ The app reads settings from `app/core/config.py`; the embedding service reads `s
 
 ## Runtime Architecture
 
-`POST /api/chat` runs:
+The API has two explicit chat modes:
+
+- `medical_chat` is the default product mode. It is conservative, patient-facing, and uses refusal/guardrail behavior when evidence is weak or symptoms are high-risk.
+- `benchmark_pqal` is an evaluation mode for PubMedQA/PQA-L. It is not patient advice. It disables query rewriting and can expand the retrieved PMID to the full official abstract so the decision layer is tested on paper-level evidence.
+
+`POST /api/chat` in `medical_chat` mode runs:
 
 1. `PreRetriever` normalizes the last user question, decides whether retrieval is needed, expands acronyms, sets filters, and optionally rewrites the query.
 2. `MedicalKnowledgeRetriever` retrieves candidates through `embedding-service` by default. The service computes MedCPT query embeddings and runs hybrid dense+BM25 search in Qdrant.
@@ -169,7 +179,7 @@ The official PubMedQA PQA-L 500 repo-safe benchmark artifacts live in:
 data/benchmarks/pubmedqa/official_pqal_test/
 ```
 
-Full PubMed/NICE corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract and `docs/data/nice-pipeline.md` plus `docs/data/rag-corpus-runbook.md` for NICE.
+Full PubMed/NICE/StatPearls corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract, `docs/data/nice-pipeline.md` and `docs/data/rag-corpus-runbook.md` for NICE, and `docs/data/corpus-roadmap.md` for multi-corpus expansion.
 
 NICE benchmark samples use `documentId` ground truth such as `nice-amr1` and
 `nice-ng127`. PubMedQA uses PMID-based ground truth, so it is not a clean
@@ -185,6 +195,21 @@ make eval-nice-rag-large
 ```
 
 Those larger sets use 500 retrieval cases and 100 end-to-end RAG cases.
+
+Unified multi-corpus merge:
+
+```bash
+make build-processed-chunks CORPORA="pubmed_reviews_v1 nice_guidelines_v1 statpearls_v1"
+make validate-corpus
+```
+
+StatPearls pilot ingest:
+
+```bash
+export NCBI_EMAIL="your.email@example.com"
+make discover-statpearls LIMIT=200
+make build-statpearls-chunks LIMIT=50
+```
 
 ## Indexing And Evaluation
 
@@ -220,8 +245,214 @@ make eval-retrieval
 make eval-pubmedqa
 make eval-nice-retrieval
 make eval-nice-rag
+make eval-quick-pqal
+make eval-official-pqal500
+make eval-medical-suite
 .venv/bin/python scripts/eval/run_prompt_eval.py --candidate v2
 ```
+
+The evaluation framework is documented in `docs/evaluation/evaluation-framework.md`.
+
+The core medical eval suite intentionally stays small and high-signal:
+
+- `official_pqal500` uses `benchmark_pqal` mode and keeps PubMedQA paper-comparable yes/no/maybe regression tracking.
+- `eval-quick-pqal` runs deterministic diagnostics before the full gate: `balanced90` plus `first100_yes`.
+- `clinical_safety_golden` uses `medical_chat` mode and gates high-risk chatbot behavior: emergency escalation, medication refusal, contraindications, scope confusion, and out-of-domain refusal.
+
+Official PQA-L reports separate metrics that should not be collapsed into one number:
+
+- `label_accuracy`: correctness of the yes/no/maybe conclusion.
+- `source_hit_at_1` / `source_hit_at_3`: whether retrieval found the expected PMID.
+- `citation_pass_rate`: whether returned citations are structurally valid.
+- `case_pass_rate`: label + retrieval + citation pass.
+- `strict_case_pass_rate`: `case_pass_rate` plus answer-quality pass. This can be too strict for classifier-only benchmark answers because the classifier returns a short decision rather than a generated clinical paragraph.
+
+Current best tracked full PQA-L 500 run:
+
+```text
+reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json
+label_accuracy=0.720
+source_hit_at_1=0.980
+citation_pass_rate=1.000
+```
+
+This is the main paper-facing value for the current pipeline. Smaller quick runs, such as balanced90 diagnostics, are used to find failure modes and should not be reported as the main result.
+
+In `benchmark_pqal` mode the pipeline expands the selected retrieved PMID to the full official PQA-L abstract from
+`PUBMEDQA_OFFICIAL_CORPUS_PATH`. This is benchmark-only: it does not affect patient-facing `medical_chat`, and it does
+not use gold labels.
+
+The registry for active and planned benchmark adapters is `data/benchmarks/medical_eval_registry.json`.
+
+## PubMedQA Evidence Decision Models
+
+The `benchmark_pqal` mode can use a local biomedical encoder classifier for `question + evidence -> yes/no/maybe`.
+Supported research scripts currently cover DeBERTa-style classifiers, BioLinkBERT checkpoints, and an experimental
+option-ranker. Official PQA-L 500 is treated as held-out and is excluded from classifier train/dev data.
+
+Prepare official PubMedQA data:
+
+```bash
+make classifier-prepare
+```
+
+For faster local iteration on a MacBook, use the smaller official-data split:
+
+```bash
+make classifier-prepare-local
+make classifier-train-local
+```
+
+For the fuller research run, use:
+
+```bash
+make classifier-train
+```
+
+For a 2x RTX 4080 Linux box, use the DDP runner:
+
+```bash
+make classifier-prepare
+make classifier-train-2x4080
+```
+
+This calls `torch.distributed.run` with `nproc_per_node=2`, DDP/NCCL, `bf16` autocast, gradient checkpointing,
+class-weighted loss, per-GPU batch size 8, and gradient accumulation 4. Override defaults with env vars, for example:
+
+```bash
+BATCH_SIZE=12 GRADIENT_ACCUMULATION=3 EPOCHS=5 make classifier-train-2x4080
+```
+
+For the full research ablation run on 2x RTX 4080 16GB, use:
+
+```bash
+make classifier-train-2x4080-full
+```
+
+On a fresh server, the runner expects or bootstraps the ignored raw PubMedQA files:
+
+```text
+data/raw/pubmedqa_official/data/ori_pqal.json
+data/raw/pubmedqa_official/data/ori_pqaa.json
+```
+
+By default it tries `AUTO_DOWNLOAD_PUBMEDQA_RAW=1`. If Google Drive blocks PQA-A, manually place official
+`ori_pqaa.json` at the path above and rerun. Set `AUTO_DOWNLOAD_PUBMEDQA_RAW=0` to fail fast instead of downloading.
+
+This wraps the research runner with safer 4080 defaults:
+
+```text
+NPROC_PER_NODE=2
+BATCH_SIZE=4
+EVAL_BATCH_SIZE=8
+GRADIENT_ACCUMULATION=8
+EPOCHS=8
+RUN_BIOMED_ABLATION=1
+RUN_SEED_SWEEP=1
+SEEDS="123 2026"
+```
+
+The ablation loop already trains the default best variant once with seed `47`, so the default sweep adds only `123`
+and `2026`. Final best-variant seeds are therefore `47`, `123`, and `2026` without duplicating seed `47`.
+
+If DeBERTa-large still hits OOM, rerun with:
+
+```bash
+BATCH_SIZE=2 EVAL_BATCH_SIZE=4 GRADIENT_ACCUMULATION=16 make classifier-train-2x4080-full
+```
+
+It prepares leakage-checked splits and trains:
+
+- PQA-L only,
+- PQA-A + PQA-L,
+- PQA-A + PQA-L with `LONG_ANSWER` bag-of-words auxiliary supervision,
+- optional biomedical encoder ablation,
+- a 3-seed sweep for the selected best variant.
+
+The research runner uses bf16, gradient checkpointing, class-weighted focal loss, macro-F1 model selection, dev-only
+threshold tuning, and a JSONL command log. Large checkpoints stay under ignored `artifacts/classifier/...`; small
+audits and reports can be copied into `reports/classifier/`.
+
+At the end it writes:
+
+```text
+experiment_summary.md
+experiment_summary.json
+data_audit.md
+command_log.jsonl
+```
+
+The summary ranks runs by dev macro F1, then accuracy, then `maybe`/`no` F1, and flags obvious collapse cases such as
+zero recall or >80% predictions in one label.
+
+Audit classifier data and held-out leakage:
+
+```bash
+make classifier-audit
+```
+
+The default checkpoint path is:
+
+```text
+artifacts/classifier/pubmedqa_deberta/best
+```
+
+Runtime integration is optional and disabled by default on a fresh checkout:
+
+```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=false
+RAG_EVIDENCE_CLASSIFIER_MODEL_PATH=artifacts/classifier/pubmedqa_deberta/best
+RAG_EVIDENCE_CLASSIFIER_FAST_THRESHOLD=0.80
+RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD=0.55
+RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1=0.40
+RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY=0.10
+```
+
+For official PQA-L classifier runs, enable the classifier explicitly and start the API with:
+
+```text
+RAG_EVIDENCE_CLASSIFIER_ENABLED=true
+RAG_EVIDENCE_JUDGE_METHOD=classifier
+```
+
+This makes `question + evidence -> classifier logits/probabilities -> label` the decision path. The eval wrappers now
+fail if the resulting report silently uses only `rules`.
+
+If the checkpoint collapses to one label on dev, or if calibrated metrics are stale relative to the model/dev metrics,
+the runtime quality gate disables or ignores the stale artifact instead of trusting it.
+
+After training, run:
+
+```bash
+make eval-quick-pqal
+make eval-official-pqal500
+```
+
+## Research And Colab Runners
+
+The Colab runners are for reproducing paper-oriented ablations on GPU machines. They write outputs under Google Drive
+or the configured `RUN_ROOT`; generated reports and checkpoints should not be committed.
+
+```bash
+# Compare LLM evidence judges, e.g. Qwen/BioMistral/MedGemma.
+bash scripts/eval/run_colab_llm_evidence_ablation.sh
+
+# Run staged diagnostics: direct judge, oracle evidence prompts, RAG, classifier layer.
+bash scripts/eval/run_colab_pubmedqa_diagnostic_ablation.sh
+
+# Train/evaluate the experimental option-ranker.
+bash scripts/classifier/run_colab_option_ranker.sh
+```
+
+The option-ranker scores three inputs per case:
+
+```text
+question + evidence + yes    -> score
+question + evidence + no     -> score
+question + evidence + maybe  -> score
+```
+
+It is intentionally separate from runtime integration until it passes held-out checks, especially `maybe` recall.
 
 ## Tests
 
@@ -239,7 +470,7 @@ Active runtime:
 
 - `app/`, `static/`, `services/embedding-service/`, `qdrant/`
 - `scripts/rag/`, `scripts/embeddings/`, `scripts/data/pubmed/`
-- `scripts/data/nice/`, `scripts/data/corpora/`
+- `scripts/data/nice/`, `scripts/data/corpora/`, `scripts/data/statpearls/`
 - `data/sample/`, `data/benchmarks/`
 - `docs/`
 
@@ -257,5 +488,6 @@ Do not use `archive/` as current documentation unless a file is explicitly moved
 - `docs/embedding-service.md`
 - `docs/qdrant.md`
 - `docs/data/pubmed-pipeline.md`
+- `docs/data/corpus-roadmap.md`
 - `docs/evaluation/neurology-clinical-assistant-rubric.md`
 - `docs/audits/rag-architecture-audit-2026-05-20.md`

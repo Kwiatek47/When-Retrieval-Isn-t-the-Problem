@@ -6,4 +6,7 @@ packaging
 pyarrow>=15,<25
 qdrant-client>=1.14,<2
 sentence-transformers>=3.0,<4
+sentencepiece>=0.2,<1
+torch>=2.2,<3
+transformers>=4.40,<5
 uvicorn

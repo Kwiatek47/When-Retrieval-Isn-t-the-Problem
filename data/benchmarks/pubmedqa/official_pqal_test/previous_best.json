@@ -1,0 +1,7 @@
+{
+  "benchmark": "PubMedQA official PQA-L 500",
+  "metric_path": "summary.label_accuracy",
+  "previous_best_score": 0.72,
+  "source": "reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json",
+  "notes": "Current best tracked full PQA-L 500 run: qwen2.5:7b with BioLinkBERT classifier decision path, 360/500 correct labels, source_hit_at_1=0.980, citation_pass_rate=1.000. CI gate allows at most 1 percentage point regression by default."
+}

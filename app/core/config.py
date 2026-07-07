@@ -15,22 +15,8 @@ def _load_dotenv() -> None:
     try:
         from dotenv import load_dotenv
     except ImportError:
-        _load_simple_env(env_path)
         return
     load_dotenv(env_path, override=False)
-
-
-def _load_simple_env(path: Path) -> None:
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        if not key or key in os.environ:
-            continue
-        value = value.strip().strip("\"'")
-        os.environ[key] = value
 
 
 _load_dotenv()
@@ -79,6 +65,16 @@ class Settings:
     rag_evidence_judge_max_sources: int
     rag_evidence_judge_voting_enabled: bool
     rag_evidence_judge_votes: int
+    rag_evidence_classifier_enabled: bool
+    rag_evidence_classifier_model_path: Path
+    rag_evidence_classifier_temperature_path: Path
+    rag_evidence_classifier_max_length: int
+    rag_evidence_classifier_fast_threshold: float
+    rag_evidence_classifier_hint_threshold: float
+    rag_evidence_classifier_device: str
+    rag_evidence_classifier_min_macro_f1: float
+    rag_evidence_classifier_min_per_label_accuracy: float
+    pubmedqa_official_corpus_path: Path
     rag_refuse_on_low_evidence: bool
     rag_citation_repair_enabled: bool
     rag_answer_quality_gate_enabled: bool
@@ -137,6 +133,33 @@ def get_settings() -> Settings:
         rag_evidence_judge_max_sources=int(os.getenv("RAG_EVIDENCE_JUDGE_MAX_SOURCES", "3")),
         rag_evidence_judge_voting_enabled=_bool_env("RAG_EVIDENCE_JUDGE_VOTING_ENABLED", False),
         rag_evidence_judge_votes=int(os.getenv("RAG_EVIDENCE_JUDGE_VOTES", "3")),
+        rag_evidence_classifier_enabled=_bool_env("RAG_EVIDENCE_CLASSIFIER_ENABLED", False),
+        rag_evidence_classifier_model_path=Path(
+            os.getenv(
+                "RAG_EVIDENCE_CLASSIFIER_MODEL_PATH",
+                str(PROJECT_ROOT / "artifacts" / "classifier" / "pubmedqa_deberta" / "best"),
+            )
+        ),
+        rag_evidence_classifier_temperature_path=Path(
+            os.getenv(
+                "RAG_EVIDENCE_CLASSIFIER_TEMPERATURE_PATH",
+                str(PROJECT_ROOT / "artifacts" / "classifier" / "pubmedqa_deberta" / "best" / "calibration.json"),
+            )
+        ),
+        rag_evidence_classifier_max_length=int(os.getenv("RAG_EVIDENCE_CLASSIFIER_MAX_LENGTH", "512")),
+        rag_evidence_classifier_fast_threshold=float(os.getenv("RAG_EVIDENCE_CLASSIFIER_FAST_THRESHOLD", "0.80")),
+        rag_evidence_classifier_hint_threshold=float(os.getenv("RAG_EVIDENCE_CLASSIFIER_HINT_THRESHOLD", "0.55")),
+        rag_evidence_classifier_device=os.getenv("RAG_EVIDENCE_CLASSIFIER_DEVICE", "auto"),
+        rag_evidence_classifier_min_macro_f1=float(os.getenv("RAG_EVIDENCE_CLASSIFIER_MIN_MACRO_F1", "0.40")),
+        rag_evidence_classifier_min_per_label_accuracy=float(
+            os.getenv("RAG_EVIDENCE_CLASSIFIER_MIN_PER_LABEL_ACCURACY", "0.10")
+        ),
+        pubmedqa_official_corpus_path=Path(
+            os.getenv(
+                "PUBMEDQA_OFFICIAL_CORPUS_PATH",
+                str(PROJECT_ROOT / "data" / "benchmarks" / "pubmedqa" / "official_pqal_test" / "corpus.json"),
+            )
+        ),
         rag_refuse_on_low_evidence=_bool_env("RAG_REFUSE_ON_LOW_EVIDENCE", True),
         rag_citation_repair_enabled=_bool_env("RAG_CITATION_REPAIR_ENABLED", True),
         rag_answer_quality_gate_enabled=_bool_env("RAG_ANSWER_QUALITY_GATE_ENABLED", True),
