@@ -8,6 +8,7 @@ from app.agents.backends import (
     EvidenceHintProvider,
     InferenceBackend,
     NullEvidenceHint,
+    fallback_clinical_opinion,
     parse_clinical_opinion_json,
 )
 from app.agents.models import ClinicalOpinion
@@ -25,12 +26,16 @@ class ClinicalAgent:
         backend: InferenceBackend,
         hint_provider: EvidenceHintProvider | None = None,
         temperature: float = 0.3,
+        task_mode: str = "clinical",
+        compact: bool = False,
     ) -> None:
         self.agent_id = agent_id
         self.persona = persona
         self.backend = backend
         self.hint_provider: EvidenceHintProvider = hint_provider or NullEvidenceHint()
         self.temperature = temperature
+        self.task_mode = task_mode
+        self.compact = compact
 
     async def generate_opinion(
         self,
@@ -50,6 +55,8 @@ class ClinicalAgent:
             patient_case=patient_case,
             context=context,
             evidence_hint=hint,
+            task_mode=self.task_mode,
+            compact=self.compact,
         )
         raw = await self.backend.complete(messages, temperature=self.temperature)
         try:
@@ -67,6 +74,21 @@ class ClinicalAgent:
                 context=context,
                 evidence_hint=hint,
                 repair=True,
+                task_mode=self.task_mode,
+                compact=self.compact,
             )
             raw_retry = await self.backend.complete(repair_messages, temperature=0.0)
-            return parse_clinical_opinion_json(raw_retry)
+            try:
+                return parse_clinical_opinion_json(raw_retry)
+            except Exception:
+                fallback_label = hint.label if hint is not None else "maybe"
+                logger.warning(
+                    "Agent %s retry also failed; using fallback label=%s.",
+                    self.agent_id,
+                    fallback_label,
+                    exc_info=True,
+                )
+                return fallback_clinical_opinion(
+                    label=fallback_label,
+                    reason=f"Fallback for agent `{self.agent_id}` after invalid JSON.",
+                )

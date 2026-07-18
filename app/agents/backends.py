@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.agents.models import ClinicalOpinion
+from app.rag.models import RetrievedDocument
 from app.schemas import ChatMessage
 
 
@@ -17,6 +19,7 @@ class EvidenceHint:
     label: str
     confidence: float
     model_path: str = ""
+    probabilities: dict[str, float] | None = None
 
 
 class InferenceBackend(Protocol):
@@ -42,25 +45,164 @@ class NullEvidenceHint:
 
 class BioLinkBERTHintProvider:
     """
-    Placeholder for BioLinkBERT-large evidence classifier hints.
+    BioLinkBERT / EvidenceClassifier yes/no/maybe hint for PubMedQA-style cases.
 
-    BioLinkBERT in this project is a yes/no/maybe sequence classifier, not a
-    generative model. Wire an existing EvidenceClassifier instance when ready;
-    until then this returns None so debate still runs on the LLM/mock backend.
+    This is a sequence classifier, not a generative model: it supplies a label+confidence
+    that debate agents can see in the prompt (and that the eval script can use as baseline).
     """
 
     def __init__(self, classifier: Any | None = None) -> None:
         self._classifier = classifier
+        self._question: str | None = None
+        self._documents: list[RetrievedDocument] | None = None
+        self.last_hint: EvidenceHint | None = None
+
+    @property
+    def available(self) -> bool:
+        return bool(self._classifier is not None and getattr(self._classifier, "available", False))
+
+    @property
+    def load_error(self) -> str:
+        if self._classifier is None:
+            return "No classifier attached."
+        return str(getattr(self._classifier, "load_error", "") or "")
+
+    @property
+    def model_path(self) -> str:
+        if self._classifier is None:
+            return ""
+        return str(getattr(self._classifier, "model_path", "") or "")
+
+    def set_case(self, *, question: str, documents: list[RetrievedDocument]) -> None:
+        """Bind the current PubMedQA question + evidence docs (preferred over parsing)."""
+        self._question = question.strip()
+        self._documents = list(documents)
+
+    def clear_case(self) -> None:
+        self._question = None
+        self._documents = None
+
+    def predict_current(self) -> EvidenceHint | None:
+        """Run classifier on the case bound via set_case / last get_hint parse."""
+        if self._classifier is None or not getattr(self._classifier, "available", False):
+            return None
+        question = self._question or ""
+        documents = self._documents or []
+        if not question or not documents:
+            return None
+        prediction = self._classifier.predict(question=question, source_documents=documents)
+        if prediction is None:
+            return None
+        hint = EvidenceHint(
+            label=prediction.label,
+            confidence=float(prediction.confidence),
+            model_path=str(prediction.model_path),
+            probabilities=dict(prediction.probabilities),
+        )
+        self.last_hint = hint
+        return hint
 
     def get_hint(self, patient_case: str) -> EvidenceHint | None:
         if self._classifier is None:
             return None
         if not getattr(self._classifier, "available", False):
             return None
-        # Placeholder: EvidenceClassifier.predict expects question + source_documents.
-        # Full RAG wiring is out of scope for this skeleton.
-        _ = patient_case
-        return None
+        if not self._question or not self._documents:
+            parsed_question, parsed_docs = parse_pubmedqa_patient_case(patient_case)
+            if parsed_question and parsed_docs:
+                self._question = parsed_question
+                self._documents = parsed_docs
+        return self.predict_current()
+
+
+def build_biolinkbert_hint_from_settings() -> BioLinkBERTHintProvider:
+    """Construct hint provider from RAG_EVIDENCE_CLASSIFIER_* settings (seed47 path in .env)."""
+    from app.core.config import get_settings
+    from app.rag.evidence_classifier import EvidenceClassifier
+
+    settings = get_settings()
+    classifier = EvidenceClassifier(
+        enabled=True,
+        model_path=settings.rag_evidence_classifier_model_path,
+        temperature_path=settings.rag_evidence_classifier_temperature_path,
+        max_length=settings.rag_evidence_classifier_max_length,
+        max_sources=settings.rag_evidence_judge_max_sources,
+        device=settings.rag_evidence_classifier_device,
+        min_macro_f1=settings.rag_evidence_classifier_min_macro_f1,
+        min_per_label_accuracy=settings.rag_evidence_classifier_min_per_label_accuracy,
+    )
+    return BioLinkBERTHintProvider(classifier)
+
+
+def parse_pubmedqa_patient_case(patient_case: str) -> tuple[str, list[RetrievedDocument]]:
+    """Extract question + evidence documents from the eval script case format."""
+    text = patient_case.strip()
+    question = ""
+    evidence = ""
+    question_match = re.search(
+        r"RESEARCH QUESTION:\s*(.*?)\s*EVIDENCE:\s*(.*)\Z",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if question_match:
+        question = question_match.group(1).strip()
+        evidence = question_match.group(2).strip()
+    else:
+        evidence = text
+
+    documents: list[RetrievedDocument] = []
+    blocks = re.split(r"(?=\nSOURCE |\ASOURCE )", evidence)
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        source_match = re.match(r"SOURCE\s+(\S+)\s*(.*)\Z", block, flags=re.DOTALL)
+        if not source_match:
+            documents.append(
+                RetrievedDocument(
+                    id="evidence-0",
+                    title="",
+                    content=block,
+                    source="pubmedqa",
+                    score=1.0,
+                )
+            )
+            continue
+        doc_id = source_match.group(1).strip()
+        body = source_match.group(2).strip()
+        title = ""
+        title_match = re.match(r"Title:\s*(.*?)\n(.*)\Z", body, flags=re.DOTALL)
+        if title_match:
+            title = title_match.group(1).strip()
+            body = title_match.group(2).strip()
+        documents.append(
+            RetrievedDocument(
+                id=doc_id,
+                title=title,
+                content=body,
+                source="pubmedqa",
+                score=1.0,
+            )
+        )
+    return question, documents
+
+
+def hint_as_clinical_opinion(hint: EvidenceHint) -> ClinicalOpinion:
+    """Represent a BioLinkBERT prediction as a ClinicalOpinion for majority aggregation."""
+    ordered = ["yes", "no", "maybe"]
+    if hint.probabilities:
+        ordered = sorted(hint.probabilities.keys(), key=lambda label: hint.probabilities.get(label, 0.0), reverse=True)
+    return ClinicalOpinion(
+        top_1_diagnosis=hint.label,
+        top_3_differential_diagnoses=ordered[:3] or [hint.label],
+        pros=[f"BioLinkBERT predicted {hint.label} (confidence={hint.confidence:.3f})."],
+        cons=["Classifier has no natural-language rationale beyond class probabilities."],
+        required_further_tests=[],
+        confidence_level=max(0.0, min(1.0, hint.confidence)),
+        sources_used=[hint.model_path or "biolinkbert"],
+        red_flags=[],
+        missing_information="",
+    )
 
 
 class MockInferenceBackend:
@@ -71,8 +213,16 @@ class MockInferenceBackend:
         system = next((m.content for m in messages if m.role == "system"), "")
         user = next((m.content for m in messages if m.role == "user"), "")
         agent_id = _extract_between(system, "agent_id=", "\n") or "agent"
+        task_mode = _extract_between(system, "task_mode=", "\n") or "clinical"
         has_context = "PEER OPINIONS" in user or "peer opinions" in user.lower()
-        opinion = _mock_opinion(agent_id=agent_id, revised=has_context)
+        if task_mode.strip().lower() == "pubmedqa":
+            opinion = _mock_pubmedqa_opinion(
+                agent_id=agent_id,
+                case_text=user,
+                revised=has_context,
+            )
+        else:
+            opinion = _mock_opinion(agent_id=agent_id, revised=has_context)
         return opinion.model_dump_json()
 
 
@@ -151,8 +301,41 @@ def _mock_opinion(*, agent_id: str, revised: bool) -> ClinicalOpinion:
     )
 
 
+def _mock_pubmedqa_opinion(*, agent_id: str, case_text: str, revised: bool) -> ClinicalOpinion:
+    """Lightweight heuristic labels for offline PubMedQA debate plumbing tests."""
+    text = case_text.lower()
+    persona_prior = {
+        "generalist": "yes",
+        "evidence_skeptic": "maybe",
+        "differential_expander": "no",
+        "safety_officer": "maybe",
+    }
+    label = persona_prior.get(agent_id, "maybe")
+    if any(token in text for token in ("no significant", "not associated", "failed to", "did not")):
+        label = "no" if agent_id != "evidence_skeptic" else "maybe"
+    elif any(token in text for token in ("significantly", "effective", "improved", "useful", "valuable")):
+        label = "yes" if agent_id != "evidence_skeptic" else ("maybe" if not revised else "yes")
+    elif any(token in text for token in ("inconclusive", "unclear", "limited evidence", "mixed")):
+        label = "maybe"
+
+    if revised and agent_id == "differential_expander" and "valuable" in text:
+        label = "yes"
+
+    return ClinicalOpinion(
+        top_1_diagnosis=label,
+        top_3_differential_diagnoses=["yes", "no", "maybe"],
+        pros=[f"[{agent_id}] Abstract language leans toward '{label}'."],
+        cons=[f"[{agent_id}] Mock backend; not a real literature judgment."],
+        required_further_tests=["Larger RCT", "External validation"],
+        confidence_level=0.62 if revised else 0.48,
+        sources_used=["mock://abstract"],
+        red_flags=[] if label != "maybe" else ["Residual uncertainty in abstract"],
+        missing_information="Full methods / raw data not available in mock mode.",
+    )
+
+
 def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
-    """Parse model output into ClinicalOpinion, tolerating fenced JSON."""
+    """Parse model output into ClinicalOpinion, tolerating fenced/partial JSON."""
     text = raw.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -164,4 +347,77 @@ def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
         if text.lower().startswith("json"):
             text = text[4:].strip()
     data = json.loads(text)
-    return ClinicalOpinion.model_validate(data)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object, got {type(data).__name__}")
+    return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(data))
+
+
+def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
+    """Coerce common LLM omissions so validation does not crash the debate."""
+    payload = dict(data)
+    top = str(payload.get("top_1_diagnosis") or "").strip()
+    if not top:
+        # Sometimes models put the label only in differentials / free text.
+        diffs = payload.get("top_3_differential_diagnoses") or []
+        if isinstance(diffs, list) and diffs:
+            top = str(diffs[0]).strip()
+        elif isinstance(diffs, str) and diffs.strip():
+            top = diffs.strip()
+        else:
+            top = "maybe"
+        payload["top_1_diagnosis"] = top
+
+    differentials = payload.get("top_3_differential_diagnoses")
+    if isinstance(differentials, str):
+        differentials = [differentials]
+    if not isinstance(differentials, list):
+        differentials = []
+    cleaned = [str(item).strip() for item in differentials if str(item).strip()]
+    if not cleaned:
+        # PubMedQA-friendly default when the model leaves the list empty.
+        if top.lower() in {"yes", "no", "maybe"}:
+            cleaned = [top.lower(), "yes", "no", "maybe"]
+            # unique preserve order
+            seen: set[str] = set()
+            cleaned = [x for x in cleaned if not (x in seen or seen.add(x))][:3]
+        else:
+            cleaned = [top]
+    payload["top_3_differential_diagnoses"] = cleaned[:3]
+
+    try:
+        confidence = float(payload.get("confidence_level", 0.4))
+    except (TypeError, ValueError):
+        confidence = 0.4
+    payload["confidence_level"] = min(max(confidence, 0.0), 1.0)
+
+    for key in ("pros", "cons", "required_further_tests", "sources_used", "red_flags"):
+        value = payload.get(key, [])
+        if value is None:
+            payload[key] = []
+        elif isinstance(value, str):
+            payload[key] = [value] if value.strip() else []
+        elif not isinstance(value, list):
+            payload[key] = []
+
+    if payload.get("missing_information") is None:
+        payload["missing_information"] = ""
+    else:
+        payload["missing_information"] = str(payload.get("missing_information") or "")
+
+    return payload
+
+
+def fallback_clinical_opinion(*, label: str = "maybe", reason: str = "") -> ClinicalOpinion:
+    """Safe opinion used when the LLM repeatedly returns invalid JSON."""
+    normalized = label.strip().lower() if label.strip().lower() in {"yes", "no", "maybe"} else "maybe"
+    return ClinicalOpinion(
+        top_1_diagnosis=normalized,
+        top_3_differential_diagnoses=["yes", "no", "maybe"],
+        pros=[reason or "Fallback opinion after invalid model JSON."],
+        cons=["Model output could not be validated."],
+        required_further_tests=[],
+        confidence_level=0.25,
+        sources_used=["fallback"],
+        red_flags=[],
+        missing_information="Invalid or incomplete structured output from the model.",
+    )

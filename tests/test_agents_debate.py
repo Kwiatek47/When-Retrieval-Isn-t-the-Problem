@@ -14,6 +14,7 @@ from app.agents import (
     MockInferenceBackend,
     build_default_agents,
 )
+from app.agents.aggregation import extract_label, majority_vote, opinion_label, aggregate_pubmedqa_decision
 from app.agents.backends import EvidenceHint, NullEvidenceHint, parse_clinical_opinion_json
 from app.agents.prompts import build_messages
 from app.schemas import ChatMessage
@@ -107,6 +108,31 @@ class DebateOrchestratorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DebateOrchestrator(agents, rounds=4)
 
+    def test_early_exit_skips_later_rounds(self) -> None:
+        from app.agents.orchestrator import labels_unanimous
+
+        agents = build_default_agents(MockInferenceBackend(), task_mode="pubmedqa")
+
+        def stop_after_round1(round_number: int, opinions: list) -> bool:
+            return round_number == 1 and labels_unanimous(opinions)
+
+        # Force unanimous labels via a custom backend.
+        class UnanimousBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                from app.agents.models import ClinicalOpinion
+
+                return ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.9,
+                ).model_dump_json()
+
+        agents = build_default_agents(UnanimousBackend(), task_mode="pubmedqa")
+        orch = DebateOrchestrator(agents, rounds=3, early_exit=stop_after_round1)
+        result = asyncio.run(orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nvaluable"))
+        self.assertEqual(len(result.rounds), 1)
+        self.assertEqual(orch.early_exits, 1)
+
 
 class ClinicalAgentTests(unittest.TestCase):
     def test_retries_invalid_json_once(self) -> None:
@@ -155,6 +181,17 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("yes", user)
         self.assertIn("0.720", user)
 
+    def test_pubmedqa_prompt_requires_yes_no_maybe(self) -> None:
+        messages = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case="Question: Is X useful?\nEvidence: ...",
+            task_mode="pubmedqa",
+        )
+        system = messages[0].content
+        self.assertIn("task_mode=pubmedqa", system)
+        self.assertIn('"yes", "no", "maybe"', system)
+
     def test_parse_fenced_json(self) -> None:
         opinion = ClinicalOpinion(
             top_1_diagnosis="PE",
@@ -164,6 +201,111 @@ class PromptAndParseTests(unittest.TestCase):
         fenced = f"```json\n{opinion.model_dump_json()}\n```"
         parsed = parse_clinical_opinion_json(fenced)
         self.assertEqual(parsed.top_1_diagnosis, "PE")
+
+    def test_parse_normalizes_empty_differentials(self) -> None:
+        raw = (
+            '{"top_1_diagnosis":"yes","top_3_differential_diagnoses":[],'
+            '"pros":[],"cons":[],"required_further_tests":[],'
+            '"confidence_level":0.7,"sources_used":[],"red_flags":[],'
+            '"missing_information":""}'
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "yes")
+        self.assertGreaterEqual(len(parsed.top_3_differential_diagnoses), 1)
+        self.assertIn("yes", parsed.top_3_differential_diagnoses)
+
+
+class AggregationTests(unittest.TestCase):
+    def test_extract_label(self) -> None:
+        self.assertEqual(extract_label("yes"), "yes")
+        self.assertEqual(extract_label("Answer: maybe"), "maybe")
+        self.assertIsNone(extract_label("pneumonia"))
+
+    def test_majority_vote_prefers_count_then_confidence(self) -> None:
+        opinions = [
+            ClinicalOpinion(top_1_diagnosis="yes", top_3_differential_diagnoses=["yes"], confidence_level=0.4),
+            ClinicalOpinion(top_1_diagnosis="yes", top_3_differential_diagnoses=["yes"], confidence_level=0.5),
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.9),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.9),
+        ]
+        label, share = majority_vote(opinions)
+        self.assertEqual(label, "yes")
+        self.assertAlmostEqual(share["yes"], 0.5)
+
+    def test_opinion_label(self) -> None:
+        opinion = ClinicalOpinion(
+            top_1_diagnosis="maybe",
+            top_3_differential_diagnoses=["maybe", "yes", "no"],
+            confidence_level=0.3,
+        )
+        self.assertEqual(opinion_label(opinion), "maybe")
+
+    def test_bert_gate_trusts_high_confidence_yes_no(self) -> None:
+        agents = [
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.4),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.4),
+            ClinicalOpinion(top_1_diagnosis="yes", top_3_differential_diagnoses=["yes"], confidence_level=0.4),
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.4),
+        ]
+        bert = ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes", "no", "maybe"],
+            confidence_level=0.96,
+        )
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents, bert_opinion=bert, mode="bert_gate", bert_gate_confidence=0.9
+        )
+        self.assertEqual(label, "yes")
+        self.assertEqual(rule, "bert_gate")
+
+    def test_bert_gate_allows_unanimous_panel_override(self) -> None:
+        agents = [
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.8),
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.8),
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.8),
+            ClinicalOpinion(top_1_diagnosis="no", top_3_differential_diagnoses=["no"], confidence_level=0.8),
+        ]
+        bert = ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes"],
+            confidence_level=0.96,
+        )
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents, bert_opinion=bert, mode="bert_gate", bert_gate_confidence=0.9
+        )
+        self.assertEqual(label, "no")
+        self.assertEqual(rule, "panel_unanimous_override")
+
+    def test_bert_gate_ignores_unanimous_maybe_override(self) -> None:
+        agents = [
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+        ]
+        bert = ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes"],
+            confidence_level=0.94,
+        )
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents, bert_opinion=bert, mode="bert_gate", bert_gate_confidence=0.9
+        )
+        self.assertEqual(label, "yes")
+        self.assertEqual(rule, "bert_gate")
+
+class PubmedqaDebateTests(unittest.TestCase):
+    def test_mock_pubmedqa_debate_produces_labels(self) -> None:
+        agents = build_default_agents(MockInferenceBackend(), task_mode="pubmedqa")
+        result = asyncio.run(
+            DebateOrchestrator(agents, rounds=2).run(
+                "RESEARCH QUESTION:\nIs therapy valuable?\nEVIDENCE:\nSignificantly improved outcomes."
+            )
+        )
+        labels = [opinion_label(entry.opinion) for entry in result.final_opinions]
+        self.assertTrue(all(label in {"yes", "no", "maybe"} for label in labels))
+        vote, _ = majority_vote([entry.opinion for entry in result.final_opinions])
+        self.assertIn(vote, {"yes", "no", "maybe"})
 
 
 if __name__ == "__main__":

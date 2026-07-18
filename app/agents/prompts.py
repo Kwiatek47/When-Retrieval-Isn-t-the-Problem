@@ -42,6 +42,36 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
     ),
 }
 
+PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
+    "generalist": (
+        "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
+        "Prefer the label best supported by the stated results."
+    ),
+    "evidence_skeptic": (
+        "You are skeptical of overclaiming. Prefer 'maybe' when evidence is weak, "
+        "mixed, underpowered, or only suggestive."
+    ),
+    "differential_expander": (
+        "You stress alternative readings of the same abstract and whether the "
+        "research question is truly resolved by the reported findings."
+    ),
+    "safety_officer": (
+        "You flag overconfident yes/no answers when safety-critical claims lack "
+        "direct evidence; prefer conservative labels when uncertain."
+    ),
+}
+
+PUBMEDQA_LABEL_RULE = """
+PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
+Keep the JSON compact: at most 1 short sentence in pros and cons each.
+required_further_tests/red_flags may be empty arrays. missing_information may be "".
+""".strip()
+
+PUBMEDQA_COMPACT_SCHEMA = """
+Return ONLY one compact JSON object (no markdown) with exactly:
+{"top_1_diagnosis":"yes|no|maybe","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
+""".strip()
+
 
 def build_messages(
     *,
@@ -51,14 +81,30 @@ def build_messages(
     context: list[ClinicalOpinion] | None = None,
     evidence_hint: EvidenceHint | None = None,
     repair: bool = False,
+    task_mode: str = "clinical",
+    compact: bool = False,
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation."""
-    persona_text = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["generalist"])
+    mode = (task_mode or "clinical").strip().lower()
+    if mode == "pubmedqa":
+        persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
+            persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
+        )
+        schema_block = (
+            f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+            if compact
+            else f"{CLINICAL_OPINION_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+        )
+    else:
+        persona_text = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["generalist"])
+        schema_block = CLINICAL_OPINION_SCHEMA
+
     system = (
         f"You are clinical debate agent `{agent_id}` with persona `{persona}`.\n"
         f"agent_id={agent_id}\n"
+        f"task_mode={mode}\n"
         f"{persona_text}\n\n"
-        f"{CLINICAL_OPINION_SCHEMA}"
+        f"{schema_block}"
     )
     if repair:
         system += (
@@ -78,13 +124,22 @@ def build_messages(
         )
 
     if context:
-        serialized = [
-            json.loads(opinion.model_dump_json()) for opinion in context
-        ]
+        if compact or mode == "pubmedqa":
+            serialized = [
+                {
+                    "label": opinion.top_1_diagnosis,
+                    "confidence": opinion.confidence_level,
+                    "pros": opinion.pros[:1],
+                    "cons": opinion.cons[:1],
+                }
+                for opinion in context
+            ]
+        else:
+            serialized = [json.loads(opinion.model_dump_json()) for opinion in context]
         parts.append(
             "PEER OPINIONS FROM THE PREVIOUS ROUND (critique weak arguments, "
             "update hypotheses, and resolve contradictions where possible):\n"
-            f"{json.dumps(serialized, ensure_ascii=False, indent=2)}"
+            f"{json.dumps(serialized, ensure_ascii=False)}"
         )
         parts.append(
             "Produce an UPDATED ClinicalOpinion that reflects what you accept, "
