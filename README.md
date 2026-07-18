@@ -76,8 +76,13 @@ make docker-down     # stop compose services
 make qdrant-init     # run collection initialization
 make ingest-sample   # ingest data/sample/pubmed_sample.json into Qdrant
 make build-index     # build Qdrant index from data/processed/chunks.parquet
+make embed-nice      # embed local NICE chunks into data/embeddings/
+make index-nice      # build/recreate the NICE pilot Qdrant index
+make search-nice-smoke # run a NICE /search smoke test
 make eval-retrieval  # run retrieval benchmark
 make eval-pubmedqa   # run PubMedQA benchmark
+make eval-nice-retrieval # run NICE retrieval benchmark
+make eval-nice-rag   # run NICE end-to-end RAG benchmark
 make eval-medical-suite # run core medical eval: PQA-L regression + clinical safety gates
 make classifier-audit # audit PubMedQA classifier data leakage and label balance
 make clean-local     # remove generated local reports/data artifacts
@@ -160,7 +165,10 @@ Tracked data is intentionally small:
 data/sample/pubmed_sample.json
 data/sample/medical_documents.json
 data/benchmarks/retrieval/eval_retrieval_sample.json
+data/benchmarks/retrieval/eval_nice_guidelines_sample.json
 data/benchmarks/rag/eval_rag_english_real_sources.json
+data/benchmarks/rag/eval_nice_guidelines_sample.json
+data/benchmarks/nice/
 data/benchmarks/pubmedqa/
 data/benchmarks/prompt/dataset.jsonl
 ```
@@ -171,16 +179,36 @@ The official PubMedQA PQA-L 500 repo-safe benchmark artifacts live in:
 data/benchmarks/pubmedqa/official_pqal_test/
 ```
 
-Full PubMed corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract and `docs/data/corpus-roadmap.md` for multi-corpus expansion (StatPearls P0 pilot).
+Full PubMed/NICE/StatPearls corpora, Parquet chunks, embedding shards, SQLite stores, Qdrant indexes, telemetry, and local model artifacts are not committed. See `docs/data/pubmed-pipeline.md` for the PubMed pipeline contract, `docs/data/nice-pipeline.md` and `docs/data/rag-corpus-runbook.md` for NICE, and `docs/data/corpus-roadmap.md` for multi-corpus expansion.
+
+NICE benchmark samples use `documentId` ground truth such as `nice-amr1` and
+`nice-ng127`. PubMedQA uses PMID-based ground truth, so it is not a clean
+benchmark for a NICE-only index.
+
+For a larger NICE benchmark, generate the tracked datasets under
+`data/benchmarks/nice/` and run the dedicated Make targets:
+
+```bash
+make build-nice-benchmarks
+make eval-nice-retrieval-large
+make eval-nice-rag-large
+```
+
+Those larger sets use 500 retrieval cases and 100 end-to-end RAG cases.
+
+Unified multi-corpus merge:
+
+```bash
+make build-processed-chunks CORPORA="pubmed_reviews_v1 nice_guidelines_v1 statpearls_v1"
+make validate-corpus
+```
 
 StatPearls pilot ingest:
 
 ```bash
 export NCBI_EMAIL="your.email@example.com"
-make discover-statpearls STATPEARLS_DISCOVER_LIMIT=200
-make build-statpearls-chunks STATPEARLS_LIMIT=50
-make index-statpearls
-export RAG_CORPUS_VERSION=statpearls_v1
+make discover-statpearls LIMIT=200
+make build-statpearls-chunks LIMIT=50
 ```
 
 ## Indexing And Evaluation
@@ -215,6 +243,8 @@ Evaluation:
 ```bash
 make eval-retrieval
 make eval-pubmedqa
+make eval-nice-retrieval
+make eval-nice-rag
 make eval-quick-pqal
 make eval-official-pqal500
 make eval-medical-suite
@@ -439,7 +469,8 @@ If tests fail in a fresh shell, run `make setup` first. The unit suite depends o
 Active runtime:
 
 - `app/`, `static/`, `services/embedding-service/`, `qdrant/`
-- `scripts/rag/`, `scripts/embeddings/`, `scripts/data/pubmed/`, `scripts/data/statpearls/`
+- `scripts/rag/`, `scripts/embeddings/`, `scripts/data/pubmed/`
+- `scripts/data/nice/`, `scripts/data/corpora/`, `scripts/data/statpearls/`
 - `data/sample/`, `data/benchmarks/`
 - `docs/`
 

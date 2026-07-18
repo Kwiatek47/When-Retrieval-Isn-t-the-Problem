@@ -291,6 +291,22 @@ class QdrantHybridKnowledgeRetriever:
                     match=models.MatchValue(value=corpus_version),
                 )
             )
+        source = query.filters.get("source")
+        if source:
+            must.append(
+                models.FieldCondition(
+                    key="source",
+                    match=models.MatchValue(value=source),
+                )
+            )
+        external_ids = _csv_values(query.filters.get("externalId"))
+        if external_ids:
+            must.append(
+                models.FieldCondition(
+                    key="externalId",
+                    match=models.MatchAny(any=external_ids),
+                )
+            )
         if query.min_year is not None:
             must.append(
                 models.FieldCondition(
@@ -319,6 +335,12 @@ class QdrantHybridKnowledgeRetriever:
     def _source_from_payload(self, payload: dict[str, Any]) -> str:
         source = payload.get("source")
         pmid = payload.get("pmid")
+        external_id = payload.get("externalId")
+        source_name = payload.get("sourceName")
+        if source_name and external_id:
+            return f"{source_name} {external_id}"
+        if str(source or "").lower() == "nice" and external_id:
+            return f"NICE {external_id}"
         if source and pmid:
             return f"{source}: PMID {pmid}"
         if pmid:
@@ -329,17 +351,24 @@ class QdrantHybridKnowledgeRetriever:
         metadata_keys = (
             "chunkId",
             "pmid",
+            "externalId",
             "doi",
             "journal",
             "year",
             "authors",
             "meshTerms",
             "section",
+            "sectionName",
+            "headerPath",
+            "guidanceType",
             "chunkIndex",
             "parentChunkId",
             "parentWordCount",
             "documentId",
             "url",
+            "sourceUrl",
+            "sourceType",
+            "sourceName",
             "publicationDate",
             "publicationTypes",
             "isReview",
@@ -395,6 +424,12 @@ def _metadata_filter_payload(query: PreRetrievalResult) -> dict[str, Any]:
     corpus_version = query.filters.get("corpusVersion")
     if corpus_version:
         payload["corpusVersion"] = corpus_version
+    source = query.filters.get("source")
+    if source:
+        payload["source"] = source
+    external_id = query.filters.get("externalId")
+    if external_id:
+        payload["externalId"] = external_id
     if query.min_year is not None:
         payload["min_year"] = query.min_year
     if query.preferred_publication_types:
@@ -477,6 +512,9 @@ def _metadata_boost(document: RetrievedDocument, query: PreRetrievalResult) -> t
     if publication_types & preferred:
         boost += 0.10
         reasons.append("preferred_publication_type")
+    if _is_nice_guideline(document.metadata):
+        boost += 0.10
+        reasons.append("nice_guideline")
     if _truthy(document.metadata.get("isSystematicReview")) or "systematic review" in publication_types:
         boost += 0.08
         reasons.append("systematic_review")
@@ -515,6 +553,17 @@ def _publication_types(metadata: dict[str, Any]) -> set[str]:
             if item.strip().strip("'\"")
         }
     return {str(item).strip().lower() for item in value if str(item).strip()}
+
+
+def _csv_values(value: str | None) -> list[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+def _is_nice_guideline(metadata: dict[str, Any]) -> bool:
+    source = str(metadata.get("sourceName") or metadata.get("source") or "").lower()
+    source_type = str(metadata.get("sourceType") or "").lower()
+    guidance_type = str(metadata.get("guidanceType") or "").lower()
+    return source == "nice" or source_type == "guideline" or bool(guidance_type)
 
 
 def _optional_int(value: Any) -> int | None:

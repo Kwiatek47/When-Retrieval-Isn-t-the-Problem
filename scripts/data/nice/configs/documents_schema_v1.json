@@ -1,0 +1,32 @@
+{
+  "schema_version": "documents_schema_v1",
+  "primary_key": "document_id",
+  "description": "Document-level registry for NICE guidelines before adaptive chunking and corpus merge.",
+  "columns": [
+    {"name": "document_id", "type": "string", "description": "Stable id, e.g. nice-ta1158"},
+    {"name": "source_type", "type": "string", "description": "Always guideline for NICE"},
+    {"name": "source_name", "type": "string", "description": "Always NICE"},
+    {"name": "title", "type": "string", "description": "Guidance title"},
+    {"name": "external_id", "type": "string", "description": "NICE id e.g. TA1158, NG28"},
+    {"name": "guidance_type", "type": "string", "description": "e.g. technology_appraisal, clinical_guideline"},
+    {"name": "source_url", "type": "string", "description": "Canonical NICE URL"},
+    {"name": "published_at", "type": "string", "description": "Publication date ISO or raw string from PDF"},
+    {"name": "language", "type": "string", "description": "Document language code"},
+    {"name": "pdf_relpath", "type": "string", "description": "Path relative to repo root"},
+    {"name": "markdown_relpath", "type": "string", "description": "Parsed markdown path relative to repo root"},
+    {"name": "parser_name", "type": "string", "description": "Layout parser used"},
+    {"name": "parser_version", "type": "string", "description": "Parser package version if available"},
+    {"name": "page_count", "type": "integer", "description": "PDF page count"},
+    {"name": "markdown_chars", "type": "integer", "description": "Size of parsed markdown"},
+    {"name": "ingested_at", "type": "string", "description": "ISO timestamp of preprocessing run"},
+    {"name": "metadata", "type": "string", "description": "JSON blob for corpus-specific fields"}
+  ],
+  "future_chunk_columns": [
+    "chunk_id",
+    "text",
+    "header_path",
+    "section_name",
+    "dense_vector",
+    "sparse_vector"
+  ]
+}

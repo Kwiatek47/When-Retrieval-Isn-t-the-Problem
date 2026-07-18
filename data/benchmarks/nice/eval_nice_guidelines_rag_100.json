@@ -1,0 +1,2602 @@
+[
+  {
+    "id": "nice-amr1:0000",
+    "question": "What does NICE recommend for comparator treatments eepru's model appropriate in Ceftazidime with avibactam for treating severe drug-resistant gram-negative bacterial infections?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-amr1"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "comparator",
+      "treatments",
+      "eepru's",
+      "model"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/amr1"
+    ],
+    "answer": "assumed all comparators were given intravenously",
+    "benchmark_focus": "comparator treatments eepru's model appropriate",
+    "benchmark_chunk_id": "nice-amr1:chunk:0005",
+    "benchmark_section": "The comparator treatments in EEPRU's model are appropriate"
+  },
+  {
+    "id": "nice-amr2:0001",
+    "question": "According to NICE, how should comparator treatments eepru's model appropriate be managed in Cefiderocol for treating severe drug-resistant gram-negative bacterial infections?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-amr2"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "comparator",
+      "treatments",
+      "eepru's",
+      "model"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/amr2"
+    ],
+    "answer": "- susceptible to colistin-based therapy or aminoglycoside-based therapy - not susceptible to either colistin-based therapy or aminoglycoside-based therapy",
+    "benchmark_focus": "comparator treatments eepru's model appropriate",
+    "benchmark_chunk_id": "nice-amr2:chunk:0006",
+    "benchmark_section": "The comparator treatments in EEPRU's model are appropriate"
+  },
+  {
+    "id": "nice-cg100:0002",
+    "question": "What guidance does NICE give for acute alcohol withdrawal in Alcohol-use disorders?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg100"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "acute",
+      "alcohol",
+      "withdrawal",
+      "consider"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg100"
+    ],
+    "answer": "- Consider offering a benzodiazepine or carbamazepine",
+    "benchmark_focus": "acute alcohol withdrawal",
+    "benchmark_chunk_id": "nice-cg100:chunk:0006",
+    "benchmark_section": "1.1.3 Treatment for acute alcohol withdrawal"
+  },
+  {
+    "id": "nice-cg103:0003",
+    "question": "What does NICE recommend for delirium prevention diagnosis management hospital long-term care in Delirium?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg103"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "delirium",
+      "prevention",
+      "diagnosis",
+      "management"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg103"
+    ],
+    "answer": "- Cognitive impairment (past or present) and/or dementia (for guidance on diagnosing dementia, see the section on diagnosis in the NICE guideline on dementia)",
+    "benchmark_focus": "delirium prevention diagnosis management hospital long-term care",
+    "benchmark_chunk_id": "nice-cg103:chunk:0005",
+    "benchmark_section": "1.2 Risk factor assessment"
+  },
+  {
+    "id": "nice-cg104:0004",
+    "question": "According to NICE, how should initial diagnostic phase be managed in Metastatic malignant disease of unknown primary origin in adults?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg104"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "initial",
+      "diagnostic",
+      "phase",
+      "comprehensive"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg104"
+    ],
+    "answer": "- comprehensive history and physical examination including breast, nodal areas, skin, genital, rectal and pelvic examination - full blood count; urea, electrolytes and creatinine; liver function tests; calcium; urinalysis; lactate dehydroge",
+    "benchmark_focus": "initial diagnostic phase",
+    "benchmark_chunk_id": "nice-cg104:chunk:0009",
+    "benchmark_section": "1.2.1 Initial diagnostic phase"
+  },
+  {
+    "id": "nice-cg109:0005",
+    "question": "What guidance does NICE give for gathering information event initial decision making in Transient loss of consciousness ('blackouts') in over 16s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg109"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "gathering",
+      "information",
+      "event",
+      "initial"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg109"
+    ],
+    "answer": "Try to contact by telephone witnesses who are not present",
+    "benchmark_focus": "gathering information event initial decision making",
+    "benchmark_chunk_id": "nice-cg109:chunk:0001",
+    "benchmark_section": "1.1.1 Gathering information about the event and initial decision making"
+  },
+  {
+    "id": "nice-cg110:0006",
+    "question": "What does NICE recommend for information support women in Pregnancy and complex social factors?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg110"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "information",
+      "support",
+      "women",
+      "discuss"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg110"
+    ],
+    "answer": "- discuss the need for antenatal care - offer the woman a booking appointment in the first trimester, ideally before 10 weeks if she wishes to continue the pregnancy, **or** offer referral to sexual health services if she is considering ter",
+    "benchmark_focus": "information support women",
+    "benchmark_chunk_id": "nice-cg110:chunk:0004",
+    "benchmark_section": "Information and support for women"
+  },
+  {
+    "id": "nice-cg111:0007",
+    "question": "According to NICE, how should child young previously night assistance months enquire possible be managed in Bedwetting in under 19s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg111"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "child",
+      "young",
+      "previously",
+      "night"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg111"
+    ],
+    "answer": "If so, enquire about any possible medical, emotional or physical triggers, and consider whether assessment and treatment is needed for any identified triggers",
+    "benchmark_focus": "child young previously night assistance months enquire possible",
+    "benchmark_chunk_id": "nice-cg111:chunk:0001",
+    "benchmark_section": "1.3 Assessment and investigation"
+  },
+  {
+    "id": "nice-cg112:0008",
+    "question": "What guidance does NICE give for clinical environment monitoring in Sedation in under 19s?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg112"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "clinical",
+      "environment",
+      "monitoring",
+      "depth"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg112"
+    ],
+    "answer": "- depth of sedation - respiration - oxygen saturation - heart rate - pain - coping - distress",
+    "benchmark_focus": "clinical environment monitoring",
+    "benchmark_chunk_id": "nice-cg112:chunk:0020",
+    "benchmark_section": "1.7 Clinical environment and monitoring"
+  },
+  {
+    "id": "nice-cg113:0009",
+    "question": "What does NICE recommend for step panic disorder offer primary care in Generalised anxiety disorder and panic disorder in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg113"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "step",
+      "panic",
+      "disorder",
+      "offer"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg113"
+    ],
+    "answer": "(Support groups may provide face-to-face meetings, telephone conference support groups [which can be based on CBT principles], or additional information on all aspects of anxiety disorders plus other sources of help",
+    "benchmark_focus": "step panic disorder offer primary care",
+    "benchmark_chunk_id": "nice-cg113:chunk:0026",
+    "benchmark_section": "Step 2 for people with panic disorder: offer treatment in primary care"
+  },
+  {
+    "id": "nice-cg115:0010",
+    "question": "According to NICE, how should care coordination case management be managed in Alcohol-use disorders?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg115"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "care",
+      "coordination",
+      "case",
+      "management"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg115"
+    ],
+    "answer": "If case management is provided it should be throughout the whole period of care, including aftercare",
+    "benchmark_focus": "care coordination case management",
+    "benchmark_chunk_id": "nice-cg115:chunk:0004",
+    "benchmark_section": "1.3.2 Care coordination and case management"
+  },
+  {
+    "id": "nice-cg116:0011",
+    "question": "What guidance does NICE give for allergy-focused clinical history in Food allergy in under 19s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg116"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "allergy-focused",
+      "clinical",
+      "history",
+      "title"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg116"
+    ],
+    "answer": "Title: Food allergy in under 19s: assessment and diagnosis NICE guidance: CG116 Section: Food allergy in under 19s: assessment and diagnosis -> Assessment and allergy-focused clinical history - 1",
+    "benchmark_focus": "allergy-focused clinical history",
+    "benchmark_chunk_id": "nice-cg116:chunk:0005",
+    "benchmark_section": "Assessment and allergy-focused clinical history"
+  },
+  {
+    "id": "nice-cg118:0012",
+    "question": "What does NICE recommend for colorectal cancer prevention colonoscopic surveillance adults ulcerative colitis in Colorectal cancer prevention?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg118"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "colorectal",
+      "cancer",
+      "prevention",
+      "colonoscopic"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg118"
+    ],
+    "answer": "Making decisions using NICE guidelines explains how we use words to show the strength (or certainty) of our recommendations, and has information about prescribing medicines (including off-label use), professional guidelines, standards and l",
+    "benchmark_focus": "colorectal cancer prevention colonoscopic surveillance adults ulcerative colitis",
+    "benchmark_chunk_id": "nice-cg118:chunk:0000",
+    "benchmark_section": "Recommendations"
+  },
+  {
+    "id": "nice-cg120:0013",
+    "question": "According to NICE, how should working supporting families carers significant others be managed in Coexisting severe mental illness (psychosis) and substance misuse?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg120"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "working",
+      "supporting",
+      "families",
+      "carers"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg120"
+    ],
+    "answer": "Initiate safeguarding procedures where appropriate (see the section on safeguarding issues)",
+    "benchmark_focus": "working supporting families carers significant others",
+    "benchmark_chunk_id": "nice-cg120:chunk:0007",
+    "benchmark_section": "Working with and supporting families, carers and significant others"
+  },
+  {
+    "id": "nice-cg122:0014",
+    "question": "What guidance does NICE give for information support women newly diagnosed ovarian cancer in Ovarian cancer?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg122"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "information",
+      "support",
+      "women",
+      "newly"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg122"
+    ],
+    "answer": "- is available at the time they want it - includes the amount of detail that they want and are able to deal with - is in a suitable format, including written information",
+    "benchmark_focus": "information support women newly diagnosed ovarian cancer",
+    "benchmark_chunk_id": "nice-cg122:chunk:0010",
+    "benchmark_section": "1.3 Information and support for women with newly diagnosed ovarian cancer"
+  },
+  {
+    "id": "nice-cg124:0015",
+    "question": "What does NICE recommend for orthogeriatric rapid optimisation fitness surgery early identification individual in Hip fracture?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg124"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "orthogeriatric",
+      "rapid",
+      "optimisation",
+      "fitness"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg124"
+    ],
+    "answer": "- orthogeriatric assessment - rapid optimisation of fitness for surgery - early identification of individual goals for multidisciplinary rehabilitation to recover mobility and independence, and to facilitate return to pre-fracture residence",
+    "benchmark_focus": "orthogeriatric rapid optimisation fitness surgery early identification individual",
+    "benchmark_chunk_id": "nice-cg124:chunk:0011",
+    "benchmark_section": "1.8 Multidisciplinary management"
+  },
+  {
+    "id": "nice-cg126:0016",
+    "question": "According to NICE, how should information support stable angina be managed in Stable angina?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg126"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "information",
+      "support",
+      "stable",
+      "angina"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg126"
+    ],
+    "answer": "meal) and its long-term course and management",
+    "benchmark_focus": "information support stable angina",
+    "benchmark_chunk_id": "nice-cg126:chunk:0004",
+    "benchmark_section": "1.2 Information and support for people with stable angina"
+  },
+  {
+    "id": "nice-cg128:0017",
+    "question": "What guidance does NICE give for local pathway recognition diagnostic possible autism in Autism spectrum disorder in under 19s?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg128"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "local",
+      "pathway",
+      "recognition",
+      "diagnostic"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg128"
+    ],
+    "answer": "The aims of the group should include: - improving early recognition of autism by raising awareness of the features suggesting possible autism through multi-agency training (see boxes 2 to 4 in the appendix) - making sure the relevant profes",
+    "benchmark_focus": "local pathway recognition diagnostic possible autism",
+    "benchmark_chunk_id": "nice-cg128:chunk:0004",
+    "benchmark_section": "1.1 Local pathway for recognition, referral and diagnostic assessment of possible autism"
+  },
+  {
+    "id": "nice-cg135:0018",
+    "question": "What does NICE recommend for organisation identification consent processes in Organ donation for transplantation?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg135"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "organisation",
+      "identification",
+      "consent",
+      "processes"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg135"
+    ],
+    "answer": "However, all healthcare professionals involved in identification, referral to a specialist nurse for organ donation, and consent processes should: - have knowledge of the basic principles and the relative benefits of, donation after circula",
+    "benchmark_focus": "organisation identification consent processes",
+    "benchmark_chunk_id": "nice-cg135:chunk:0001",
+    "benchmark_section": "Organisation of the identification, referral and consent processes"
+  },
+  {
+    "id": "nice-cg136:0019",
+    "question": "According to NICE, how should under mental health be managed in Service user experience in adult mental health?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg136"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "under",
+      "mental",
+      "health",
+      "title"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg136"
+    ],
+    "answer": "Title: Service user experience in adult mental health: improving the experience of care for people using adult NHS mental health services NICE guidance: CG136 Section: Overview -> 1",
+    "benchmark_focus": "under mental health",
+    "benchmark_chunk_id": "nice-cg136:chunk:0004",
+    "benchmark_section": "1.8 Assessment and treatment under the Mental Health Act"
+  },
+  {
+    "id": "nice-cg138:0020",
+    "question": "What guidance does NICE give for patient experience adult nhs services improving care in Patient experience in adult NHS services?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg138"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "patient",
+      "experience",
+      "adult",
+      "services"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg138"
+    ],
+    "answer": "education and training, relevant to their post, on the importance of: - providing adequate and appropriate nutrition - assessing and managing pain",
+    "benchmark_focus": "patient experience adult nhs services improving care",
+    "benchmark_chunk_id": "nice-cg138:chunk:0001",
+    "benchmark_section": "MIXED_SECTION"
+  },
+  {
+    "id": "nice-cg139:0021",
+    "question": "What does NICE recommend for vascular access device site care in Healthcare-associated infections?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg139"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "vascular",
+      "access",
+      "device",
+      "site"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg139"
+    ],
+    "answer": "In 2012, an MHRA safety alert for chlorhexidine was issued related to the risk of adverse events",
+    "benchmark_focus": "vascular access device site care",
+    "benchmark_chunk_id": "nice-cg139:chunk:0029",
+    "benchmark_section": "1.4.3 Vascular access device site care"
+  },
+  {
+    "id": "nice-cg140:0022",
+    "question": "According to NICE, how should first-line oral opioids suitable transdermal patches be managed in Palliative care for adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg140"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "first-line",
+      "oral",
+      "opioids",
+      "suitable"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg140"
+    ],
+    "answer": "- 1.1.12 This recommendation has been replaced by recommendation 1.5.6 in NICE's guideline on controlled drugs: safe use and management.",
+    "benchmark_focus": "first-line oral opioids suitable transdermal patches",
+    "benchmark_chunk_id": "nice-cg140:chunk:0002",
+    "benchmark_section": "First-line treatment if oral opioids are not suitable – transdermal patches"
+  },
+  {
+    "id": "nice-cg141:0023",
+    "question": "What guidance does NICE give for resuscitation initial management in Acute upper gastrointestinal bleeding in over 16s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg141"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "resuscitation",
+      "initial",
+      "management",
+      "offer"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg141"
+    ],
+    "answer": "- Offer fresh frozen plasma to patients who are actively bleeding and have a prothrombin time (or international normalised ratio) or activated partial thromboplastin time greater than 1",
+    "benchmark_focus": "resuscitation initial management",
+    "benchmark_chunk_id": "nice-cg141:chunk:0005",
+    "benchmark_section": "1.2 Resuscitation and initial management"
+  },
+  {
+    "id": "nice-cg142:0024",
+    "question": "What does NICE recommend for general principles care in Autism spectrum disorder in adults?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg142"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "general",
+      "principles",
+      "care",
+      "work"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg142"
+    ],
+    "answer": "- `－` work in partnership with autistic adults and, where appropriate, with their families, partners or carers - `－` offer support and care respectfully - `－` take time to build a trusting, supportive, empathic and non-judgemental relations",
+    "benchmark_focus": "general principles care",
+    "benchmark_chunk_id": "nice-cg142:chunk:0005",
+    "benchmark_section": "General principles of care"
+  },
+  {
+    "id": "nice-cg143:0025",
+    "question": "According to NICE, how should reassessment ongoing management be managed in Sickle cell disease?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg143"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "reassessment",
+      "ongoing",
+      "management",
+      "every"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg143"
+    ],
+    "answer": "- every 30 minutes until satisfactory pain relief has been achieved, and at least every 4 hours thereafter - using an age-appropriate pain scoring tool - by asking questions, such as: - `－` How well did that last painkiller work",
+    "benchmark_focus": "reassessment ongoing management",
+    "benchmark_chunk_id": "nice-cg143:chunk:0002",
+    "benchmark_section": "Reassessment and ongoing management"
+  },
+  {
+    "id": "nice-cg145:0026",
+    "question": "What guidance does NICE give for spasticity under management in Spasticity in under 19s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg145"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "spasticity",
+      "under",
+      "management",
+      "child"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg145"
+    ],
+    "answer": "- If a child or young person receives treatment for spasticity from healthcare professionals outside the network team, this should be planned and undertaken in discussion with the network team to ensure integrated care and effective subsequ",
+    "benchmark_focus": "spasticity under management",
+    "benchmark_chunk_id": "nice-cg145:chunk:0004",
+    "benchmark_section": "Principles of care"
+  },
+  {
+    "id": "nice-cg146:0027",
+    "question": "What does NICE recommend for osteoporosis assessing risk fragility fracture in Osteoporosis?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg146"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "osteoporosis",
+      "assessing",
+      "risk",
+      "fragility"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg146"
+    ],
+    "answer": "Consider assessment of fracture risk: - in all women aged 65 years and over and all men aged 75 years and over - in women aged under 65 years and men aged under 75 years in the presence of risk factors, for example: - `－` - previous fragili",
+    "benchmark_focus": "osteoporosis assessing risk fragility fracture",
+    "benchmark_chunk_id": "nice-cg146:chunk:0001",
+    "benchmark_section": "Targeting risk assessment"
+  },
+  {
+    "id": "nice-cg147:0028",
+    "question": "According to NICE, how should secondary prevention cardiovascular disease peripheral arterial be managed in Peripheral arterial disease?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg147"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "secondary",
+      "prevention",
+      "cardiovascular",
+      "disease"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg147"
+    ],
+    "answer": "- treating tobacco dependence - diet, weight management and exercise - lipid modification and statin therapy - diabetes - high blood pressure - antiplatelet therapy",
+    "benchmark_focus": "secondary prevention cardiovascular disease peripheral arterial",
+    "benchmark_chunk_id": "nice-cg147:chunk:0005",
+    "benchmark_section": "1.2 Secondary prevention of cardiovascular disease in people with peripheral arterial disease"
+  },
+  {
+    "id": "nice-cg148:0029",
+    "question": "What guidance does NICE give for management catheter valves in Urinary incontinence in neurological disease?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg148"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "management",
+      "catheter",
+      "valves",
+      "nice"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg148"
+    ],
+    "answer": "- [This recommendation is from the NICE guideline on healthcare associated infections: prevention and control in primary and community care] > 1",
+    "benchmark_focus": "management catheter valves",
+    "benchmark_chunk_id": "nice-cg148:chunk:0020",
+    "benchmark_section": "1.6 Management with catheter valves"
+  },
+  {
+    "id": "nice-cg150:0030",
+    "question": "What does NICE recommend for headaches over diagnosis management in Headaches in over 12s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg150"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "headaches",
+      "over",
+      "diagnosis",
+      "management"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg150"
+    ],
+    "answer": "- worsening headache with fever - sudden-onset headache reaching maximum intensity within 5 minutes - new-onset neurological deficit - new-onset cognitive dysfunction - change in personality - impaired level of consciousness - recent (typic",
+    "benchmark_focus": "headaches over diagnosis management",
+    "benchmark_chunk_id": "nice-cg150:chunk:0004",
+    "benchmark_section": "1.1 Assessment"
+  },
+  {
+    "id": "nice-cg151:0031",
+    "question": "According to NICE, how should reducing risk septic complications anticancer be managed in Neutropenic sepsis?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg151"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "reducing",
+      "risk",
+      "septic",
+      "complications"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg151"
+    ],
+    "answer": "- 9",
+    "benchmark_focus": "reducing risk septic complications anticancer",
+    "benchmark_chunk_id": "nice-cg151:chunk:0005",
+    "benchmark_section": "Reducing the risk of septic complications of anticancer treatment"
+  },
+  {
+    "id": "nice-cg153:0032",
+    "question": "What guidance does NICE give for topical psoriasis affecting trunk limbs in Psoriasis?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg153"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "topical",
+      "psoriasis",
+      "affecting",
+      "trunk"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg153"
+    ],
+    "answer": "Title: Psoriasis: assessment and management NICE guidance: CG153 Section: Psoriasis: assessment and management -> 1",
+    "benchmark_focus": "topical psoriasis affecting trunk limbs",
+    "benchmark_chunk_id": "nice-cg153:chunk:0016",
+    "benchmark_section": "1.3.2 Topical treatment of psoriasis affecting the trunk and limbs"
+  },
+  {
+    "id": "nice-cg155:0033",
+    "question": "What does NICE recommend for specialist mental health services in Psychosis and schizophrenia in children and young people?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg155"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "specialist",
+      "mental",
+      "health",
+      "services"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg155"
+    ],
+    "answer": "- assessments in CAMHS include a consultant psychiatrist - assessments in early intervention in psychosis services are multidisciplinary - where there is considerable uncertainty about the diagnosis, or concern about underlying neurological",
+    "benchmark_focus": "specialist mental health services",
+    "benchmark_chunk_id": "nice-cg155:chunk:0010",
+    "benchmark_section": "Assessment in specialist mental health services"
+  },
+  {
+    "id": "nice-cg158:0034",
+    "question": "According to NICE, how should identifying effective care options be managed in Antisocial behaviour and conduct disorders in children and young people?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg158"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "identifying",
+      "effective",
+      "care",
+      "options"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg158"
+    ],
+    "answer": "- their past and current experience of the disorder - their experience of, and response to, previous interventions and services - the nature, severity and duration of the problems - the impact of the disorder on educational performance - an",
+    "benchmark_focus": "identifying effective care options",
+    "benchmark_chunk_id": "nice-cg158:chunk:0015",
+    "benchmark_section": "1.4 Identifying effective treatment and care options"
+  },
+  {
+    "id": "nice-cg159:0035",
+    "question": "What guidance does NICE give for adults possible social anxiety disorder in Social anxiety disorder?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg159"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "adults",
+      "possible",
+      "social",
+      "anxiety"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg159"
+    ],
+    "answer": "Remove any obstacles to further assessment or treatment that the person identifies",
+    "benchmark_focus": "adults possible social anxiety disorder",
+    "benchmark_chunk_id": "nice-cg159:chunk:0008",
+    "benchmark_section": "Assessment of adults with possible social anxiety disorder"
+  },
+  {
+    "id": "nice-cg163:0036",
+    "question": "What does NICE recommend for table minimum composition multidisciplinary team involved diagnosing idiopathic in Idiopathic pulmonary fibrosis in adults?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg163"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "table",
+      "minimum",
+      "composition",
+      "multidisciplinary"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg163"
+    ],
+    "answer": "**----- Start of picture text -----**<br> Multidisciplinary team composition (all<br>Stage of diagnostic care pathway healthcare professionals should have<br>expertise in interstitial lung disease)<br>• Consultant respiratory<br>physician<b",
+    "benchmark_focus": "table minimum composition multidisciplinary team involved diagnosing idiopathic",
+    "benchmark_chunk_id": "nice-cg163:chunk:0006",
+    "benchmark_section": "Table 1 Minimum composition of multidisciplinary team involved in diagnosing idiopathic pulmonary fibrosis"
+  },
+  {
+    "id": "nice-cg164:0037",
+    "question": "According to NICE, how should family history-taking initial primary care be managed in Familial breast cancer?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg164"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "family",
+      "history-taking",
+      "initial",
+      "primary"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg164"
+    ],
+    "answer": "- 1.1.2 This recommendation has been deleted following a review. - 1.1.3 In some circumstances, it may also be clinically relevant to take a family history, for example, for women older than age 35 years using an oral contraceptive pill or for women being considered for long-term HRT use.",
+    "benchmark_focus": "family history-taking initial primary care",
+    "benchmark_chunk_id": "nice-cg164:chunk:0001",
+    "benchmark_section": "Family history-taking and initial assessment in primary care"
+  },
+  {
+    "id": "nice-cg165:0038",
+    "question": "What guidance does NICE give for sequence adults hbeag-positive chronic hepatitis b compensated liver in Hepatitis B (chronic)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg165"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "sequence",
+      "adults",
+      "hbeag-positive",
+      "chronic"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg165"
+    ],
+    "answer": "- If HBV DNA remains detectable at 96 weeks, and there is no history of lamivudine resistance, consider adding lamivudine to tenofovir disoproxil",
+    "benchmark_focus": "sequence adults hbeag-positive chronic hepatitis b compensated liver",
+    "benchmark_chunk_id": "nice-cg165:chunk:0014",
+    "benchmark_section": "Treatment sequence in adults with HBeAg-positive chronic hepatitis B and compensated liver disease"
+  },
+  {
+    "id": "nice-cg168:0039",
+    "question": "What does NICE recommend for varicose veins diagnosis management in Varicose veins?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg168"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "varicose",
+      "veins",
+      "diagnosis",
+      "management"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg168"
+    ],
+    "answer": "- Symptomatic primary or symptomatic recurrent varicose veins",
+    "benchmark_focus": "varicose veins diagnosis management",
+    "benchmark_chunk_id": "nice-cg168:chunk:0004",
+    "benchmark_section": "Referral to a vascular service"
+  },
+  {
+    "id": "nice-cg170:0040",
+    "question": "According to NICE, how should knowledge competence health social care professionals be managed in Autism spectrum disorder in under 19s?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg170"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "knowledge",
+      "competence",
+      "health",
+      "social"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg170"
+    ],
+    "answer": "- `－` the nature and course of autism - `－` the nature and course of behaviour that challenges in autistic children and young people - `－` recognition of common coexisting conditions, including: - mental health problems such as anxiety and",
+    "benchmark_focus": "knowledge competence health social care professionals",
+    "benchmark_chunk_id": "nice-cg170:chunk:0004",
+    "benchmark_section": "Knowledge and competence of health and social care professionals"
+  },
+  {
+    "id": "nice-cg173:0041",
+    "question": "What guidance does NICE give for treatments that used in Neuropathic pain in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg173"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "treatments",
+      "that",
+      "used",
+      "cannabis"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg173"
+    ],
+    "answer": "- cannabis sativa extract - capsaicin patch - lacosamide - lamotrigine - levetiracetam - morphine - oxcarbazepine - topiramate (follow the Medicines and Healthcare products Regulatory Agency (MHRA) safety advice on the use of topiramate) -",
+    "benchmark_focus": "treatments that used",
+    "benchmark_chunk_id": "nice-cg173:chunk:0014",
+    "benchmark_section": "Treatments that should not be used"
+  },
+  {
+    "id": "nice-cg174:0042",
+    "question": "What does NICE recommend for intravenous fluid therapy adults hospital in Intravenous fluid therapy in adults in hospital?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg174"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "intravenous",
+      "fluid",
+      "therapy",
+      "adults"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg174"
+    ],
+    "answer": "- `－` History should include any previous limited intake, thirst, the quantity and composition of abnormal losses (see the diagram of ongoing losses), and any comorbidities, including patients who are malnourished and at risk of refeeding s",
+    "benchmark_focus": "intravenous fluid therapy adults hospital",
+    "benchmark_chunk_id": "nice-cg174:chunk:0006",
+    "benchmark_section": "Assessment and monitoring"
+  },
+  {
+    "id": "nice-cg178:0043",
+    "question": "According to NICE, how should peer support self-management be managed in Psychosis and schizophrenia in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg178"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "peer",
+      "support",
+      "self-management",
+      "consider"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg178"
+    ],
+    "answer": "- 1.1.5.2 Consider a manualised self-management programme delivered face-to-face with service users, as part of the treatment and management of psychosis or schizophrenia. **[2014]** - 1.1.5.3 Peer support and self-management programmes should include information and advice about: - psychosis and schizophrenia - effect",
+    "benchmark_focus": "peer support self-management",
+    "benchmark_chunk_id": "nice-cg178:chunk:0008",
+    "benchmark_section": "1.1.5 Peer support and self-management"
+  },
+  {
+    "id": "nice-cg179:0044",
+    "question": "What guidance does NICE give for ages healthcare professional training education in Pressure ulcers?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg179"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "ages",
+      "healthcare",
+      "professional",
+      "training"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg179"
+    ],
+    "answer": "- `－` who is most likely to be at risk of developing a pressure ulcer - `－` how to identify pressure damage - `－` what steps to take to prevent new or further pressure damage - `－` who to contact for further information and for further acti",
+    "benchmark_focus": "ages healthcare professional training education",
+    "benchmark_chunk_id": "nice-cg179:chunk:0010",
+    "benchmark_section": "All ages: healthcare professional training and education"
+  },
+  {
+    "id": "nice-cg183:0045",
+    "question": "What does NICE recommend for providing information support patients in Drug allergy?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg183"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "providing",
+      "information",
+      "support",
+      "patients"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg183"
+    ],
+    "answer": "- 1.3.2 Provide information in line with the recommendations in the NICE guideline on patient experience in adult NHS services. - 1.3.3 Ensure that the person (and their family members or carers as appropriate) is aware of the drugs or drug classes that they need to avoid, and advise them to check with a pharmacist bef",
+    "benchmark_focus": "providing information support patients",
+    "benchmark_chunk_id": "nice-cg183:chunk:0025",
+    "benchmark_section": "1.3 Providing information and support to patients"
+  },
+  {
+    "id": "nice-cg184:0046",
+    "question": "According to NICE, how should common elements care be managed in Gastro-oesophageal reflux disease and dyspepsia in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg184"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "common",
+      "elements",
+      "care",
+      "these"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg184"
+    ],
+    "answer": "These include smoking, alcohol, coffee, chocolate, fatty foods and being overweight",
+    "benchmark_focus": "common elements care",
+    "benchmark_chunk_id": "nice-cg184:chunk:0012",
+    "benchmark_section": "1.2 Common elements of care"
+  },
+  {
+    "id": "nice-cg185:0047",
+    "question": "What guidance does NICE give for support specific populations in Bipolar disorder?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg185"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "support",
+      "specific",
+      "populations",
+      "nice's"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg185"
+    ],
+    "answer": "See NICE's guidelines on antisocial personality disorder, borderline personality disorder, attention deficit hyperactivity disorder, generalised anxiety disorder and panic disorder in adults and psychosis with coexisting substance misuse, b",
+    "benchmark_focus": "support specific populations",
+    "benchmark_chunk_id": "nice-cg185:chunk:0004",
+    "benchmark_section": "Treatment and support for specific populations"
+  },
+  {
+    "id": "nice-cg187:0048",
+    "question": "What does NICE recommend for acute heart failure diagnosis management in Acute heart failure?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg187"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "acute",
+      "heart",
+      "failure",
+      "diagnosis"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg187"
+    ],
+    "answer": "- `－` BNP less than 100 ng/litre - `－` NT-proBNP less than 300 ng/litre",
+    "benchmark_focus": "acute heart failure diagnosis management",
+    "benchmark_chunk_id": "nice-cg187:chunk:0006",
+    "benchmark_section": "Diagnosis, assessment and monitoring"
+  },
+  {
+    "id": "nice-cg188:0049",
+    "question": "According to NICE, how should diagnosing gallstone disease be managed in Gallstone disease?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg188"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "diagnosing",
+      "gallstone",
+      "disease",
+      "consider"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg188"
+    ],
+    "answer": "- 1.1.2 Consider magnetic resonance cholangiopancreatography (MRCP) if ultrasound has not detected common bile duct stones but the: - bile duct is dilated **and/or** - liver function test results are abnormal. - 1.1.3 Consider endoscopic ultrasound (EUS) if MRCP does not allow a diagnosis to be made.",
+    "benchmark_focus": "diagnosing gallstone disease",
+    "benchmark_chunk_id": "nice-cg188:chunk:0003",
+    "benchmark_section": "1.1 Diagnosing gallstone disease"
+  },
+  {
+    "id": "nice-cg19:0050",
+    "question": "What guidance does NICE give for effects periodontal health routine scale polish in Dental checks?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg19"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "effects",
+      "periodontal",
+      "health",
+      "routine"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg19"
+    ],
+    "answer": "Title: Dental checks: intervals between oral health reviews NICE guidance: CG19 Section: Dental checks: intervals between oral health reviews -> 6 Effects on periodontal health of routine scale and polish treatment Research is needed to exa",
+    "benchmark_focus": "effects periodontal health routine scale polish",
+    "benchmark_chunk_id": "nice-cg19:chunk:0002",
+    "benchmark_section": "6 Effects on periodontal health of routine scale and polish treatment"
+  },
+  {
+    "id": "nice-cg192:0051",
+    "question": "What does NICE recommend for pregnancy postnatal period in Antenatal and postnatal mental health?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg192"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "pregnancy",
+      "postnatal",
+      "period",
+      "variations"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg192"
+    ],
+    "answer": "- any variations in the nature and presentation of the mental health problem in pregnancy or the postnatal period - the setting for assessment and treatment (for example, primary or secondary care services or in the community, the home or r",
+    "benchmark_focus": "pregnancy postnatal period",
+    "benchmark_chunk_id": "nice-cg192:chunk:0004",
+    "benchmark_section": "Assessment and treatment in pregnancy and the postnatal period"
+  },
+  {
+    "id": "nice-cg30:0052",
+    "question": "According to NICE, how should long-acting reversible contraception be managed in Long-acting reversible contraception?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg30"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "long-acting",
+      "reversible",
+      "contraception",
+      "characteristics"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg30"
+    ],
+    "answer": "characteristics to inform decisions made with individual patients",
+    "benchmark_focus": "long-acting reversible contraception",
+    "benchmark_chunk_id": "nice-cg30:chunk:0001",
+    "benchmark_section": "Drug recommendations"
+  },
+  {
+    "id": "nice-cg31:0053",
+    "question": "What guidance does NICE give for figure stepped-care model in Obsessive-compulsive disorder and body dysmorphic disorder?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg31"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "figure",
+      "stepped-care",
+      "model",
+      "stepped"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg31"
+    ],
+    "answer": "Stepped care attempts to provide the most effective but least intrusive treatments appropriate to a person's needs",
+    "benchmark_focus": "figure stepped-care model",
+    "benchmark_chunk_id": "nice-cg31:chunk:0009",
+    "benchmark_section": "Figure 1 The stepped-care model"
+  },
+  {
+    "id": "nice-cg32:0054",
+    "question": "What does NICE recommend for indications nutrition support hospital community in Nutrition support for adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg32"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "indications",
+      "nutrition",
+      "support",
+      "hospital"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg32"
+    ],
+    "answer": "Potential swallowing problems should be taken into account",
+    "benchmark_focus": "indications nutrition support hospital community",
+    "benchmark_chunk_id": "nice-cg32:chunk:0000",
+    "benchmark_section": "1.3 Indications for nutrition support in hospital and the community"
+  },
+  {
+    "id": "nice-cg49:0055",
+    "question": "According to NICE, how should baseline initial management be managed in Faecal incontinence in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg49"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "baseline",
+      "initial",
+      "management",
+      "relevant"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg49"
+    ],
+    "answer": "- `－` relevant medical history - `－` a general examination - `－` an anorectal examination - `－` a cognitive assessment, if appropriate",
+    "benchmark_focus": "baseline initial management",
+    "benchmark_chunk_id": "nice-cg49:chunk:0006",
+    "benchmark_section": "Baseline assessment and initial management"
+  },
+  {
+    "id": "nice-cg50:0056",
+    "question": "What guidance does NICE give for acutely adults hospital recognising responding deterioration in Acutely ill adults in hospital?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg50"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "acutely",
+      "adults",
+      "hospital",
+      "recognising"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg50"
+    ],
+    "answer": "Making decisions using NICE guidelines explains how we use words to show the strength (or certainty) of our recommendations, and has information about prescribing medicines (including off-label use), professional guidelines, standards and l",
+    "benchmark_focus": "acutely adults hospital recognising responding deterioration",
+    "benchmark_chunk_id": "nice-cg50:chunk:0000",
+    "benchmark_section": "Recommendations"
+  },
+  {
+    "id": "nice-cg51:0057",
+    "question": "What does NICE recommend for implementing contingency management in Drug misuse in over 16s?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg51"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "implementing",
+      "contingency",
+      "management",
+      "outcome"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg51"
+    ],
+    "answer": "The outcome of this evaluation should be used to inform the full-scale implementation of contingency management",
+    "benchmark_focus": "implementing contingency management",
+    "benchmark_chunk_id": "nice-cg51:chunk:0005",
+    "benchmark_section": "1.4.3 Implementing contingency management"
+  },
+  {
+    "id": "nice-cg52:0058",
+    "question": "According to NICE, how should contingency management support opioid detoxification be managed in Drug misuse in over 16s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg52"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "contingency",
+      "management",
+      "support",
+      "opioid"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg52"
+    ],
+    "answer": "- The programme should offer incentives (usually vouchers that can be exchanged for goods or services of the service user's choice, or privileges such as take-home methadone doses) contingent on each presentation of a drug-negative test (fo",
+    "benchmark_focus": "contingency management support opioid detoxification",
+    "benchmark_chunk_id": "nice-cg52:chunk:0005",
+    "benchmark_section": "1.5.1 Contingency management to support opioid detoxification"
+  },
+  {
+    "id": "nice-cg57:0059",
+    "question": "What guidance does NICE give for table stepped options in Atopic eczema in  under 12s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg57"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "table",
+      "stepped",
+      "options",
+      "emollients"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg57"
+    ],
+    "answer": "- emollients - mild-potency topical corticosteroids",
+    "benchmark_focus": "table stepped options",
+    "benchmark_chunk_id": "nice-cg57:chunk:0011",
+    "benchmark_section": "Table 2 Stepped treatment options"
+  },
+  {
+    "id": "nice-cg61:0060",
+    "question": "What does NICE recommend for irritable bowel syndrome adults diagnosis management in Irritable bowel syndrome in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg61"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "irritable",
+      "bowel",
+      "syndrome",
+      "adults"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg61"
+    ],
+    "answer": "This guideline recommends some medicines for indications for which they do not have a UK marketing authorisation at the date of publication, if there is good evidence to support that use",
+    "benchmark_focus": "irritable bowel syndrome adults diagnosis management",
+    "benchmark_chunk_id": "nice-cg61:chunk:0004",
+    "benchmark_section": "Recommendations about medicines"
+  },
+  {
+    "id": "nice-cg64:0061",
+    "question": "According to NICE, how should prophylaxis infective endocarditis antimicrobial adults children undergoing interventional be managed in Prophylaxis against infective endocarditis?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg64"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "prophylaxis",
+      "infective",
+      "endocarditis",
+      "antimicrobial"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg64"
+    ],
+    "answer": "Making decisions using NICE guidelines explains how we use words to show the strength (or certainty) of our recommendations, and has information about prescribing medicines (including off-label use), professional guidelines, standards and l",
+    "benchmark_focus": "prophylaxis infective endocarditis antimicrobial adults children undergoing interventional",
+    "benchmark_chunk_id": "nice-cg64:chunk:0000",
+    "benchmark_section": "Recommendations"
+  },
+  {
+    "id": "nice-cg65:0062",
+    "question": "What guidance does NICE give for hypothermia prevention management adults surgery in Hypothermia?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg65"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "hypothermia",
+      "prevention",
+      "management",
+      "adults"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg65"
+    ],
+    "answer": "Title: Hypothermia: prevention and management in adults having surgery NICE guidance: CG65 Section: Hypothermia: prevention and management in adults having surgery Clinical guideline Published: 23 April 2008 Last updated: 14 December 2016",
+    "benchmark_focus": "hypothermia prevention management adults surgery",
+    "benchmark_chunk_id": "nice-cg65:chunk:0000",
+    "benchmark_section": "Hypothermia: prevention and management in adults having surgery"
+  },
+  {
+    "id": "nice-cg71:0063",
+    "question": "What does NICE recommend for case finding diagnosis in Familial hypercholesterolaemia?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg71"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "case",
+      "finding",
+      "diagnosis",
+      "title"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg71"
+    ],
+    "answer": "Title: Familial hypercholesterolaemia: identification and management NICE guidance: CG71 Section: Familial hypercholesterolaemia: identification and management -> 1",
+    "benchmark_focus": "case finding diagnosis",
+    "benchmark_chunk_id": "nice-cg71:chunk:0004",
+    "benchmark_section": "1.1 Case finding and diagnosis"
+  },
+  {
+    "id": "nice-cg76:0064",
+    "question": "According to NICE, how should medicines adherence involving patients decisions prescribed supporting be managed in Medicines adherence?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg76"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "medicines",
+      "adherence",
+      "involving",
+      "patients"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg76"
+    ],
+    "answer": "Making decisions using NICE guidelines explains how we use words to show the strength (or certainty) of our recommendations, and has information about prescribing medicines (including off-label use), professional guidelines, standards and l",
+    "benchmark_focus": "medicines adherence involving patients decisions prescribed supporting",
+    "benchmark_chunk_id": "nice-cg76:chunk:0000",
+    "benchmark_section": "Recommendations"
+  },
+  {
+    "id": "nice-cg77:0065",
+    "question": "What guidance does NICE give for involving families carers in Antisocial personality disorder?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg77"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "involving",
+      "families",
+      "carers",
+      "encourage"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg77"
+    ],
+    "answer": "- encourage families or carers to be involved - ensure that the involvement of families or carers does not lead to a withdrawal of, or lack of access to, services - inform families or carers about local support groups for families or carers",
+    "benchmark_focus": "involving families carers",
+    "benchmark_chunk_id": "nice-cg77:chunk:0010",
+    "benchmark_section": "1.1.6 Involving families and carers"
+  },
+  {
+    "id": "nice-cg78:0066",
+    "question": "What does NICE recommend for involving families carers in Borderline personality disorder?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg78"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "involving",
+      "families",
+      "carers",
+      "encourage"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg78"
+    ],
+    "answer": "- encourage family or carers to be involved - ensure that the involvement of families or carers does not lead to withdrawal of, or lack of access to, services - inform families or carers about local support groups for families or carers, if",
+    "benchmark_focus": "involving families carers",
+    "benchmark_chunk_id": "nice-cg78:chunk:0007",
+    "benchmark_section": "1.1.4 Involving families or carers"
+  },
+  {
+    "id": "nice-cg81:0067",
+    "question": "According to NICE, how should advanced breast cancer diagnosis be managed in Advanced breast cancer?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg81"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "advanced",
+      "breast",
+      "cancer",
+      "diagnosis"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg81"
+    ],
+    "answer": "- 1.1.2 Assess the presence and extent of metastases in the bones of the axial skeleton using bone windows on a CT scan or MRI or bone scintigraphy. **[2009]** - 1.1.3 Assess proximal limb bones for the risk of pathological fracture in patients with evidence of bone metastases elsewhere, using bone scintigraphy and/or",
+    "benchmark_focus": "advanced breast cancer diagnosis",
+    "benchmark_chunk_id": "nice-cg81:chunk:0004",
+    "benchmark_section": "Imaging assessment"
+  },
+  {
+    "id": "nice-cg83:0068",
+    "question": "What guidance does NICE give for table symptoms functional that indicate presence physical morbidity in Rehabilitation after critical illness in adults?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg83"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "table",
+      "symptoms",
+      "functional",
+      "that"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg83"
+    ],
+    "answer": "Title: Rehabilitation after critical illness in adults NICE guidance: CG83 Section: Rehabilitation after critical illness in adults -> Table 2 Symptoms from the functional assessment that may indicate the presence of physical morbidity **--",
+    "benchmark_focus": "table symptoms functional that indicate presence physical morbidity",
+    "benchmark_chunk_id": "nice-cg83:chunk:0001",
+    "benchmark_section": "Table 2 Symptoms from the functional assessment that may indicate the presence of physical morbidity"
+  },
+  {
+    "id": "nice-cg84:0069",
+    "question": "What does NICE recommend for information advice parents carers in Diarrhoea and vomiting caused by gastroenteritis in under 5s?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg84"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "information",
+      "advice",
+      "parents",
+      "carers"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg84"
+    ],
+    "answer": "- `－` washing hands with soap (liquid if possible) in warm running water and careful drying is the most important factor in preventing the spread of gastroenteritis: - `－` hands should be washed after going to the toilet (children) or chang",
+    "benchmark_focus": "information advice parents carers",
+    "benchmark_chunk_id": "nice-cg84:chunk:0008",
+    "benchmark_section": "Information and advice for parents and carers"
+  },
+  {
+    "id": "nice-cg89:0070",
+    "question": "According to NICE, how should potential obstacles recognising responding possible maltreatment be managed in Child maltreatment?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg89"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "potential",
+      "obstacles",
+      "recognising",
+      "responding"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg89"
+    ],
+    "answer": "- concern about missing a treatable disorder - healthcare professionals are used to working with parents and carers in the care of children and fear losing a positive relationship with a family already under their care - discomfort of disbe",
+    "benchmark_focus": "potential obstacles recognising responding possible maltreatment",
+    "benchmark_chunk_id": "nice-cg89:chunk:0006",
+    "benchmark_section": "Potential obstacles to recognising and responding to possible maltreatment"
+  },
+  {
+    "id": "nice-cg91:0071",
+    "question": "What guidance does NICE give for principles coordination care choosing treatments in Depression in adults with a chronic physical health problem?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg91"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "principles",
+      "coordination",
+      "care",
+      "choosing"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg91"
+    ],
+    "answer": "If there is a risk of self-harm or suicide: - assess whether the patient has adequate social support and is aware of sources of help - arrange help appropriate to the level of risk (see section on risk assessment and monitoring) - advise th",
+    "benchmark_focus": "principles coordination care choosing treatments",
+    "benchmark_chunk_id": "nice-cg91:chunk:0005",
+    "benchmark_section": "1.1.1 Principles for assessment, coordination of care and choosing treatments"
+  },
+  {
+    "id": "nice-cg93:0072",
+    "question": "What does NICE recommend for nutritional donor milk in Donor milk banks?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg93"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "nutritional",
+      "donor",
+      "milk",
+      "title"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg93"
+    ],
+    "answer": "Title: Donor milk banks: service operation NICE guidance: CG93 Section: Donor milk banks: service operation -> 2 Nutritional assessment of donor milk How and when should the nutritional components of donor breast milk be assessed",
+    "benchmark_focus": "nutritional donor milk",
+    "benchmark_chunk_id": "nice-cg93:chunk:0001",
+    "benchmark_section": "2 Nutritional assessment of donor milk"
+  },
+  {
+    "id": "nice-cg95:0073",
+    "question": "According to NICE, how should immediate management suspected acute coronary syndrome be managed in Recent-onset chest pain of suspected cardiac origin?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg95"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "immediate",
+      "management",
+      "suspected",
+      "acute"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg95"
+    ],
+    "answer": "This may be achieved with GTN (sublingual or buccal), but offer intravenous opioids such as morphine, particularly if an acute myocardial infarction (MI) is suspected",
+    "benchmark_focus": "immediate management suspected acute coronary syndrome",
+    "benchmark_chunk_id": "nice-cg95:chunk:0009",
+    "benchmark_section": "1.2.3 Immediate management of a suspected acute coronary syndrome"
+  },
+  {
+    "id": "nice-cg97:0074",
+    "question": "What guidance does NICE give for lower urinary tract symptoms management in Lower urinary tract symptoms in men?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg97"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "lower",
+      "urinary",
+      "tract",
+      "symptoms"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg97"
+    ],
+    "answer": "Title: Lower urinary tract symptoms in men: management NICE guidance: CG97 Section: Lower urinary tract symptoms in men: management -> 1",
+    "benchmark_focus": "lower urinary tract symptoms management",
+    "benchmark_chunk_id": "nice-cg97:chunk:0004",
+    "benchmark_section": "1.1 Initial assessment"
+  },
+  {
+    "id": "nice-cg98:0075",
+    "question": "What does NICE recommend for consensus-based bilirubin thresholds management babies weeks gestational hyperbilirubinaemia in Jaundice in newborn babies under 28 days?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg98"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "consensus-based",
+      "bilirubin",
+      "thresholds",
+      "management"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg98"
+    ],
+    "answer": "**----- Start of picture text -----**<br> Age<br>Bilirubin measurement (micromol/litre)<br>(hours)<br>0 >100 >100<br>6 >125 >150<br>12 >150 >200<br>18 >175 >250<br>24 >200 >300<br>30 >212 >350<br>36 >225 >400<br>42 >237 >450<br>48 >250 >450",
+    "benchmark_focus": "consensus-based bilirubin thresholds management babies weeks gestational hyperbilirubinaemia",
+    "benchmark_chunk_id": "nice-cg98:chunk:0001",
+    "benchmark_section": "Consensus-based bilirubin thresholds for management of babies 38 weeks or more gestational age with hyperbilirubinaemia"
+  },
+  {
+    "id": "nice-cg99:0076",
+    "question": "According to NICE, how should table components history-taking diagnose idiopathic constipation be managed in Constipation in children and young people?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-cg99"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "table",
+      "components",
+      "history-taking",
+      "diagnose"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/cg99"
+    ],
+    "answer": "Title: Constipation in children and young people: diagnosis and management NICE guidance: CG99 Section: Constipation in children and young people: diagnosis and management -> Table 2 Key components of history-taking to diagnose idiopathic c",
+    "benchmark_focus": "table components history-taking diagnose idiopathic constipation",
+    "benchmark_chunk_id": "nice-cg99:chunk:0008",
+    "benchmark_section": "Table 2 Key components of history-taking to diagnose idiopathic constipation"
+  },
+  {
+    "id": "nice-ng1:0077",
+    "question": "What guidance does NICE give for diagnosing investigating gord in Gastro-oesophageal reflux disease in children and young people?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng1"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "diagnosing",
+      "investigating",
+      "gord",
+      "gastro-oesophageal"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng1"
+    ],
+    "answer": "- is due to gastro-oesophageal reflux (GOR) – a normal physiological process in infancy - does not usually need any investigation or treatment - is managed by advising and reassuring parents and carers",
+    "benchmark_focus": "diagnosing investigating gord",
+    "benchmark_chunk_id": "nice-ng1:chunk:0008",
+    "benchmark_section": "1.1 Diagnosing and investigating GORD"
+  },
+  {
+    "id": "nice-ng10:0078",
+    "question": "What does NICE recommend for assessing managing risk violence aggression in Violence and aggression?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng10"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "assessing",
+      "managing",
+      "risk",
+      "violence"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng10"
+    ],
+    "answer": "- Do not make negative assumptions based on culture, religion or ethnicity",
+    "benchmark_focus": "assessing managing risk violence aggression",
+    "benchmark_chunk_id": "nice-ng10:chunk:0032",
+    "benchmark_section": "Assessing and managing the risk of violence and aggression"
+  },
+  {
+    "id": "nice-ng100:0079",
+    "question": "According to NICE, how should investigations following diagnosis be managed in Rheumatoid arthritis in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng100"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "investigations",
+      "following",
+      "diagnosis",
+      "measure"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng100"
+    ],
+    "answer": "- measure anti-CCP antibodies, unless already measured to inform diagnosis - X-ray the hands and feet to establish whether erosions are present, unless X- rays were performed to inform diagnosis - measure functional ability using, for examp",
+    "benchmark_focus": "investigations following diagnosis",
+    "benchmark_chunk_id": "nice-ng100:chunk:0007",
+    "benchmark_section": "Investigations following diagnosis"
+  },
+  {
+    "id": "nice-ng101:0080",
+    "question": "What guidance does NICE give for providing information psychological support in Early and locally advanced breast cancer?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng101"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "providing",
+      "information",
+      "psychological",
+      "support"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng101"
+    ],
+    "answer": "**[2018]** For a short explanation of why the committee made the 2018 recommendations and how they might affect practice, see the rationale and impact section on providing information and psychological support",
+    "benchmark_focus": "providing information psychological support",
+    "benchmark_chunk_id": "nice-ng101:chunk:0004",
+    "benchmark_section": "1.1 Providing information and psychological support"
+  },
+  {
+    "id": "nice-ng102:0081",
+    "question": "What does NICE recommend for community pharmacies promoting health wellbeing in Community pharmacies?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng102"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "community",
+      "pharmacies",
+      "promoting",
+      "health"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng102"
+    ],
+    "answer": "- Consider basing pharmacy assessments, triage activities and referrals on agreed tools that support continuing treatment",
+    "benchmark_focus": "community pharmacies promoting health wellbeing",
+    "benchmark_chunk_id": "nice-ng102:chunk:0001",
+    "benchmark_section": "Referrals"
+  },
+  {
+    "id": "nice-ng103:0082",
+    "question": "According to NICE, how should audit monitoring feedback be managed in Flu vaccination?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng103"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "audit",
+      "monitoring",
+      "feedback",
+      "example"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng103"
+    ],
+    "answer": "For example, keep records of the following: - reason for eligibility - numbers of people called and recalled - vaccination setting (for example GP, community pharmacy, antenatal clinic, outpatient clinic) - people who declined vaccination a",
+    "benchmark_focus": "audit monitoring feedback",
+    "benchmark_chunk_id": "nice-ng103:chunk:0001",
+    "benchmark_section": "1.5 Audit, monitoring and feedback"
+  },
+  {
+    "id": "nice-ng104:0083",
+    "question": "What guidance does NICE give for pancreatitis ng104 acute seek advice specialist pancreatic centre in Pancreatitis?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng104"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "pancreatitis",
+      "ng104",
+      "acute",
+      "seek"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng104"
+    ],
+    "answer": "Pancreatitis (NG104) of acute pancreatitis: - seek advice from a specialist pancreatic centre within the referral network **and** - discuss whether to move the person to the specialist centre for treatment of the complications",
+    "benchmark_focus": "pancreatitis ng104 acute seek advice specialist pancreatic centre",
+    "benchmark_chunk_id": "nice-ng104:chunk:0003",
+    "benchmark_section": "Referral for specialist treatment"
+  },
+  {
+    "id": "nice-ng105:0084",
+    "question": "What does NICE recommend for suicide prevention strategies in Preventing suicide in community and custodial settings?",
+    "intent": "prevention",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng105"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "suicide",
+      "prevention",
+      "strategies",
+      "include"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng105"
+    ],
+    "answer": "Include the introduction of constructive, meaningful preventive activities (for example, education and physical activity) rather than focusing on suicide numbers alone",
+    "benchmark_focus": "suicide prevention strategies",
+    "benchmark_chunk_id": "nice-ng105:chunk:0002",
+    "benchmark_section": "1.2 Suicide prevention strategies"
+  },
+  {
+    "id": "nice-ng106:0085",
+    "question": "According to NICE, how should writing care plan be managed in Chronic heart failure in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng106"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "writing",
+      "care",
+      "plan",
+      "diagnosis"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng106"
+    ],
+    "answer": "- diagnosis and aetiology - medicines prescribed, monitoring of medicines, when medicines should be reviewed and any support the person needs to take the medicines - functional abilities and any social care needs - social circumstances, inc",
+    "benchmark_focus": "writing care plan",
+    "benchmark_chunk_id": "nice-ng106:chunk:0006",
+    "benchmark_section": "Writing a care plan"
+  },
+  {
+    "id": "nice-ng107:0086",
+    "question": "What guidance does NICE give for choosing modalities renal replacement therapy conservative management in Renal replacement therapy and conservative management?",
+    "intent": "general",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng107"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "choosing",
+      "modalities",
+      "renal",
+      "replacement"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng107"
+    ],
+    "answer": "- 1.3.2 Ensure that decisions about RRT modalities or conservative management are made jointly with the person (or with their family members or carers for children or adults lacking capacity) and healthcare team, taking into account: - predicted quality of life - predicted life expectancy - the person's preferences (se",
+    "benchmark_focus": "choosing modalities renal replacement therapy conservative management",
+    "benchmark_chunk_id": "nice-ng107:chunk:0007",
+    "benchmark_section": "1.3 Choosing modalities of renal replacement therapy or conservative management"
+  },
+  {
+    "id": "nice-ng108:0087",
+    "question": "What does NICE recommend for service providers commissioners in Decision-making and mental capacity?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng108"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "service",
+      "providers",
+      "commissioners",
+      "statutory"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng108"
+    ],
+    "answer": "- the statutory principles of the Mental Capacity Act 2005 - the importance of seeking consent, and how to proceed if a person might lack capacity to give or refuse their consent to any proposed intervention - how and when to have potential",
+    "benchmark_focus": "service providers commissioners",
+    "benchmark_chunk_id": "nice-ng108:chunk:0001",
+    "benchmark_section": "Recommendations for service providers and commissioners"
+  },
+  {
+    "id": "nice-ng109:0088",
+    "question": "According to NICE, how should women lower uti pregnant be managed in Urinary tract infection (lower)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng109"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "women",
+      "lower",
+      "pregnant",
+      "severity"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng109"
+    ],
+    "answer": "- the severity of symptoms - the risk of developing complications, which is higher in people with known or suspected structural or functional abnormality of the genitourinary tract or immunosuppression - the evidence for back-up antibiotic",
+    "benchmark_focus": "women lower uti pregnant",
+    "benchmark_chunk_id": "nice-ng109:chunk:0000",
+    "benchmark_section": "Treatment for women with lower UTI who are not pregnant"
+  },
+  {
+    "id": "nice-ng11:0089",
+    "question": "What guidance does NICE give for initial behaviour that challenges in Challenging behaviour and learning disabilities?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng11"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "initial",
+      "behaviour",
+      "that",
+      "challenges"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng11"
+    ],
+    "answer": "- a description of the behaviour (including its severity, frequency, duration and impact on the person and others) from the person (if possible) and a family member, carer or a member of staff (such as a teacher or care worker) - an explana",
+    "benchmark_focus": "initial behaviour that challenges",
+    "benchmark_chunk_id": "nice-ng11:chunk:0002",
+    "benchmark_section": "Initial assessment of behaviour that challenges"
+  },
+  {
+    "id": "nice-ng110:0090",
+    "question": "What does NICE recommend for prostatitis acute antimicrobial prescribing in Prostatitis (acute)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng110"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "prostatitis",
+      "acute",
+      "antimicrobial",
+      "prescribing"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng110"
+    ],
+    "answer": "- the severity of symptoms - the risk of developing complications or having treatment failure, particularly after medical procedures such as prostate biopsy - previous urine culture and susceptibility results - previous antibiotic use, whic",
+    "benchmark_focus": "prostatitis acute antimicrobial prescribing",
+    "benchmark_chunk_id": "nice-ng110:chunk:0001",
+    "benchmark_section": "Treatment"
+  },
+  {
+    "id": "nice-ng111:0091",
+    "question": "According to NICE, how should seeking specialist advice be managed in Pyelonephritis (acute)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng111"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "seeking",
+      "specialist",
+      "advice",
+      "short"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng111"
+    ],
+    "answer": "For a short explanation of why the committee made these recommendations, see the evidence and committee discussion on choice of antibiotic",
+    "benchmark_focus": "seeking specialist advice",
+    "benchmark_chunk_id": "nice-ng111:chunk:0003",
+    "benchmark_section": "Referral and seeking specialist advice"
+  },
+  {
+    "id": "nice-ng112:0092",
+    "question": "What guidance does NICE give for seeking specialist advice recurrent uti in Urinary tract infection (recurrent)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng112"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "seeking",
+      "specialist",
+      "advice",
+      "recurrent"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng112"
+    ],
+    "answer": "- men, and trans women and non-binary people with a male genitourinary system, aged 16 and over - people with recurrent upper UTI - people with recurrent lower UTI when the underlying cause is unknown - pregnant women, and pregnant trans me",
+    "benchmark_focus": "seeking specialist advice recurrent uti",
+    "benchmark_chunk_id": "nice-ng112:chunk:0001",
+    "benchmark_section": "Referral and seeking specialist advice for recurrent UTI"
+  },
+  {
+    "id": "nice-ng113:0093",
+    "question": "What does NICE recommend for seeking specialist advice in Urinary tract infection (catheter-associated)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng113"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "seeking",
+      "specialist",
+      "advice",
+      "short"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng113"
+    ],
+    "answer": "For a short explanation of why the committee made these recommendations, see the - evidence and committee discussion on antibiotics for managing catheter associated UTI",
+    "benchmark_focus": "seeking specialist advice",
+    "benchmark_chunk_id": "nice-ng113:chunk:0003",
+    "benchmark_section": "Referral and seeking specialist advice"
+  },
+  {
+    "id": "nice-ng114:0094",
+    "question": "According to NICE, how should seeking specialist advice be managed in Chronic obstructive pulmonary disease (acute exacerbation)?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng114"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "seeking",
+      "specialist",
+      "advice",
+      "short"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng114"
+    ],
+    "answer": "For a short explanation of why the committee made these recommendations, see the evidence and committee discussion on antibiotics",
+    "benchmark_focus": "seeking specialist advice",
+    "benchmark_chunk_id": "nice-ng114:chunk:0004",
+    "benchmark_section": "Referral and seeking specialist advice"
+  },
+  {
+    "id": "nice-ng115:0095",
+    "question": "What guidance does NICE give for chronic obstructive pulmonary disease over diagnosis management in Chronic obstructive pulmonary disease in over 16s?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng115"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "chronic",
+      "obstructive",
+      "pulmonary",
+      "disease"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng115"
+    ],
+    "answer": "**----- Start of picture text -----**<br> Reason Purpose<br>Assessment for pulmonary<br>Identify candidates for pulmonary rehabilitation<br>rehabilitation<br>Assessment for a lung volume Identify candidates for surgical or bronchoscopic<br>",
+    "benchmark_focus": "chronic obstructive pulmonary disease over diagnosis management",
+    "benchmark_chunk_id": "nice-ng115:chunk:0017",
+    "benchmark_section": "Table 5 Reasons for referral"
+  },
+  {
+    "id": "nice-ng116:0096",
+    "question": "What does NICE recommend for planning supporting engagement in Post-traumatic stress disorder?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng116"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "planning",
+      "supporting",
+      "engagement",
+      "they"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng116"
+    ],
+    "answer": "They may avoid treatment, believe that PTSD is untreatable, or have difficulty developing trust",
+    "benchmark_focus": "planning supporting engagement",
+    "benchmark_chunk_id": "nice-ng116:chunk:0002",
+    "benchmark_section": "Planning treatment and supporting engagement"
+  },
+  {
+    "id": "nice-ng117:0097",
+    "question": "According to NICE, how should seeking specialist advice be managed in Bronchiectasis (non-cystic fibrosis), acute exacerbation?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng117"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "seeking",
+      "specialist",
+      "advice",
+      "symptoms"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng117"
+    ],
+    "answer": "any symptoms or signs suggesting a more serious illness or condition (for example, cardiorespiratory failure or sepsis)",
+    "benchmark_focus": "seeking specialist advice",
+    "benchmark_chunk_id": "nice-ng117:chunk:0003",
+    "benchmark_section": "Referral and seeking specialist advice"
+  },
+  {
+    "id": "nice-ng118:0098",
+    "question": "What guidance does NICE give for table surgical including swl renal stones adults children in Renal and ureteric stones?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng118"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "table",
+      "surgical",
+      "including",
+      "renal"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng118"
+    ],
+    "answer": "Abbreviations: PCNL, percutaneous nephrolithotomy; SWL, shockwave lithotripsy; URS, ureteroscopy",
+    "benchmark_focus": "table surgical including swl renal stones adults children",
+    "benchmark_chunk_id": "nice-ng118:chunk:0009",
+    "benchmark_section": "Table 1 Surgical treatment (including SWL) of renal stones in adults, children and young people"
+  },
+  {
+    "id": "nice-ng119:0099",
+    "question": "What does NICE recommend for initial management spasticity dystonia in Cerebral palsy in adults?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": [
+      "nice-ng119"
+    ],
+    "relevant_pmids": [],
+    "expected_answer_terms": [
+      "initial",
+      "management",
+      "spasticity",
+      "dystonia"
+    ],
+    "forbidden_answer_terms": [
+      "PubMed"
+    ],
+    "source_urls": [
+      "https://www.nice.org.uk/guidance/ng119"
+    ],
+    "answer": "For a short explanation of why the committee made these recommendations and how they might affect practice, see the rationale and impact section on agreeing goals for treatment and initial management of spasticity and dystonia",
+    "benchmark_focus": "initial management spasticity dystonia",
+    "benchmark_chunk_id": "nice-ng119:chunk:0002",
+    "benchmark_section": "Initial management of spasticity and dystonia"
+  }
+]

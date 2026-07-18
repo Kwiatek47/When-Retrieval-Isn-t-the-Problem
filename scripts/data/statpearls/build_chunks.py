@@ -1,6 +1,27 @@
+"""Fetch StatPearls chapter printable HTML and write a native chunks parquet.
+
+Output columns (StatPearls-native, mapped to canonical by
+``scripts.data.corpora.adapters.statpearls.StatPearlsAdapter``):
+
+- ``chunk_id`` - ``statpearls:{nbk_id_lower}:s{section_idx}:{slug}:{split_idx}``
+- ``doc_id`` - ``statpearls:{nbk_id_lower}``
+- ``nbk_id`` - ``NBK123456``
+- ``title`` - chapter title
+- ``section`` - section heading
+- ``section_index`` - int
+- ``chunk_index`` - int (split index within section)
+- ``parent_chunk_id`` - first split of the section, or None for the first split
+- ``text`` - fully formatted chunk body ("Title: ...\n\nSection: ...\n\n{body}")
+- ``url`` - https://www.ncbi.nlm.nih.gov/books/{NBK_ID}/
+- ``year`` - int extracted from publisher line
+- ``word_count`` - int of body-only word count
+- ``text_hash`` - sha256(text)
+"""
+
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -14,20 +35,15 @@ import pyarrow.parquet as pq
 
 
 STATPEARLS_DIR = Path(__file__).resolve().parent
-DATA_SCRIPTS_DIR = STATPEARLS_DIR.parent
-sys.path.insert(0, str(DATA_SCRIPTS_DIR))
 sys.path.insert(0, str(STATPEARLS_DIR))
 
-from corpora.chunk_rows import build_chunk_row, slugify, split_paragraphs, word_count  # noqa: E402
 from parse_printable import parse_printable_html  # noqa: E402
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MANIFEST = PROJECT_ROOT / "data/raw/statpearls/chapter_manifest.jsonl"
-DEFAULT_OUTPUT = PROJECT_ROOT / "data/processed/statpearls/chunks.parquet"
-DEFAULT_STATS = PROJECT_ROOT / "data/processed/statpearls/build_stats.json"
-PUBLICATION_TYPES = ["Clinical Overview"]
-SOURCE_NAME = "statpearls"
+DEFAULT_OUTPUT = PROJECT_ROOT / "data/interim/statpearls/chunks.parquet"
+DEFAULT_STATS = PROJECT_ROOT / "data/interim/statpearls/build_stats.json"
 
 
 def main() -> None:
@@ -150,37 +166,43 @@ def _fetch_chapter_rows(
 
     year = _extract_year(response.text)
     doc_id = f"statpearls:{nbk_id.lower()}"
+    chapter_url = f"https://www.ncbi.nlm.nih.gov/books/{nbk_id}/"
     rows: list[dict[str, object]] = []
 
     for section_idx, section in enumerate(sections):
-        section_slug = slugify(section.heading)
+        section_slug = _slugify(section.heading)
         body = "\n\n".join(section.paragraphs).strip()
         if not body:
             continue
 
-        split_bodies = split_paragraphs(body, max_words=max_words)
-        split_idx = 0
+        split_bodies = _split_paragraphs(body, max_words=max_words)
         section_base_id = f"statpearls:{nbk_id.lower()}:s{section_idx}"
+        split_idx = 0
+        parent_chunk_id: str | None = None
         for chunk_body in split_bodies:
-            if word_count(chunk_body) < min_words:
+            if _word_count(chunk_body) < min_words:
                 continue
             chunk_id = f"{section_base_id}:{section_slug}:{split_idx}"
-            parent_chunk_id = f"{section_base_id}:{section_slug}:0" if split_idx else None
+            text = f"Title: {title}\n\nSection: {section.heading}\n\n{chunk_body}"
             rows.append(
-                build_chunk_row(
-                    chunk_id=chunk_id,
-                    title=title,
-                    text=chunk_body,
-                    source=SOURCE_NAME,
-                    url=f"https://www.ncbi.nlm.nih.gov/books/{nbk_id}/",
-                    section=section.heading,
-                    publication_types=PUBLICATION_TYPES,
-                    year=year,
-                    doc_id=doc_id,
-                    chunk_index=split_idx,
-                    parent_chunk_id=parent_chunk_id,
-                )
+                {
+                    "chunk_id": chunk_id,
+                    "doc_id": doc_id,
+                    "nbk_id": nbk_id,
+                    "title": title,
+                    "section": section.heading,
+                    "section_index": section_idx,
+                    "chunk_index": split_idx,
+                    "parent_chunk_id": parent_chunk_id,
+                    "text": text,
+                    "url": chapter_url,
+                    "year": year,
+                    "word_count": _word_count(chunk_body),
+                    "text_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                }
             )
+            if split_idx == 0:
+                parent_chunk_id = chunk_id
             split_idx += 1
 
     return rows
@@ -191,6 +213,45 @@ def _extract_year(html: str) -> int | None:
     if not match:
         return None
     return int(match.group(1))
+
+
+_WORD_RE = re.compile(r"\b\w+\b")
+
+
+def _word_count(text: str) -> int:
+    return len(_WORD_RE.findall(text or ""))
+
+
+def _slugify(value: str, *, max_length: int = 48) -> str:
+    text = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    if not text:
+        return "section"
+    return text[:max_length].strip("-")
+
+
+def _split_paragraphs(text: str, *, max_words: int = 420) -> list[str]:
+    paragraphs = [part.strip() for part in re.split(r"\n{2,}", text) if part.strip()]
+    if not paragraphs:
+        cleaned = text.strip()
+        return [cleaned] if cleaned else []
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_words = 0
+
+    for paragraph in paragraphs:
+        paragraph_words = _word_count(paragraph)
+        if current and current_words + paragraph_words > max_words:
+            chunks.append("\n\n".join(current))
+            current = [paragraph]
+            current_words = paragraph_words
+            continue
+        current.append(paragraph)
+        current_words += paragraph_words
+
+    if current:
+        chunks.append("\n\n".join(current))
+    return chunks
 
 
 if __name__ == "__main__":

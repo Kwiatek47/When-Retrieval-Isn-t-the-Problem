@@ -1,0 +1,52 @@
+[
+  {
+    "id": "nice-amr1-ceftazidime-avibactam",
+    "question": "NICE AMR1: when is ceftazidime-avibactam recommended for severe drug-resistant gram-negative infections?",
+    "intent": "treatment",
+    "relevant_document_ids": ["nice-amr1"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Practice Guideline", "Guideline"],
+    "must_not_answer_without_sources": true,
+    "answer": "NICE AMR1 recommends ceftazidime-avibactam within its marketing authorisation for severe drug-resistant gram-negative infections when susceptibility and lack of suitable alternatives support its use."
+  },
+  {
+    "id": "nice-ng127-acute-vestibular-syndrome",
+    "question": "NICE NG127 sudden-onset acute vestibular syndrome vertigo HINTS neuroimaging referral",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["nice-ng127"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Practice Guideline", "Guideline"],
+    "must_not_answer_without_sources": true,
+    "answer": "NICE NG127 covers sudden-onset acute vestibular syndrome, HINTS testing and immediate referral or neuroimaging when stroke indicators are present."
+  },
+  {
+    "id": "nice-cg150-migraine-aura",
+    "question": "NICE CG150 migraine with aura visual sensory speech symptoms lasting 5 to 60 minutes",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["nice-cg150"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Practice Guideline", "Guideline"],
+    "must_not_answer_without_sources": true,
+    "answer": "NICE CG150 describes migraine with aura using reversible visual, sensory or speech symptoms that develop gradually and usually last 5 to 60 minutes."
+  },
+  {
+    "id": "nice-ng28-type-2-diabetes-tailored-care",
+    "question": "NICE NG28 type 2 diabetes adults individualised care blood glucose management metformin",
+    "intent": "treatment",
+    "relevant_document_ids": ["nice-ng28"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Practice Guideline", "Guideline"],
+    "must_not_answer_without_sources": true,
+    "answer": "NICE NG28 covers individualised type 2 diabetes care in adults, including blood glucose management and treatment planning."
+  },
+  {
+    "id": "nice-ng253-suspected-sepsis",
+    "question": "NICE NG253 when to suspect sepsis in adults recognition assessment early management",
+    "intent": "diagnosis",
+    "relevant_document_ids": ["nice-ng253"],
+    "relevant_pmids": [],
+    "acceptable_publication_types": ["Practice Guideline", "Guideline"],
+    "must_not_answer_without_sources": true,
+    "answer": "NICE NG253 covers recognition, assessment and early management of suspected sepsis in people aged 16 or over."
+  }
+]

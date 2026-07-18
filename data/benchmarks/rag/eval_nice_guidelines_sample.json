@@ -1,0 +1,35 @@
+[
+  {
+    "id": "nice-amr1-ceftazidime-avibactam",
+    "question": "NICE AMR1: when is ceftazidime-avibactam recommended for severe drug-resistant gram-negative infections?",
+    "intent": "treatment",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["nice-amr1"],
+    "relevant_pmids": [],
+    "expected_answer_terms": ["ceftazidime", "avibactam", "gram-negative", "susceptibility"],
+    "forbidden_answer_terms": ["PubMed"],
+    "source_urls": ["https://www.nice.org.uk/guidance/amr1"]
+  },
+  {
+    "id": "nice-ng127-acute-vestibular-syndrome",
+    "question": "According to NICE NG127, what should be done for sudden-onset acute vestibular syndrome with vertigo when HINTS indicates stroke?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["nice-ng127"],
+    "relevant_pmids": [],
+    "expected_answer_terms": ["HINTS", "stroke", "neuroimaging"],
+    "forbidden_answer_terms": ["PubMed"],
+    "source_urls": ["https://www.nice.org.uk/guidance/ng127"]
+  },
+  {
+    "id": "nice-cg150-migraine-aura",
+    "question": "According to NICE CG150, what features support migraine with aura?",
+    "intent": "diagnosis",
+    "expected_status": "grounded",
+    "relevant_document_ids": ["nice-cg150"],
+    "relevant_pmids": [],
+    "expected_answer_terms": ["aura", "visual", "sensory", "5 to 60 minutes"],
+    "forbidden_answer_terms": ["PubMed"],
+    "source_urls": ["https://www.nice.org.uk/guidance/cg150"]
+  }
+]

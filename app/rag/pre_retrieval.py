@@ -103,6 +103,7 @@ class PreRetriever:
             "Review",
             "Randomized Controlled Trial",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "diagnosis": [
             "Practice Guideline",
@@ -112,6 +113,7 @@ class PreRetriever:
             "Meta-Analysis",
             "Review",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "adverse_effects": [
             "Practice Guideline",
@@ -120,6 +122,7 @@ class PreRetriever:
             "Meta-Analysis",
             "Review",
             "Clinical Trial",
+            "Clinical Overview",
         ],
         "prognosis": [
             "Systematic Review",
@@ -140,6 +143,7 @@ class PreRetriever:
             "Clinical Overview",
             "Practice Guideline",
             "Guideline",
+            "Clinical Overview",
         ],
     }
     _ACRONYM_EXPANSIONS = {
@@ -288,6 +292,14 @@ class PreRetriever:
         filters = {}
         if self.active_corpus_version:
             filters["corpusVersion"] = self.active_corpus_version
+        lower_query = query.lower()
+        if re.search(r"\bnice\b", lower_query):
+            filters["source"] = "nice"
+        elif re.search(r"\bpubmed\b", lower_query):
+            filters["source"] = "pubmed"
+        nice_ids = re.findall(r"\b(?:NG|CG|TA|HTG|HST|AMR|MPG|PH|CSG|SG|SC)\s*\d+\b", query.upper())
+        if nice_ids:
+            filters["externalId"] = ",".join(sorted({value.replace(" ", "") for value in nice_ids}))
         icd_codes = re.findall(r"\b[A-TV-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?\b", query.upper())
         if icd_codes:
             filters["icd_code"] = ",".join(sorted(set(icd_codes)))
