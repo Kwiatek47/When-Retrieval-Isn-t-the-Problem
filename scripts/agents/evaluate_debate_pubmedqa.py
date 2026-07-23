@@ -134,6 +134,7 @@ def main() -> None:
         )
         rounds = 0
         aggregation = "biolinkbert_only"
+        architecture = "biolinkbert_only"
         early_exit_rate = 0.0
     else:
         backend = _build_backend(
@@ -191,6 +192,7 @@ def main() -> None:
             if args.aggregate_with_biolinkbert
             else "confidence_weighted_majority_vote"
         )
+        architecture = DebateOrchestrator.ARCHITECTURE
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
         )
@@ -202,6 +204,7 @@ def main() -> None:
         dataset=str(args.dataset),
         hint=args.hint,
         aggregation=aggregation,
+        architecture=architecture,
         fast=args.fast,
         early_exit_rate=early_exit_rate,
     )
@@ -446,7 +449,11 @@ def _parse_args() -> argparse.Namespace:
         "--agent-concurrency",
         type=int,
         default=1,
-        help="Max concurrent Ollama agent calls within a round (1 is usually fastest on one GPU)",
+        help=(
+            "Max concurrent Ollama agent calls in round 1 (the independent-opinion "
+            "round). Round 2+ are round-robin turns and always run sequentially, "
+            "since each turn depends on the previous one's output."
+        ),
     )
     parser.add_argument(
         "--num-predict",
@@ -565,6 +572,7 @@ def _summarize(
     dataset: str,
     hint: str,
     aggregation: str,
+    architecture: str,
     fast: bool,
     early_exit_rate: float,
 ) -> dict[str, Any]:
@@ -606,7 +614,8 @@ def _summarize(
             for agent_id, flags in sorted(agent_correct.items())
         },
         "aggregation": aggregation,
-        "supervisor": False,
+        "architecture": architecture,
+        "supervisor": architecture not in {"round_robin_no_supervisor", "biolinkbert_only"},
     }
 
 
@@ -628,7 +637,8 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Early-exit rate: {summary['early_exit_rate']:.3f}",
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
-        f"- Aggregation: `{summary['aggregation']}` (no supervisor)",
+        f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
+        f"- Aggregation: `{summary['aggregation']}`",
         "",
         "## Per-label accuracy",
         "",

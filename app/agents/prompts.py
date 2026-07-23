@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from app.agents.backends import EvidenceHint
-from app.agents.models import ClinicalOpinion
+from app.agents.models import AgentRoundOpinion
 from app.schemas import ChatMessage
 
 CLINICAL_OPINION_SCHEMA = """
@@ -78,13 +78,19 @@ def build_messages(
     agent_id: str,
     persona: str,
     patient_case: str,
-    context: list[ClinicalOpinion] | None = None,
+    context: list[AgentRoundOpinion] | None = None,
     evidence_hint: EvidenceHint | None = None,
     repair: bool = False,
     task_mode: str = "clinical",
     compact: bool = False,
 ) -> list[ChatMessage]:
-    """Build chat messages for independent (round 1) or critique (round 2+) opinion generation."""
+    """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
+
+    `context` is the round-robin discussion so far: the previous round's final
+    opinions plus any peers who have already spoken in the current round, in
+    speaking order. Each entry keeps its agent_id/persona/round so the model
+    sees an actual discussion transcript rather than an anonymous opinion dump.
+    """
     mode = (task_mode or "clinical").strip().lower()
     if mode == "pubmedqa":
         persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
@@ -124,21 +130,16 @@ def build_messages(
         )
 
     if context:
-        if compact or mode == "pubmedqa":
-            serialized = [
-                {
-                    "label": opinion.top_1_diagnosis,
-                    "confidence": opinion.confidence_level,
-                    "pros": opinion.pros[:1],
-                    "cons": opinion.cons[:1],
-                }
-                for opinion in context
-            ]
-        else:
-            serialized = [json.loads(opinion.model_dump_json()) for opinion in context]
+        current_round = max(entry.round for entry in context)
+        serialized = [
+            _serialize_context_entry(entry, current_round=current_round, compact=compact, mode=mode)
+            for entry in context
+        ]
         parts.append(
-            "PEER OPINIONS FROM THE PREVIOUS ROUND (critique weak arguments, "
-            "update hypotheses, and resolve contradictions where possible):\n"
+            "PEER OPINIONS SO FAR (previous round's final opinions, plus anyone who "
+            "has already spoken this round, in speaking order; critique weak "
+            "arguments, update hypotheses, and resolve contradictions where "
+            "possible):\n"
             f"{json.dumps(serialized, ensure_ascii=False)}"
         )
         parts.append(
@@ -155,3 +156,32 @@ def build_messages(
         ChatMessage(role="system", content=system),
         ChatMessage(role="user", content="\n\n".join(parts)),
     ]
+
+
+def _serialize_context_entry(
+    entry: AgentRoundOpinion,
+    *,
+    current_round: int,
+    compact: bool,
+    mode: str,
+) -> dict:
+    """Render one peer turn as an identified, ordered discussion entry."""
+    opinion = entry.opinion
+    rendered = {
+        "agent_id": entry.agent_id,
+        "persona": entry.persona,
+        "round": entry.round,
+        "already_spoken_this_round": entry.round == current_round,
+    }
+    if compact or mode == "pubmedqa":
+        rendered.update(
+            {
+                "label": opinion.top_1_diagnosis,
+                "confidence": opinion.confidence_level,
+                "pros": opinion.pros[:1],
+                "cons": opinion.cons[:1],
+            }
+        )
+    else:
+        rendered["opinion"] = json.loads(opinion.model_dump_json())
+    return rendered

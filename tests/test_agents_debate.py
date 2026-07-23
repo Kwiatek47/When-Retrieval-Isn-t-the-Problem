@@ -14,11 +14,10 @@ from app.agents import (
     MockInferenceBackend,
     build_default_agents,
 )
-from app.agents.aggregation import extract_label, majority_vote, opinion_label, aggregate_pubmedqa_decision
+from app.agents.aggregation import aggregate_pubmedqa_decision, extract_label, majority_vote, opinion_label
 from app.agents.backends import EvidenceHint, NullEvidenceHint, parse_clinical_opinion_json
 from app.agents.prompts import build_messages
 from app.schemas import ChatMessage
-
 
 SAMPLE_CASE = "45-year-old with fever and cough."
 
@@ -133,6 +132,46 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(result.rounds), 1)
         self.assertEqual(orch.early_exits, 1)
 
+    def test_round_robin_context_grows_within_round(self) -> None:
+        """Round 2+ is a true round-robin: later speakers see earlier speakers' turns."""
+        captured: list[str] = []
+
+        class SpyBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                captured.append(user)
+                return await super().complete(messages, temperature=temperature)
+
+        agents = build_default_agents(SpyBackend())
+        asyncio.run(DebateOrchestrator(agents, rounds=2).run(SAMPLE_CASE))
+
+        self.assertEqual(len(captured), 8)
+        round2_calls = captured[4:]
+        peer_counts = [call.count('"agent_id":') for call in round2_calls]
+        # Each round-2 speaker sees the 3 other peers from round 1, plus everyone
+        # who has already taken their turn this round (0, then 1, then 2, then 3).
+        self.assertEqual(peer_counts, [3, 4, 5, 6])
+
+    def test_orchestrator_round_survives_one_agent_backend_failure(self) -> None:
+        """A single flaky backend must not crash the whole debate round."""
+
+        class ExplodingBackend:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                raise RuntimeError("simulated backend failure")
+
+        good_backend = MockInferenceBackend()
+        agents = [
+            ClinicalAgent(agent_id="generalist", persona="generalist", backend=good_backend),
+            ClinicalAgent(agent_id="evidence_skeptic", persona="evidence_skeptic", backend=ExplodingBackend()),
+            ClinicalAgent(agent_id="differential_expander", persona="differential_expander", backend=good_backend),
+            ClinicalAgent(agent_id="safety_officer", persona="safety_officer", backend=good_backend),
+        ]
+        result = asyncio.run(DebateOrchestrator(agents, rounds=2).run(SAMPLE_CASE))
+
+        self.assertEqual(len(result.final_opinions), 4)
+        failing_entry = next(e for e in result.final_opinions if e.agent_id == "evidence_skeptic")
+        self.assertEqual(failing_entry.opinion.sources_used, ["fallback"])
+
 
 class ClinicalAgentTests(unittest.TestCase):
     def test_retries_invalid_json_once(self) -> None:
@@ -166,6 +205,21 @@ class ClinicalAgentTests(unittest.TestCase):
         opinion = asyncio.run(agent.generate_opinion(SAMPLE_CASE))
         self.assertEqual(opinion.top_1_diagnosis, "Bronchitis")
         self.assertEqual(backend.calls, 2)
+
+    def test_backend_exception_falls_back_instead_of_raising(self) -> None:
+        class ExplodingBackend:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                raise ConnectionError("simulated timeout")
+
+        agent = ClinicalAgent(
+            agent_id="generalist",
+            persona="generalist",
+            backend=ExplodingBackend(),
+            hint_provider=NullEvidenceHint(),
+        )
+        opinion = asyncio.run(agent.generate_opinion(SAMPLE_CASE))
+        self.assertEqual(opinion.top_1_diagnosis, "maybe")
+        self.assertEqual(opinion.sources_used, ["fallback"])
 
 
 class PromptAndParseTests(unittest.TestCase):
