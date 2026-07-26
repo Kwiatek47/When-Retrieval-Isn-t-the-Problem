@@ -19,7 +19,12 @@ from app.agents.backends import (
     hint_as_clinical_opinion,
 )
 from app.agents.models import AgentRoundOpinion, ClinicalOpinion, DebateResult
-from app.agents.orchestrator import DEFAULT_PERSONAS, DebateOrchestrator, labels_unanimous
+from app.agents.orchestrator import (
+    DEFAULT_PERSONAS,
+    PUBMEDQA_PERSONAS,
+    DebateOrchestrator,
+    labels_unanimous,
+)
 
 __all__ = [
     "AgentRoundOpinion",
@@ -29,6 +34,7 @@ __all__ = [
     "DebateOrchestrator",
     "DebateResult",
     "DEFAULT_PERSONAS",
+    "PUBMEDQA_PERSONAS",
     "EvidenceHint",
     "EvidenceHintProvider",
     "InferenceBackend",
@@ -53,7 +59,13 @@ def build_default_agents(
     task_mode: str = "clinical",
     compact: bool = False,
 ) -> list[ClinicalAgent]:
-    """Create the standard 4-persona debate panel sharing one inference backend."""
+    """Create the standard debate panel sharing one inference backend.
+
+    For PubMedQA we swap the clinical `safety_officer` for an
+    `uncertainty_advocate` persona that actively argues for inconclusive
+    evidence, to counter the silent-agreement collapse on the `maybe` class.
+    """
+    personas = PUBMEDQA_PERSONAS if (task_mode or "").strip().lower() == "pubmedqa" else DEFAULT_PERSONAS
     return [
         ClinicalAgent(
             agent_id=agent_id,
@@ -63,5 +75,5 @@ def build_default_agents(
             task_mode=task_mode,
             compact=compact,
         )
-        for agent_id, persona in DEFAULT_PERSONAS
+        for agent_id, persona in personas
     ]

@@ -26,6 +26,13 @@ DEFAULT_PERSONAS: tuple[tuple[str, str], ...] = (
     ("safety_officer", "safety_officer"),
 )
 
+PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
+    ("generalist", "generalist"),
+    ("evidence_skeptic", "evidence_skeptic"),
+    ("differential_expander", "differential_expander"),
+    ("uncertainty_advocate", "uncertainty_advocate"),
+)
+
 EarlyExitFn = Callable[[int, list[AgentRoundOpinion]], bool]
 
 

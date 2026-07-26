@@ -9,6 +9,7 @@ class ClinicalOpinion(BaseModel):
     """Structured clinical opinion returned by every debate agent."""
 
     top_1_diagnosis: str = Field(..., min_length=1)
+    evidence_conclusiveness: str = Field(default="")
     top_3_differential_diagnoses: list[str] = Field(..., min_length=1, max_length=3)
     pros: list[str] = Field(default_factory=list)
     cons: list[str] = Field(default_factory=list)

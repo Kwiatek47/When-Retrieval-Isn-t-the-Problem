@@ -1,0 +1,10 @@
+{
+  "model": "deepseek-r1:14b",
+  "dataset": "/Users/antoni.kwiatek/chatbot-med/Architektura-multiagentowego-systemu-diagnostycznego/data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json",
+  "n": 90,
+  "errors": 4,
+  "maybe_mean": 0.280734126984127,
+  "non_maybe_mean": 0.2541111111111111,
+  "auroc_maybe_vs_rest": 0.5594444444444444,
+  "mean_latency_ms": 25761.6486365092
+}

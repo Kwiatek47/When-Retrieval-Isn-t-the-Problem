@@ -1,0 +1,274 @@
+{
+  "debate_balanced90_ollama_r2_uncertainty": {
+    "cost_wrong": 1.0,
+    "cost_abstain": 0.25,
+    "always_answer_cost": 0.35555555555555557,
+    "best_threshold": 0.0,
+    "best_cost": 0.25,
+    "best_abstain_rate": 1.0,
+    "cost_reduction": 0.10555555555555557,
+    "cost_reduction_pct": 0.296875,
+    "min_coverage": 0.5,
+    "constrained_best_threshold": 0.5,
+    "constrained_best_cost": 0.2972222222222222,
+    "constrained_best_abstain_rate": 0.4777777777777778,
+    "constrained_cost_reduction_pct": 0.16406250000000003,
+    "curve": [
+      {
+        "threshold": 0.0,
+        "mean_cost": 0.25,
+        "abstain_rate": 1.0
+      },
+      {
+        "threshold": 0.02,
+        "mean_cost": 0.26944444444444443,
+        "abstain_rate": 0.8111111111111111
+      },
+      {
+        "threshold": 0.04,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.7
+      },
+      {
+        "threshold": 0.06,
+        "mean_cost": 0.2916666666666667,
+        "abstain_rate": 0.6777777777777778
+      },
+      {
+        "threshold": 0.08,
+        "mean_cost": 0.2916666666666667,
+        "abstain_rate": 0.6777777777777778
+      },
+      {
+        "threshold": 0.1,
+        "mean_cost": 0.2916666666666667,
+        "abstain_rate": 0.6777777777777778
+      },
+      {
+        "threshold": 0.12,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.14,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.16,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.18,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.2,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.22,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.24,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.26,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.28,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.3,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.32,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.34,
+        "mean_cost": 0.2861111111111111,
+        "abstain_rate": 0.6555555555555556
+      },
+      {
+        "threshold": 0.36,
+        "mean_cost": 0.2833333333333333,
+        "abstain_rate": 0.6444444444444445
+      },
+      {
+        "threshold": 0.38,
+        "mean_cost": 0.2833333333333333,
+        "abstain_rate": 0.6444444444444445
+      },
+      {
+        "threshold": 0.4,
+        "mean_cost": 0.2833333333333333,
+        "abstain_rate": 0.6444444444444445
+      },
+      {
+        "threshold": 0.42,
+        "mean_cost": 0.3055555555555556,
+        "abstain_rate": 0.5111111111111111
+      },
+      {
+        "threshold": 0.44,
+        "mean_cost": 0.3,
+        "abstain_rate": 0.4888888888888889
+      },
+      {
+        "threshold": 0.46,
+        "mean_cost": 0.3,
+        "abstain_rate": 0.4888888888888889
+      },
+      {
+        "threshold": 0.48,
+        "mean_cost": 0.3,
+        "abstain_rate": 0.4888888888888889
+      },
+      {
+        "threshold": 0.5,
+        "mean_cost": 0.2972222222222222,
+        "abstain_rate": 0.4777777777777778
+      },
+      {
+        "threshold": 0.52,
+        "mean_cost": 0.2972222222222222,
+        "abstain_rate": 0.4777777777777778
+      },
+      {
+        "threshold": 0.54,
+        "mean_cost": 0.2972222222222222,
+        "abstain_rate": 0.4777777777777778
+      },
+      {
+        "threshold": 0.56,
+        "mean_cost": 0.2972222222222222,
+        "abstain_rate": 0.4777777777777778
+      },
+      {
+        "threshold": 0.58,
+        "mean_cost": 0.2972222222222222,
+        "abstain_rate": 0.4777777777777778
+      },
+      {
+        "threshold": 0.6,
+        "mean_cost": 0.3055555555555556,
+        "abstain_rate": 0.4666666666666667
+      },
+      {
+        "threshold": 0.62,
+        "mean_cost": 0.31666666666666665,
+        "abstain_rate": 0.4222222222222222
+      },
+      {
+        "threshold": 0.64,
+        "mean_cost": 0.3138888888888889,
+        "abstain_rate": 0.4111111111111111
+      },
+      {
+        "threshold": 0.66,
+        "mean_cost": 0.32222222222222224,
+        "abstain_rate": 0.3111111111111111
+      },
+      {
+        "threshold": 0.68,
+        "mean_cost": 0.35833333333333334,
+        "abstain_rate": 0.18888888888888888
+      },
+      {
+        "threshold": 0.7,
+        "mean_cost": 0.3611111111111111,
+        "abstain_rate": 0.1111111111111111
+      },
+      {
+        "threshold": 0.72,
+        "mean_cost": 0.35,
+        "abstain_rate": 0.06666666666666667
+      },
+      {
+        "threshold": 0.74,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.76,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.78,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.8,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.82,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.84,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.86,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.88,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.9,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.92,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.94,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.96,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 0.98,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      },
+      {
+        "threshold": 1.0,
+        "mean_cost": 0.35555555555555557,
+        "abstain_rate": 0.044444444444444446
+      }
+    ]
+  }
+}

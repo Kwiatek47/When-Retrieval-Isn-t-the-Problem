@@ -1,0 +1,42 @@
+{
+  "audit_qwen14b_balanced90": {
+    "audit_score": 0.5178,
+    "supported": 0.5556,
+    "refuted": 0.4864,
+    "silent": 0.5169
+  },
+  "audit_qwen14b_oracle_balanced90": {
+    "audit_score": 0.6225,
+    "supported": 0.505,
+    "refuted": 0.4128,
+    "silent": 0.6589
+  },
+  "audit_qwen7b_balanced90": {
+    "audit_score": 0.5006,
+    "supported": 0.5431,
+    "refuted": 0.4742,
+    "silent": 0.5186
+  },
+  "audit_r1_14b_balanced90": {
+    "audit_score": 0.5594,
+    "supported": 0.5728,
+    "refuted": 0.4669,
+    "silent": 0.5183
+  },
+  "debate_balanced90_ollama_r2_uncertainty": {
+    "uncertainty_score": 0.55,
+    "label_entropy": 0.5336,
+    "maybe_fraction": 0.5469,
+    "inconclusive_fraction": 0.5369,
+    "mean_disagreement_with_mode": 0.5319,
+    "flip_rate": 0.46,
+    "panel_uncertainty_conf": 0.5575,
+    "bert_is_maybe": 0.5667
+  },
+  "nli_abstract_balanced90": {
+    "audit_score": 0.4972
+  },
+  "nli_oracle_balanced90": {
+    "audit_score": 0.5539
+  }
+}

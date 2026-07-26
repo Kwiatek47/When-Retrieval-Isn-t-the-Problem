@@ -1,0 +1,12 @@
+{
+  "auditor": "deberta-nli",
+  "evidence_source": "abstract",
+  "dataset": "/Users/antoni.kwiatek/chatbot-med/Architektura-multiagentowego-systemu-diagnostycznego/data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json",
+  "n": 90,
+  "errors": 0,
+  "missing_oracle_evidence": 0,
+  "maybe_mean": 0.8857410552706324,
+  "non_maybe_mean": 0.9271300077560598,
+  "auroc_maybe_vs_rest": 0.49722222222222223,
+  "mean_latency_ms": 158.11087364822419
+}

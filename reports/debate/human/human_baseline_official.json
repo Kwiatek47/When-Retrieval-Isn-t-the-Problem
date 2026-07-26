@@ -1,0 +1,53 @@
+{
+  "study_set": "/Users/antoni.kwiatek/chatbot-med/Architektura-multiagentowego-systemu-diagnostycznego/data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json",
+  "reasoning_free_pred (abstract only)": {
+    "n": 90,
+    "overall_accuracy": 0.8,
+    "cohen_kappa": 0.7000000000000001,
+    "per_class": {
+      "yes": {
+        "support": 30,
+        "recall": 0.9,
+        "precision": 0.7105263157894737,
+        "f1": 0.7941176470588235
+      },
+      "no": {
+        "support": 30,
+        "recall": 0.9,
+        "precision": 0.9,
+        "f1": 0.9
+      },
+      "maybe": {
+        "support": 30,
+        "recall": 0.6,
+        "precision": 0.8181818181818182,
+        "f1": 0.6923076923076923
+      }
+    }
+  },
+  "reasoning_required_pred (with author conclusion)": {
+    "n": 90,
+    "overall_accuracy": 0.7111111111111111,
+    "cohen_kappa": 0.5666666666666667,
+    "per_class": {
+      "yes": {
+        "support": 30,
+        "recall": 0.8666666666666667,
+        "precision": 0.5909090909090909,
+        "f1": 0.7027027027027029
+      },
+      "no": {
+        "support": 30,
+        "recall": 0.6333333333333333,
+        "precision": 0.7916666666666666,
+        "f1": 0.7037037037037038
+      },
+      "maybe": {
+        "support": 30,
+        "recall": 0.6333333333333333,
+        "precision": 0.8636363636363636,
+        "f1": 0.7307692307692307
+      }
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "debate_balanced90_ollama_r2_uncertainty": {
+    "points": [
+      {
+        "threshold": 0.0,
+        "coverage": 0.0,
+        "selective_accuracy": 1.0,
+        "risk": 0.0
+      },
+      {
+        "threshold": 0.02,
+        "coverage": 0.18888888888888888,
+        "selective_accuracy": 0.6470588235294118,
+        "risk": 0.3529411764705882
+      },
+      {
+        "threshold": 0.04,
+        "coverage": 0.3,
+        "selective_accuracy": 0.6296296296296297,
+        "risk": 0.37037037037037035
+      },
+      {
+        "threshold": 0.34,
+        "coverage": 0.34444444444444444,
+        "selective_accuracy": 0.6451612903225806,
+        "risk": 0.3548387096774194
+      },
+      {
+        "threshold": 0.4,
+        "coverage": 0.35555555555555557,
+        "selective_accuracy": 0.65625,
+        "risk": 0.34375
+      },
+      {
+        "threshold": 0.42000000000000004,
+        "coverage": 0.4888888888888889,
+        "selective_accuracy": 0.6363636363636364,
+        "risk": 0.36363636363636365
+      },
+      {
+        "threshold": 0.6003789260714373,
+        "coverage": 0.5444444444444444,
+        "selective_accuracy": 0.6530612244897959,
+        "risk": 0.34693877551020413
+      },
+      {
+        "threshold": 0.65,
+        "coverage": 0.5888888888888889,
+        "selective_accuracy": 0.6415094339622641,
+        "risk": 0.3584905660377359
+      },
+      {
+        "threshold": 0.6641394630357187,
+        "coverage": 0.6888888888888889,
+        "selective_accuracy": 0.6451612903225806,
+        "risk": 0.3548387096774194
+      },
+      {
+        "threshold": 0.67,
+        "coverage": 0.7,
+        "selective_accuracy": 0.6349206349206349,
+        "risk": 0.3650793650793651
+      },
+      {
+        "threshold": 0.6900000000000001,
+        "coverage": 0.8111111111111111,
+        "selective_accuracy": 0.6164383561643836,
+        "risk": 0.3835616438356164
+      },
+      {
+        "threshold": 0.7000000000000001,
+        "coverage": 0.8888888888888888,
+        "selective_accuracy": 0.625,
+        "risk": 0.375
+      },
+      {
+        "threshold": 0.71,
+        "coverage": 0.9,
+        "selective_accuracy": 0.6296296296296297,
+        "risk": 0.37037037037037035
+      },
+      {
+        "threshold": 0.7391539260714373,
+        "coverage": 0.9444444444444444,
+        "selective_accuracy": 0.6470588235294118,
+        "risk": 0.3529411764705882
+      },
+      {
+        "threshold": 1.0,
+        "coverage": 0.9555555555555556,
+        "selective_accuracy": 0.6395348837209303,
+        "risk": 0.36046511627906974
+      }
+    ],
+    "aurc": 0.3110223107028628
+  }
+}

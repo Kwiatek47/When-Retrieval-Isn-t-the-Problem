@@ -1,0 +1,223 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "signal_auroc_ci": {
+    "audit_qwen14b_balanced90": {
+      "audit_score": {
+        "auroc": 0.5178,
+        "ci_low": 0.3872,
+        "ci_high": 0.645,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    },
+    "audit_qwen14b_oracle_balanced90": {
+      "audit_score": {
+        "auroc": 0.6225,
+        "ci_low": 0.5017,
+        "ci_high": 0.7372,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": false
+      }
+    },
+    "audit_qwen7b_balanced90": {
+      "audit_score": {
+        "auroc": 0.5006,
+        "ci_low": 0.3983,
+        "ci_high": 0.6036,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    },
+    "audit_r1_14b_balanced90": {
+      "audit_score": {
+        "auroc": 0.5594,
+        "ci_low": 0.4408,
+        "ci_high": 0.6795,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    },
+    "debate_balanced90_ollama_r2_uncertainty": {
+      "uncertainty_score": {
+        "auroc": 0.55,
+        "ci_low": 0.4214,
+        "ci_high": 0.6808,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "label_entropy": {
+        "auroc": 0.5336,
+        "ci_low": 0.4589,
+        "ci_high": 0.6161,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "maybe_fraction": {
+        "auroc": 0.5469,
+        "ci_low": 0.4319,
+        "ci_high": 0.6639,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "inconclusive_fraction": {
+        "auroc": 0.5369,
+        "ci_low": 0.4236,
+        "ci_high": 0.647,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "mean_disagreement_with_mode": {
+        "auroc": 0.5319,
+        "ci_low": 0.4594,
+        "ci_high": 0.6139,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "flip_rate": {
+        "auroc": 0.46,
+        "ci_low": 0.3483,
+        "ci_high": 0.5764,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      },
+      "panel_uncertainty_conf": {
+        "auroc": 0.5575,
+        "ci_low": 0.4414,
+        "ci_high": 0.6736,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    },
+    "nli_abstract_balanced90": {
+      "audit_score": {
+        "auroc": 0.4972,
+        "ci_low": 0.365,
+        "ci_high": 0.6317,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    },
+    "nli_oracle_balanced90": {
+      "audit_score": {
+        "auroc": 0.5539,
+        "ci_low": 0.4261,
+        "ci_high": 0.6828,
+        "n_pos": 30,
+        "n_neg": 60,
+        "brackets_chance": true
+      }
+    }
+  },
+  "human_vs_model_maybe_recall": {
+    "human_maybe_recall": 0.6,
+    "model_maybe_recall": 0.0,
+    "difference": 0.6,
+    "diff_ci_low": 0.4333,
+    "diff_ci_high": 0.7667,
+    "permutation_p_value": 0.0002,
+    "n_maybe": 30
+  },
+  "multiseed_routing": {
+    "method": "debate_balanced90_ollama_r2_uncertainty",
+    "seeds": [
+      11,
+      23,
+      42,
+      47,
+      101,
+      202,
+      303
+    ],
+    "split": 0.5,
+    "objective": "macro_f1",
+    "accuracy": {
+      "mean": 0.5873,
+      "std": 0.075,
+      "min": 0.4222,
+      "max": 0.6667
+    },
+    "macro_f1": {
+      "mean": 0.5459,
+      "std": 0.0717,
+      "min": 0.4103,
+      "max": 0.6302
+    },
+    "maybe_recall": {
+      "mean": 0.2571,
+      "std": 0.1444,
+      "min": 0.0667,
+      "max": 0.4667
+    },
+    "threshold": {
+      "mean": 0.6786,
+      "std": 0.0797,
+      "min": 0.49,
+      "max": 0.72
+    }
+  },
+  "pqal500": {
+    "decision_overall_accuracy": {
+      "mean": 0.726,
+      "ci_low": 0.688,
+      "ci_high": 0.764,
+      "n": 500
+    },
+    "decision_per_class_recall": {
+      "yes": {
+        "mean": 0.7681,
+        "ci_low": 0.7174,
+        "ci_high": 0.8188,
+        "n": 276
+      },
+      "no": {
+        "mean": 0.8698,
+        "ci_low": 0.8166,
+        "ci_high": 0.9172,
+        "n": 169
+      },
+      "maybe": {
+        "mean": 0.0727,
+        "ci_low": 0.0182,
+        "ci_high": 0.1455,
+        "n": 55
+      }
+    },
+    "retrieval_hit_at_1": {
+      "mean": 0.98,
+      "ci_low": 0.968,
+      "ci_high": 0.992,
+      "n": 500
+    },
+    "retrieval_hit_at_3": {
+      "mean": 0.98,
+      "ci_low": 0.968,
+      "ci_high": 0.992,
+      "n": 500
+    },
+    "citation_pass": {
+      "mean": 1.0,
+      "ci_low": 1.0,
+      "ci_high": 1.0,
+      "n": 500
+    },
+    "rag_label_accuracy": {
+      "mean": 0.72,
+      "ci_low": 0.68,
+      "ci_high": 0.76,
+      "n": 500
+    }
+  }
+}

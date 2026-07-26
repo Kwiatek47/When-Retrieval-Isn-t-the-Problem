@@ -1,0 +1,12 @@
+{
+  "model": "qwen2.5:14b",
+  "evidence_source": "long_answer",
+  "missing_oracle_evidence": 0,
+  "dataset": "/Users/antoni.kwiatek/chatbot-med/Architektura-multiagentowego-systemu-diagnostycznego/data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json",
+  "n": 90,
+  "errors": 1,
+  "maybe_mean": 0.35625,
+  "non_maybe_mean": 0.23930555555555555,
+  "auroc_maybe_vs_rest": 0.6225,
+  "mean_latency_ms": 3223.3815801213495
+}

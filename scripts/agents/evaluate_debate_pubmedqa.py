@@ -25,10 +25,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 import json
 import os
 from pathlib import Path
+import random
 from statistics import mean
 import sys
 from time import perf_counter
@@ -54,6 +55,8 @@ from app.agents.backends import (
     hint_as_clinical_opinion,
 )
 from app.agents.models import AgentRoundOpinion
+from app.agents.evidence_audit import audit_evidence
+from app.agents.uncertainty import calibrate_threshold, compute_uncertainty, risk_coverage_curve
 from app.rag.models import RetrievedDocument
 
 DEFAULT_DATASET = (
@@ -90,6 +93,13 @@ class DebateCaseResult:
     aggregation_rule: str = ""
     latency_ms: float = 0.0
     final_opinions: list[dict[str, Any]] = field(default_factory=list)
+    history: list[list[dict[str, Any]]] = field(default_factory=list)
+    uncertainty_score: float | None = None
+    uncertainty_signals: dict[str, float] = field(default_factory=dict)
+    base_label: str | None = None
+    routed_to_maybe: bool = False
+    audit_score: float | None = None
+    audit_detail: dict[str, Any] = field(default_factory=dict)
 
 
 def main() -> None:
@@ -172,6 +182,10 @@ def main() -> None:
             early_exit=_should_early_exit if args.early_exit else None,
             agent_concurrency=args.agent_concurrency,
         )
+        audit_backend = None
+        if args.audit_model:
+            audit_backend = _build_backend("ollama", num_predict=400, model=args.audit_model)
+            print(f"Evidence-audit backend enabled: {args.audit_model}")
         results = asyncio.run(
             _evaluate_debate(
                 orchestrator,
@@ -184,6 +198,7 @@ def main() -> None:
                 bert_vote_weight=args.bert_vote_weight,
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
+                audit_backend=audit_backend,
             )
         )
         rounds = args.rounds
@@ -195,6 +210,15 @@ def main() -> None:
         architecture = DebateOrchestrator.ARCHITECTURE
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
+        )
+
+    if args.uncertainty_route and args.backend != "biolinkbert":
+        _apply_uncertainty_routing(
+            results,
+            split=args.uncertainty_split,
+            objective=args.uncertainty_objective,
+            seed=args.uncertainty_seed,
+            fixed_threshold=args.uncertainty_threshold,
         )
 
     summary = _summarize(
@@ -221,6 +245,108 @@ def main() -> None:
     )
 
 
+def _apply_uncertainty_routing(
+    results: list[DebateCaseResult],
+    *,
+    split: float,
+    objective: str,
+    seed: int,
+    fixed_threshold: float | None,
+) -> None:
+    """Calibrate an uncertainty threshold on a held-out split and route to `maybe`.
+
+    Cases with ``uncertainty_score >= threshold`` are re-labeled ``maybe``; the
+    rest keep their base (panel+classifier) label. To avoid data leakage the
+    threshold is fit only on the calibration half and applied to the reporting
+    half; the calibration half is left on its base label so reported metrics are
+    honest. If ``fixed_threshold`` is given, calibration is skipped.
+    """
+    scored = [r for r in results if r.uncertainty_score is not None]
+    if not scored:
+        print("Uncertainty routing skipped: no uncertainty scores present.")
+        return
+
+    for r in results:
+        if r.base_label is None:
+            r.base_label = r.predicted_label
+
+    if fixed_threshold is not None:
+        threshold = fixed_threshold
+        calib_ids: set[str] = set()
+        metrics: dict[str, float] = {"threshold": threshold, "source": "fixed"}
+        report = scored
+    else:
+        rng = random.Random(seed)
+        by_label: dict[str, list[DebateCaseResult]] = {}
+        for r in scored:
+            by_label.setdefault(r.expected_label, []).append(r)
+        calib: list[DebateCaseResult] = []
+        report = []
+        for label, group in by_label.items():
+            group = list(group)
+            rng.shuffle(group)
+            cut = int(round(len(group) * split))
+            calib.extend(group[:cut])
+            report.extend(group[cut:])
+        calib_ids = {r.id for r in calib}
+        threshold, metrics = calibrate_threshold(
+            [r.uncertainty_score for r in calib],
+            [r.expected_label for r in calib],
+            objective=objective,
+            base_labels=[(r.base_label or r.predicted_label) for r in calib],
+        )
+        metrics["source"] = "calibrated"
+        metrics["calib_n"] = len(calib)
+        metrics["report_n"] = len(report)
+        print(
+            f"Uncertainty routing: calibrated threshold={threshold:.3f} on {len(calib)} cases "
+            f"(objective={objective}); reporting on {len(report)} held-out cases."
+        )
+
+    report_ids = {r.id for r in report}
+    for r in results:
+        r.routed_to_maybe = False
+        # Only route (and thus report metrics for) held-out cases; leave the
+        # calibration cases on their base label to keep the split leakage-free.
+        if fixed_threshold is None and r.id not in report_ids:
+            r.predicted_label = r.base_label
+            r.label_pass = r.predicted_label == r.expected_label
+            continue
+        if r.uncertainty_score is not None and r.uncertainty_score >= threshold:
+            r.predicted_label = "maybe"
+            r.routed_to_maybe = True
+            r.aggregation_rule = f"{r.aggregation_rule}->uncertainty_route"
+        else:
+            r.predicted_label = r.base_label
+        r.label_pass = r.predicted_label == r.expected_label
+
+    _UNCERTAINTY_ROUTING_META.update(
+        {
+            "threshold": threshold,
+            "objective": objective,
+            "split": split,
+            "seed": seed,
+            "calibration_metrics": metrics,
+            "report_ids": sorted(report_ids),
+            "calib_ids": sorted(calib_ids),
+        }
+    )
+
+    # Risk-coverage / AURC on the reporting split (selective-prediction view:
+    # routing to maybe == abstaining from a definitive yes/no answer).
+    rc_pool = [r for r in results if (not report_ids) or r.id in report_ids]
+    if rc_pool:
+        rc = risk_coverage_curve(
+            [r.uncertainty_score or 0.0 for r in rc_pool],
+            [(r.base_label or r.predicted_label) for r in rc_pool],
+            [r.expected_label for r in rc_pool],
+        )
+        _UNCERTAINTY_ROUTING_META["risk_coverage"] = rc
+
+
+_UNCERTAINTY_ROUTING_META: dict[str, Any] = {}
+
+
 def _default_label(args: argparse.Namespace) -> str:
     parts = [f"debate_pubmedqa_{args.backend}"]
     if args.backend != "biolinkbert":
@@ -242,7 +368,9 @@ def _load_checkpoint(path: Path) -> dict[str, DebateCaseResult]:
         if not line.strip():
             continue
         data = json.loads(line)
-        loaded[data["id"]] = DebateCaseResult(**data)
+        known = {f.name for f in fields(DebateCaseResult)}
+        filtered = {k: v for k, v in data.items() if k in known}
+        loaded[data["id"]] = DebateCaseResult(**filtered)
     return loaded
 
 
@@ -315,6 +443,7 @@ async def _evaluate_debate(
     bert_vote_weight: float,
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
+    audit_backend: Any = None,
 ) -> list[DebateCaseResult]:
     results: list[DebateCaseResult] = []
     for index, case in enumerate(cases, start=1):
@@ -339,6 +468,21 @@ async def _evaluate_debate(
             mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
             bert_gate_confidence=bert_gate_confidence,
             bert_vote_weight=bert_vote_weight,
+        )
+        audit_result = None
+        if audit_backend is not None:
+            evidence_text = "\n\n".join(
+                f"{d.title}\n{d.content}".strip() for d in docs
+            )
+            audit_result = await audit_evidence(
+                audit_backend, question=case["question"], evidence=evidence_text
+            )
+        signals = compute_uncertainty(
+            debate.rounds,
+            debate.final_opinions,
+            bert_label=hint.label if hint else None,
+            bert_confidence=hint.confidence if hint else None,
+            audit_score=audit_result.audit_score if audit_result is not None else None,
         )
         round1_opinions = [entry.opinion for entry in debate.rounds[0]]
         round1_label, _ = majority_vote(round1_opinions)
@@ -367,6 +511,15 @@ async def _evaluate_debate(
             aggregation_rule=rule,
             latency_ms=latency_ms,
             final_opinions=[entry.model_dump() for entry in debate.final_opinions],
+            history=[
+                [entry.model_dump() for entry in round_entries]
+                for round_entries in debate.rounds
+            ],
+            uncertainty_score=signals.score,
+            uncertainty_signals=signals.as_dict(),
+            base_label=predicted,
+            audit_score=audit_result.audit_score if audit_result is not None else None,
+            audit_detail=audit_result.as_dict() if audit_result is not None else {},
         )
         results.append(result)
         if checkpoint_path is not None:
@@ -466,6 +619,42 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Resume from checkpoint JSONL next to the report label",
     )
+    parser.add_argument(
+        "--uncertainty-route",
+        action="store_true",
+        help="Route high-uncertainty cases to `maybe` using the debate uncertainty score",
+    )
+    parser.add_argument(
+        "--uncertainty-split",
+        type=float,
+        default=0.5,
+        help="Fraction of cases used to calibrate the uncertainty threshold (rest is reported)",
+    )
+    parser.add_argument(
+        "--uncertainty-objective",
+        choices=("accuracy", "macro_f1", "balanced_acc", "maybe_f1"),
+        default="accuracy",
+        help="Objective maximized when calibrating the uncertainty threshold (3-class)",
+    )
+    parser.add_argument(
+        "--uncertainty-seed",
+        type=int,
+        default=47,
+        help="Seed for the deterministic stratified calibration/report split",
+    )
+    parser.add_argument(
+        "--uncertainty-threshold",
+        type=float,
+        default=None,
+        help="Skip calibration and route with this fixed uncertainty threshold",
+    )
+    parser.add_argument(
+        "--audit-model",
+        type=str,
+        default=None,
+        help="If set, run the NLI evidence condition-audit per case with this Ollama model "
+        "and feed audit_score into the uncertainty signals (e.g. qwen2.5:14b, deepseek-r1:14b)",
+    )
     return parser.parse_args()
 
 
@@ -474,6 +663,7 @@ def _build_backend(
     *,
     fast: bool = False,
     num_predict: int | None = None,
+    model: str | None = None,
 ) -> MockInferenceBackend | OllamaInferenceBackend:
     if name == "mock":
         return MockInferenceBackend()
@@ -495,8 +685,9 @@ def _build_backend(
         num_predict=predict,
         num_ctx=min(max(settings.ollama_num_ctx, 2048), 4096),
     )
-    print(f"Ollama model={settings.default_model} num_predict={predict}")
-    return OllamaInferenceBackend(provider, model=settings.default_model, temperature=0.1)
+    model_name = model or settings.default_model
+    print(f"Ollama model={model_name} num_predict={predict}")
+    return OllamaInferenceBackend(provider, model=model_name, temperature=0.1)
 
 
 def _load_cases(path: Path) -> list[dict[str, Any]]:
@@ -576,6 +767,14 @@ def _summarize(
     fast: bool,
     early_exit_rate: float,
 ) -> dict[str, Any]:
+    # When uncertainty routing is active, report metrics on the held-out split
+    # only (the calibration split is excluded to keep the numbers leakage-free).
+    routing_meta = dict(_UNCERTAINTY_ROUTING_META)
+    report_ids = set(routing_meta.get("report_ids") or [])
+    all_results = results
+    if report_ids:
+        results = [r for r in results if r.id in report_ids]
+
     n = len(results) or 1
     by_label: dict[str, dict[str, int]] = {}
     for result in results:
@@ -616,6 +815,18 @@ def _summarize(
         "aggregation": aggregation,
         "architecture": architecture,
         "supervisor": architecture not in {"round_robin_no_supervisor", "biolinkbert_only"},
+        "uncertainty_routing": (
+            {
+                **routing_meta,
+                "reported_on": "held_out_split" if report_ids else "all",
+                "routed_to_maybe_count": sum(1 for r in results if r.routed_to_maybe),
+                "base_label_accuracy": (
+                    sum(1 for r in results if (r.base_label or r.predicted_label) == r.expected_label) / n
+                ),
+            }
+            if routing_meta
+            else None
+        ),
     }
 
 

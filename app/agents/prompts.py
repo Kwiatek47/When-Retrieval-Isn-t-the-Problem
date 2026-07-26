@@ -11,6 +11,7 @@ from app.schemas import ChatMessage
 CLINICAL_OPINION_SCHEMA = """
 Return ONLY a single JSON object with exactly these fields:
 - top_1_diagnosis (string)
+- evidence_conclusiveness (string; one of "conclusive", "inconclusive")
 - top_3_differential_diagnoses (array of 1-3 strings)
 - pros (array of strings)
 - cons (array of strings)
@@ -45,31 +46,51 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
 PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
         "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
-        "Prefer the label best supported by the stated results."
+        "Prefer the label best supported by the stated results. Answer 'maybe' "
+        "only when the abstract itself does not settle the question."
     ),
     "evidence_skeptic": (
         "You are skeptical of overclaiming. Prefer 'maybe' when evidence is weak, "
-        "mixed, underpowered, or only suggestive."
+        "mixed, underpowered, correlational-only, or only suggestive. A single "
+        "significant p-value does not by itself resolve a causal or predictive question."
     ),
     "differential_expander": (
         "You stress alternative readings of the same abstract and whether the "
-        "research question is truly resolved by the reported findings."
+        "research question is truly resolved by the reported findings. Explicitly "
+        "consider whether the finding could support the opposite conclusion or "
+        "is confounded, which would make 'maybe' the honest answer."
     ),
-    "safety_officer": (
-        "You flag overconfident yes/no answers when safety-critical claims lack "
-        "direct evidence; prefer conservative labels when uncertain."
+    "uncertainty_advocate": (
+        "You are the designated uncertainty advocate (a 'catfish' voice against "
+        "premature consensus). Your job is NOT to be contrarian for its own sake, "
+        "but to make the strongest possible case that the evidence is inconclusive: "
+        "hedged author language ('may', 'might', 'could', 'suggests'), small or "
+        "single-cohort samples, surrogate endpoints, lack of direct comparison, or "
+        "results that only partially answer the specific question asked. If, after "
+        "genuinely trying, the evidence is clearly conclusive, say so and concede."
     ),
 }
 
 PUBMEDQA_LABEL_RULE = """
 PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
+
+Decide the label from the EVIDENCE, in two explicit steps:
+1. First judge evidence_conclusiveness: is the abstract's evidence CONCLUSIVE for the
+   exact question asked, or INCONCLUSIVE (mixed, hedged, indirect, underpowered,
+   correlational-only, or only partially answering it)?
+2. If INCONCLUSIVE, the correct label is "maybe" even if the results lean one way.
+   Only choose "yes"/"no" when the evidence directly and clearly settles the question.
+
+Set confidence_level to how strongly the evidence supports your chosen label
+(NOT how confident you feel in general). If you answer "maybe", confidence_level
+should reflect how sure you are that the evidence is genuinely inconclusive.
 Keep the JSON compact: at most 1 short sentence in pros and cons each.
 required_further_tests/red_flags may be empty arrays. missing_information may be "".
 """.strip()
 
 PUBMEDQA_COMPACT_SCHEMA = """
 Return ONLY one compact JSON object (no markdown) with exactly:
-{"top_1_diagnosis":"yes|no|maybe","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
+{"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
 """.strip()
 
 
@@ -177,6 +198,7 @@ def _serialize_context_entry(
         rendered.update(
             {
                 "label": opinion.top_1_diagnosis,
+                "evidence_conclusiveness": opinion.evidence_conclusiveness,
                 "confidence": opinion.confidence_level,
                 "pros": opinion.pros[:1],
                 "cons": opinion.cons[:1],

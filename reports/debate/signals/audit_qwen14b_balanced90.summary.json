@@ -1,0 +1,8 @@
+{
+  "model": "qwen2.5:14b",
+  "n": 90,
+  "errors": 0,
+  "maybe_mean": 0.28375,
+  "non_maybe_mean": 0.2594444444444444,
+  "auroc_maybe_vs_rest": 0.5177777777777778
+}

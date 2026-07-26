@@ -1,0 +1,242 @@
+{
+  "H001": {
+    "id": "pubmedqa-official-18568290",
+    "gold": "maybe"
+  },
+  "H002": {
+    "id": "pubmedqa-official-25079920",
+    "gold": "maybe"
+  },
+  "H003": {
+    "id": "pubmedqa-official-19468282",
+    "gold": "maybe"
+  },
+  "H004": {
+    "id": "pubmedqa-official-19578820",
+    "gold": "maybe"
+  },
+  "H005": {
+    "id": "pubmedqa-official-12790890",
+    "gold": "maybe"
+  },
+  "H006": {
+    "id": "pubmedqa-official-21726930",
+    "gold": "yes"
+  },
+  "H007": {
+    "id": "pubmedqa-official-25571931",
+    "gold": "maybe"
+  },
+  "H008": {
+    "id": "pubmedqa-official-9427037",
+    "gold": "yes"
+  },
+  "H009": {
+    "id": "pubmedqa-official-16968876",
+    "gold": "maybe"
+  },
+  "H010": {
+    "id": "pubmedqa-official-11955750",
+    "gold": "no"
+  },
+  "H011": {
+    "id": "pubmedqa-official-24666444",
+    "gold": "no"
+  },
+  "H012": {
+    "id": "pubmedqa-official-19130332",
+    "gold": "yes"
+  },
+  "H013": {
+    "id": "pubmedqa-official-11570976",
+    "gold": "maybe"
+  },
+  "H014": {
+    "id": "pubmedqa-official-20197761",
+    "gold": "maybe"
+  },
+  "H015": {
+    "id": "pubmedqa-official-11138995",
+    "gold": "no"
+  },
+  "H016": {
+    "id": "pubmedqa-official-17621202",
+    "gold": "maybe"
+  },
+  "H017": {
+    "id": "pubmedqa-official-18802997",
+    "gold": "maybe"
+  },
+  "H018": {
+    "id": "pubmedqa-official-15388567",
+    "gold": "no"
+  },
+  "H019": {
+    "id": "pubmedqa-official-22902073",
+    "gold": "yes"
+  },
+  "H020": {
+    "id": "pubmedqa-official-22522271",
+    "gold": "no"
+  },
+  "H021": {
+    "id": "pubmedqa-official-20629769",
+    "gold": "yes"
+  },
+  "H022": {
+    "id": "pubmedqa-official-8921484",
+    "gold": "no"
+  },
+  "H023": {
+    "id": "pubmedqa-official-26778755",
+    "gold": "maybe"
+  },
+  "H024": {
+    "id": "pubmedqa-official-14631523",
+    "gold": "no"
+  },
+  "H025": {
+    "id": "pubmedqa-official-24073931",
+    "gold": "no"
+  },
+  "H026": {
+    "id": "pubmedqa-official-15502995",
+    "gold": "no"
+  },
+  "H027": {
+    "id": "pubmedqa-official-21481154",
+    "gold": "yes"
+  },
+  "H028": {
+    "id": "pubmedqa-official-18243752",
+    "gold": "maybe"
+  },
+  "H029": {
+    "id": "pubmedqa-official-25394614",
+    "gold": "maybe"
+  },
+  "H030": {
+    "id": "pubmedqa-official-25371231",
+    "gold": "maybe"
+  },
+  "H031": {
+    "id": "pubmedqa-official-16538201",
+    "gold": "maybe"
+  },
+  "H032": {
+    "id": "pubmedqa-official-12630042",
+    "gold": "maybe"
+  },
+  "H033": {
+    "id": "pubmedqa-official-20971618",
+    "gold": "maybe"
+  },
+  "H034": {
+    "id": "pubmedqa-official-22540518",
+    "gold": "yes"
+  },
+  "H035": {
+    "id": "pubmedqa-official-9465206",
+    "gold": "yes"
+  },
+  "H036": {
+    "id": "pubmedqa-official-25103647",
+    "gold": "maybe"
+  },
+  "H037": {
+    "id": "pubmedqa-official-18284441",
+    "gold": "maybe"
+  },
+  "H038": {
+    "id": "pubmedqa-official-11867487",
+    "gold": "maybe"
+  },
+  "H039": {
+    "id": "pubmedqa-official-11411430",
+    "gold": "maybe"
+  },
+  "H040": {
+    "id": "pubmedqa-official-12970636",
+    "gold": "no"
+  },
+  "H041": {
+    "id": "pubmedqa-official-27642458",
+    "gold": "no"
+  },
+  "H042": {
+    "id": "pubmedqa-official-11458136",
+    "gold": "maybe"
+  },
+  "H043": {
+    "id": "pubmedqa-official-25475395",
+    "gold": "yes"
+  },
+  "H044": {
+    "id": "pubmedqa-official-12805495",
+    "gold": "maybe"
+  },
+  "H045": {
+    "id": "pubmedqa-official-22758782",
+    "gold": "no"
+  },
+  "H046": {
+    "id": "pubmedqa-official-24336869",
+    "gold": "maybe"
+  },
+  "H047": {
+    "id": "pubmedqa-official-27281318",
+    "gold": "yes"
+  },
+  "H048": {
+    "id": "pubmedqa-official-21645374",
+    "gold": "yes"
+  },
+  "H049": {
+    "id": "pubmedqa-official-24577079",
+    "gold": "no"
+  },
+  "H050": {
+    "id": "pubmedqa-official-26708803",
+    "gold": "maybe"
+  },
+  "H051": {
+    "id": "pubmedqa-official-18496363",
+    "gold": "no"
+  },
+  "H052": {
+    "id": "pubmedqa-official-16816043",
+    "gold": "maybe"
+  },
+  "H053": {
+    "id": "pubmedqa-official-24476003",
+    "gold": "no"
+  },
+  "H054": {
+    "id": "pubmedqa-official-25887165",
+    "gold": "yes"
+  },
+  "H055": {
+    "id": "pubmedqa-official-19103915",
+    "gold": "maybe"
+  },
+  "H056": {
+    "id": "pubmedqa-official-18667100",
+    "gold": "no"
+  },
+  "H057": {
+    "id": "pubmedqa-official-19100463",
+    "gold": "yes"
+  },
+  "H058": {
+    "id": "pubmedqa-official-25793749",
+    "gold": "maybe"
+  },
+  "H059": {
+    "id": "pubmedqa-official-14627582",
+    "gold": "no"
+  },
+  "H060": {
+    "id": "pubmedqa-official-18714572",
+    "gold": "maybe"
+  }
+}
