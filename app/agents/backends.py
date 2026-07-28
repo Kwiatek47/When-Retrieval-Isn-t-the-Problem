@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -20,6 +22,16 @@ class EvidenceHint:
     confidence: float
     model_path: str = ""
     probabilities: dict[str, float] | None = None
+
+
+LAST_USAGE: ContextVar[tuple[int, int] | None] = ContextVar("last_usage", default=None)
+"""(prompt_tokens, completion_tokens) of the most recent completion in this task.
+
+`InferenceBackend.complete` returns only text, so exact token counts would be lost.
+A ContextVar rather than an attribute because agents run concurrently: each asyncio
+task gets its own copy of the context, so parallel calls cannot overwrite each
+other's counts the way a shared instance attribute would.
+"""
 
 
 class InferenceBackend(Protocol):
@@ -56,6 +68,13 @@ class BioLinkBERTHintProvider:
         self._question: str | None = None
         self._documents: list[RetrievedDocument] | None = None
         self.last_hint: EvidenceHint | None = None
+        # Every agent asks for the hint on every turn, so an N-agent M-round
+        # debate would run the same classifier forward pass N*M times and get
+        # the same answer. Memoize per bound case; cost comparisons between
+        # architectures are otherwise dominated by that duplicated work.
+        self._cache_key: tuple[str, tuple[str, ...]] | None = None
+        self._cache_hint: EvidenceHint | None = None
+        self.classifier_calls = 0
 
     @property
     def available(self) -> bool:
@@ -90,6 +109,11 @@ class BioLinkBERTHintProvider:
         documents = self._documents or []
         if not question or not documents:
             return None
+        cache_key = (question, tuple(doc.id for doc in documents))
+        if self._cache_key == cache_key and self._cache_hint is not None:
+            self.last_hint = self._cache_hint
+            return self._cache_hint
+        self.classifier_calls += 1
         prediction = self._classifier.predict(question=question, source_documents=documents)
         if prediction is None:
             return None
@@ -99,6 +123,8 @@ class BioLinkBERTHintProvider:
             model_path=str(prediction.model_path),
             probabilities=dict(prediction.probabilities),
         )
+        self._cache_key = cache_key
+        self._cache_hint = hint
         self.last_hint = hint
         return hint
 
@@ -212,9 +238,21 @@ class MockInferenceBackend:
         _ = temperature
         system = next((m.content for m in messages if m.role == "system"), "")
         user = next((m.content for m in messages if m.role == "user"), "")
+        # Supervisor calls carry no agent_id and expect a different schema, so
+        # they are dispatched before the agent path.
+        if "RIGOR CHECKS:" in system:
+            return _mock_supervisor_verdict(user)
+        if "route information requests" in system:
+            return _mock_routing(user)
         agent_id = _extract_between(system, "agent_id=", "\n") or "agent"
         task_mode = _extract_between(system, "task_mode=", "\n") or "clinical"
-        has_context = "PEER OPINIONS" in user or "peer opinions" in user.lower()
+        # Mirrors PEER_CONTEXT_HEADER / ANONYMOUS_CONTEXT_HEADER in prompts.py,
+        # inlined because prompts.py imports this module.
+        has_context = (
+            "PEER OPINIONS" in user
+            or "peer opinions" in user.lower()
+            or "ARGUMENTS SUBMITTED FOR REVIEW" in user
+        )
         if task_mode.strip().lower() == "pubmedqa":
             opinion = _mock_pubmedqa_opinion(
                 agent_id=agent_id,
@@ -223,6 +261,15 @@ class MockInferenceBackend:
             )
         else:
             opinion = _mock_opinion(agent_id=agent_id, revised=has_context)
+        if "SCOPE:" in user:
+            # Under partitioning the agent is asked for information requests; a mock
+            # that never asks would leave the whole routing path untested. The
+            # question quotes a real term from this agent's own segment, so the
+            # eligibility gate has something to match on, the way a genuine
+            # domain question would.
+            opinion = opinion.model_copy(
+                update={"information_requests": [_mock_information_request(user)]}
+            )
         return opinion.model_dump_json()
 
 
@@ -246,6 +293,12 @@ class OllamaInferenceBackend:
             messages=messages,
             temperature=self._temperature if temperature is None else temperature,
         )
+        LAST_USAGE.set(
+            (
+                int(getattr(response, "prompt_tokens", 0) or 0),
+                int(getattr(response, "completion_tokens", 0) or 0),
+            )
+        )
         return response.message.content
 
 
@@ -256,6 +309,77 @@ def _extract_between(text: str, start: str, end: str) -> str:
     return rest.split(end, 1)[0].strip()
 
 
+# The mock derives its answer from the agent id. The neutral panel uses ids like
+# `analyst_1` that carry no meaning, so map them onto the same four behaviour
+# slots as the persona panel - otherwise every neutral agent would collapse onto
+# the same default answer and mock runs of the neutral/supervisor architectures
+# would be uninformative and not comparable with the persona baseline.
+_MOCK_SLOTS: dict[str, str] = {
+    "generalist": "generalist",
+    "evidence_skeptic": "evidence_skeptic",
+    "differential_expander": "differential_expander",
+    "safety_officer": "safety_officer",
+    # `uncertainty_advocate` is deliberately absent: it never had an entry in the
+    # mock's tables and falls through to the default branch. Giving it a slot here
+    # would silently change the persona baseline's mock numbers.
+    "analyst_1": "generalist",
+    "analyst_2": "evidence_skeptic",
+    "analyst_3": "differential_expander",
+    "analyst_4": "safety_officer",
+}
+
+
+def _mock_slot(agent_id: str) -> str:
+    return _MOCK_SLOTS.get(agent_id, agent_id)
+
+
+def _mock_information_request(user: str) -> str:
+    """A question anchored on the longest term in the agent's own evidence slice."""
+    evidence = user.split("EVIDENCE:", 1)[-1].split("SCOPE:", 1)[0]
+    words = sorted(set(re.findall(r"[A-Za-z]{6,}", evidence)), key=lambda w: (-len(w), w))
+    topic = words[0].lower() if words else "the outcome"
+    return f"What do the other segments report about {topic}?"
+
+
+def _mock_supervisor_verdict(user: str) -> str:
+    """Deterministic stand-in for the supervisor's rigor-check closure.
+
+    Reads the labels out of the submitted arguments and applies the same rule the
+    real prompt states: a panel that cannot agree, or that lands on `maybe`, means
+    the evidence did not establish a direction.
+    """
+    labels = re.findall(r'"label":\s*"(yes|no|maybe)"', user)
+    counts = Counter(labels)
+    top = counts.most_common(1)[0][0] if counts else "maybe"
+    settled = bool(counts) and top != "maybe" and counts[top] > len(labels) / 2
+    checks = {
+        "question_addressed": True,
+        "direction_established": settled,
+        "opposite_reading_excluded": settled,
+        "hedging_absent": settled,
+    }
+    return json.dumps(
+        {
+            "rigor_checks": checks,
+            "label": top if settled else "maybe",
+            "confidence": 0.7 if settled else 0.4,
+            "rationale": "Mock supervisor; rigor checks derived from submitted labels.",
+        }
+    )
+
+
+def _mock_routing(user: str) -> str:
+    """Route every request to the first segment the deterministic gate allowed."""
+    routed: dict[str, list[str]] = {}
+    for match in re.finditer(
+        r'"request_id":\s*"([^"]+)",\s*"eligible_segment_ids":\s*\[([^\]]*)\]', user
+    ):
+        request_id = match.group(1)
+        eligible = re.findall(r'"([^"]+)"', match.group(2))
+        routed[request_id] = eligible[:1]
+    return json.dumps(routed)
+
+
 def _mock_opinion(*, agent_id: str, revised: bool) -> ClinicalOpinion:
     persona_bias = {
         "generalist": "Community-acquired pneumonia",
@@ -263,7 +387,7 @@ def _mock_opinion(*, agent_id: str, revised: bool) -> ClinicalOpinion:
         "differential_expander": "Pulmonary embolism",
         "safety_officer": "Acute coronary syndrome (atypical)",
     }
-    top = persona_bias.get(agent_id, "Undifferentiated acute illness")
+    top = persona_bias.get(_mock_slot(agent_id), "Undifferentiated acute illness")
     suffix = " (revised after peer critique)" if revised else ""
     differentials = [
         top,
@@ -304,21 +428,22 @@ def _mock_opinion(*, agent_id: str, revised: bool) -> ClinicalOpinion:
 def _mock_pubmedqa_opinion(*, agent_id: str, case_text: str, revised: bool) -> ClinicalOpinion:
     """Lightweight heuristic labels for offline PubMedQA debate plumbing tests."""
     text = case_text.lower()
+    slot = _mock_slot(agent_id)
     persona_prior = {
         "generalist": "yes",
         "evidence_skeptic": "maybe",
         "differential_expander": "no",
         "safety_officer": "maybe",
     }
-    label = persona_prior.get(agent_id, "maybe")
+    label = persona_prior.get(slot, "maybe")
     if any(token in text for token in ("no significant", "not associated", "failed to", "did not")):
-        label = "no" if agent_id != "evidence_skeptic" else "maybe"
+        label = "no" if slot != "evidence_skeptic" else "maybe"
     elif any(token in text for token in ("significantly", "effective", "improved", "useful", "valuable")):
-        label = "yes" if agent_id != "evidence_skeptic" else ("maybe" if not revised else "yes")
+        label = "yes" if slot != "evidence_skeptic" else ("maybe" if not revised else "yes")
     elif any(token in text for token in ("inconclusive", "unclear", "limited evidence", "mixed")):
         label = "maybe"
 
-    if revised and agent_id == "differential_expander" and "valuable" in text:
+    if revised and slot == "differential_expander" and "valuable" in text:
         label = "yes"
 
     return ClinicalOpinion(

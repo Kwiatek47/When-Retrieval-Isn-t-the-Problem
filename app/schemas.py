@@ -157,6 +157,8 @@ class ChatResponse(BaseModel):
     prompt_version: str = ""
     timestamp: str = ""
     latency_ms: int = Field(default=0, ge=0)
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
     citations: list[Citation] = Field(default_factory=list)
     retrieval: Optional[RetrievalInfo] = None
     evidence_decision: Optional[EvidenceDecisionInfo] = None

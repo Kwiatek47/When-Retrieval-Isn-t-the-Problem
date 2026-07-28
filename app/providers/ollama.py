@@ -94,4 +94,8 @@ class OllamaProvider:
             model=str(data.get("model") or model),
             message=ChatMessage(role="assistant", content=content),
             done=bool(data.get("done", True)),
+            # Ollama reports these per /api/chat call; they are the only exact
+            # token counts available and cost-matched experiments depend on them.
+            prompt_tokens=max(int(data.get("prompt_eval_count") or 0), 0),
+            completion_tokens=max(int(data.get("eval_count") or 0), 0),
         )

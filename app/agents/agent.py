@@ -42,6 +42,11 @@ class ClinicalAgent:
         self,
         patient_case: str,
         context: list[AgentRoundOpinion] | None = None,
+        *,
+        anonymize: bool = False,
+        info_requests: list[str] | None = None,
+        partial_evidence: bool = False,
+        shuffle_seed: int | None = None,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -51,11 +56,23 @@ class ClinicalAgent:
         finals plus anyone who has already spoken this round) to critique
         and revise.
 
+        The keyword-only flags are used by the supervisor architectures:
+        `anonymize` strips peer identities from the transcript, `partial_evidence`
+        tells the agent it holds only one segment of the case, and `info_requests`
+        carries peers' questions routed to this agent. Defaults reproduce the
+        baseline debate exactly.
+
         Never raises: backend failures (timeout, connection error, invalid
         JSON after one repair attempt) degrade to a low-confidence fallback
         opinion so a single flaky agent cannot crash the whole debate round.
         """
         hint = self.hint_provider.get_hint(patient_case)
+        prompt_kwargs = {
+            "anonymize": anonymize,
+            "info_requests": info_requests,
+            "partial_evidence": partial_evidence,
+            "shuffle_seed": shuffle_seed,
+        }
         messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -64,6 +81,7 @@ class ClinicalAgent:
             evidence_hint=hint,
             task_mode=self.task_mode,
             compact=self.compact,
+            **prompt_kwargs,
         )
         raw = await self._complete_or_none(messages, self.temperature)
         if raw is not None:
@@ -85,6 +103,7 @@ class ClinicalAgent:
             repair=True,
             task_mode=self.task_mode,
             compact=self.compact,
+            **prompt_kwargs,
         )
         raw_retry = await self._complete_or_none(repair_messages, 0.0)
         if raw_retry is not None:

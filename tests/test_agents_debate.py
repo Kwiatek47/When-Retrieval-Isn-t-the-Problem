@@ -40,6 +40,7 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
             set(payload.keys()),
             {
                 "top_1_diagnosis",
+                "evidence_conclusiveness",
                 "top_3_differential_diagnoses",
                 "pros",
                 "cons",
@@ -48,6 +49,7 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
                 "sources_used",
                 "red_flags",
                 "missing_information",
+                "information_requests",
             },
         )
 

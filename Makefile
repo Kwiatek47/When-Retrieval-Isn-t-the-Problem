@@ -27,7 +27,8 @@ CORPORA_REGISTRY ?= scripts/data/corpora/registry.json
 CORPORA ?=
 CORPORA_ARG := $(if $(CORPORA),--corpora $(CORPORA),)
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast \
+	eval-paper-b-mock eval-paper-b-trial eval-paper-b-full eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -182,6 +183,21 @@ eval-debate-ollama-fast:
 		--agent-concurrency 1 \
 		--resume \
 		--label debate_balanced90_ollama_r2_bertgate
+
+# Architecture comparison (paper B): every arm on the same cases, same model.
+# Run the arms through these targets rather than by hand - the comparison is only
+# valid if the arms were produced with identical settings.
+eval-paper-b-mock:
+	PY=$(PY) bash scripts/agents/run_paper_b_arms.sh --trial --mock
+	$(PY) scripts/agents/build_paper_b_tables.py --suffix mock
+
+eval-paper-b-trial:
+	PY=$(PY) bash scripts/agents/run_paper_b_arms.sh --trial
+	$(PY) scripts/agents/build_paper_b_tables.py --suffix trial
+
+eval-paper-b-full:
+	PY=$(PY) bash scripts/agents/run_paper_b_arms.sh --full
+	$(PY) scripts/agents/build_paper_b_tables.py --suffix full
 
 eval-medical-suite:
 	PYTHON_BIN=$(PY) scripts/eval/run_medical_eval_suite.sh

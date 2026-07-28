@@ -33,6 +33,19 @@ PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
     ("uncertainty_advocate", "uncertainty_advocate"),
 )
 
+NEUTRAL_PERSONAS: tuple[tuple[str, str], ...] = (
+    ("analyst_1", "neutral_analyst"),
+    ("analyst_2", "neutral_analyst"),
+    ("analyst_3", "neutral_analyst"),
+    ("analyst_4", "neutral_analyst"),
+)
+"""Identical, role-free agents.
+
+Under information asymmetry the agents must differ only in *what data they see*,
+never in *who the prompt tells them to be*. Keeping the panel size at four makes
+the neutral arm cost-comparable to the persona panels above.
+"""
+
 EarlyExitFn = Callable[[int, list[AgentRoundOpinion]], bool]
 
 

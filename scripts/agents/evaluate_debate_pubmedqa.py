@@ -26,6 +26,7 @@ import argparse
 import asyncio
 from collections import Counter
 from dataclasses import asdict, dataclass, field, fields
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -56,6 +57,10 @@ from app.agents.backends import (
 )
 from app.agents.models import AgentRoundOpinion
 from app.agents.evidence_audit import audit_evidence
+from app.agents.metrics import FlipCounts, adoption_rate, flip_counts, rescue_rate, subversion_rate
+from app.agents.supervisor import SupervisorAgent
+from app.agents.supervisor_orchestrator import SupervisorOrchestrator
+from app.agents.token_meter import CountingBackend, total_usage
 from app.agents.uncertainty import calibrate_threshold, compute_uncertainty, risk_coverage_curve
 from app.rag.models import RetrievedDocument
 
@@ -100,10 +105,40 @@ class DebateCaseResult:
     routed_to_maybe: bool = False
     audit_score: float | None = None
     audit_detail: dict[str, Any] = field(default_factory=dict)
+    architecture: str = ""
+    llm_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    tokens_estimated: bool = False
+    flips: dict[str, int] = field(default_factory=dict)
+    adoption: float | None = None
+    supervisor_verdict: dict[str, Any] = field(default_factory=dict)
+    info_exchange: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _validate_args(args: argparse.Namespace) -> None:
+    if args.architecture == "asymmetric" and args.hint == "biolinkbert":
+        raise SystemExit(
+            "--architecture asymmetric is incompatible with --hint biolinkbert: the "
+            "classifier reads the whole abstract, so injecting its verdict into every "
+            "partition hands each agent a summary of the evidence it was supposed to be "
+            "blind to, and there is no information asymmetry left to measure. Drop "
+            "--hint, or use --aggregate-with-biolinkbert to give the signal to the "
+            "supervisor only."
+        )
+    if args.architecture in ("round_robin", "neutral") and args.rounds not in (2, 3):
+        raise SystemExit(
+            f"--rounds {args.rounds} is not supported by --architecture {args.architecture} "
+            "(round-robin debate accepts 2 or 3)."
+        )
+    if args.architecture == "asymmetric" and args.partitions < 2:
+        raise SystemExit("--partitions must be >= 2 for --architecture asymmetric.")
 
 
 def main() -> None:
     args = _parse_args()
+    _validate_args(args)
     cases = _load_cases(args.dataset)
     if args.offset:
         cases = cases[max(args.offset, 0) :]
@@ -147,16 +182,20 @@ def main() -> None:
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
     else:
-        backend = _build_backend(
+        raw_backend = _build_backend(
             args.backend,
             fast=args.fast,
             num_predict=args.num_predict,
         )
+        # Everything the panel spends flows through this meter, so per-case cost
+        # is measured rather than inferred from the number of configured rounds.
+        backend = CountingBackend(raw_backend)
         agents = build_default_agents(
             backend,
             hint_provider=hint_provider if args.hint == "biolinkbert" else NullEvidenceHint(),
             task_mode="pubmedqa",
             compact=args.fast or args.compact,
+            neutral=args.architecture != "round_robin",
         )
         bert_conf_threshold = args.early_exit_bert_confidence
 
@@ -176,12 +215,39 @@ def main() -> None:
                 )
             return True
 
-        orchestrator = DebateOrchestrator(
-            agents,
-            rounds=args.rounds,
-            early_exit=_should_early_exit if args.early_exit else None,
-            agent_concurrency=args.agent_concurrency,
-        )
+        supervisor_meter: CountingBackend | None = None
+        if args.architecture in ("round_robin", "neutral"):
+            orchestrator: Any = DebateOrchestrator(
+                agents,
+                rounds=args.rounds,
+                early_exit=_should_early_exit if args.early_exit else None,
+                agent_concurrency=args.agent_concurrency,
+            )
+        else:
+            # A separate meter so the supervisor's share of the cost is visible
+            # rather than blended into the panel's.
+            supervisor_meter = CountingBackend(
+                _build_backend(
+                    args.backend,
+                    fast=args.fast,
+                    num_predict=args.num_predict,
+                    model=args.supervisor_model,
+                )
+                if args.supervisor_model
+                else raw_backend
+            )
+            orchestrator = SupervisorOrchestrator(
+                agents,
+                SupervisorAgent(supervisor_meter),
+                rounds=args.rounds,
+                anonymize=args.architecture in ("anonymized", "asymmetric"),
+                partitions=args.partitions if args.architecture == "asymmetric" else 0,
+                partition_overlap=args.partition_overlap,
+                max_info_rounds=args.max_info_rounds,
+                agent_concurrency=args.agent_concurrency,
+                early_exit=_should_early_exit if args.early_exit else None,
+                seed=args.uncertainty_seed,
+            )
         audit_backend = None
         if args.audit_model:
             audit_backend = _build_backend("ollama", num_predict=400, model=args.audit_model)
@@ -199,15 +265,18 @@ def main() -> None:
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
                 audit_backend=audit_backend,
+                panel_meter=backend,
+                supervisor_meter=supervisor_meter,
             )
         )
-        rounds = args.rounds
-        aggregation = (
-            f"{args.aggregate_mode}+biolinkbert"
-            if args.aggregate_with_biolinkbert
-            else "confidence_weighted_majority_vote"
-        )
-        architecture = DebateOrchestrator.ARCHITECTURE
+        rounds = orchestrator.rounds
+        if supervisor_meter is not None:
+            aggregation = "supervisor_rigor_checks"
+        elif args.aggregate_with_biolinkbert:
+            aggregation = f"{args.aggregate_mode}+biolinkbert"
+        else:
+            aggregation = "confidence_weighted_majority_vote"
+        architecture = getattr(orchestrator, "ARCHITECTURE", "unknown")
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
         )
@@ -231,6 +300,7 @@ def main() -> None:
         architecture=architecture,
         fast=args.fast,
         early_exit_rate=early_exit_rate,
+        run_config=_run_config(args),
     )
     payload = {"summary": summary, "cases": [asdict(item) for item in results]}
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -350,6 +420,8 @@ _UNCERTAINTY_ROUTING_META: dict[str, Any] = {}
 def _default_label(args: argparse.Namespace) -> str:
     parts = [f"debate_pubmedqa_{args.backend}"]
     if args.backend != "biolinkbert":
+        if args.architecture != "round_robin":
+            parts.append(args.architecture)
         parts.append(f"r{args.rounds}")
     if args.hint == "biolinkbert":
         parts.append("hint")
@@ -432,7 +504,7 @@ def _evaluate_biolinkbert_only(
 
 
 async def _evaluate_debate(
-    orchestrator: DebateOrchestrator,
+    orchestrator: Any,
     cases: list[dict[str, Any]],
     corpus: dict[str, dict[str, Any]],
     *,
@@ -444,13 +516,19 @@ async def _evaluate_debate(
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
     audit_backend: Any = None,
+    panel_meter: CountingBackend | None = None,
+    supervisor_meter: CountingBackend | None = None,
 ) -> list[DebateCaseResult]:
+    architecture = getattr(orchestrator, "ARCHITECTURE", "unknown")
     results: list[DebateCaseResult] = []
     for index, case in enumerate(cases, start=1):
         if case["id"] in prior_results:
             results.append(prior_results[case["id"]])
             print(f"[{index}/{len(cases)}] SKIP id={case['id']} (checkpoint)")
             continue
+        for meter in (panel_meter, supervisor_meter):
+            if meter is not None:
+                meter.reset()
         started = perf_counter()
         docs = _case_documents(case, corpus)
         if hint_provider is not None:
@@ -461,14 +539,24 @@ async def _evaluate_debate(
         hint = hint_provider.last_hint if hint_provider is not None else None
 
         agent_opinions = [entry.opinion for entry in debate.final_opinions]
-        bert_opinion = hint_as_clinical_opinion(hint) if (aggregate_with_biolinkbert and hint) else None
-        predicted, share, rule = aggregate_pubmedqa_decision(
-            agent_opinions,
-            bert_opinion=bert_opinion,
-            mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
-            bert_gate_confidence=bert_gate_confidence,
-            bert_vote_weight=bert_vote_weight,
-        )
+        verdict = getattr(orchestrator, "last_verdict", None)
+        if verdict is not None:
+            # Supervisor architectures decide by rigor check, not by vote, so the
+            # aggregation module is bypassed entirely here.
+            predicted = verdict.label
+            share = orchestrator.verdict_share(verdict)
+            rule = verdict.rule
+        else:
+            bert_opinion = (
+                hint_as_clinical_opinion(hint) if (aggregate_with_biolinkbert and hint) else None
+            )
+            predicted, share, rule = aggregate_pubmedqa_decision(
+                agent_opinions,
+                bert_opinion=bert_opinion,
+                mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
+                bert_gate_confidence=bert_gate_confidence,
+                bert_vote_weight=bert_vote_weight,
+            )
         audit_result = None
         if audit_backend is not None:
             evidence_text = "\n\n".join(
@@ -520,6 +608,12 @@ async def _evaluate_debate(
             base_label=predicted,
             audit_score=audit_result.audit_score if audit_result is not None else None,
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
+            architecture=architecture,
+            **_usage_fields(panel_meter, supervisor_meter),
+            flips=flip_counts(debate.rounds, case["expected_label"]).as_dict(),
+            adoption=adoption_rate(debate.rounds),
+            supervisor_verdict=verdict.as_dict() if verdict is not None else {},
+            info_exchange=list(getattr(orchestrator, "last_exchange", []) or []),
         )
         results.append(result)
         if checkpoint_path is not None:
@@ -535,6 +629,64 @@ async def _evaluate_debate(
         if hint_provider is not None:
             hint_provider.clear_case()
     return results
+
+
+def _sha256(path: Path) -> str:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _run_config(args: argparse.Namespace) -> dict[str, Any]:
+    """Everything needed to reproduce this run, recorded next to its numbers.
+
+    Accuracy figures are only comparable across arms if the model, decoding
+    parameters and data are identical; pinning them in the report is what makes
+    that checkable after the fact instead of a claim in a commit message.
+    """
+    config: dict[str, Any] = {
+        "architecture": args.architecture,
+        "rounds": args.rounds,
+        "agent_concurrency": args.agent_concurrency,
+        "dataset_sha256": _sha256(Path(args.dataset)),
+        "corpus_sha256": _sha256(Path(args.corpus)),
+        "seed": args.uncertainty_seed,
+    }
+    if args.architecture == "asymmetric":
+        config.update(
+            {
+                "partitions": args.partitions,
+                "partition_overlap": args.partition_overlap,
+                "max_info_rounds": args.max_info_rounds,
+            }
+        )
+    if args.backend == "ollama":
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        config.update(
+            {
+                "model": settings.default_model,
+                "supervisor_model": args.supervisor_model or settings.default_model,
+                "num_predict": args.num_predict or (220 if args.fast else settings.ollama_num_predict),
+                "num_ctx": min(max(settings.ollama_num_ctx, 2048), 4096),
+                "agent_temperature": 0.1,
+            }
+        )
+    return config
+
+
+def _usage_fields(*meters: CountingBackend | None) -> dict[str, Any]:
+    """Cost columns for one case; zeros when no meter is attached."""
+    usage = total_usage(*meters)
+    return {
+        "llm_calls": usage.calls,
+        "prompt_tokens": usage.prompt_tokens,
+        "completion_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+        "tokens_estimated": usage.is_estimated,
+    }
 
 
 def _parse_args() -> argparse.Namespace:
@@ -576,7 +728,43 @@ def _parse_args() -> argparse.Namespace:
         default=3.0,
         help="BioLinkBERT weight in bert_weighted / uncertain bert_gate path",
     )
-    parser.add_argument("--rounds", type=int, default=3, choices=(2, 3))
+    parser.add_argument(
+        "--architecture",
+        choices=("round_robin", "neutral", "supervisor", "anonymized", "asymmetric"),
+        default="round_robin",
+        help=(
+            "Debate architecture. round_robin = the persona-panel baseline (default). "
+            "neutral = same round-robin with role-free agents. supervisor = neutral panel "
+            "closed by a supervisor rigor check instead of a vote. anonymized = supervisor "
+            "with peer identities stripped. asymmetric = anonymized + partitioned evidence "
+            "with InfoNav request routing."
+        ),
+    )
+    parser.add_argument(
+        "--partitions",
+        type=int,
+        default=4,
+        help="Evidence segments for --architecture asymmetric (>=2)",
+    )
+    parser.add_argument(
+        "--partition-overlap",
+        type=int,
+        default=1,
+        help="Sentences each segment borrows from its neighbours (asymmetric only)",
+    )
+    parser.add_argument(
+        "--max-info-rounds",
+        type=int,
+        default=1,
+        help="Information-exchange rounds after the local round (asymmetric only)",
+    )
+    parser.add_argument(
+        "--supervisor-model",
+        type=str,
+        default=None,
+        help="Ollama model for the supervisor (default: same model as the agents)",
+    )
+    parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N cases")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
@@ -766,6 +954,7 @@ def _summarize(
     architecture: str,
     fast: bool,
     early_exit_rate: float,
+    run_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     # When uncertainty routing is active, report metrics on the held-out split
     # only (the calibration split is excluded to keep the numbers leakage-free).
@@ -790,6 +979,10 @@ def _summarize(
             agent_correct.setdefault(agent_id, []).append(label == result.expected_label)
 
     bert_flags = [r.biolinkbert_pass for r in results if r.biolinkbert_pass is not None]
+    counts = [FlipCounts(**r.flips) for r in results if r.flips]
+    adoptions = [r.adoption for r in results if r.adoption is not None]
+    mean_tokens = mean([r.total_tokens for r in results]) if results else 0.0
+    accuracy = sum(1 for r in results if r.label_pass) / n
     return {
         "dataset": dataset,
         "backend": backend,
@@ -803,6 +996,18 @@ def _summarize(
         "unanimous_rate": sum(1 for r in results if r.unanimous_final) / n,
         "early_exit_rate": early_exit_rate,
         "mean_latency_ms": mean([r.latency_ms for r in results]) if results else 0.0,
+        "mean_llm_calls": mean([r.llm_calls for r in results]) if results else 0.0,
+        "mean_total_tokens": mean_tokens,
+        "tokens_estimated": any(r.tokens_estimated for r in results),
+        # Accuracy per unit of spend: the number a cost-matched comparison turns on.
+        "accuracy_per_1k_tokens": (accuracy / (mean_tokens / 1000.0)) if mean_tokens else None,
+        # Reported together on purpose: subversion alone cannot distinguish a
+        # discussion that destroys correct answers from one that merely churns.
+        "subversion_rate": subversion_rate(counts),
+        "rescue_rate": rescue_rate(counts),
+        "net_flip_rate": rescue_rate(counts) - subversion_rate(counts),
+        "adoption_rate": mean(adoptions) if adoptions else None,
+        "run_config": run_config or {},
         "predicted_label_counts": dict(pred_counts),
         "per_label_accuracy": {
             label: (stats["correct"] / stats["support"] if stats["support"] else 0.0)
@@ -830,6 +1035,13 @@ def _summarize(
     }
 
 
+def _fmt(value: Any, spec: str) -> str:
+    """Format a metric, printing `n/a` instead of crashing when it is absent."""
+    if value is None:
+        return "n/a"
+    return format(value, spec)
+
+
 def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -> str:
     lines = [
         "# Multi-Agent Debate PubMedQA Benchmark",
@@ -850,6 +1062,20 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
         f"- Aggregation: `{summary['aggregation']}`",
+        "",
+        "## Cost",
+        "",
+        f"- Mean LLM calls per case: {_fmt(summary.get('mean_llm_calls'), '.2f')}",
+        f"- Mean total tokens per case: {_fmt(summary.get('mean_total_tokens'), '.0f')}"
+        + (" (estimated)" if summary.get("tokens_estimated") else ""),
+        f"- Accuracy per 1k tokens: {_fmt(summary.get('accuracy_per_1k_tokens'), '.4f')}",
+        "",
+        "## Discussion effect",
+        "",
+        f"- Subversion rate (right alone -> wrong after): {_fmt(summary.get('subversion_rate'), '.3f')}",
+        f"- Rescue rate (wrong alone -> right after): {_fmt(summary.get('rescue_rate'), '.3f')}",
+        f"- Net flip rate (rescue - subversion): {_fmt(summary.get('net_flip_rate'), '.3f')}",
+        f"- Adoption rate (moved onto peer majority): {_fmt(summary.get('adoption_rate'), '.3f')}",
         "",
         "## Per-label accuracy",
         "",

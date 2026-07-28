@@ -18,6 +18,13 @@ class ClinicalOpinion(BaseModel):
     sources_used: list[str] = Field(default_factory=list)
     red_flags: list[str] = Field(default_factory=list)
     missing_information: str = Field(default="")
+    information_requests: list[str] = Field(default_factory=list)
+    """Questions this agent needs answered by peers holding other evidence.
+
+    Only populated under information asymmetry, where an agent sees a single
+    segment of the case and must ask for what it cannot see (InfoNav). Stays
+    empty in the shared-context architectures.
+    """
 
 
 class AgentRoundOpinion(BaseModel):
@@ -27,6 +34,8 @@ class AgentRoundOpinion(BaseModel):
     persona: str
     round: int = Field(..., ge=1)
     opinion: ClinicalOpinion
+    segment_id: str = Field(default="")
+    """Which evidence segment the agent could see, "" when it saw everything."""
 
 
 class DebateResult(BaseModel):
