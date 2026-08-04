@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
 import re
+from typing import Any
 
 from app.agents.models import AgentRoundOpinion, ClinicalOpinion
+from app.agents.supervisor_agent import SupervisorAgent
 
 _LABELS = ("yes", "no", "maybe")
 _LABEL_RE = re.compile(r"\b(yes|no|maybe)\b", re.IGNORECASE)
@@ -151,3 +154,41 @@ def aggregate_pubmedqa_decision(
 
 def final_labels_by_agent(entries: list[AgentRoundOpinion]) -> dict[str, str | None]:
     return {entry.agent_id: opinion_label(entry.opinion) for entry in entries}
+
+
+async def aggregate_with_llm_director(
+    patient_case: str,
+    debate_history: list[list[AgentRoundOpinion]],
+    biolinkbert_hint: str,
+    *,
+    supervisor: SupervisorAgent,
+) -> str:
+    """
+    Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
+
+    Returns the Director's `final_label` ("yes" | "no" | "maybe").
+    """
+    transcript_obj: dict[str, Any] = {
+        "patient_case": patient_case,
+        "rounds": [
+            [
+                {
+                    "agent_id": entry.agent_id,
+                    "persona": entry.persona,
+                    "round": entry.round,
+                    "opinion": entry.opinion.model_dump(),
+                }
+                for entry in round_entries
+            ]
+            for round_entries in debate_history
+        ],
+    }
+    debate_transcript = json.dumps(transcript_obj, ensure_ascii=False)
+
+    director_output = await supervisor.synthesize_decision(
+        patient_case=patient_case,
+        debate_transcript=debate_transcript,
+        biolinkbert_hint=biolinkbert_hint,
+    )
+    setattr(supervisor, "last_director_output", director_output)
+    return director_output.final_label

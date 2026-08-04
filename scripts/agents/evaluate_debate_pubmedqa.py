@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.agents import DebateOrchestrator, MockInferenceBackend, build_default_agents, labels_unanimous
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
+    aggregate_with_llm_director,
     final_labels_by_agent,
     majority_vote,
     opinion_label,
@@ -100,10 +101,14 @@ class DebateCaseResult:
     routed_to_maybe: bool = False
     audit_score: float | None = None
     audit_detail: dict[str, Any] = field(default_factory=dict)
+    llm_director_rationale: str | None = None
+    llm_director_consensus_type: str | None = None
 
 
 def main() -> None:
     args = _parse_args()
+    if args.backend == "biolinkbert" and args.aggregate_mode == "llm_director":
+        raise SystemExit("--aggregate-mode llm_director requires a debate backend (mock/ollama), not --backend biolinkbert")
     cases = _load_cases(args.dataset)
     if args.offset:
         cases = cases[max(args.offset, 0) :]
@@ -116,6 +121,7 @@ def main() -> None:
         args.backend == "biolinkbert"
         or args.hint == "biolinkbert"
         or args.aggregate_with_biolinkbert
+        or args.aggregate_mode == "llm_director"
     )
     if need_classifier:
         hint_provider = build_biolinkbert_hint_from_settings()
@@ -202,11 +208,14 @@ def main() -> None:
             )
         )
         rounds = args.rounds
-        aggregation = (
-            f"{args.aggregate_mode}+biolinkbert"
-            if args.aggregate_with_biolinkbert
-            else "confidence_weighted_majority_vote"
-        )
+        if args.aggregate_mode == "llm_director":
+            aggregation = "llm_director"
+        else:
+            aggregation = (
+                f"{args.aggregate_mode}+biolinkbert"
+                if args.aggregate_with_biolinkbert
+                else "confidence_weighted_majority_vote"
+            )
         architecture = DebateOrchestrator.ARCHITECTURE
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
@@ -355,6 +364,8 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append("hint")
     if args.aggregate_with_biolinkbert:
         parts.append(args.aggregate_mode)
+    if args.aggregate_mode == "llm_director":
+        parts.append("llm_director")
     if args.fast:
         parts.append("fast")
     return "_".join(parts)
@@ -460,15 +471,45 @@ async def _evaluate_debate(
         debate = await orchestrator.run(patient_case)
         hint = hint_provider.last_hint if hint_provider is not None else None
 
-        agent_opinions = [entry.opinion for entry in debate.final_opinions]
-        bert_opinion = hint_as_clinical_opinion(hint) if (aggregate_with_biolinkbert and hint) else None
-        predicted, share, rule = aggregate_pubmedqa_decision(
-            agent_opinions,
-            bert_opinion=bert_opinion,
-            mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
-            bert_gate_confidence=bert_gate_confidence,
-            bert_vote_weight=bert_vote_weight,
-        )
+        llm_director_rationale: str | None = None
+        llm_director_consensus_type: str | None = None
+
+        if aggregate_mode == "llm_director":
+            if hint is None:
+                raise SystemExit("--aggregate-mode llm_director requires BioLinkBERT hint")
+            biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+            supervisor = getattr(orchestrator, "supervisor", None)
+            if supervisor is None:
+                raise SystemExit("SupervisorAgent missing from DebateOrchestrator instance")
+
+            predicted = await aggregate_with_llm_director(
+                patient_case=patient_case,
+                debate_history=debate.rounds,
+                biolinkbert_hint=biolinkbert_hint_text,
+                supervisor=supervisor,
+            )
+            director_output = getattr(supervisor, "last_director_output", None)
+            if director_output is not None:
+                llm_director_rationale = director_output.rationale
+                llm_director_consensus_type = director_output.consensus_type
+
+            # Provide a deterministic 1-hot vote share for reporting.
+            share = {lab: (1.0 if lab == predicted else 0.0) for lab in ("yes", "no", "maybe")}
+            rule = "llm_director"
+        else:
+            agent_opinions = [entry.opinion for entry in debate.final_opinions]
+            bert_opinion = (
+                hint_as_clinical_opinion(hint)
+                if (aggregate_with_biolinkbert and hint)
+                else None
+            )
+            predicted, share, rule = aggregate_pubmedqa_decision(
+                agent_opinions,
+                bert_opinion=bert_opinion,
+                mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
+                bert_gate_confidence=bert_gate_confidence,
+                bert_vote_weight=bert_vote_weight,
+            )
         audit_result = None
         if audit_backend is not None:
             evidence_text = "\n\n".join(
@@ -520,6 +561,8 @@ async def _evaluate_debate(
             base_label=predicted,
             audit_score=audit_result.audit_score if audit_result is not None else None,
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
+            llm_director_rationale=llm_director_rationale,
+            llm_director_consensus_type=llm_director_consensus_type,
         )
         results.append(result)
         if checkpoint_path is not None:
@@ -560,7 +603,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--aggregate-mode",
-        choices=("majority", "bert_weighted", "bert_gate"),
+        choices=("majority", "bert_weighted", "bert_gate", "llm_director"),
         default="bert_gate",
         help="How to combine panel + BioLinkBERT (bert_gate recommended)",
     )
@@ -771,7 +814,6 @@ def _summarize(
     # only (the calibration split is excluded to keep the numbers leakage-free).
     routing_meta = dict(_UNCERTAINTY_ROUTING_META)
     report_ids = set(routing_meta.get("report_ids") or [])
-    all_results = results
     if report_ids:
         results = [r for r in results if r.id in report_ids]
 
@@ -881,6 +923,10 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
             f"pred={result.predicted_label} bert={result.biolinkbert_label} "
             f"r1={result.round1_vote_label} rounds={result.rounds_run}{extra}"
         )
+        if result.llm_director_consensus_type or result.llm_director_rationale:
+            lines.append(
+                f"  llm_director: consensus_type={result.llm_director_consensus_type} rationale={result.llm_director_rationale}"
+            )
     lines.append("")
     return "\n".join(lines)
 

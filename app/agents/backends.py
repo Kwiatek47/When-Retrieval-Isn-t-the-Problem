@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from app.agents.models import ClinicalOpinion
+from app.agents.models import ClinicalOpinion, SafetyOpinion
 from app.rag.models import RetrievedDocument
 from app.schemas import ChatMessage
 
@@ -355,6 +355,41 @@ def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
 def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
     """Coerce common LLM omissions so validation does not crash the debate."""
     payload = dict(data)
+
+    # Special case: `safety_officer` may return SafetyOpinion-only JSON.
+    # We adapt it into a ClinicalOpinion so downstream debate code and
+    # the supervisor safety escalation logic can still read it.
+    if "safety_passed" in payload or "immediate_intervention_required" in payload:
+        red_flags_detected = payload.get("red_flags_detected") or []
+        if isinstance(red_flags_detected, str):
+            red_flags_detected = [red_flags_detected]
+        if not isinstance(red_flags_detected, list):
+            red_flags_detected = []
+        red_flags_detected = [str(x).strip() for x in red_flags_detected if str(x).strip()]
+
+        try:
+            safety_opinion = SafetyOpinion(
+                safety_passed=bool(payload.get("safety_passed")),
+                red_flags_detected=red_flags_detected,
+                immediate_intervention_required=bool(payload.get("immediate_intervention_required")),
+                reasoning=str(payload.get("reasoning") or ""),
+            )
+        except Exception:
+            safety_opinion = None
+
+        if safety_opinion is not None:
+            payload["safety_opinion"] = safety_opinion
+        # Ensure ClinicalOpinion required shape exists.
+        payload.setdefault("top_1_diagnosis", "maybe")
+        payload.setdefault("top_3_differential_diagnoses", ["yes", "no", "maybe"])
+        payload.setdefault("pros", [])
+        payload.setdefault("cons", [])
+        payload.setdefault("required_further_tests", [])
+        payload.setdefault("confidence_level", 0.0)
+        payload.setdefault("sources_used", [])
+        # Mirror safety audit flags into ClinicalOpinion.red_flags.
+        payload["red_flags"] = red_flags_detected
+        payload.setdefault("missing_information", "")
     top = str(payload.get("top_1_diagnosis") or "").strip()
     if not top:
         # Sometimes models put the label only in differentials / free text.

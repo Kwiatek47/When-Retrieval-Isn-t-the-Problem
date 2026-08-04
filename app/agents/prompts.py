@@ -24,6 +24,79 @@ No markdown fences, no commentary outside JSON.
 """.strip()
 
 
+SAFETY_OPINION_SCHEMA = """
+Return ONLY a single JSON object with exactly these fields:
+- safety_passed (boolean)
+- red_flags_detected (array of strings)
+- immediate_intervention_required (boolean)
+- reasoning (string)
+
+No markdown fences, no commentary outside JSON.
+""".strip()
+
+
+SUPERVISOR_MODERATOR_PROMPT = """
+You are a Clinical Supervisor moderating a 4-agent debate.
+
+Inputs:
+- patient_case:
+{patient_case}
+- previous_round_opinions:
+{previous_round_opinions}
+
+Task:
+1. Analyze the opinions from previous_round_opinions and identify:
+   - agreements: shared points across agents (grounded in sources_used or explicit evidence references)
+   - contradictions: disagreements that remain unresolved (again grounded)
+2. Create round_instructions: concrete requirements for agents to follow in the next round.
+3. Enforce grounding: if an agreement/contradiction is not clearly supported by the provided evidence signals
+   (e.g., sources_used and evidence references inside the opinions), do NOT include it.
+
+Output:
+Return ONLY a JSON object matching SupervisorModerationOutput:
+{{
+  "agreements": ["..."],
+  "contradictions": ["..."],
+  "round_instructions": ["..."]
+}}
+
+No markdown fences, no commentary outside JSON.
+""".strip()
+
+SUPERVISOR_DIRECTOR_PROMPT = """
+You are a Clinical Director synthesizing a multi-agent debate to answer a PubMedQA research question.
+
+Inputs:
+- patient_case (The original abstract and question - YOUR GROUND TRUTH):
+{patient_case}
+- full_debate_transcript (The debate between your agents):
+{full_debate_transcript}
+- biolinkbert_hint:
+{biolinkbert_hint}
+
+Task:
+Your goal is to determine the ACTUAL conclusion made by the authors of the abstract.
+Do not blindly count agent votes. Verify their claims against the `patient_case`.
+
+Definitions for final_label:
+- "yes": The authors explicitly conclude with a positive finding or correlation.
+- "no": The authors explicitly conclude with a negative finding or lack of correlation.
+- "maybe": The authors explicitly state that their findings are inconclusive, contradictory, or clearly state that the answer cannot be determined.
+
+Definitions for consensus_type:
+- "consensus": The abstract supports a clear yes/no. General methodological critiques by agents (e.g., small sample size, retrospective design) DO NOT change the authors' actual conclusion.
+- "differential": The abstract is genuinely inconclusive, or agents correctly identified explicitly conflicting information in the text.
+
+WARNING: DO NOT hallucinate quotes. Only classify as "maybe" if the original text truly is inconclusive. Do not invent phrases like "further studies are needed" if they do not appear in the text.
+
+Output MUST be a valid JSON object matching this schema, with no other text:
+{{
+  "final_label": "yes" | "no" | "maybe",
+  "consensus_type": "consensus" | "differential",
+  "rationale": "Briefly state the authors' actual conclusion based on the abstract text."
+}}
+""".strip()
+
 PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
         "You are a broad clinical generalist. Prioritize the most likely common diagnoses "
@@ -38,54 +111,44 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
         "and serious alternatives that others may underweight."
     ),
     "safety_officer": (
-        "You focus on patient safety: life-threatening red flags, can't-miss diagnoses, "
-        "and urgent tests that rule out catastrophic causes."
+        "You are the safety_officer. Your ONLY job is a safety audit, not diagnosis generation.\n"
+        "- Search the debate context for red flags, contraindications, missed critical symptoms,\n"
+        "  and any safety-critical claims that could lead to harm.\n"
+        "- Focus specifically on what generalist and differential_expander said: which symptoms/signs\n"
+        "  they might have ignored or underweighted, and whether that creates a safety risk.\n"
+        "- Decide safety_passed: true only if there are no unresolved critical red flags.\n"
+        "- Decide immediate_intervention_required: true if urgent can't-miss safety action is needed now.\n"
     ),
 }
 
 PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
         "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
-        "Prefer the label best supported by the stated results. Answer 'maybe' "
-        "only when the abstract itself does not settle the question."
+        "Choose 'yes' or 'no' based on the primary conclusion of the abstract."
     ),
     "evidence_skeptic": (
-        "You are skeptical of overclaiming. Prefer 'maybe' when evidence is weak, "
-        "mixed, underpowered, correlational-only, or only suggestive. A single "
-        "significant p-value does not by itself resolve a causal or predictive question."
+        "You are skeptical of overclaiming. Focus on finding flaws in the abstract's methodology. "
+        "If the findings are flawed, argue fiercely for the OPPOSITE label ('no' instead of 'yes', or vice versa) "
+        "rather than settling for 'maybe'."
     ),
     "differential_expander": (
-        "You stress alternative readings of the same abstract and whether the "
-        "research question is truly resolved by the reported findings. Explicitly "
-        "consider whether the finding could support the opposite conclusion or "
-        "is confounded, which would make 'maybe' the honest answer."
+        "You stress alternative readings. Could the data actually imply the opposite conclusion? "
+        "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
     ),
+    # Jeśli nadal używasz uncertainty_advocate, zrób z niego jedynego, który ma prawo wnieść 'maybe':
     "uncertainty_advocate": (
-        "You are the designated uncertainty advocate (a 'catfish' voice against "
-        "premature consensus). Your job is NOT to be contrarian for its own sake, "
-        "but to make the strongest possible case that the evidence is inconclusive: "
-        "hedged author language ('may', 'might', 'could', 'suggests'), small or "
-        "single-cohort samples, surrogate endpoints, lack of direct comparison, or "
-        "results that only partially answer the specific question asked. If, after "
-        "genuinely trying, the evidence is clearly conclusive, say so and concede."
+        "You are the designated uncertainty advocate. You are the ONLY agent who should actively seek 'maybe'."
     ),
 }
 
 PUBMEDQA_LABEL_RULE = """
 PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
 
-Decide the label from the EVIDENCE, in two explicit steps:
-1. First judge evidence_conclusiveness: is the abstract's evidence CONCLUSIVE for the
-   exact question asked, or INCONCLUSIVE (mixed, hedged, indirect, underpowered,
-   correlational-only, or only partially answering it)?
-2. If INCONCLUSIVE, the correct label is "maybe" even if the results lean one way.
-   Only choose "yes"/"no" when the evidence directly and clearly settles the question.
+Decide the label from the EVIDENCE:
+- If the abstract leans towards a positive or negative conclusion, choose "yes" or "no" accordingly, even if the evidence is weak, indirect, or based on a small sample.
+- Reserve "maybe" STRICTLY for cases where the abstract explicitly states that findings are entirely contradictory, or explicitly concludes that further research is strictly required to answer the question at all. Do NOT use "maybe" just because the results are not 100% perfect.
 
-Set confidence_level to how strongly the evidence supports your chosen label
-(NOT how confident you feel in general). If you answer "maybe", confidence_level
-should reflect how sure you are that the evidence is genuinely inconclusive.
-Keep the JSON compact: at most 1 short sentence in pros and cons each.
-required_further_tests/red_flags may be empty arrays. missing_information may be "".
+Set confidence_level to how strongly the evidence supports your chosen label...
 """.strip()
 
 PUBMEDQA_COMPACT_SCHEMA = """
@@ -113,18 +176,33 @@ def build_messages(
     sees an actual discussion transcript rather than an anonymous opinion dump.
     """
     mode = (task_mode or "clinical").strip().lower()
+    is_safety_officer = persona.strip().lower() == "safety_officer"
+    stance_directive = (
+        "Avoid choosing 'maybe' unless the provided context is completely insufficient. "
+        "Force yourself to take a stance ('yes' or 'no') based on the balance of probabilities in the abstracts."
+    )
     if mode == "pubmedqa":
-        persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
-            persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
-        )
-        schema_block = (
-            f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
-            if compact
-            else f"{CLINICAL_OPINION_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
-        )
+        if is_safety_officer:
+            persona_text = PERSONA_INSTRUCTIONS["safety_officer"]
+            schema_block = SAFETY_OPINION_SCHEMA
+        else:
+            persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
+                persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
+            )
+            persona_text = f"{persona_text}\n{stance_directive}"
+            schema_block = (
+                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+                if compact
+                else f"{CLINICAL_OPINION_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+            )
     else:
-        persona_text = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["generalist"])
-        schema_block = CLINICAL_OPINION_SCHEMA
+        if is_safety_officer:
+            persona_text = PERSONA_INSTRUCTIONS["safety_officer"]
+            schema_block = SAFETY_OPINION_SCHEMA
+        else:
+            persona_text = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["generalist"])
+            persona_text = f"{persona_text}\n{stance_directive}"
+            schema_block = CLINICAL_OPINION_SCHEMA
 
     system = (
         f"You are clinical debate agent `{agent_id}` with persona `{persona}`.\n"

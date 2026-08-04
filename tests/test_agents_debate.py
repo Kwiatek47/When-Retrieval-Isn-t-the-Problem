@@ -40,6 +40,7 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
             set(payload.keys()),
             {
                 "top_1_diagnosis",
+                "evidence_conclusiveness",
                 "top_3_differential_diagnoses",
                 "pros",
                 "cons",
@@ -48,6 +49,7 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
                 "sources_used",
                 "red_flags",
                 "missing_information",
+                "safety_opinion",
             },
         )
 
@@ -91,7 +93,8 @@ class DebateOrchestratorTests(unittest.TestCase):
         class SpyBackend(MockInferenceBackend):
             async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
                 user = next(m.content for m in messages if m.role == "user")
-                peer_flags.append("PEER OPINIONS" in user)
+                if "PATIENT CASE:" in user:
+                    peer_flags.append("PEER OPINIONS" in user)
                 return await super().complete(messages, temperature=temperature)
 
         agents = build_default_agents(SpyBackend())
@@ -132,25 +135,39 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(result.rounds), 1)
         self.assertEqual(orch.early_exits, 1)
 
-    def test_round_robin_context_grows_within_round(self) -> None:
-        """Round 2+ is a true round-robin: later speakers see earlier speakers' turns."""
+    def test_supervisor_instructions_injected_on_round_2(self) -> None:
+        """Round 2+ prompts include moderation instructions from the Supervisor."""
         captured: list[str] = []
 
         class SpyBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(
+                self, messages: list[ChatMessage], *, temperature: float = 0.3
+            ) -> str:
                 user = next(m.content for m in messages if m.role == "user")
-                captured.append(user)
+                if "PATIENT CASE:" in user:
+                    captured.append(user)
                 return await super().complete(messages, temperature=temperature)
 
         agents = build_default_agents(SpyBackend())
         asyncio.run(DebateOrchestrator(agents, rounds=2).run(SAMPLE_CASE))
 
         self.assertEqual(len(captured), 8)
+        round1_calls = captured[:4]
         round2_calls = captured[4:]
-        peer_counts = [call.count('"agent_id":') for call in round2_calls]
-        # Each round-2 speaker sees the 3 other peers from round 1, plus everyone
-        # who has already taken their turn this round (0, then 1, then 2, then 3).
-        self.assertEqual(peer_counts, [3, 4, 5, 6])
+
+        self.assertTrue(
+            all(
+                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" not in call
+                for call in round1_calls
+            )
+        )
+        self.assertTrue(
+            all(
+                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy"
+                in call
+                for call in round2_calls
+            )
+        )
 
     def test_orchestrator_round_survives_one_agent_backend_failure(self) -> None:
         """A single flaky backend must not crash the whole debate round."""

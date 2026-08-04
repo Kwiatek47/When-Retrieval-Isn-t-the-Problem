@@ -25,6 +25,7 @@ from app.agents.orchestrator import (
     DebateOrchestrator,
     labels_unanimous,
 )
+from app.agents.supervisor_agent import SupervisorAgent
 
 __all__ = [
     "AgentRoundOpinion",
@@ -49,6 +50,7 @@ __all__ = [
     "labels_unanimous",
     "majority_vote",
     "opinion_label",
+    "SupervisorAgent",
 ]
 
 

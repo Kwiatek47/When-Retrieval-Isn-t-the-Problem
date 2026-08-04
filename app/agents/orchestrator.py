@@ -1,23 +1,16 @@
-"""Round-robin, supervisor-free debate orchestrator (MAC / MedAgent style rounds).
-
-This is the *baseline* multi-agent architecture: a fixed panel of persona
-agents debates a case with no supervisor/moderator mediating between them.
-It is intentionally the simplest architecture in this package so future
-variants (e.g. a supervisor that mediates turns, synthesizes a final answer,
-or dynamically routes to specialists) have a stable interface to implement:
-any orchestrator that exposes `async def run(patient_case: str) -> DebateResult`
-can be swapped in wherever `DebateOrchestrator` is used today (CLI demo, eval
-harness, and eventually the API).
-"""
+"""Debate orchestrator with active supervisor moderation (MAC / MedAgent style rounds)."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+import json
+from typing import Any
 
 from app.agents.agent import ClinicalAgent
 from app.agents.aggregation import opinion_label
-from app.agents.models import AgentRoundOpinion, DebateResult
+from app.agents.models import AgentRoundOpinion, ClinicalOpinion, DebateResult
+from app.agents.supervisor_agent import SupervisorAgent
 
 DEFAULT_PERSONAS: tuple[tuple[str, str], ...] = (
     ("generalist", "generalist"),
@@ -51,12 +44,11 @@ class DebateOrchestrator:
     those rounds run sequentially rather than concurrently: turn N depends on
     turn N-1's output.
 
-    No supervisor: after the final round, returns full history and each
-    agent's last opinion. Optional early-exit skips later rounds when the
-    panel already agrees.
+    Active supervisor moderation is applied before every round > 1.
+    Optional early-exit skips later rounds when the panel already agrees.
     """
 
-    ARCHITECTURE: str = "round_robin_no_supervisor"
+    ARCHITECTURE: str = "supervised_moderation"
 
     def __init__(
         self,
@@ -77,20 +69,44 @@ class DebateOrchestrator:
         self.early_exit = early_exit
         self.agent_concurrency = agent_concurrency
         self.early_exits = 0
+        self.supervisor = SupervisorAgent(backend=agents[0].backend)
 
     async def run(self, patient_case: str) -> DebateResult:
         history: list[list[AgentRoundOpinion]] = []
+        supervisor_moderation: list = []
+        pending_red_flag_instruction: str | None = None
 
         for round_number in range(1, self.rounds + 1):
             if round_number == 1:
                 round_opinions = await self._run_independent_round(patient_case)
             else:
-                round_opinions = await self._run_round_robin_round(
-                    patient_case,
+                previous_round = history[-1]
+                agents_opinions = {
+                    entry.agent_id: entry.opinion.model_dump() for entry in previous_round
+                }
+                moderation = await self.supervisor.moderate_round(
+                    patient_case=patient_case,
+                    agents_opinions=agents_opinions,
+                )
+                if pending_red_flag_instruction:
+                    moderation.round_instructions.insert(0, pending_red_flag_instruction)
+
+                supervisor_moderation.append(moderation)
+
+                supervisor_context = _moderation_as_supervisor_context(
+                    moderation_output=moderation,
                     round_number=round_number,
-                    previous_round=history[-1],
+                )
+                round_opinions = await self._run_moderated_round(
+                    patient_case=patient_case,
+                    round_number=round_number,
+                    supervisor_context=supervisor_context,
                 )
             history.append(round_opinions)
+
+            # Safety escalation: apply to the *next* moderation call.
+            pending_red_flag_instruction = _pending_red_flag_instruction(round_opinions)
+
             if (
                 round_number < self.rounds
                 and self.early_exit is not None
@@ -103,6 +119,7 @@ class DebateOrchestrator:
             patient_case=patient_case,
             rounds=history,
             final_opinions=history[-1],
+            supervisor_moderation=supervisor_moderation,
         )
 
     async def _run_independent_round(self, patient_case: str) -> list[AgentRoundOpinion]:
@@ -122,13 +139,28 @@ class DebateOrchestrator:
         round_number: int,
         previous_round: list[AgentRoundOpinion],
     ) -> list[AgentRoundOpinion]:
-        """Round 2+: agents take turns in order, each seeing all turns so far."""
-        spoken_so_far: list[AgentRoundOpinion] = []
-        for agent in self.agents:
-            context = _round_robin_context(agent.agent_id, previous_round, spoken_so_far)
-            entry = await self._speak(agent, patient_case, round_number=round_number, context=context)
-            spoken_so_far.append(entry)
-        return spoken_so_far
+        raise NotImplementedError("round-robin is replaced by supervisor moderation")
+
+    async def _run_moderated_round(
+        self,
+        *,
+        patient_case: str,
+        round_number: int,
+        supervisor_context: list[AgentRoundOpinion],
+    ) -> list[AgentRoundOpinion]:
+        """Round 2+: run all agents concurrently using only supervisor instructions context."""
+        semaphore = asyncio.Semaphore(self.agent_concurrency)
+
+        async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
+            async with semaphore:
+                return await self._speak(
+                    agent,
+                    patient_case,
+                    round_number=round_number,
+                    context=supervisor_context,
+                )
+
+        return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
     async def _speak(
         self,
@@ -162,3 +194,62 @@ def _round_robin_context(
     previous_peers = [entry for entry in previous_round if entry.agent_id != agent_id]
     current_peers = [entry for entry in spoken_so_far if entry.agent_id != agent_id]
     return previous_peers + current_peers
+
+
+def _pending_red_flag_instruction(round_opinions: list[AgentRoundOpinion]) -> str | None:
+    """
+    If safety_officer reports a critical safety situation, return a high-priority
+    instruction to prepend to the next supervisor moderation output.
+    """
+    for entry in round_opinions:
+        if entry.agent_id != "safety_officer":
+            continue
+        safety = getattr(entry.opinion, "safety_opinion", None)
+        if safety is None:
+            continue
+        if not safety.safety_passed and safety.immediate_intervention_required:
+            red_flags = safety.red_flags_detected or []
+            flags_text = ", ".join(red_flags) if red_flags else "critical safety concern"
+            return (
+                f"RED FLAG DETECTED: {flags_text}. "
+                f"Safety officer reasoning: {safety.reasoning}".strip()
+            )
+    return None
+
+
+def _moderation_as_supervisor_context(
+    moderation_output: Any,
+    round_number: int,
+) -> list[AgentRoundOpinion]:
+    moderation_payload = (
+        moderation_output.model_dump()
+        if hasattr(moderation_output, "model_dump")
+        else moderation_output
+    )
+    moderation_json = json.dumps(moderation_payload, ensure_ascii=False)
+
+    instruction = (
+        "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy: "
+        + moderation_json
+        + ". Odpowiedz na nie"
+    )
+
+    supervisor_opinion = ClinicalOpinion(
+        top_1_diagnosis="maybe",
+        evidence_conclusiveness="inconclusive",
+        top_3_differential_diagnoses=["yes", "no", "maybe"],
+        pros=[instruction],
+        cons=[],
+        required_further_tests=[],
+        confidence_level=0.0,
+        sources_used=[],
+        red_flags=[],
+        missing_information="",
+    )
+    supervisor_entry = AgentRoundOpinion(
+        agent_id="supervisor",
+        persona="supervisor",
+        round=round_number,
+        opinion=supervisor_opinion,
+    )
+    return [supervisor_entry]
