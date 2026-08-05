@@ -239,6 +239,7 @@ class OllamaInferenceBackend:
         self._provider = provider
         self._model = model
         self._temperature = temperature
+        self.base_url = str(getattr(provider, "base_url", "") or "")
 
     async def complete(self, messages: list[ChatMessage], *, temperature: float | None = None) -> str:
         response = await self._provider.chat(
@@ -247,6 +248,23 @@ class OllamaInferenceBackend:
             temperature=self._temperature if temperature is None else temperature,
         )
         return response.message.content
+
+
+def parse_ollama_base_urls(raw: str | None, *, default: str = "http://localhost:11434") -> list[str]:
+    """Parse comma-separated Ollama base URLs; empty input returns ``[default]``."""
+    fallback = (default or "http://localhost:11434").strip().rstrip("/")
+    if not raw or not str(raw).strip():
+        return [fallback]
+    urls = [part.strip().rstrip("/") for part in str(raw).split(",") if part.strip()]
+    return urls or [fallback]
+
+
+def sticky_ollama_url(urls: list[str], case_index: int) -> str:
+    """Assign a case to a stable Ollama URL (1-based case index)."""
+    if not urls:
+        raise ValueError("urls must be non-empty")
+    idx = max(case_index, 1) - 1
+    return urls[idx % len(urls)]
 
 
 def _extract_between(text: str, start: str, end: str) -> str:

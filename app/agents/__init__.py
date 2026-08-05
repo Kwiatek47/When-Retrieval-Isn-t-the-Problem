@@ -17,13 +17,18 @@ from app.agents.backends import (
     OllamaInferenceBackend,
     build_biolinkbert_hint_from_settings,
     hint_as_clinical_opinion,
+    parse_ollama_base_urls,
+    sticky_ollama_url,
 )
 from app.agents.models import AgentRoundOpinion, ClinicalOpinion, DebateResult
 from app.agents.orchestrator import (
     DEFAULT_PERSONAS,
     PUBMEDQA_PERSONAS,
     DebateOrchestrator,
+    abstract_suggests_inconclusive,
+    check_early_exit_asymmetric_veto,
     labels_unanimous,
+    should_continue_debate,
 )
 from app.agents.supervisor_agent import SupervisorAgent
 
@@ -43,13 +48,18 @@ __all__ = [
     "NullEvidenceHint",
     "OllamaInferenceBackend",
     "aggregate_pubmedqa_decision",
+    "abstract_suggests_inconclusive",
     "build_biolinkbert_hint_from_settings",
     "build_default_agents",
+    "check_early_exit_asymmetric_veto",
     "extract_label",
     "hint_as_clinical_opinion",
     "labels_unanimous",
     "majority_vote",
     "opinion_label",
+    "parse_ollama_base_urls",
+    "should_continue_debate",
+    "sticky_ollama_url",
     "SupervisorAgent",
 ]
 

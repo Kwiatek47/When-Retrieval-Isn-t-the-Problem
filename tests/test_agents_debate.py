@@ -114,17 +114,81 @@ class DebateOrchestratorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DebateOrchestrator(agents, rounds=1)
         with self.assertRaises(ValueError):
-            DebateOrchestrator(agents, rounds=4)
+            DebateOrchestrator(agents, rounds=6)
+
+    def test_allows_up_to_five_rounds(self) -> None:
+        agents = build_default_agents(MockInferenceBackend())
+        orch = DebateOrchestrator(agents, rounds=5)
+        self.assertEqual(orch.max_rounds, 5)
+        result = asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertEqual(len(result.rounds), 5)
+
+    def test_adaptive_rounds_stops_after_min_when_unanimous(self) -> None:
+        class UnanimousBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                return ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    evidence_conclusiveness="conclusive",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.9,
+                    sources_used=["abstract"],
+                ).model_dump_json()
+
+        agents = build_default_agents(UnanimousBackend(), task_mode="pubmedqa")
+        orch = DebateOrchestrator(
+            agents,
+            adaptive_rounds=True,
+            min_rounds=2,
+            max_rounds=5,
+            debate_mode="peer",
+        )
+        result = asyncio.run(
+            orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nvaluable")
+        )
+        self.assertEqual(len(result.rounds), 2)
+        self.assertEqual(orch.adaptive_stops, 1)
+
+    def test_adaptive_rounds_continues_on_conflict(self) -> None:
+        class AlternatingBackend(MockInferenceBackend):
+            def __init__(self) -> None:
+                self.n = 0
+
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                self.n += 1
+                label = "yes" if self.n % 2 else "no"
+                return ClinicalOpinion(
+                    top_1_diagnosis=label,
+                    evidence_conclusiveness="inconclusive",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.5,
+                    sources_used=["abstract"],
+                ).model_dump_json()
+
+        agents = build_default_agents(AlternatingBackend(), task_mode="pubmedqa")
+        orch = DebateOrchestrator(
+            agents,
+            adaptive_rounds=True,
+            min_rounds=2,
+            max_rounds=4,
+            debate_mode="peer",
+        )
+        result = asyncio.run(
+            orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nmixed")
+        )
+        self.assertEqual(len(result.rounds), 4)
+        self.assertEqual(orch.adaptive_stops, 0)
 
     def test_early_exit_skips_later_rounds(self) -> None:
-        from app.agents.orchestrator import labels_unanimous
+        from app.agents.orchestrator import check_early_exit_asymmetric_veto
 
-        agents = build_default_agents(MockInferenceBackend(), task_mode="pubmedqa")
+        def stop_after_round1(
+            round_number: int, opinions: list, patient_case: str
+        ) -> bool:
+            return round_number == 1 and check_early_exit_asymmetric_veto(
+                opinions, patient_case=patient_case
+            )
 
-        def stop_after_round1(round_number: int, opinions: list) -> bool:
-            return round_number == 1 and labels_unanimous(opinions)
-
-        # Force unanimous labels via a custom backend.
+        # Force unanimous high-confidence yes via a custom backend.
         class UnanimousBackend(MockInferenceBackend):
             async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
                 from app.agents.models import ClinicalOpinion
@@ -140,6 +204,122 @@ class DebateOrchestratorTests(unittest.TestCase):
         result = asyncio.run(orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nvaluable"))
         self.assertEqual(len(result.rounds), 1)
         self.assertEqual(orch.early_exits, 1)
+
+    def test_asymmetric_veto_blocks_maybe_and_low_confidence(self) -> None:
+        from app.agents.models import AgentRoundOpinion
+        from app.agents.orchestrator import check_early_exit_asymmetric_veto
+
+        def _entry(agent_id: str, label: str, confidence: float) -> AgentRoundOpinion:
+            return AgentRoundOpinion(
+                agent_id=agent_id,
+                persona=agent_id,
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis=label,
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=confidence,
+                ),
+            )
+
+        panel_yes = [
+            _entry("generalist", "yes", 0.9),
+            _entry("evidence_skeptic", "yes", 0.85),
+            _entry("differential_expander", "yes", 0.8),
+            _entry("uncertainty_advocate", "yes", 0.9),
+        ]
+        self.assertTrue(check_early_exit_asymmetric_veto(panel_yes))
+
+        advocate_maybe = list(panel_yes)
+        advocate_maybe[-1] = _entry("uncertainty_advocate", "maybe", 0.9)
+        self.assertFalse(check_early_exit_asymmetric_veto(advocate_maybe))
+
+        advocate_low_conf = list(panel_yes)
+        advocate_low_conf[-1] = _entry("uncertainty_advocate", "yes", 0.5)
+        self.assertFalse(check_early_exit_asymmetric_veto(advocate_low_conf))
+
+        unanimous_maybe = [
+            _entry("generalist", "maybe", 0.9),
+            _entry("evidence_skeptic", "maybe", 0.9),
+            _entry("differential_expander", "maybe", 0.9),
+            _entry("uncertainty_advocate", "maybe", 0.9),
+        ]
+        self.assertFalse(check_early_exit_asymmetric_veto(unanimous_maybe))
+
+        # Without advocate, binary unanimity alone is enough.
+        no_advocate = panel_yes[:3]
+        self.assertTrue(check_early_exit_asymmetric_veto(no_advocate))
+
+        # Keyword heuristic blocks early-exit even on unanimous yes.
+        self.assertFalse(
+            check_early_exit_asymmetric_veto(
+                panel_yes,
+                patient_case="EVIDENCE: Further research is needed before conclusions.",
+            )
+        )
+
+    def test_blind_critic_hides_hint_from_advocate_in_round1(self) -> None:
+        from app.agents.agent import ClinicalAgent
+        from app.agents.backends import EvidenceHint
+
+        flags: dict[str, list[bool]] = {}
+
+        class SpyAgent(ClinicalAgent):
+            async def generate_opinion(
+                self,
+                patient_case: str,
+                context=None,
+                *,
+                include_evidence_hint: bool = True,
+            ):
+                flags.setdefault(self.agent_id, []).append(include_evidence_hint)
+                return await super().generate_opinion(
+                    patient_case,
+                    context=context,
+                    include_evidence_hint=include_evidence_hint,
+                )
+
+        class StaticHint:
+            def get_hint(self, patient_case: str) -> EvidenceHint | None:
+                return EvidenceHint(label="yes", confidence=0.95, model_path="test")
+
+        backend = MockInferenceBackend()
+        hint = StaticHint()
+        agents = [
+            SpyAgent(
+                agent_id=aid,
+                persona=persona,
+                backend=backend,
+                hint_provider=hint,  # type: ignore[arg-type]
+                task_mode="pubmedqa",
+            )
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
+            )
+        ]
+        orch = DebateOrchestrator(agents, rounds=2, debate_mode="peer")
+        asyncio.run(orch.run("RESEARCH QUESTION:\nQ?\nEVIDENCE:\nstrong result"))
+
+        self.assertEqual(flags["generalist"][0], True)
+        self.assertEqual(flags["differential_expander"][0], True)
+        self.assertEqual(flags["uncertainty_advocate"][0], False)
+        # Round 2: advocate sees hint again.
+        self.assertEqual(flags["uncertainty_advocate"][1], True)
+
+    def test_abstract_suggests_inconclusive(self) -> None:
+        from app.agents.orchestrator import abstract_suggests_inconclusive
+
+        self.assertTrue(
+            abstract_suggests_inconclusive("Due to small sample size, results are tentative.")
+        )
+        self.assertTrue(
+            abstract_suggests_inconclusive("LIMITATION: selection bias may affect results.")
+        )
+        self.assertFalse(
+            abstract_suggests_inconclusive("A large RCT showed a clear benefit.")
+        )
 
     def test_supervisor_uses_optional_separate_backend(self) -> None:
         agent_backend = MockInferenceBackend()
@@ -442,6 +622,27 @@ class AggregationTests(unittest.TestCase):
         )
         self.assertEqual(decision.mode, "consensus")
         self.assertEqual(decision.final_label, "yes")
+
+
+class MultiOllamaHelpersTests(unittest.TestCase):
+    def test_parse_ollama_base_urls(self) -> None:
+        from app.agents.backends import parse_ollama_base_urls, sticky_ollama_url
+
+        self.assertEqual(
+            parse_ollama_base_urls(None, default="http://localhost:11434"),
+            ["http://localhost:11434"],
+        )
+        self.assertEqual(
+            parse_ollama_base_urls(
+                "http://127.0.0.1:11434, http://127.0.0.1:11435/",
+                default="http://localhost:11434",
+            ),
+            ["http://127.0.0.1:11434", "http://127.0.0.1:11435"],
+        )
+        urls = ["http://a:1", "http://b:2", "http://c:3"]
+        self.assertEqual(sticky_ollama_url(urls, 1), "http://a:1")
+        self.assertEqual(sticky_ollama_url(urls, 2), "http://b:2")
+        self.assertEqual(sticky_ollama_url(urls, 4), "http://a:1")
 
 
 class PubmedqaDebateTests(unittest.TestCase):

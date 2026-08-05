@@ -42,6 +42,8 @@ class ClinicalAgent:
         self,
         patient_case: str,
         context: list[AgentRoundOpinion] | None = None,
+        *,
+        include_evidence_hint: bool = True,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -51,11 +53,18 @@ class ClinicalAgent:
         finals plus anyone who has already spoken this round) to critique
         and revise.
 
+        Set ``include_evidence_hint=False`` to hide BioLinkBERT (e.g. blind
+        ``uncertainty_advocate`` in round 1).
+
         Never raises: backend failures (timeout, connection error, invalid
         JSON after one repair attempt) degrade to a low-confidence fallback
         opinion so a single flaky agent cannot crash the whole debate round.
         """
-        hint = self.hint_provider.get_hint(patient_case)
+        hint = (
+            self.hint_provider.get_hint(patient_case)
+            if include_evidence_hint
+            else None
+        )
         messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,

@@ -131,6 +131,21 @@ ssh -L 8000:127.0.0.1:8000 your_user@SERVER_IP
 
 Then open `http://127.0.0.1:8000`.
 
+### Multi-Ollama (multi-GPU debate benchmarks)
+
+To spread PubMedQA debate cases across several GPUs, start one Ollama per GPU and pass the pool to the eval script:
+
+```bash
+# Example: GPUs 1,2,3 on ports 11434-11436
+scripts/agents/start_multi_ollama.sh 1,2,3 11434
+
+# In the benchmark command:
+--ollama-base-urls http://127.0.0.1:11434,http://127.0.0.1:11435,http://127.0.0.1:11436 \
+--case-concurrency 3
+```
+
+Cases are sticky-assigned round-robin to URLs (case 1→GPU1, case 2→GPU2, ...). Set `OLLAMA_NUM_PARALLEL` before starting the servers. Stop with `kill $(cat /tmp/ollama_multi/ollama_*.pid)`.
+
 ## Local Commands
 
 ```bash

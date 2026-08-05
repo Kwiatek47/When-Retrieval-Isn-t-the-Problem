@@ -47,14 +47,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.agents import DebateOrchestrator, MockInferenceBackend, build_default_agents, labels_unanimous
+from app.agents import (
+    DebateOrchestrator,
+    MockInferenceBackend,
+    build_default_agents,
+    check_early_exit_asymmetric_veto,
+)
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
     aggregate_with_llm_director,
     build_consensus_decision,
     final_labels_by_agent,
     majority_vote,
-    opinion_label,
 )
 from app.agents.backends import (
     BioLinkBERTHintProvider,
@@ -63,6 +67,8 @@ from app.agents.backends import (
     OllamaInferenceBackend,
     build_biolinkbert_hint_from_settings,
     hint_as_clinical_opinion,
+    parse_ollama_base_urls,
+    sticky_ollama_url,
 )
 from app.agents.models import AgentRoundOpinion
 from app.agents.evidence_audit import audit_evidence
@@ -131,6 +137,10 @@ def main() -> None:
     args = _parse_args()
     if args.no_supervisor_moderation:
         args.debate_mode = "peer"
+    if args.max_rounds is None:
+        args.max_rounds = args.rounds
+    if args.adaptive_rounds and args.min_rounds > args.max_rounds:
+        raise SystemExit("--min-rounds cannot exceed --max-rounds")
     if args.backend == "biolinkbert" and args.aggregate_mode == "llm_director":
         raise SystemExit("--aggregate-mode llm_director requires a debate backend (mock/ollama), not --backend biolinkbert")
     cases = _load_cases(args.dataset)
@@ -177,52 +187,87 @@ def main() -> None:
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
     else:
-        backend = _build_backend(
-            args.backend,
-            fast=args.fast,
-            num_predict=args.num_predict,
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        ollama_urls = parse_ollama_base_urls(
+            args.ollama_base_urls,
+            default=settings.ollama_base_url,
         )
-        supervisor_backend = None
-        if args.supervisor_model:
-            if args.backend != "ollama":
-                raise SystemExit("--supervisor-model requires --backend ollama")
-            supervisor_backend = _build_backend(
-                "ollama",
-                fast=args.fast,
-                num_predict=args.num_predict,
-                model=args.supervisor_model,
+        if args.backend == "ollama":
+            print(f"Ollama pool ({len(ollama_urls)}): {', '.join(ollama_urls)}")
+
+        backend_cache: dict[tuple[str, str, str, str], MockInferenceBackend | OllamaInferenceBackend] = {}
+
+        def _cached_backend(
+            *,
+            base_url: str,
+            model: str | None = None,
+            num_predict: int | None = None,
+            quiet: bool = True,
+        ) -> MockInferenceBackend | OllamaInferenceBackend:
+            model_name = model or settings.default_model
+            predict_key = (
+                str(num_predict)
+                if num_predict is not None
+                else str(args.num_predict)
             )
+            key = (base_url, model_name, predict_key, str(bool(args.fast)))
+            if key not in backend_cache:
+                backend_cache[key] = _build_backend(
+                    args.backend,
+                    fast=args.fast,
+                    num_predict=num_predict if num_predict is not None else args.num_predict,
+                    model=model,
+                    base_url=base_url,
+                    quiet=quiet,
+                )
+            return backend_cache[key]
+
+        if args.supervisor_model and args.backend != "ollama":
+            raise SystemExit("--supervisor-model requires --backend ollama")
+        if args.supervisor_model:
             print(f"Supervisor model={args.supervisor_model}")
-        def _build_orchestrator(case_hint_provider: Any) -> DebateOrchestrator:
+
+        def _build_orchestrator(
+            case_hint_provider: Any,
+            case_index: int = 1,
+        ) -> DebateOrchestrator:
+            base_url = sticky_ollama_url(ollama_urls, case_index)
+            backend = _cached_backend(base_url=base_url)
+            supervisor_backend = None
+            if args.supervisor_model:
+                supervisor_backend = _cached_backend(
+                    base_url=base_url,
+                    model=args.supervisor_model,
+                )
             agents = build_default_agents(
                 backend,
                 hint_provider=case_hint_provider,
                 task_mode="pubmedqa",
                 compact=args.fast or args.compact,
             )
-            bert_conf_threshold = args.early_exit_bert_confidence
-
             def _should_early_exit(
-                round_number: int, round_opinions: list[AgentRoundOpinion]
+                round_number: int,
+                round_opinions: list[AgentRoundOpinion],
+                patient_case: str,
             ) -> bool:
-                if not args.early_exit:
+                if not args.early_exit or round_number < 1:
                     return False
-                if round_number < 1:
-                    return False
-                if not labels_unanimous(round_opinions):
-                    return False
-                hint = case_hint_provider.get_hint("")
-                if hint is not None:
-                    panel_label = opinion_label(round_opinions[0].opinion)
-                    return (
-                        panel_label == hint.label
-                        and hint.confidence >= bert_conf_threshold
-                    )
-                return True
+                # Option A: asymmetric maybe-veto + binary unanimity + keyword filter
+                # (no BERT gate).
+                return check_early_exit_asymmetric_veto(
+                    round_opinions,
+                    patient_case=patient_case,
+                )
 
             return DebateOrchestrator(
                 agents,
                 rounds=args.rounds,
+                min_rounds=args.min_rounds,
+                max_rounds=args.max_rounds,
+                adaptive_rounds=args.adaptive_rounds,
+                conflict_entropy_threshold=args.conflict_entropy_threshold,
                 debate_mode=args.debate_mode,
                 early_exit=_should_early_exit if args.early_exit else None,
                 agent_concurrency=args.agent_concurrency,
@@ -231,9 +276,19 @@ def main() -> None:
 
         audit_backend = None
         if args.audit_model:
-            audit_backend = _build_backend("ollama", num_predict=400, model=args.audit_model)
+            audit_backend = _cached_backend(
+                base_url=ollama_urls[0],
+                model=args.audit_model,
+                num_predict=400,
+                quiet=False,
+            )
             print(f"Evidence-audit backend enabled: {args.audit_model}")
         print(f"Debate mode={args.debate_mode}")
+        if args.adaptive_rounds:
+            print(
+                f"Adaptive rounds enabled: min={args.min_rounds} "
+                f"max={args.max_rounds} entropy_threshold={args.conflict_entropy_threshold}"
+            )
         results = asyncio.run(
             _evaluate_debate(
                 cases,
@@ -408,6 +463,11 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append(f"cc{args.case_concurrency}")
     if getattr(args, "debate_mode", "moderated") != "moderated":
         parts.append(str(args.debate_mode))
+    if getattr(args, "adaptive_rounds", False):
+        parts.append(f"adapt{args.min_rounds}-{args.max_rounds}")
+    urls = getattr(args, "ollama_base_urls", None)
+    if urls and "," in str(urls):
+        parts.append(f"ollama{str(urls).count(',') + 1}")
     if args.hint == "biolinkbert":
         parts.append("hint")
     if args.aggregate_with_biolinkbert:
@@ -496,7 +556,7 @@ async def _evaluate_debate(
     cases: list[dict[str, Any]],
     corpus: dict[str, dict[str, Any]],
     *,
-    orchestrator_factory: Callable[[Any], DebateOrchestrator],
+    orchestrator_factory: Callable[[Any, int], DebateOrchestrator],
     hint_provider: BioLinkBERTHintProvider | None,
     inject_hint: bool,
     aggregate_with_biolinkbert: bool,
@@ -536,7 +596,7 @@ async def _evaluate_debate(
         case_hint_provider = (
             _StaticHintProvider(hint) if inject_hint else NullEvidenceHint()
         )
-        orchestrator = orchestrator_factory(case_hint_provider)
+        orchestrator = orchestrator_factory(case_hint_provider, index)
         patient_case = _build_patient_case(case, corpus)
         debate = await orchestrator.run(patient_case)
 
@@ -730,7 +790,41 @@ def _parse_args() -> argparse.Namespace:
         default=3.0,
         help="BioLinkBERT weight in bert_weighted / uncertain bert_gate path",
     )
-    parser.add_argument("--rounds", type=int, default=3, choices=(2, 3))
+    parser.add_argument(
+        "--rounds",
+        type=int,
+        default=3,
+        choices=(2, 3, 4, 5),
+        help="Fixed round count when --adaptive-rounds is off; also default max for adaptive mode",
+    )
+    parser.add_argument(
+        "--adaptive-rounds",
+        action="store_true",
+        help=(
+            "Escalate beyond --min-rounds while panel conflict remains "
+            "(entropy / contradictions / non-unanimous), up to --max-rounds"
+        ),
+    )
+    parser.add_argument(
+        "--min-rounds",
+        type=int,
+        default=2,
+        choices=(2, 3, 4, 5),
+        help="Minimum rounds when --adaptive-rounds is enabled (default: 2)",
+    )
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=None,
+        choices=(2, 3, 4, 5),
+        help="Maximum rounds when --adaptive-rounds is enabled (default: --rounds)",
+    )
+    parser.add_argument(
+        "--conflict-entropy-threshold",
+        type=float,
+        default=0.35,
+        help="Continue adaptive debate when normalized label entropy exceeds this value",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N cases")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
@@ -744,13 +838,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--early-exit",
         action="store_true",
-        help="Optional: skip later rounds when panel is unanimous (+ BERT agree if present)",
+        help=(
+            "Skip later rounds when panel is unanimously yes/no, "
+            "uncertainty_advocate does not veto (maybe / confidence < 0.65), "
+            "and the abstract has no inconclusiveness cue phrases. "
+            "Does not require BioLinkBERT agreement."
+        ),
     )
     parser.add_argument(
         "--early-exit-bert-confidence",
         type=float,
         default=0.85,
-        help="Min BioLinkBERT confidence required for early-exit agreement",
+        help="Deprecated/unused: early-exit no longer gates on BioLinkBERT (kept for CLI compat)",
     )
     parser.add_argument(
         "--agent-concurrency",
@@ -799,6 +898,17 @@ def _parse_args() -> argparse.Namespace:
         help=(
             "Ollama model for the supervisor only (moderation + llm_director). "
             "Debate agents keep OLLAMA_MODEL / default backend model."
+        ),
+    )
+    parser.add_argument(
+        "--ollama-base-urls",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated Ollama endpoints for multi-GPU load balancing, e.g. "
+            "'http://127.0.0.1:11434,http://127.0.0.1:11435,http://127.0.0.1:11436'. "
+            "Cases are sticky-assigned round-robin across URLs. "
+            "Defaults to OLLAMA_BASE_URL."
         ),
     )
     parser.add_argument(
@@ -851,6 +961,8 @@ def _build_backend(
     fast: bool = False,
     num_predict: int | None = None,
     model: str | None = None,
+    base_url: str | None = None,
+    quiet: bool = False,
 ) -> MockInferenceBackend | OllamaInferenceBackend:
     if name == "mock":
         return MockInferenceBackend()
@@ -865,15 +977,17 @@ def _build_backend(
     else:
         # Do NOT inflate above .env — previous max(..., 800) made runs much slower.
         predict = settings.ollama_num_predict
+    resolved_url = (base_url or settings.ollama_base_url).rstrip("/")
     provider = OllamaProvider(
-        base_url=settings.ollama_base_url,
+        base_url=resolved_url,
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
         num_ctx=min(max(settings.ollama_num_ctx, 2048), 4096),
     )
     model_name = model or settings.default_model
-    print(f"Ollama model={model_name} num_predict={predict}")
+    if not quiet:
+        print(f"Ollama model={model_name} num_predict={predict} url={resolved_url}")
     return OllamaInferenceBackend(provider, model=model_name, temperature=0.1)
 
 
