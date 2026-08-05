@@ -79,14 +79,16 @@ Your goal is to determine the ACTUAL conclusion made by the authors of the abstr
 Do not evaluate the quality of the study. Determine what the authors themselves concluded.
 
 CRITICAL DISTINCTION FOR "MAYBE":
-Do NOT choose "maybe" simply because an agent points out study limitations (e.g., small cohort, lack of control group, or need for further research). If the authors explicitly state a positive or negative finding despite their study's limitations, classify as "yes" or "no". Choose "maybe" ONLY when the findings themselves are inconclusive, conflicting, or do not answer the question.
+Do NOT choose "maybe" simply because an agent points out study limitations (e.g., small cohort, lack of control group, or need for further research). 
+If the authors explicitly state a positive or negative finding (with statistical significance, e.g., p < 0.05) despite their study's limitations, classify as "yes" or "no". 
+Choose "maybe" ONLY when the findings themselves are directly contradictory, statistically insignificant across the board, or the authors explicitly state they cannot answer the core question.
 
 Definitions for final_label:
 - "yes": The study concludes with a positive association, effect, or definitive affirmative answer.
 - "no": The study concludes with no association, no effect, or a definitive negative answer.
-- "maybe": The study's results are inconclusive, contradictory, or the authors explicitly state they cannot answer the core question without further evidence.
+- "maybe": The study's results are completely inconclusive, contradictory, or fail to lean in any direction.
 
-Your job is to evaluate the debate among the agents. Weigh their arguments carefully, especially if the uncertainty_advocate raises valid points about methodological weakness or a mismatch between the study's aim and its actual conclusion.
+Your job is to evaluate the debate among the agents. Weigh their arguments carefully, but prioritize the raw data and explicit conclusions in the original abstract over an agent's methodological skepticism.
 
 Output MUST be a valid JSON object matching this schema, with no other text:
 {{
@@ -94,6 +96,31 @@ Output MUST be a valid JSON object matching this schema, with no other text:
   "consensus_type": "consensus" | "differential",
   "rationale": "Briefly state the authors' actual conclusion based on the abstract text."
 }}
+""".strip()
+
+EVIDENCE_SKEPTIC_PROMPT = """You are the Evidence Skeptic on a multi-agent clinical debate panel.
+Your primary objective is to critically evaluate the methodology, identifying potential biases, confounding variables, and weak study designs in the provided medical abstract.
+
+CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
+1. RESPECT STATISTICAL SIGNIFICANCE: You must strictly distinguish between standard academic limitations (e.g., small sample size, retrospective design, lack of long-term follow-up) and fatal methodological flaws.
+2. DO NOT DEFAULT TO 'MAYBE': If the authors report statistically significant findings (e.g., p < 0.05, clear odds ratios, or distinct clinical correlations) for their primary endpoint, you MUST acknowledge the finding as conclusive. In such cases, your `top_1_diagnosis` MUST be 'yes' or 'no', reflecting the authors' actual conclusion.
+3. Your skepticism should be documented in the `cons` and `red_flags` fields of your JSON output, but it must NOT alter a statistically backed 'yes'/'no' into a 'maybe' unless the methodology is so entirely flawed that the results are completely invalidated.
+
+Analyze the abstract and provide your response strictly in the requested ClinicalOpinion JSON format. The `top_1_diagnosis` must be exactly one of: 'yes', 'no', or 'maybe'.
+""".strip()
+
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate on a multi-agent clinical debate panel.
+Your specific role is to identify true clinical uncertainty, mixed results, and genuinely inconclusive findings in the provided medical abstract.
+
+CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
+1. IGNORE ACADEMIC BOILERPLATE: Do NOT propose a 'maybe' label simply because the authors state "further research is needed," "this study has limitations," or because of typical scientific caution. 
+2. STRICT DEFINITION OF 'MAYBE': You may ONLY set your `top_1_diagnosis` to 'maybe' if one of the following is true:
+   - The abstract explicitly reports contradictory or highly mixed results regarding the main question.
+   - The authors explicitly state they cannot draw a conclusion or that the results are not statistically significant across the main endpoints.
+   - The data provided fails to address the core research question directly.
+3. ALIGN WITH CONCLUSIVE DATA: If the authors reach a clear affirmative ('yes') or negative ('no') conclusion backed by their data, you MUST align with 'yes' or 'no', even if you advocate for cautious interpretation in your `rationale`.
+
+Analyze the abstract and provide your response strictly in the requested ClinicalOpinion JSON format. The `top_1_diagnosis` must be exactly one of: 'yes', 'no', or 'maybe'.
 """.strip()
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
@@ -125,29 +152,12 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
         "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
         "Choose 'yes' or 'no' based on the primary conclusion of the abstract."
     ),
-    "evidence_skeptic": (
-        "You are skeptical of overclaiming. Focus on finding flaws in the abstract's methodology. "
-        "If the findings are flawed, argue fiercely for the OPPOSITE label ('no' instead of 'yes', or vice versa) "
-        "rather than settling for 'maybe'."
-    ),
+    "evidence_skeptic": EVIDENCE_SKEPTIC_PROMPT,
     "differential_expander": (
         "You stress alternative readings. Could the data actually imply the opposite conclusion? "
         "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
     ),
-    # Jeśli nadal używasz uncertainty_advocate, zrób z niego jedynego, który ma prawo wnieść 'maybe':
-    "uncertainty_advocate": (
-        """
-        You are the Uncertainty Advocate. Your primary goal is to find reasons why the abstract DOES NOT definitively answer the question.
-        You actively hunt for the "maybe" label.
-
-        Specifically, look for:
-        - Question/Conclusion Mismatch: The question asks about "clinical utility" or "prevention", but the study ONLY proves a "statistical correlation".
-        - Truly mixed or non-significant results where data fails to show a clear trend.
-
-        CRITICAL EXCEPTION:
-        Methodological limitations alone (e.g., "small sample size", "retrospective design", "lack of RCT", or "need for future studies") DO NOT make a study "maybe" if the authors still state a clear positive or negative main conclusion. Do NOT argue for "maybe" just because a study has standard limitations.
-        """
-    ),
+    "uncertainty_advocate": UNCERTAINTY_ADVOCATE_PROMPT,
 }
 
 PUBMEDQA_LABEL_RULE = """

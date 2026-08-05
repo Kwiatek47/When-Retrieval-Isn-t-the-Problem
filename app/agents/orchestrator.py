@@ -190,12 +190,29 @@ class DebateOrchestrator:
         )
 
     async def _run_independent_round(self, patient_case: str) -> list[AgentRoundOpinion]:
-        """Round 1: every agent answers concurrently with no peer context."""
+        """Round 1: every agent answers concurrently with no peer context.
+
+        Blind Critic: ``uncertainty_advocate`` gets ``include_evidence_hint=False``
+        so BioLinkBERT never reaches ``build_messages`` for that agent in R1
+        (equivalent to ``agent_hint = None if persona == uncertainty_advocate``).
+        """
         semaphore = asyncio.Semaphore(self.agent_concurrency)
 
         async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
+            # Hide BioLinkBERT from the advocate; all other personas keep the hint.
+            # Equivalent: agent_hint = None if persona == "uncertainty_advocate" else evidence_hint
+            agent_hint_enabled = (
+                agent.persona not in _BLIND_HINT_PERSONAS_R1
+                and agent.agent_id not in _BLIND_HINT_PERSONAS_R1
+            )
             async with semaphore:
-                return await self._speak(agent, patient_case, round_number=1, context=None)
+                return await self._speak(
+                    agent,
+                    patient_case,
+                    round_number=1,
+                    context=None,
+                    include_evidence_hint=agent_hint_enabled,
+                )
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
@@ -257,20 +274,15 @@ class DebateOrchestrator:
         *,
         round_number: int,
         context: list[AgentRoundOpinion] | None,
+        include_evidence_hint: bool | None = None,
     ) -> AgentRoundOpinion:
-        # Round-1 "blind critic": hide BioLinkBERT from uncertainty_advocate so
-        # they judge the abstract without classifier pressure.
-        include_hint = not (
-            round_number == 1
-            and (
-                agent.agent_id in _BLIND_HINT_PERSONAS_R1
-                or agent.persona in _BLIND_HINT_PERSONAS_R1
-            )
-        )
+        # Default: always include hint except R1 blind-critic override from caller.
+        if include_evidence_hint is None:
+            include_evidence_hint = True
         opinion = await agent.generate_opinion(
             patient_case,
             context=context,
-            include_evidence_hint=include_hint,
+            include_evidence_hint=include_evidence_hint,
         )
         return AgentRoundOpinion(
             agent_id=agent.agent_id,
