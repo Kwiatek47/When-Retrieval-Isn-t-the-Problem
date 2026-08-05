@@ -23,6 +23,25 @@ class SupervisorDirectorOutput(BaseModel):
     rationale: str = Field(default="")
 
 
+class RankedHypothesis(BaseModel):
+    """One ranked outcome hypothesis for differential-consensus mode."""
+
+    label: str
+    score: float = Field(..., ge=0.0, le=1.0)
+
+
+class ConsensusDecision(BaseModel):
+    """Structured final decision beyond a single yes/no/maybe label."""
+
+    mode: Literal["consensus", "differential", "escalation"]
+    final_label: Literal["yes", "no", "maybe"] | None = None
+    ranked_hypotheses: list[RankedHypothesis] = Field(default_factory=list)
+    required_next_steps: list[str] = Field(default_factory=list)
+    grounding_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    safety_blocked: bool = False
+    rationale: str = Field(default="")
+
+
 class SafetyOpinion(BaseModel):
     """Specialized output for the `safety_officer` persona."""
 

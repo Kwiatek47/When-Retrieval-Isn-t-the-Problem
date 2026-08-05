@@ -51,6 +51,7 @@ from app.agents import DebateOrchestrator, MockInferenceBackend, build_default_a
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
     aggregate_with_llm_director,
+    build_consensus_decision,
     final_labels_by_agent,
     majority_vote,
     opinion_label,
@@ -111,6 +112,9 @@ class DebateCaseResult:
     audit_detail: dict[str, Any] = field(default_factory=dict)
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
+    consensus_mode: str | None = None
+    consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
+    consensus_required_next_steps: list[str] = field(default_factory=list)
 
 
 class _StaticHintProvider:
@@ -125,6 +129,8 @@ class _StaticHintProvider:
 
 def main() -> None:
     args = _parse_args()
+    if args.no_supervisor_moderation:
+        args.debate_mode = "peer"
     if args.backend == "biolinkbert" and args.aggregate_mode == "llm_director":
         raise SystemExit("--aggregate-mode llm_director requires a debate backend (mock/ollama), not --backend biolinkbert")
     cases = _load_cases(args.dataset)
@@ -217,6 +223,7 @@ def main() -> None:
             return DebateOrchestrator(
                 agents,
                 rounds=args.rounds,
+                debate_mode=args.debate_mode,
                 early_exit=_should_early_exit if args.early_exit else None,
                 agent_concurrency=args.agent_concurrency,
                 supervisor_backend=supervisor_backend,
@@ -226,6 +233,7 @@ def main() -> None:
         if args.audit_model:
             audit_backend = _build_backend("ollama", num_predict=400, model=args.audit_model)
             print(f"Evidence-audit backend enabled: {args.audit_model}")
+        print(f"Debate mode={args.debate_mode}")
         results = asyncio.run(
             _evaluate_debate(
                 cases,
@@ -398,6 +406,8 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append(f"r{args.rounds}")
     if getattr(args, "case_concurrency", 1) > 1:
         parts.append(f"cc{args.case_concurrency}")
+    if getattr(args, "debate_mode", "moderated") != "moderated":
+        parts.append(str(args.debate_mode))
     if args.hint == "biolinkbert":
         parts.append("hint")
     if args.aggregate_with_biolinkbert:
@@ -590,6 +600,30 @@ async def _evaluate_debate(
         latency_ms = (perf_counter() - started) * 1000.0
         early_exit = len(debate.rounds) < orchestrator.rounds
 
+        agent_opinions_for_consensus = [entry.opinion for entry in debate.final_opinions]
+        safety_blocked = any(
+            entry.opinion.safety_opinion is not None
+            and not entry.opinion.safety_opinion.safety_passed
+            and entry.opinion.safety_opinion.immediate_intervention_required
+            for entry in debate.final_opinions
+        )
+        if aggregate_mode == "llm_director" and llm_director_consensus_type:
+            consensus_mode = llm_director_consensus_type
+            consensus_ranked_hypotheses: list[dict[str, Any]] = []
+            consensus_required_next_steps: list[str] = []
+        else:
+            consensus = build_consensus_decision(
+                agent_opinions_for_consensus,
+                predicted_label=predicted,
+                vote_share=share,
+                safety_blocked=safety_blocked,
+            )
+            consensus_mode = consensus.mode
+            consensus_ranked_hypotheses = [
+                item.model_dump() for item in consensus.ranked_hypotheses
+            ]
+            consensus_required_next_steps = consensus.required_next_steps
+
         result = DebateCaseResult(
             id=case["id"],
             expected_label=case["expected_label"],
@@ -619,6 +653,9 @@ async def _evaluate_debate(
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
             llm_director_rationale=llm_director_rationale,
             llm_director_consensus_type=llm_director_consensus_type,
+            consensus_mode=consensus_mode,
+            consensus_ranked_hypotheses=consensus_ranked_hypotheses,
+            consensus_required_next_steps=consensus_required_next_steps,
         )
         if checkpoint_path is not None:
             async with checkpoint_lock:
@@ -733,6 +770,21 @@ def _parse_args() -> argparse.Namespace:
             "How many benchmark cases to process concurrently. "
             "Each case runs its own debate orchestrator."
         ),
+    )
+    parser.add_argument(
+        "--debate-mode",
+        choices=("moderated", "peer", "hybrid"),
+        default="moderated",
+        help=(
+            "Round 2+ debate style: moderated=supervisor-only (default), "
+            "peer=round-robin peer critique without supervisor, "
+            "hybrid=supervisor instructions plus round-robin peer context"
+        ),
+    )
+    parser.add_argument(
+        "--no-supervisor-moderation",
+        action="store_true",
+        help="Alias for --debate-mode peer (pure peer debate, no supervisor moderation)",
     )
     parser.add_argument(
         "--num-predict",
@@ -948,7 +1000,7 @@ def _summarize(
         },
         "aggregation": aggregation,
         "architecture": architecture,
-        "supervisor": architecture not in {"round_robin_no_supervisor", "biolinkbert_only"},
+        "supervisor": architecture not in {"peer_round_robin", "biolinkbert_only"},
         "uncertainty_routing": (
             {
                 **routing_meta,

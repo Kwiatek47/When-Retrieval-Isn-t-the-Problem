@@ -14,7 +14,13 @@ from app.agents import (
     MockInferenceBackend,
     build_default_agents,
 )
-from app.agents.aggregation import aggregate_pubmedqa_decision, extract_label, majority_vote, opinion_label
+from app.agents.aggregation import (
+    aggregate_pubmedqa_decision,
+    build_consensus_decision,
+    extract_label,
+    majority_vote,
+    opinion_label,
+)
 from app.agents.backends import EvidenceHint, NullEvidenceHint, parse_clinical_opinion_json
 from app.agents.prompts import build_messages
 from app.schemas import ChatMessage
@@ -187,6 +193,38 @@ class DebateOrchestratorTests(unittest.TestCase):
                 "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy"
                 in call
                 for call in round2_calls
+            )
+        )
+
+    def test_peer_mode_skips_supervisor_moderation(self) -> None:
+        agents = build_default_agents(MockInferenceBackend())
+        result = asyncio.run(
+            DebateOrchestrator(agents, rounds=2, debate_mode="peer").run(SAMPLE_CASE)
+        )
+        self.assertEqual(result.supervisor_moderation, [])
+        self.assertEqual(DebateOrchestrator(agents, rounds=2, debate_mode="peer").ARCHITECTURE, "peer_round_robin")
+
+    def test_hybrid_mode_includes_peer_and_supervisor_context(self) -> None:
+        captured: list[str] = []
+
+        class SpyBackend(MockInferenceBackend):
+            async def complete(
+                self, messages: list[ChatMessage], *, temperature: float = 0.3
+            ) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                if "PATIENT CASE:" in user and "PEER OPINIONS" in user:
+                    captured.append(user)
+                return await super().complete(messages, temperature=temperature)
+
+        agents = build_default_agents(SpyBackend())
+        asyncio.run(DebateOrchestrator(agents, rounds=2, debate_mode="hybrid").run(SAMPLE_CASE))
+
+        self.assertGreaterEqual(len(captured), 1)
+        self.assertTrue(
+            any(
+                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" in call
+                and "generalist" in call
+                for call in captured
             )
         )
 
@@ -385,6 +423,26 @@ class AggregationTests(unittest.TestCase):
         )
         self.assertEqual(label, "yes")
         self.assertEqual(rule, "bert_gate")
+
+    def test_build_consensus_decision_marks_unanimous_as_consensus(self) -> None:
+        opinions = [
+            ClinicalOpinion(
+                top_1_diagnosis="yes",
+                evidence_conclusiveness="conclusive",
+                top_3_differential_diagnoses=["yes"],
+                confidence_level=0.9,
+                sources_used=["abstract"],
+            )
+            for _ in range(4)
+        ]
+        decision = build_consensus_decision(
+            opinions,
+            predicted_label="yes",
+            vote_share={"yes": 1.0, "no": 0.0, "maybe": 0.0},
+        )
+        self.assertEqual(decision.mode, "consensus")
+        self.assertEqual(decision.final_label, "yes")
+
 
 class PubmedqaDebateTests(unittest.TestCase):
     def test_mock_pubmedqa_debate_produces_labels(self) -> None:
