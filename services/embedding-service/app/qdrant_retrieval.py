@@ -53,7 +53,7 @@ class QdrantMedicalRetriever:
             values=sparse_payload["values"],
         )
         query_filter = self._build_filter(metadata_filter)
-        client = QdrantClient(host=self.host, port=self.port, timeout=self.timeout)
+        client = QdrantClient(path="/raid/s203270/When-Retrieval-Isn-t-the-Problem/local_qdrant_db")
         try:
             kwargs = {
                 "collection_name": self.collection_name,
@@ -88,7 +88,7 @@ class QdrantMedicalRetriever:
         metadata_filter: dict[str, Any] | None = None,
     ) -> list[HybridQueryDocument]:
         query_filter = self._build_filter(metadata_filter)
-        client = QdrantClient(host=self.host, port=self.port, timeout=self.timeout)
+        client = QdrantClient(path="/raid/s203270/When-Retrieval-Isn-t-the-Problem/local_qdrant_db")
         try:
             kwargs = {
                 "collection_name": self.collection_name,

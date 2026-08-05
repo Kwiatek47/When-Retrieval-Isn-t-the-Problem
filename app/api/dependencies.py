@@ -59,6 +59,7 @@ def get_medical_knowledge_retriever() -> MedicalKnowledgeRetriever:
 
         return QdrantHybridKnowledgeRetriever(
             qdrant_client=QdrantClient(
+		path="/raid/s203270/When-Retrieval-Isn-t-the-Problem/local_qdrant_db",
                 host=settings.qdrant_host,
                 port=settings.qdrant_port,
                 timeout=settings.qdrant_timeout,

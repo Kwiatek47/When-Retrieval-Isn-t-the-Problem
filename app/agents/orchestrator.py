@@ -57,6 +57,7 @@ class DebateOrchestrator:
         rounds: int = 3,
         early_exit: EarlyExitFn | None = None,
         agent_concurrency: int = 4,
+        supervisor_backend: Any | None = None,
     ) -> None:
         if len(agents) < 2:
             raise ValueError("DebateOrchestrator requires at least 2 agents.")
@@ -69,7 +70,9 @@ class DebateOrchestrator:
         self.early_exit = early_exit
         self.agent_concurrency = agent_concurrency
         self.early_exits = 0
-        self.supervisor = SupervisorAgent(backend=agents[0].backend)
+        self.supervisor = SupervisorAgent(
+            backend=supervisor_backend if supervisor_backend is not None else agents[0].backend
+        )
 
     async def run(self, patient_case: str) -> DebateResult:
         history: list[list[AgentRoundOpinion]] = []

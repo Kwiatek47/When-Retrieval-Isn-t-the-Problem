@@ -45,7 +45,7 @@ PAYLOAD_INDEXES: dict[str, models.PayloadSchemaType] = {
 def connect_with_retry() -> QdrantClient:
     last_error: Exception | None = None
     for _ in range(30):
-        client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=10.0)
+        client = QdrantClient(path="/raid/s203270/When-Retrieval-Isn-t-the-Problem/local_qdrant_db")
         try:
             client.get_collections()
             return client

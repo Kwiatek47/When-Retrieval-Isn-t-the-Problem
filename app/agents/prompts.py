@@ -76,18 +76,17 @@ Inputs:
 
 Task:
 Your goal is to determine the ACTUAL conclusion made by the authors of the abstract.
-Do not blindly count agent votes. Verify their claims against the `patient_case`.
+Do not evaluate the quality of the study. Determine what the authors themselves concluded.
+
+CRITICAL DISTINCTION FOR "MAYBE":
+Do NOT choose "maybe" simply because an agent points out study limitations (e.g., small cohort, lack of control group, or need for further research). If the authors explicitly state a positive or negative finding despite their study's limitations, classify as "yes" or "no". Choose "maybe" ONLY when the findings themselves are inconclusive, conflicting, or do not answer the question.
 
 Definitions for final_label:
-- "yes": The authors explicitly conclude with a positive finding or correlation.
-- "no": The authors explicitly conclude with a negative finding or lack of correlation.
-- "maybe": The authors explicitly state that their findings are inconclusive, contradictory, or clearly state that the answer cannot be determined.
+- "yes": The study concludes with a positive association, effect, or definitive affirmative answer.
+- "no": The study concludes with no association, no effect, or a definitive negative answer.
+- "maybe": The study's results are inconclusive, contradictory, or the authors explicitly state they cannot answer the core question without further evidence.
 
-Definitions for consensus_type:
-- "consensus": The abstract supports a clear yes/no. General methodological critiques by agents (e.g., small sample size, retrospective design) DO NOT change the authors' actual conclusion.
-- "differential": The abstract is genuinely inconclusive, or agents correctly identified explicitly conflicting information in the text.
-
-WARNING: DO NOT hallucinate quotes. Only classify as "maybe" if the original text truly is inconclusive. Do not invent phrases like "further studies are needed" if they do not appear in the text.
+Your job is to evaluate the debate among the agents. Weigh their arguments carefully, especially if the uncertainty_advocate raises valid points about methodological weakness or a mismatch between the study's aim and its actual conclusion.
 
 Output MUST be a valid JSON object matching this schema, with no other text:
 {{
@@ -137,18 +136,31 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     ),
     # Jeśli nadal używasz uncertainty_advocate, zrób z niego jedynego, który ma prawo wnieść 'maybe':
     "uncertainty_advocate": (
-        "You are the designated uncertainty advocate. You are the ONLY agent who should actively seek 'maybe'."
+        """
+        You are the Uncertainty Advocate. Your primary goal is to find reasons why the abstract DOES NOT definitively answer the question.
+        You actively hunt for the "maybe" label.
+
+        Specifically, look for:
+        - Question/Conclusion Mismatch: The question asks about "clinical utility" or "prevention", but the study ONLY proves a "statistical correlation".
+        - Truly mixed or non-significant results where data fails to show a clear trend.
+
+        CRITICAL EXCEPTION:
+        Methodological limitations alone (e.g., "small sample size", "retrospective design", "lack of RCT", or "need for future studies") DO NOT make a study "maybe" if the authors still state a clear positive or negative main conclusion. Do NOT argue for "maybe" just because a study has standard limitations.
+        """
     ),
 }
 
 PUBMEDQA_LABEL_RULE = """
 PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
 
-Decide the label from the EVIDENCE:
-- If the abstract leans towards a positive or negative conclusion, choose "yes" or "no" accordingly, even if the evidence is weak, indirect, or based on a small sample.
-- Reserve "maybe" STRICTLY for cases where the abstract explicitly states that findings are entirely contradictory, or explicitly concludes that further research is strictly required to answer the question at all. Do NOT use "maybe" just because the results are not 100% perfect.
+Decide the label based on the CORE DIRECTION of the findings:
+- Choose "yes" if the findings support the hypothesis or show an effect.
+- Choose "no" if the findings reject the hypothesis or show no significant effect.
+- Choose "maybe" ONLY if the findings are completely mixed, inherently contradictory, or fail to lean in any direction.
 
-Set confidence_level to how strongly the evidence supports your chosen label...
+WARNING: Do not choose "maybe" just because the authors use cautious words (e.g., "suggests", "potential", "might"). In science, these words accompany solid "yes" or "no" findings. Look at the actual results, not just the cautious tone.
+
+Set confidence_level to how strongly the text supports your chosen label.
 """.strip()
 
 PUBMEDQA_COMPACT_SCHEMA = """
@@ -178,8 +190,9 @@ def build_messages(
     mode = (task_mode or "clinical").strip().lower()
     is_safety_officer = persona.strip().lower() == "safety_officer"
     stance_directive = (
-        "Avoid choosing 'maybe' unless the provided context is completely insufficient. "
-        "Force yourself to take a stance ('yes' or 'no') based on the balance of probabilities in the abstracts."
+        "Base your decision strictly on the provided evidence. "
+        "If the evidence strongly supports a conclusion, choose 'yes' or 'no'. "
+        "If the evidence is genuinely conflicting or insufficient to answer the question, you MUST choose 'maybe'."
     )
     if mode == "pubmedqa":
         if is_safety_officer:

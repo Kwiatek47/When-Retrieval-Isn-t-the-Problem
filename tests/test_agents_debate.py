@@ -135,6 +135,27 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(result.rounds), 1)
         self.assertEqual(orch.early_exits, 1)
 
+    def test_supervisor_uses_optional_separate_backend(self) -> None:
+        agent_backend = MockInferenceBackend()
+        supervisor_calls = {"n": 0}
+
+        class SupervisorOnlyBackend(MockInferenceBackend):
+            async def complete(
+                self, messages: list[ChatMessage], *, temperature: float = 0.3
+            ) -> str:
+                supervisor_calls["n"] += 1
+                return await super().complete(messages, temperature=temperature)
+
+        agents = build_default_agents(agent_backend)
+        orch = DebateOrchestrator(
+            agents,
+            rounds=2,
+            supervisor_backend=SupervisorOnlyBackend(),
+        )
+        asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertGreaterEqual(supervisor_calls["n"], 1)
+        self.assertIs(orch.supervisor.backend.__class__, SupervisorOnlyBackend)
+
     def test_supervisor_instructions_injected_on_round_2(self) -> None:
         """Round 2+ prompts include moderation instructions from the Supervisor."""
         captured: list[str] = []

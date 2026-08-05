@@ -62,6 +62,75 @@ make ingest-sample
 
 The sample ingest reads `data/sample/pubmed_sample.json`, writes local BM25 stats to `data/bm25_stats.json`, and upserts sample chunks into Qdrant.
 
+## Running on a Compute Server (tmux + conda)
+
+If the server Python is too old for this repo (common case), use **your Conda environment** and run services via `tmux` (recommended for long jobs). Detailed rules (VPN, rsync/scp, sprzatanie procesow) are in [`docs/computing_servers_guide.md`](docs/computing_servers_guide.md).
+
+### 1) Prepare
+
+1. Connect via SSH (optionally with VPN ETI).
+2. Go to repo root:
+
+```bash
+cd /path/to/When-Retrieval-Isn-t-the-Problem
+```
+
+3. Activate your environment (example `llm_env`):
+
+```bash
+source /path/to/miniconda3/etc/profile.d/conda.sh
+conda activate llm_env
+```
+
+### 2) Start services (in separate `tmux` sessions)
+
+#### (a) Embedding service (listens on `127.0.0.1:8081`)
+
+```bash
+tmux new -s embedding
+CUDA_VISIBLE_DEVICES=0 EMBEDDING_DEVICE=cuda \
+  BM25_STATS_PATH=data/bm25_stats.json \
+  uvicorn --app-dir services/embedding-service app.main:app \
+  --host 127.0.0.1 --port 8081
+```
+
+If you do not have BM25 stats yet, generate them with the sample ingest:
+`make ingest-sample` (or `python scripts/rag/ingest_sample.py`), depending on your setup.
+
+#### (b) MedChat API (listens on `127.0.0.1:8000`)
+
+```bash
+tmux new -s api
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+#### (c) Ollama
+
+Make sure Ollama is running and the required models are pulled:
+
+```bash
+ollama serve
+ollama pull qwen2.5:7b
+ollama pull qwen2.5:14b
+```
+
+### 3) Test locally on the server
+
+```bash
+curl -s http://127.0.0.1:8081/health
+curl -s http://127.0.0.1:8000/api/health
+```
+
+### 4) Access from your laptop
+
+Use SSH tunneling:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 your_user@SERVER_IP
+```
+
+Then open `http://127.0.0.1:8000`.
+
 ## Local Commands
 
 ```bash
