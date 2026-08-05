@@ -9,7 +9,16 @@ from typing import Any, Literal
 
 from app.agents.agent import ClinicalAgent
 from app.agents.aggregation import opinion_label
-from app.agents.models import AgentRoundOpinion, ClinicalOpinion, DebateResult, SupervisorModerationOutput
+from app.agents.heuristics import (
+    INCONCLUSIVE_ABSTRACT_PHRASES,
+    abstract_suggests_inconclusive,
+)
+from app.agents.models import (
+    AgentRoundOpinion,
+    ClinicalOpinion,
+    DebateResult,
+    SupervisorModerationOutput,
+)
 from app.agents.supervisor_agent import SupervisorAgent
 from app.agents.uncertainty import _label_entropy
 
@@ -187,6 +196,11 @@ class DebateOrchestrator:
             rounds=history,
             final_opinions=history[-1],
             supervisor_moderation=supervisor_moderation,
+            shared_report=(
+                supervisor_moderation[-1].as_shared_report()
+                if supervisor_moderation
+                else None
+            ),
         )
 
     async def _run_independent_round(self, patient_case: str) -> list[AgentRoundOpinion]:
@@ -300,15 +314,6 @@ def labels_unanimous(round_opinions: list[AgentRoundOpinion]) -> bool:
 
 DEFAULT_ADVOCATE_VETO_CONFIDENCE = 0.65
 
-# Light heuristic: abstract language that often signals inconclusiveness.
-INCONCLUSIVE_ABSTRACT_PHRASES: tuple[str, ...] = (
-    "small sample size",
-    "further research is needed",
-    "no statistically significant difference",
-    "limitation",
-    "preliminary",
-)
-
 
 def _safe_confidence(value: Any, default: float = 1.0) -> float:
     """Parse confidence to float in [0, 1]; fall back to *default* on bad input."""
@@ -319,18 +324,6 @@ def _safe_confidence(value: Any, default: float = 1.0) -> float:
     if conf != conf:  # NaN
         return default
     return min(1.0, max(0.0, conf))
-
-
-def abstract_suggests_inconclusive(
-    patient_case: str,
-    *,
-    phrases: tuple[str, ...] = INCONCLUSIVE_ABSTRACT_PHRASES,
-) -> bool:
-    """Return True if the case/abstract contains inconclusiveness cue phrases."""
-    text = (patient_case or "").lower()
-    if not text:
-        return False
-    return any(phrase in text for phrase in phrases)
 
 
 def check_early_exit_asymmetric_veto(
@@ -347,7 +340,8 @@ def check_early_exit_asymmetric_veto(
     ``maybe`` or their confidence is below ``advocate_confidence_threshold``.
 
     Also blocked when ``patient_case`` matches light inconclusiveness heuristics
-    (e.g. ``further research is needed``).
+    (e.g. ``further research is needed``), or when a majority of agents mark
+    evidence as inconclusive.
 
     BioLinkBERT is intentionally ignored (option A).
     """
@@ -355,6 +349,15 @@ def check_early_exit_asymmetric_veto(
         return False
 
     if patient_case and abstract_suggests_inconclusive(patient_case):
+        return False
+
+    inconclusive_marks = sum(
+        1
+        for entry in round_opinions
+        if (entry.opinion.evidence_conclusiveness or "").strip().lower() == "inconclusive"
+    )
+    # Require a strong majority inconclusive marks (avoid blocking on 2/4 noise).
+    if inconclusive_marks >= max(3, len(round_opinions) - 1):
         return False
 
     advocate = next(
@@ -397,9 +400,12 @@ def should_continue_debate(
     Continue when:
     - panel is not unanimous, or
     - normalized label entropy exceeds threshold, or
-    - supervisor reported unresolved contradictions.
+    - supervisor reported unresolved contradictions / residual uncertainty, or
+    - shared report author_conclusion is maybe/unclear while panel is binary.
     """
     if moderation is not None and moderation.contradictions:
+        return True
+    if moderation is not None and moderation.residual_uncertainty and len(moderation.residual_uncertainty) >= 2:
         return True
     labels = [opinion_label(entry.opinion) for entry in round_opinions]
     labels = [label for label in labels if label is not None]

@@ -309,12 +309,16 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertEqual(flags["uncertainty_advocate"][1], True)
 
     def test_abstract_suggests_inconclusive(self) -> None:
-        from app.agents.orchestrator import abstract_suggests_inconclusive
+        from app.agents.heuristics import abstract_suggests_inconclusive
 
         self.assertTrue(
             abstract_suggests_inconclusive("Due to small sample size, results are tentative.")
         )
         self.assertTrue(
+            abstract_suggests_inconclusive("Results remain unclear; further research is needed.")
+        )
+        # Broad "limitation(s)" alone must NOT trip the heuristic.
+        self.assertFalse(
             abstract_suggests_inconclusive("LIMITATION: selection bias may affect results.")
         )
         self.assertFalse(
@@ -524,13 +528,16 @@ class PromptAndParseTests(unittest.TestCase):
 
         filled = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case="CASE_TEXT_XYZ",
-            full_debate_transcript="DEBATE_TEXT_XYZ",
+            shared_report="REPORT_TEXT_XYZ",
+            debate_brief="BRIEF_TEXT_XYZ",
             biolinkbert_hint="HINT_TEXT_XYZ",
         )
         self.assertIn("CASE_TEXT_XYZ", filled)
-        self.assertIn("DEBATE_TEXT_XYZ", filled)
+        self.assertIn("REPORT_TEXT_XYZ", filled)
+        self.assertIn("BRIEF_TEXT_XYZ", filled)
         self.assertIn("HINT_TEXT_XYZ", filled)
-        self.assertIn("fallback", filled.lower())
+        self.assertIn("MAYBE-AWARE GATE", filled)
+        self.assertIn("question_coverage", filled)
         self.assertNotIn("ClinicalOpinion JSON schema", filled)
 
     def test_parse_recovers_json_embedded_in_prose(self) -> None:
@@ -545,6 +552,174 @@ class PromptAndParseTests(unittest.TestCase):
     def test_parse_rejects_empty(self) -> None:
         with self.assertRaises(ValueError):
             parse_clinical_opinion_json("   ")
+
+    def test_maybe_director_gate_downgrades_yes(self) -> None:
+        from app.agents.aggregation import apply_maybe_director_gate
+        from app.agents.models import AgentRoundOpinion, SharedDebateReport, SupervisorDirectorOutput
+
+        opinions = [
+            AgentRoundOpinion(
+                agent_id="generalist",
+                persona="generalist",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.55,
+                    sources_used=["abstract"],
+                ),
+            ),
+            AgentRoundOpinion(
+                agent_id="evidence_skeptic",
+                persona="evidence_skeptic",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.6,
+                    sources_used=["abstract"],
+                ),
+            ),
+            AgentRoundOpinion(
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.85,
+                    sources_used=["abstract"],
+                ),
+            ),
+        ]
+        out = SupervisorDirectorOutput(
+            final_label="yes",
+            consensus_type="differential",
+            rationale="directional but partial",
+            primary_endpoint_answers_question=True,
+            findings_decisive_for_question=False,
+            authors_state_uncertainty=False,
+            question_coverage="partial",
+        )
+        gated = apply_maybe_director_gate(
+            out,
+            patient_case="EVIDENCE: results remain unclear; further research is needed.",
+            final_opinions=opinions,
+            shared_report=SharedDebateReport(
+                author_conclusion="maybe",
+                residual_uncertainty=["mixed primary endpoints"],
+            ),
+        )
+        self.assertEqual(gated.final_label, "maybe")
+
+    def test_maybe_director_gate_preserves_unanimous_binary(self) -> None:
+        from app.agents.aggregation import apply_maybe_director_gate
+        from app.agents.models import AgentRoundOpinion, SharedDebateReport, SupervisorDirectorOutput
+
+        opinions = [
+            AgentRoundOpinion(
+                agent_id=aid,
+                persona=aid,
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="no",
+                    top_3_differential_diagnoses=["no", "yes", "maybe"],
+                    confidence_level=0.9,
+                    sources_used=["abstract"],
+                ),
+            )
+            for aid in (
+                "generalist",
+                "evidence_skeptic",
+                "differential_expander",
+                "uncertainty_advocate",
+            )
+        ]
+        out = SupervisorDirectorOutput(
+            final_label="no",
+            consensus_type="consensus",
+            rationale="clear null",
+            primary_endpoint_answers_question=False,
+            findings_decisive_for_question=True,
+            authors_state_uncertainty=True,
+            question_coverage="partial",
+        )
+        gated = apply_maybe_director_gate(
+            out,
+            patient_case="EVIDENCE: further research is needed.",
+            final_opinions=opinions,
+            shared_report=SharedDebateReport(
+                author_conclusion="maybe",
+                residual_uncertainty=["boilerplate only"],
+            ),
+        )
+        self.assertEqual(gated.final_label, "no")
+
+    def test_maybe_gate_promotes_on_coverage_none(self) -> None:
+        from app.agents.aggregation import apply_maybe_director_gate
+        from app.agents.models import AgentRoundOpinion, SupervisorDirectorOutput
+
+        opinions = [
+            AgentRoundOpinion(
+                agent_id="generalist",
+                persona="generalist",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.7,
+                    sources_used=["abstract"],
+                ),
+            ),
+            AgentRoundOpinion(
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.7,
+                    sources_used=["abstract"],
+                ),
+            ),
+        ]
+        out = SupervisorDirectorOutput(
+            final_label="yes",
+            consensus_type="consensus",
+            rationale="bert-like",
+            question_coverage="none",
+        )
+        gated = apply_maybe_director_gate(
+            out,
+            patient_case="EVIDENCE: unrelated surrogate only.",
+            final_opinions=opinions,
+        )
+        self.assertEqual(gated.final_label, "maybe")
+
+    def test_abstract_suggests_inconclusive_ignores_broad_limitation(self) -> None:
+        from app.agents.heuristics import abstract_suggests_inconclusive
+
+        self.assertFalse(
+            abstract_suggests_inconclusive("A clear RCT benefit; study limitations are discussed.")
+        )
+        self.assertTrue(
+            abstract_suggests_inconclusive("Results remain unclear and further research is needed.")
+        )
+
+    def test_confidence_aware_vote_zeros_fallback(self) -> None:
+        from app.agents.aggregation import confidence_aware_vote
+        from app.agents.backends import fallback_clinical_opinion
+
+        strong = ClinicalOpinion(
+            top_1_diagnosis="no",
+            top_3_differential_diagnoses=["no", "yes", "maybe"],
+            confidence_level=0.9,
+            sources_used=["abstract"],
+        )
+        fallback = fallback_clinical_opinion(label="yes", reason="broken")
+        label, share, _ = confidence_aware_vote([fallback, strong])
+        self.assertEqual(label, "no")
+        self.assertGreater(share["no"], share["yes"])
 
 
     def test_parse_fenced_json(self) -> None:

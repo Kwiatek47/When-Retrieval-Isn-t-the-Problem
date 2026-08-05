@@ -7,12 +7,40 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class SharedDebateReport(BaseModel):
+    """MedAgents-style shared report produced by the supervisor moderator."""
+
+    primary_endpoint_result: str = Field(
+        default="",
+        description="What the abstract's primary endpoint/result actually showed.",
+    )
+    author_conclusion: Literal["yes", "no", "maybe", "unclear"] = "unclear"
+    residual_uncertainty: list[str] = Field(default_factory=list)
+    agreements: list[str] = Field(default_factory=list)
+    contradictions: list[str] = Field(default_factory=list)
+    round_instructions: list[str] = Field(default_factory=list)
+
+
 class SupervisorModerationOutput(BaseModel):
     """Supervisor output for moderating peer opinions into next-round instructions."""
 
     agreements: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     round_instructions: list[str] = Field(default_factory=list)
+    # Optional MedAgents-style shared report fields (filled when available).
+    primary_endpoint_result: str = Field(default="")
+    author_conclusion: Literal["yes", "no", "maybe", "unclear"] = "unclear"
+    residual_uncertainty: list[str] = Field(default_factory=list)
+
+    def as_shared_report(self) -> SharedDebateReport:
+        return SharedDebateReport(
+            primary_endpoint_result=self.primary_endpoint_result,
+            author_conclusion=self.author_conclusion,
+            residual_uncertainty=list(self.residual_uncertainty),
+            agreements=list(self.agreements),
+            contradictions=list(self.contradictions),
+            round_instructions=list(self.round_instructions),
+        )
 
 
 class SupervisorDirectorOutput(BaseModel):
@@ -21,6 +49,12 @@ class SupervisorDirectorOutput(BaseModel):
     final_label: Literal["yes", "no", "maybe"]
     consensus_type: Literal["consensus", "differential", "escalation"]
     rationale: str = Field(default="")
+    # Maybe-aware gate checklist (director must answer before locking yes/no).
+    primary_endpoint_answers_question: bool = True
+    findings_decisive_for_question: bool = True
+    authors_state_uncertainty: bool = False
+    # How completely the abstract settles the research question as written.
+    question_coverage: Literal["full", "partial", "none"] = "full"
 
 
 class RankedHypothesis(BaseModel):
@@ -85,3 +119,4 @@ class DebateResult(BaseModel):
     final_opinions: list[AgentRoundOpinion]
     supervisor_moderation: list[SupervisorModerationOutput] = Field(default_factory=list)
     supervisor_director_output: SupervisorDirectorOutput | None = None
+    shared_report: SharedDebateReport | None = None

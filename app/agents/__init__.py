@@ -2,6 +2,9 @@
 
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
+    apply_maybe_director_gate,
+    build_debate_brief,
+    confidence_aware_vote,
     extract_label,
     majority_vote,
     opinion_label,
@@ -25,11 +28,12 @@ from app.agents.orchestrator import (
     DEFAULT_PERSONAS,
     PUBMEDQA_PERSONAS,
     DebateOrchestrator,
-    abstract_suggests_inconclusive,
     check_early_exit_asymmetric_veto,
     labels_unanimous,
     should_continue_debate,
 )
+from app.agents.heuristics import abstract_suggests_inconclusive
+
 from app.agents.supervisor_agent import SupervisorAgent
 
 __all__ = [
@@ -49,9 +53,12 @@ __all__ = [
     "OllamaInferenceBackend",
     "aggregate_pubmedqa_decision",
     "abstract_suggests_inconclusive",
+    "apply_maybe_director_gate",
     "build_biolinkbert_hint_from_settings",
     "build_default_agents",
+    "build_debate_brief",
     "check_early_exit_asymmetric_veto",
+    "confidence_aware_vote",
     "extract_label",
     "hint_as_clinical_opinion",
     "labels_unanimous",

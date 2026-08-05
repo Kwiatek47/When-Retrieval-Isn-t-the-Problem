@@ -615,6 +615,7 @@ async def _evaluate_debate(
                 debate_history=debate.rounds,
                 biolinkbert_hint=biolinkbert_hint_text,
                 supervisor=supervisor,
+                shared_report=debate.shared_report,
             )
             director_output = getattr(supervisor, "last_director_output", None)
             if director_output is not None:

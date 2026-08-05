@@ -36,7 +36,7 @@ No markdown fences, no commentary outside JSON.
 
 
 SUPERVISOR_MODERATOR_PROMPT = """
-You are a Clinical Supervisor moderating a 4-agent debate.
+You are a Clinical Supervisor moderating a 4-agent PubMedQA debate and maintaining a shared reasoning report.
 
 Inputs:
 - patient_case:
@@ -45,22 +45,23 @@ Inputs:
 {previous_round_opinions}
 
 Task:
-1. Analyze the opinions from previous_round_opinions and identify:
-   - agreements: shared points across agents (grounded in sources_used or explicit evidence references)
-   - contradictions: disagreements that remain unresolved (again grounded)
-2. Create round_instructions: concrete requirements for agents to follow in the next round.
-3. Enforce grounding: if an agreement/contradiction is not clearly supported by the provided evidence signals
-   (e.g., sources_used and evidence references inside the opinions), do NOT include it.
+1. From the ABSTRACT (not just agent chatter), fill the shared report:
+   - primary_endpoint_result: what the primary endpoint/result actually showed (1-2 sentences)
+   - author_conclusion: "yes" | "no" | "maybe" | "unclear" for the research question
+   - residual_uncertainty: concrete unresolved issues (empty if none)
+2. Analyze previous_round_opinions for evidence-grounded agreements and contradictions.
+3. Create round_instructions: concrete requirements for the next round.
+4. Do NOT invent claims unsupported by the abstract or agent evidence signals.
 
-Output:
-Return ONLY a JSON object matching SupervisorModerationOutput:
+Output ONLY JSON:
 {{
+  "primary_endpoint_result": "...",
+  "author_conclusion": "yes" | "no" | "maybe" | "unclear",
+  "residual_uncertainty": ["..."],
   "agreements": ["..."],
   "contradictions": ["..."],
   "round_instructions": ["..."]
 }}
-
-No markdown fences, no commentary outside JSON.
 """.strip()
 
 SUPERVISOR_DIRECTOR_PROMPT = """
@@ -69,37 +70,53 @@ You are a Clinical Director synthesizing a multi-agent debate to answer a PubMed
 Inputs:
 - patient_case (original abstract and question — YOUR GROUND TRUTH):
 {patient_case}
-- full_debate_transcript (agent opinions across rounds):
-{full_debate_transcript}
+- shared_report (MedAgents-style summary from the moderator; prefer this over raw chatter):
+{shared_report}
+- debate_brief (compact final-round agent votes with confidence; discount fallbacks):
+{debate_brief}
 - biolinkbert_hint (classifier signal; use critically, do not rubber-stamp):
 {biolinkbert_hint}
 
 Task:
-Determine the ACTUAL conclusion made by the authors of the abstract.
-Do not grade study quality. Ask: what did the authors conclude about the research question?
+Decide whether the ABSTRACT fully settles the research question as written.
+Do not rubber-stamp BioLinkBERT. Do not grade study quality for its own sake.
 
-CRITICAL DISTINCTION FOR "maybe":
-- Do NOT choose "maybe" only because an agent cites boilerplate limitations
-  (small sample, retrospective design, "further research is needed") when the authors
-  still report a clear primary finding (e.g. significant effect / clear null result).
-- DO choose "maybe" when primary findings are mixed/contradictory, statistically
-  insignificant for the question asked, or the authors explicitly cannot answer.
-- Discount opinions whose sources_used include "fallback" or whose missing_information
-  mentions invalid model JSON — those are system failures, not clinical arguments.
+PubMedQA label semantics (critical):
+- "yes"/"no": the abstract provides a decisive answer to the posed question (authors' primary conclusion clearly affirms or rejects it).
+- "maybe": the abstract does NOT fully settle the question — even if authors report some directional finding.
+  Typical maybe patterns:
+  * mixed/partial results across endpoints or subgroups that the question asks about globally
+  * study answers only a narrow surrogate / related outcome, not the full clinical question
+  * findings conflict or are statistically null for the asked comparison
+  * authors leave the practical question open
+  Do NOT use maybe only for boilerplate "further research" / small-n when the primary answer is clear.
 
-Definitions for final_label:
-- "yes": authors conclude a positive association, effect, or affirmative answer
-- "no": authors conclude no association, no effect, or a negative answer
-- "maybe": findings are inconclusive, contradictory, or do not lean either way
+Fill question_coverage:
+- "full": primary evidence fully answers the research question as written
+- "partial": evidence speaks to part of the question / subgroup / surrogate only
+- "none": evidence does not answer the question
 
-Weigh agent arguments carefully, but prioritize the abstract text and explicit author
-conclusions over methodological skepticism. BioLinkBERT is a hint, not a veto.
+MAYBE-AWARE GATE:
+1. primary_endpoint_answers_question
+2. findings_decisive_for_question
+3. authors_state_uncertainty (explicit open/mixed language — not routine limitations)
 
-Output ONLY a valid JSON object (no markdown, no commentary):
+Rules:
+- If question_coverage is "partial" or "none", prefer final_label="maybe" unless the authors state an unambiguous global yes/no to the exact question.
+- If consensus among agents is split or consensus_type would be differential, do not force a binary label.
+- Discount is_fallback=true opinions.
+- Dual-read: reconcile author_conclusion_reader vs uncertainty_auditor; auditor wins only with abstract support for unresolved coverage.
+- BioLinkBERT is a hint, not a veto.
+
+Output ONLY valid JSON:
 {{
   "final_label": "yes" | "no" | "maybe",
   "consensus_type": "consensus" | "differential" | "escalation",
-  "rationale": "Briefly state the authors' conclusion grounded in the abstract."
+  "rationale": "Brief abstract-grounded rationale.",
+  "primary_endpoint_answers_question": true | false,
+  "findings_decisive_for_question": true | false,
+  "authors_state_uncertainty": true | false,
+  "question_coverage": "full" | "partial" | "none"
 }}
 """.strip()
 
@@ -114,14 +131,28 @@ CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract.
+AUTHOR_CONCLUSION_READER_PROMPT = """You are the AuthorConclusionReader (generalist dual-read role).
+Your ONLY job is to read what the AUTHORS conclude about the research question from the abstract.
+
+- Choose "yes" if authors report a positive/affirmative primary conclusion.
+- Choose "no" if authors report a null/negative primary conclusion.
+- Choose "maybe" ONLY if authors themselves leave the question unresolved or results are mixed for the asked question.
+Ignore peer pressure to invent uncertainty that authors did not express.
+
+Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
+""".strip()
+
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the UncertaintyAuditor (uncertainty_advocate dual-read role).
+Audit whether the abstract FULLY settles the research question as written.
 
 Choose 'maybe' when:
-1. Primary results are insignificant or mixed across key endpoints.
-2. Authors heavily hedge AND primary data are weak.
-3. The question is broad but the study answers only a narrow surrogate.
+1. Primary results are insignificant or mixed across key endpoints the question asks about.
+2. The study answers only a subgroup / surrogate / related outcome (partial coverage).
+3. Authors leave the practical question open, or findings conflict.
+4. A directional finding exists but does not fully answer the posed question.
 
-Do NOT choose 'maybe' solely for boilerplate limitations if primary findings are robust and authors state a clear yes/no. If data are weak or conflicting, advocate for 'maybe'.
+Do NOT choose 'maybe' solely for boilerplate limitations if the abstract clearly and fully answers the question with robust primary findings.
+If coverage is partial or mixed, advocate for 'maybe' with confidence reflecting that audit.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
@@ -151,10 +182,7 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
 }
 
 PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
-    "generalist": (
-        "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
-        "Choose 'yes' or 'no' based on the primary conclusion of the abstract."
-    ),
+    "generalist": AUTHOR_CONCLUSION_READER_PROMPT,
     "evidence_skeptic": EVIDENCE_SKEPTIC_PROMPT,
     "differential_expander": (
         "You stress alternative readings. Could the data actually imply the opposite conclusion? "
