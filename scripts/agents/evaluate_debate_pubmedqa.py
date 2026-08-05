@@ -983,7 +983,7 @@ def _build_backend(
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
-        num_ctx=min(max(settings.ollama_num_ctx, 2048), 4096),
+        num_ctx=min(max(settings.ollama_num_ctx, 4096), 8192),
     )
     model_name = model or settings.default_model
     if not quiet:

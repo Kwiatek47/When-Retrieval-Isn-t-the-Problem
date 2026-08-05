@@ -502,6 +502,51 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("task_mode=pubmedqa", system)
         self.assertIn('"yes", "no", "maybe"', system)
 
+    def test_advocate_label_rule_omits_maybe_warning(self) -> None:
+        advocate = build_messages(
+            agent_id="uncertainty_advocate",
+            persona="uncertainty_advocate",
+            patient_case="Question: Is X useful?\nEvidence: ...",
+            task_mode="pubmedqa",
+        )[0].content
+        generalist = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case="Question: Is X useful?\nEvidence: ...",
+            task_mode="pubmedqa",
+        )[0].content
+        self.assertNotIn("WARNING", advocate)
+        self.assertIn("express genuine uncertainty", advocate)
+        self.assertIn("WARNING", generalist)
+
+    def test_director_prompt_includes_case_and_transcript(self) -> None:
+        from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT
+
+        filled = SUPERVISOR_DIRECTOR_PROMPT.format(
+            patient_case="CASE_TEXT_XYZ",
+            full_debate_transcript="DEBATE_TEXT_XYZ",
+            biolinkbert_hint="HINT_TEXT_XYZ",
+        )
+        self.assertIn("CASE_TEXT_XYZ", filled)
+        self.assertIn("DEBATE_TEXT_XYZ", filled)
+        self.assertIn("HINT_TEXT_XYZ", filled)
+        self.assertIn("fallback", filled.lower())
+        self.assertNotIn("ClinicalOpinion JSON schema", filled)
+
+    def test_parse_recovers_json_embedded_in_prose(self) -> None:
+        raw = (
+            'Here is my answer:\n'
+            '{"top_1_diagnosis":"yes","top_3_differential_diagnoses":["yes","no","maybe"],'
+            '"confidence_level":0.8}\nThanks'
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "yes")
+
+    def test_parse_rejects_empty(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_clinical_opinion_json("   ")
+
+
     def test_parse_fenced_json(self) -> None:
         opinion = ClinicalOpinion(
             top_1_diagnosis="PE",

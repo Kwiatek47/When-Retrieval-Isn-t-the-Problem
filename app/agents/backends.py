@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -235,19 +236,36 @@ class OllamaInferenceBackend:
         *,
         model: str,
         temperature: float = 0.3,
+        max_retries: int = 2,
     ) -> None:
         self._provider = provider
         self._model = model
         self._temperature = temperature
+        self._max_retries = max(0, int(max_retries))
         self.base_url = str(getattr(provider, "base_url", "") or "")
 
     async def complete(self, messages: list[ChatMessage], *, temperature: float | None = None) -> str:
-        response = await self._provider.chat(
-            model=self._model,
-            messages=messages,
-            temperature=self._temperature if temperature is None else temperature,
-        )
-        return response.message.content
+        temp = self._temperature if temperature is None else temperature
+        last_error: Exception | None = None
+        attempts = self._max_retries + 1
+        for attempt in range(attempts):
+            try:
+                response = await self._provider.chat(
+                    model=self._model,
+                    messages=messages,
+                    temperature=temp if attempt == 0 else 0.0,
+                )
+                content = (response.message.content or "").strip()
+                if content:
+                    return content
+                last_error = RuntimeError("Ollama returned an empty response.")
+            except Exception as exc:
+                last_error = exc
+            if attempt + 1 < attempts:
+                await asyncio.sleep(0.35 * (attempt + 1))
+        raise RuntimeError(
+            f"Ollama complete failed after {attempts} attempt(s): {last_error}"
+        ) from last_error
 
 
 def parse_ollama_base_urls(raw: str | None, *, default: str = "http://localhost:11434") -> list[str]:
@@ -354,7 +372,23 @@ def _mock_pubmedqa_opinion(*, agent_id: str, case_text: str, revised: bool) -> C
 
 def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
     """Parse model output into ClinicalOpinion, tolerating fenced/partial JSON."""
-    text = raw.strip()
+    text = _extract_json_object(raw)
+    if not text:
+        raise ValueError("Empty model response; expected ClinicalOpinion JSON.")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid ClinicalOpinion JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object, got {type(data).__name__}")
+    return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(data))
+
+
+def _extract_json_object(raw: str) -> str:
+    """Strip fences / prose and return the first JSON object substring if present."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
     if text.startswith("```"):
         lines = text.splitlines()
         if lines and lines[0].startswith("```"):
@@ -364,10 +398,10 @@ def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
         text = "\n".join(lines).strip()
         if text.lower().startswith("json"):
             text = text[4:].strip()
-    data = json.loads(text)
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected JSON object, got {type(data).__name__}")
-    return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(data))
+    if text.startswith("{") and text.endswith("}"):
+        return text
+    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    return match.group(0).strip() if match else text
 
 
 def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:

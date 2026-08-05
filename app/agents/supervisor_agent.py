@@ -123,17 +123,20 @@ class SupervisorAgent:
 
     async def _complete_with_repair(self, messages: list[ChatMessage], temperature: float) -> str:
         try:
-            return await self.backend.complete(messages, temperature=temperature)
+            raw = await self.backend.complete(messages, temperature=temperature)
+            if (raw or "").strip():
+                return raw
+            logger.warning("Supervisor returned empty response; retrying with repair.")
         except Exception:
             logger.warning("Supervisor backend call failed; retry with temperature=0.0.", exc_info=True)
-            # Try a minimal repair request.
-            repair = [
-                messages[0],
-                ChatMessage(
-                    role="user",
-                    content=messages[1].content
-                    + "\n\nYour previous reply was invalid. Return ONLY valid JSON, no markdown, no commentary.",
-                ),
-            ]
-            return await self.backend.complete(repair, temperature=0.0)
+
+        repair = [
+            messages[0],
+            ChatMessage(
+                role="user",
+                content=messages[1].content
+                + "\n\nYour previous reply was empty or invalid. Return ONLY valid JSON, no markdown, no commentary.",
+            ),
+        ]
+        return await self.backend.complete(repair, temperature=0.0)
 

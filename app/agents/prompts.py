@@ -67,34 +67,39 @@ SUPERVISOR_DIRECTOR_PROMPT = """
 You are a Clinical Director synthesizing a multi-agent debate to answer a PubMedQA research question.
 
 Inputs:
-- patient_case (The original abstract and question - YOUR GROUND TRUTH):
+- patient_case (original abstract and question — YOUR GROUND TRUTH):
 {patient_case}
-- full_debate_transcript (The debate between your agents):
+- full_debate_transcript (agent opinions across rounds):
 {full_debate_transcript}
-- biolinkbert_hint:
+- biolinkbert_hint (classifier signal; use critically, do not rubber-stamp):
 {biolinkbert_hint}
 
 Task:
-Your goal is to determine the ACTUAL conclusion made by the authors of the abstract.
-Do not evaluate the quality of the study. Determine what the authors themselves concluded.
+Determine the ACTUAL conclusion made by the authors of the abstract.
+Do not grade study quality. Ask: what did the authors conclude about the research question?
 
-CRITICAL DISTINCTION FOR "MAYBE":
-Do NOT choose "maybe" simply because an agent points out study limitations (e.g., small cohort, lack of control group, or need for further research). 
-If the authors explicitly state a positive or negative finding (with statistical significance, e.g., p < 0.05) despite their study's limitations, classify as "yes" or "no". 
-Choose "maybe" ONLY when the findings themselves are directly contradictory, statistically insignificant across the board, or the authors explicitly state they cannot answer the core question.
+CRITICAL DISTINCTION FOR "maybe":
+- Do NOT choose "maybe" only because an agent cites boilerplate limitations
+  (small sample, retrospective design, "further research is needed") when the authors
+  still report a clear primary finding (e.g. significant effect / clear null result).
+- DO choose "maybe" when primary findings are mixed/contradictory, statistically
+  insignificant for the question asked, or the authors explicitly cannot answer.
+- Discount opinions whose sources_used include "fallback" or whose missing_information
+  mentions invalid model JSON — those are system failures, not clinical arguments.
 
 Definitions for final_label:
-- "yes": The study concludes with a positive association, effect, or definitive affirmative answer.
-- "no": The study concludes with no association, no effect, or a definitive negative answer.
-- "maybe": The study's results are completely inconclusive, contradictory, or fail to lean in any direction.
+- "yes": authors conclude a positive association, effect, or affirmative answer
+- "no": authors conclude no association, no effect, or a negative answer
+- "maybe": findings are inconclusive, contradictory, or do not lean either way
 
-Your job is to evaluate the debate among the agents. Weigh their arguments carefully, but prioritize the raw data and explicit conclusions in the original abstract over an agent's methodological skepticism.
+Weigh agent arguments carefully, but prioritize the abstract text and explicit author
+conclusions over methodological skepticism. BioLinkBERT is a hint, not a veto.
 
-Output MUST be a valid JSON object matching this schema, with no other text:
+Output ONLY a valid JSON object (no markdown, no commentary):
 {{
   "final_label": "yes" | "no" | "maybe",
-  "consensus_type": "consensus" | "differential",
-  "rationale": "Briefly state the authors' actual conclusion based on the abstract text."
+  "consensus_type": "consensus" | "differential" | "escalation",
+  "rationale": "Briefly state the authors' conclusion grounded in the abstract."
 }}
 """.strip()
 
@@ -102,25 +107,23 @@ EVIDENCE_SKEPTIC_PROMPT = """You are the Evidence Skeptic on a multi-agent clini
 Your primary objective is to critically evaluate the methodology, identifying potential biases, confounding variables, and weak study designs in the provided medical abstract.
 
 CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
-1. RESPECT STATISTICAL SIGNIFICANCE: You must strictly distinguish between standard academic limitations (e.g., small sample size, retrospective design, lack of long-term follow-up) and fatal methodological flaws.
-2. DO NOT DEFAULT TO 'MAYBE': If the authors report statistically significant findings (e.g., p < 0.05, clear odds ratios, or distinct clinical correlations) for their primary endpoint, you MUST acknowledge the finding as conclusive. In such cases, your `top_1_diagnosis` MUST be 'yes' or 'no', reflecting the authors' actual conclusion.
-3. Your skepticism should be documented in the `cons` and `red_flags` fields of your JSON output, but it must NOT alter a statistically backed 'yes'/'no' into a 'maybe' unless the methodology is so entirely flawed that the results are completely invalidated.
+1. RESPECT STATISTICAL SIGNIFICANCE: Distinguish standard academic limitations (small sample, retrospective design, limited follow-up) from fatal methodological flaws.
+2. DO NOT DEFAULT TO 'maybe': If authors report statistically significant primary findings, top_1_diagnosis MUST be 'yes' or 'no' matching their conclusion; put caveats in cons/red_flags.
+3. Only choose 'maybe' when methodology so thoroughly invalidates results that no direction remains.
 
-Analyze the abstract and provide your response strictly in the requested ClinicalOpinion JSON format. The `top_1_diagnosis` must be exactly one of: 'yes', 'no', or 'maybe'.
+Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate on a multi-agent clinical debate panel.
-Your specific role is to identify true clinical uncertainty, mixed results, and genuinely inconclusive findings in the provided medical abstract.
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract.
 
-CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
-1. IGNORE ACADEMIC BOILERPLATE: Do NOT propose a 'maybe' label simply because the authors state "further research is needed," "this study has limitations," or because of typical scientific caution. 
-2. STRICT DEFINITION OF 'MAYBE': You may ONLY set your `top_1_diagnosis` to 'maybe' if one of the following is true:
-   - The abstract explicitly reports contradictory or highly mixed results regarding the main question.
-   - The authors explicitly state they cannot draw a conclusion or that the results are not statistically significant across the main endpoints.
-   - The data provided fails to address the core research question directly.
-3. ALIGN WITH CONCLUSIVE DATA: If the authors reach a clear affirmative ('yes') or negative ('no') conclusion backed by their data, you MUST align with 'yes' or 'no', even if you advocate for cautious interpretation in your `rationale`.
+Choose 'maybe' when:
+1. Primary results are insignificant or mixed across key endpoints.
+2. Authors heavily hedge AND primary data are weak.
+3. The question is broad but the study answers only a narrow surrogate.
 
-Analyze the abstract and provide your response strictly in the requested ClinicalOpinion JSON format. The `top_1_diagnosis` must be exactly one of: 'yes', 'no', or 'maybe'.
+Do NOT choose 'maybe' solely for boilerplate limitations if primary findings are robust and authors state a clear yes/no. If data are weak or conflicting, advocate for 'maybe'.
+
+Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
@@ -173,6 +176,18 @@ WARNING: Do not choose "maybe" just because the authors use cautious words (e.g.
 Set confidence_level to how strongly the text supports your chosen label.
 """.strip()
 
+# Advocate-specific rule: no WARNING that suppresses genuine uncertainty / maybe.
+PUBMEDQA_LABEL_RULE_ADVOCATE = """
+PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
+
+Decide the label based on the CORE DIRECTION of the findings:
+- Choose "yes" if the findings support the hypothesis or show an effect.
+- Choose "no" if the findings reject the hypothesis or show no significant effect.
+- Choose "maybe" if the findings are mixed, contradictory, or express genuine uncertainty.
+
+Set confidence_level to how strongly the text supports your chosen label.
+""".strip()
+
 PUBMEDQA_COMPACT_SCHEMA = """
 Return ONLY one compact JSON object (no markdown) with exactly:
 {"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
@@ -213,10 +228,15 @@ def build_messages(
                 persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
             )
             persona_text = f"{persona_text}\n{stance_directive}"
+            active_label_rule = (
+                PUBMEDQA_LABEL_RULE_ADVOCATE
+                if persona == "uncertainty_advocate"
+                else PUBMEDQA_LABEL_RULE
+            )
             schema_block = (
-                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{active_label_rule}"
                 if compact
-                else f"{CLINICAL_OPINION_SCHEMA}\n\n{PUBMEDQA_LABEL_RULE}"
+                else f"{CLINICAL_OPINION_SCHEMA}\n\n{active_label_rule}"
             )
     else:
         if is_safety_officer:
