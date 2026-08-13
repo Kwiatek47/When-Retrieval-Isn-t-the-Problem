@@ -12,7 +12,11 @@ from app.agents.models import (
     SupervisorDirectorOutput,
     SupervisorModerationOutput,
 )
-from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT, SUPERVISOR_MODERATOR_PROMPT
+from app.agents.prompts import (
+    SUPERVISOR_DIRECTOR_PROMPT,
+    SUPERVISOR_MODERATOR_EVIDENCE_ADDENDUM,
+    SUPERVISOR_MODERATOR_PROMPT,
+)
 from app.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -69,11 +73,17 @@ class SupervisorAgent:
         self,
         patient_case: str,
         agents_opinions: dict[str, Any],
+        *,
+        evidence_conditions: list[dict[str, str]] | None = None,
     ) -> SupervisorModerationOutput:
         prompt = SUPERVISOR_MODERATOR_PROMPT.format(
             patient_case=patient_case,
             previous_round_opinions=json.dumps(agents_opinions, ensure_ascii=False),
         )
+        if evidence_conditions:
+            prompt += "\n\n" + SUPERVISOR_MODERATOR_EVIDENCE_ADDENDUM.format(
+                evidence_conditions=json.dumps(evidence_conditions, ensure_ascii=False)
+            )
         messages = [
             ChatMessage(role="system", content="Return only valid JSON matching the requested schema."),
             ChatMessage(role="user", content=prompt),

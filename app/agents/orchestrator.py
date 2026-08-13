@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from app.agents.agent import ClinicalAgent
 from app.agents.aggregation import opinion_label
+from app.agents.evidence_audit import EvidenceAudit
 from app.agents.heuristics import (
     INCONCLUSIVE_ABSTRACT_PHRASES,
     abstract_suggests_inconclusive,
@@ -92,11 +93,15 @@ class DebateOrchestrator:
         early_exit: EarlyExitFn | None = None,
         agent_concurrency: int = 4,
         supervisor_backend: Any | None = None,
+        evidence_audit: EvidenceAudit | None = None,
+        self_consistency_k: int = 1,
     ) -> None:
         if len(agents) < 2:
             raise ValueError("DebateOrchestrator requires at least 2 agents.")
         if agent_concurrency < 1:
             raise ValueError("agent_concurrency must be >= 1.")
+        if self_consistency_k < 1:
+            raise ValueError("self_consistency_k must be >= 1.")
         if debate_mode not in _ARCHITECTURE_BY_MODE:
             raise ValueError(f"Unsupported debate_mode: {debate_mode}")
 
@@ -125,6 +130,9 @@ class DebateOrchestrator:
         self.supervisor = SupervisorAgent(
             backend=supervisor_backend if supervisor_backend is not None else agents[0].backend
         )
+        self.evidence_audit = evidence_audit
+        self.self_consistency_k = self_consistency_k
+        self.self_consistency: dict[str, float] = {}
 
     async def run(self, patient_case: str) -> DebateResult:
         history: list[list[AgentRoundOpinion]] = []
@@ -145,6 +153,9 @@ class DebateOrchestrator:
                     moderation = await self.supervisor.moderate_round(
                         patient_case=patient_case,
                         agents_opinions=agents_opinions,
+                        evidence_conditions=(
+                            self.evidence_audit.conditions if self.evidence_audit is not None else None
+                        ),
                     )
                     if pending_red_flag_instruction:
                         moderation.round_instructions.insert(0, pending_red_flag_instruction)
@@ -201,6 +212,7 @@ class DebateOrchestrator:
                 if supervisor_moderation
                 else None
             ),
+            self_consistency=self.self_consistency or None,
         )
 
     async def _run_independent_round(self, patient_case: str) -> list[AgentRoundOpinion]:
@@ -209,6 +221,11 @@ class DebateOrchestrator:
         Blind Critic: ``uncertainty_advocate`` gets ``include_evidence_hint=False``
         so BioLinkBERT never reaches ``build_messages`` for that agent in R1
         (equivalent to ``agent_hint = None if persona == uncertainty_advocate``).
+
+        Self-consistency (``self_consistency_k > 1``): each agent is sampled K times
+        at its own temperature instead of once. The first sample becomes the agent's
+        canonical round-1 opinion (fed into later rounds); the K label distribution is
+        reduced to a per-agent normalized entropy stored in ``self.self_consistency``.
         """
         semaphore = asyncio.Semaphore(self.agent_concurrency)
 
@@ -220,6 +237,23 @@ class DebateOrchestrator:
                 and agent.agent_id not in _BLIND_HINT_PERSONAS_R1
             )
             async with semaphore:
+                if self.self_consistency_k > 1:
+                    opinions = [
+                        await agent.generate_opinion(
+                            patient_case,
+                            context=None,
+                            include_evidence_hint=agent_hint_enabled,
+                        )
+                        for _ in range(self.self_consistency_k)
+                    ]
+                    labels = [opinion_label(opinion) or "" for opinion in opinions]
+                    self.self_consistency[agent.agent_id] = _label_entropy(labels)
+                    return AgentRoundOpinion(
+                        agent_id=agent.agent_id,
+                        persona=agent.persona,
+                        round=1,
+                        opinion=opinions[0],
+                    )
                 return await self._speak(
                     agent,
                     patient_case,

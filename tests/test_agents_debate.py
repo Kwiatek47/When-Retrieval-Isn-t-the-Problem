@@ -22,7 +22,10 @@ from app.agents.aggregation import (
     opinion_label,
 )
 from app.agents.backends import EvidenceHint, NullEvidenceHint, parse_clinical_opinion_json
+from app.agents.evidence_audit import EvidenceAudit
+from app.agents.models import AgentRoundOpinion
 from app.agents.prompts import build_messages
+from app.agents.uncertainty import compute_uncertainty, unanchored_fraction
 from app.schemas import ChatMessage
 
 SAMPLE_CASE = "45-year-old with fever and cough."
@@ -877,6 +880,206 @@ class PubmedqaDebateTests(unittest.TestCase):
         self.assertTrue(all(label in {"yes", "no", "maybe"} for label in labels))
         vote, _ = majority_vote([entry.opinion for entry in result.final_opinions])
         self.assertIn(vote, {"yes", "no", "maybe"})
+
+
+class EvidenceConditionModerationTests(unittest.TestCase):
+    def test_evidence_conditions_injected_when_audit_provided(self) -> None:
+        captured: list[str] = []
+
+        class SpySupervisorBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                captured.append(user)
+                return await super().complete(messages, temperature=temperature)
+
+        audit = EvidenceAudit(
+            conditions=[{"claim": "drug reduces mortality", "verdict": "silent"}],
+            supported=0,
+            refuted=0,
+            silent=1,
+            audit_score=0.65,
+        )
+        agents = build_default_agents(MockInferenceBackend())
+        orch = DebateOrchestrator(
+            agents,
+            rounds=2,
+            supervisor_backend=SpySupervisorBackend(),
+            evidence_audit=audit,
+        )
+        asyncio.run(orch.run(SAMPLE_CASE))
+
+        self.assertTrue(captured, "supervisor backend was never called")
+        self.assertTrue(
+            any("evidence_conditions" in call and "drug reduces mortality" in call for call in captured)
+        )
+
+    def test_no_evidence_conditions_block_when_audit_absent(self) -> None:
+        captured: list[str] = []
+
+        class SpySupervisorBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                captured.append(user)
+                return await super().complete(messages, temperature=temperature)
+
+        agents = build_default_agents(MockInferenceBackend())
+        orch = DebateOrchestrator(agents, rounds=2, supervisor_backend=SpySupervisorBackend())
+        asyncio.run(orch.run(SAMPLE_CASE))
+
+        self.assertTrue(captured)
+        self.assertTrue(all("evidence_conditions" not in call for call in captured))
+
+
+class SelfConsistencyTests(unittest.TestCase):
+    def test_disabled_by_default(self) -> None:
+        agents = build_default_agents(MockInferenceBackend())
+        result = asyncio.run(DebateOrchestrator(agents, rounds=2).run(SAMPLE_CASE))
+        self.assertIsNone(result.self_consistency)
+
+    def test_zero_entropy_when_samples_agree(self) -> None:
+        class UnanimousBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                return ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    evidence_conclusiveness="conclusive",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.9,
+                    sources_used=["abstract"],
+                ).model_dump_json()
+
+        agents = build_default_agents(UnanimousBackend(), task_mode="pubmedqa")
+        orch = DebateOrchestrator(agents, rounds=2, debate_mode="peer", self_consistency_k=3)
+        result = asyncio.run(
+            orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nvaluable")
+        )
+        self.assertIsNotNone(result.self_consistency)
+        assert result.self_consistency is not None
+        self.assertTrue(all(v == 0.0 for v in result.self_consistency.values()))
+
+    def test_positive_entropy_when_samples_disagree(self) -> None:
+        class VaryingLabelBackend(MockInferenceBackend):
+            def __init__(self) -> None:
+                self.n = 0
+
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                self.n += 1
+                label = "yes" if self.n % 2 else "no"
+                return ClinicalOpinion(
+                    top_1_diagnosis=label,
+                    evidence_conclusiveness="inconclusive",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.6,
+                    sources_used=["abstract"],
+                ).model_dump_json()
+
+        agents = build_default_agents(VaryingLabelBackend(), task_mode="pubmedqa")
+        orch = DebateOrchestrator(agents, rounds=2, debate_mode="peer", self_consistency_k=4)
+        result = asyncio.run(
+            orch.run("RESEARCH QUESTION:\nIs X useful?\nEVIDENCE:\nmixed")
+        )
+        self.assertIsNotNone(result.self_consistency)
+        assert result.self_consistency is not None
+        self.assertEqual(set(result.self_consistency.keys()), {e.agent_id for e in result.rounds[0]})
+        self.assertTrue(all(v > 0.0 for v in result.self_consistency.values()))
+
+    def test_rejects_invalid_k(self) -> None:
+        agents = build_default_agents(MockInferenceBackend())
+        with self.assertRaises(ValueError):
+            DebateOrchestrator(agents, rounds=2, self_consistency_k=0)
+
+
+def _final_opinion(agent_id: str, *, pros: list[str], cons: list[str] | None = None) -> AgentRoundOpinion:
+    return AgentRoundOpinion(
+        agent_id=agent_id,
+        persona=agent_id,
+        round=1,
+        opinion=ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes", "no", "maybe"],
+            pros=pros,
+            cons=cons or [],
+            confidence_level=0.7,
+        ),
+    )
+
+
+class UnanchoredFractionTests(unittest.TestCase):
+    def test_no_evidence_text_returns_zero(self) -> None:
+        opinions = [_final_opinion("a", pros=["the drug reduced mortality"])]
+        self.assertEqual(unanchored_fraction(opinions, None), 0.0)
+        self.assertEqual(unanchored_fraction(opinions, ""), 0.0)
+
+    def test_no_claims_returns_zero(self) -> None:
+        opinions = [_final_opinion("a", pros=[])]
+        self.assertEqual(unanchored_fraction(opinions, "some abstract text"), 0.0)
+
+    def test_full_coverage_is_zero(self) -> None:
+        evidence = "The drug reduced mortality in the treatment group."
+        opinions = [_final_opinion("a", pros=["the drug reduced mortality"])]
+        self.assertEqual(unanchored_fraction(opinions, evidence), 0.0)
+
+    def test_full_miss_is_one(self) -> None:
+        evidence = "The drug reduced mortality in the treatment group."
+        opinions = [_final_opinion("a", pros=["unrelated claim about something else"])]
+        self.assertEqual(unanchored_fraction(opinions, evidence), 1.0)
+
+    def test_partial_coverage(self) -> None:
+        evidence = "The drug reduced mortality in the treatment group."
+        opinions = [
+            _final_opinion(
+                "a",
+                pros=["the drug reduced mortality"],
+                cons=["unrelated claim about something else"],
+            )
+        ]
+        self.assertAlmostEqual(unanchored_fraction(opinions, evidence), 0.5)
+
+
+class ComputeUncertaintyRegressionTests(unittest.TestCase):
+    """New optional signals (#2b, #5) must not move the score when omitted."""
+
+    def _sample_args(self) -> dict:
+        opinions = [
+            _final_opinion("a", pros=["x"]),
+            _final_opinion("b", pros=["y"]),
+        ]
+        return {
+            "rounds": [opinions],
+            "final_opinions": opinions,
+            "embed_fn": lambda texts: [],  # avoid loading a real sentence embedder in tests
+        }
+
+    def test_omitting_new_signals_matches_explicit_none(self) -> None:
+        args = self._sample_args()
+        with_defaults = compute_uncertainty(**args, audit_score=0.4)
+        with_explicit_none = compute_uncertainty(
+            **args, audit_score=0.4, evidence_text=None, self_consistency=None
+        )
+        self.assertEqual(with_defaults.score, with_explicit_none.score)
+        self.assertEqual(with_defaults.unanchored_fraction, 0.0)
+        self.assertEqual(with_defaults.self_consistency_entropy, 0.0)
+
+    def test_baseline_score_unchanged_with_and_without_audit(self) -> None:
+        args = self._sample_args()
+        no_audit = compute_uncertainty(**args)
+        audited = compute_uncertainty(**args, audit_score=0.9)
+        # Sanity: both are valid scores in range and audit_score=0.9 raises the score
+        # relative to no audit signal at all (same underlying debate features).
+        self.assertGreaterEqual(no_audit.score, 0.0)
+        self.assertLessEqual(audited.score, 1.0)
+        self.assertGreater(audited.score, no_audit.score)
+
+    def test_extra_signals_change_score_only_when_provided(self) -> None:
+        args = self._sample_args()
+        baseline = compute_uncertainty(**args, audit_score=0.2)
+        with_unanchored = compute_uncertainty(
+            **args, audit_score=0.2, evidence_text="totally unrelated text"
+        )
+        with_self_consistency = compute_uncertainty(
+            **args, audit_score=0.2, self_consistency={"a": 1.0, "b": 1.0}
+        )
+        self.assertNotEqual(baseline.score, with_unanchored.score)
+        self.assertNotEqual(baseline.score, with_self_consistency.score)
 
 
 if __name__ == "__main__":

@@ -120,3 +120,4 @@ class DebateResult(BaseModel):
     supervisor_moderation: list[SupervisorModerationOutput] = Field(default_factory=list)
     supervisor_director_output: SupervisorDirectorOutput | None = None
     shared_report: SharedDebateReport | None = None
+    self_consistency: dict[str, float] | None = None

@@ -71,7 +71,7 @@ from app.agents.backends import (
     sticky_ollama_url,
 )
 from app.agents.models import AgentRoundOpinion
-from app.agents.evidence_audit import audit_evidence
+from app.agents.evidence_audit import EvidenceAudit, audit_evidence
 from app.agents.uncertainty import calibrate_threshold, compute_uncertainty, risk_coverage_curve
 from app.rag.models import RetrievedDocument
 
@@ -116,6 +116,8 @@ class DebateCaseResult:
     routed_to_maybe: bool = False
     audit_score: float | None = None
     audit_detail: dict[str, Any] = field(default_factory=dict)
+    self_consistency: dict[str, float] = field(default_factory=dict)
+    unanchored_fraction: float | None = None
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
     consensus_mode: str | None = None
@@ -143,6 +145,10 @@ def main() -> None:
         raise SystemExit("--min-rounds cannot exceed --max-rounds")
     if args.backend == "biolinkbert" and args.aggregate_mode == "llm_director":
         raise SystemExit("--aggregate-mode llm_director requires a debate backend (mock/ollama), not --backend biolinkbert")
+    if args.audit_in_loop and not args.audit_model:
+        raise SystemExit("--audit-in-loop requires --audit-model")
+    if args.self_consistency < 1:
+        raise SystemExit("--self-consistency must be >= 1")
     cases = _load_cases(args.dataset)
     if args.offset:
         cases = cases[max(args.offset, 0) :]
@@ -232,6 +238,7 @@ def main() -> None:
         def _build_orchestrator(
             case_hint_provider: Any,
             case_index: int = 1,
+            evidence_audit: EvidenceAudit | None = None,
         ) -> DebateOrchestrator:
             base_url = sticky_ollama_url(ollama_urls, case_index)
             backend = _cached_backend(base_url=base_url)
@@ -272,6 +279,8 @@ def main() -> None:
                 early_exit=_should_early_exit if args.early_exit else None,
                 agent_concurrency=args.agent_concurrency,
                 supervisor_backend=supervisor_backend,
+                evidence_audit=evidence_audit,
+                self_consistency_k=args.self_consistency,
             )
 
         audit_backend = None
@@ -304,6 +313,8 @@ def main() -> None:
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
                 audit_backend=audit_backend,
+                audit_in_loop=args.audit_in_loop,
+                unanchored_enabled=args.unanchored_fraction,
             )
         )
         rounds = args.rounds
@@ -556,7 +567,7 @@ async def _evaluate_debate(
     cases: list[dict[str, Any]],
     corpus: dict[str, dict[str, Any]],
     *,
-    orchestrator_factory: Callable[[Any, int], DebateOrchestrator],
+    orchestrator_factory: Callable[[Any, int, EvidenceAudit | None], DebateOrchestrator],
     hint_provider: BioLinkBERTHintProvider | None,
     inject_hint: bool,
     aggregate_with_biolinkbert: bool,
@@ -567,6 +578,8 @@ async def _evaluate_debate(
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
     audit_backend: Any = None,
+    audit_in_loop: bool = False,
+    unanchored_enabled: bool = False,
 ) -> list[DebateCaseResult]:
     case_concurrency = max(1, int(case_concurrency))
     checkpoint_lock = asyncio.Lock()
@@ -593,10 +606,21 @@ async def _evaluate_debate(
         if aggregate_mode == "llm_director" and hint is None:
             raise SystemExit("--aggregate-mode llm_director requires BioLinkBERT hint")
 
+        evidence_text = "\n\n".join(f"{d.title}\n{d.content}".strip() for d in docs)
+        audit_result = None
+        if audit_backend is not None:
+            audit_result = await audit_evidence(
+                audit_backend, question=case["question"], evidence=evidence_text
+            )
+
         case_hint_provider = (
             _StaticHintProvider(hint) if inject_hint else NullEvidenceHint()
         )
-        orchestrator = orchestrator_factory(case_hint_provider, index)
+        orchestrator = orchestrator_factory(
+            case_hint_provider,
+            index,
+            audit_result if (audit_in_loop and audit_result is not None) else None,
+        )
         patient_case = _build_patient_case(case, corpus)
         debate = await orchestrator.run(patient_case)
 
@@ -638,19 +662,14 @@ async def _evaluate_debate(
                 bert_vote_weight=bert_vote_weight,
             )
 
-        audit_result = None
-        if audit_backend is not None:
-            evidence_text = "\n\n".join(f"{d.title}\n{d.content}".strip() for d in docs)
-            audit_result = await audit_evidence(
-                audit_backend, question=case["question"], evidence=evidence_text
-            )
-
         signals = compute_uncertainty(
             debate.rounds,
             debate.final_opinions,
             bert_label=hint.label if hint else None,
             bert_confidence=hint.confidence if hint else None,
             audit_score=audit_result.audit_score if audit_result is not None else None,
+            evidence_text=evidence_text if unanchored_enabled else None,
+            self_consistency=debate.self_consistency,
         )
         round1_opinions = [entry.opinion for entry in debate.rounds[0]]
         round1_label, _ = majority_vote(round1_opinions)
@@ -712,6 +731,8 @@ async def _evaluate_debate(
             base_label=predicted,
             audit_score=audit_result.audit_score if audit_result is not None else None,
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
+            self_consistency=debate.self_consistency or {},
+            unanchored_fraction=signals.unanchored_fraction if unanchored_enabled else None,
             llm_director_rationale=llm_director_rationale,
             llm_director_consensus_type=llm_director_consensus_type,
             consensus_mode=consensus_mode,
@@ -952,6 +973,29 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="If set, run the NLI evidence condition-audit per case with this Ollama model "
         "and feed audit_score into the uncertainty signals (e.g. qwen2.5:14b, deepseek-r1:14b)",
+    )
+    parser.add_argument(
+        "--audit-in-loop",
+        action="store_true",
+        help="Inject the evidence-condition audit (#2a) into supervisor moderation as "
+        "evidence_conditions, grounding residual_uncertainty in silent/refuted conditions. "
+        "Requires --audit-model. Without this flag, the audit (if --audit-model is set) still "
+        "only feeds the uncertainty score, as before.",
+    )
+    parser.add_argument(
+        "--self-consistency",
+        type=int,
+        default=1,
+        metavar="K",
+        help="Sample each agent K times (temperature>0) in round 1 (#5) to compute a "
+        "self-consistency entropy uncertainty feature. K=1 (default) disables it: no extra LLM "
+        "calls, no change to round-1 behavior.",
+    )
+    parser.add_argument(
+        "--unanchored-fraction",
+        action="store_true",
+        help="Score the fraction of final pros/cons not literally anchored (substring match) in "
+        "the abstract as an uncertainty feature (#2b). Deterministic, no extra LLM calls.",
     )
     return parser.parse_args()
 

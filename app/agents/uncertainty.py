@@ -54,6 +54,8 @@ class UncertaintySignals:
     bert_is_maybe: float
     semantic_entropy: float
     audit_score: float
+    unanchored_fraction: float
+    self_consistency_entropy: float
     score: float
 
     def as_dict(self) -> dict[str, float]:
@@ -67,6 +69,8 @@ class UncertaintySignals:
             "bert_is_maybe": self.bert_is_maybe,
             "semantic_entropy": self.semantic_entropy,
             "audit_score": self.audit_score,
+            "unanchored_fraction": self.unanchored_fraction,
+            "self_consistency_entropy": self.self_consistency_entropy,
             "score": self.score,
         }
 
@@ -104,6 +108,59 @@ _NO_AUDIT_WEIGHTS: dict[str, float] = {
     "mean_disagreement_with_mode": 0.05,
     "bert_is_maybe": 0.05,
 }
+
+
+# Ablatable extra signals (#2b unanchored_fraction, #5 self_consistency_entropy). Each is OFF
+# by default (weight 0, no contribution) so the baseline score is untouched when the caller does
+# not supply the corresponding input. When one or both are supplied, the base weights above are
+# scaled down proportionally so the full feature set still sums to ~1 (see _resolve_weights).
+_EXTRA_WEIGHTS: dict[str, float] = {
+    "unanchored_fraction": 0.05,
+    "self_consistency_entropy": 0.05,
+}
+
+
+def _resolve_weights(*, audit_present: bool, extra_keys: tuple[str, ...]) -> dict[str, float]:
+    """Pick the weight dict for this call, renormalized only when extras are active.
+
+    With no extras, returns the untouched ``_DEFAULT_WEIGHTS`` / ``_NO_AUDIT_WEIGHTS`` dict
+    (byte-identical to the pre-#2b/#5 behavior — regression-safe baseline). With extras, the
+    base weights are scaled down by ``1 - sum(extra weights)`` and the extras added, so the
+    combined weights still sum to 1.
+    """
+    base = _DEFAULT_WEIGHTS if audit_present else _NO_AUDIT_WEIGHTS
+    if not extra_keys:
+        return base
+    extra_total = sum(_EXTRA_WEIGHTS[key] for key in extra_keys)
+    scale = 1.0 - extra_total
+    resolved = {key: value * scale for key, value in base.items()}
+    resolved.update({key: _EXTRA_WEIGHTS[key] for key in extra_keys})
+    return resolved
+
+
+def unanchored_fraction(
+    final_opinions: list[AgentRoundOpinion], evidence_text: str | None
+) -> float:
+    """Fraction of final pros/cons claims with no literal span match in ``evidence_text``.
+
+    Deterministic evidence-grounding check (#2b): normalizes whitespace/case and looks for each
+    pros/cons string as a substring of the evidence text. A high fraction means agents argued
+    without anchoring their claims in the abstract text, an unanchored-reasoning signal for
+    ``maybe``. Returns 0.0 (no signal) when there is no evidence text or no pros/cons claims.
+    """
+    if not evidence_text or not evidence_text.strip():
+        return 0.0
+    haystack = " ".join(evidence_text.lower().split())
+    claims = [
+        claim
+        for entry in final_opinions
+        for claim in (*entry.opinion.pros, *entry.opinion.cons)
+        if claim and claim.strip()
+    ]
+    if not claims:
+        return 0.0
+    unanchored = sum(1 for claim in claims if " ".join(claim.lower().split()) not in haystack)
+    return unanchored / len(claims)
 
 
 _EMBEDDER: Any = None
@@ -212,14 +269,29 @@ def compute_uncertainty(
     weights: dict[str, float] | None = None,
     embed_fn: Any = None,
     audit_score: float | None = None,
+    evidence_text: str | None = None,
+    self_consistency: dict[str, float] | None = None,
 ) -> UncertaintySignals:
     """Compute interpretable uncertainty signals + a combined score in [0, 1].
 
     ``rounds`` is the full debate history (per round, per agent); ``final_opinions``
     is each agent's last opinion. ``bert_label`` / ``bert_confidence`` are the
-    optional BioLinkBERT signal for the same case.
+    optional BioLinkBERT signal for the same case. ``evidence_text`` (#2b) and
+    ``self_consistency`` (#5) are optional ablatable extras: omitting either (the
+    default) leaves the combined score identical to the pre-#2b/#5 behavior.
     """
-    weights = weights or (_DEFAULT_WEIGHTS if audit_score is not None else _NO_AUDIT_WEIGHTS)
+    extra_keys: list[str] = []
+    has_evidence_text = bool(evidence_text and evidence_text.strip())
+    if has_evidence_text:
+        extra_keys.append("unanchored_fraction")
+    self_consistency_entropy = 0.0
+    if self_consistency:
+        self_consistency_entropy = sum(self_consistency.values()) / len(self_consistency)
+        extra_keys.append("self_consistency_entropy")
+
+    weights = weights or _resolve_weights(
+        audit_present=audit_score is not None, extra_keys=tuple(extra_keys)
+    )
 
     final_labels = [opinion_label(entry.opinion) for entry in final_opinions]
     final_labels = [label for label in final_labels if label]
@@ -278,6 +350,8 @@ def compute_uncertainty(
         all_opinions = [entry.opinion for entry in final_opinions]
     sem_entropy = semantic_entropy(all_opinions, embed_fn=embed_fn)
 
+    unanchored = unanchored_fraction(final_opinions, evidence_text) if has_evidence_text else 0.0
+
     features = {
         "audit_score": float(audit_score) if audit_score is not None else 0.0,
         "inconclusive_fraction": inconclusive_fraction,
@@ -287,6 +361,8 @@ def compute_uncertainty(
         "flip_rate": flip_rate,
         "mean_disagreement_with_mode": mean_disagreement,
         "bert_is_maybe": bert_is_maybe,
+        "unanchored_fraction": unanchored,
+        "self_consistency_entropy": self_consistency_entropy,
     }
     score = sum(weights.get(key, 0.0) * value for key, value in features.items())
     score = max(0.0, min(1.0, score))
@@ -301,6 +377,8 @@ def compute_uncertainty(
         bert_is_maybe=bert_is_maybe,
         semantic_entropy=sem_entropy,
         audit_score=float(audit_score) if audit_score is not None else 0.0,
+        unanchored_fraction=unanchored,
+        self_consistency_entropy=self_consistency_entropy,
         score=score,
     )
 

@@ -64,6 +64,21 @@ Output ONLY JSON:
 }}
 """.strip()
 
+# Appended to SUPERVISOR_MODERATOR_PROMPT only when the caller has evidence_conditions
+# (IBIS-style condition audit) to inject. Empty/absent conditions -> prompt is byte-identical
+# to the legacy SUPERVISOR_MODERATOR_PROMPT (baseline untouched).
+SUPERVISOR_MODERATOR_EVIDENCE_ADDENDUM = """
+Additional input - evidence_conditions (an LLM evidence audit that decomposed the research
+question into sub-conditions and verdicted each one against the abstract as "supported",
+"refuted", or "silent"):
+{evidence_conditions}
+
+IMPORTANT: residual_uncertainty MUST be grounded in the conditions above with verdict "silent"
+or "refuted" - do not invent uncertainty that has no matching condition. If every condition is
+"supported", leave residual_uncertainty empty unless the agent opinions themselves surface a
+new, concrete conflict.
+""".strip()
+
 SUPERVISOR_DIRECTOR_PROMPT = """
 You are a Clinical Director synthesizing a multi-agent debate to answer a PubMedQA research question.
 
@@ -216,6 +231,13 @@ Decide the label based on the CORE DIRECTION of the findings:
 Set confidence_level to how strongly the text supports your chosen label.
 """.strip()
 
+# Soft persona nudge for #2b (unanchored_fraction): encourages but does not force pros/cons
+# to be traceable to the abstract; the ablation lever is the uncertainty feature weight, not this text.
+PUBMEDQA_CITATION_HINT = (
+    "When possible, phrase each pros/cons entry as a direct quote or close paraphrase lifted "
+    "from the abstract text (not your own summary), so the claim can be traced back to its source."
+)
+
 PUBMEDQA_COMPACT_SCHEMA = """
 Return ONLY one compact JSON object (no markdown) with exactly:
 {"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
@@ -262,9 +284,9 @@ def build_messages(
                 else PUBMEDQA_LABEL_RULE
             )
             schema_block = (
-                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{active_label_rule}"
+                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{active_label_rule}\n\n{PUBMEDQA_CITATION_HINT}"
                 if compact
-                else f"{CLINICAL_OPINION_SCHEMA}\n\n{active_label_rule}"
+                else f"{CLINICAL_OPINION_SCHEMA}\n\n{active_label_rule}\n\n{PUBMEDQA_CITATION_HINT}"
             )
     else:
         if is_safety_officer:
