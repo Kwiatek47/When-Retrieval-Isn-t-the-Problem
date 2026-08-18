@@ -42,6 +42,8 @@ class ClinicalAgent:
         self,
         patient_case: str,
         context: list[AgentRoundOpinion] | None = None,
+        *,
+        include_evidence_hint: bool = True,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -51,11 +53,18 @@ class ClinicalAgent:
         finals plus anyone who has already spoken this round) to critique
         and revise.
 
+        Set ``include_evidence_hint=False`` to hide BioLinkBERT (e.g. blind
+        ``uncertainty_advocate`` in round 1).
+
         Never raises: backend failures (timeout, connection error, invalid
         JSON after one repair attempt) degrade to a low-confidence fallback
         opinion so a single flaky agent cannot crash the whole debate round.
         """
-        hint = self.hint_provider.get_hint(patient_case)
+        hint = (
+            self.hint_provider.get_hint(patient_case)
+            if include_evidence_hint
+            else None
+        )
         messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -66,16 +75,12 @@ class ClinicalAgent:
             compact=self.compact,
         )
         raw = await self._complete_or_none(messages, self.temperature)
-        if raw is not None:
-            try:
-                return parse_clinical_opinion_json(raw)
-            except Exception:
-                logger.warning(
-                    "Agent %s returned invalid ClinicalOpinion JSON; retrying once.",
-                    self.agent_id,
-                    exc_info=True,
-                )
+        opinion = self._try_parse(raw)
+        if opinion is not None:
+            return opinion
 
+        # Repair: force compact PubMedQA schema to reduce empty/truncated JSON under load.
+        repair_compact = self.compact or (self.task_mode or "").strip().lower() == "pubmedqa"
         repair_messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -84,31 +89,52 @@ class ClinicalAgent:
             evidence_hint=hint,
             repair=True,
             task_mode=self.task_mode,
-            compact=self.compact,
+            compact=repair_compact,
         )
         raw_retry = await self._complete_or_none(repair_messages, 0.0)
-        if raw_retry is not None:
-            try:
-                return parse_clinical_opinion_json(raw_retry)
-            except Exception:
-                logger.warning(
-                    "Agent %s retry also failed; using fallback opinion.",
-                    self.agent_id,
-                    exc_info=True,
-                )
+        opinion = self._try_parse(raw_retry, retry=True)
+        if opinion is not None:
+            return opinion
 
+        # Prefer not to invent a clinical label from thin air when the blind critic
+        # has no hint — keep maybe at very low confidence so the director can discount it.
         fallback_label = hint.label if hint is not None else "maybe"
         return fallback_clinical_opinion(
             label=fallback_label,
-            reason=f"Fallback for agent `{self.agent_id}` after invalid JSON or backend error.",
+            reason=(
+                f"Fallback for agent `{self.agent_id}` after empty/invalid JSON "
+                "or backend error (discount this opinion)."
+            ),
         )
+
+    def _try_parse(self, raw: str | None, *, retry: bool = False) -> ClinicalOpinion | None:
+        if raw is None or not str(raw).strip():
+            logger.warning(
+                "Agent %s received empty model response%s.",
+                self.agent_id,
+                " on retry" if retry else "",
+            )
+            return None
+        try:
+            return parse_clinical_opinion_json(raw)
+        except Exception:
+            preview = str(raw).replace("\n", "\\n")[:180]
+            logger.warning(
+                "Agent %s returned invalid ClinicalOpinion JSON%s; preview=%r",
+                self.agent_id,
+                "; retry failed, using fallback" if retry else "; retrying once",
+                preview,
+                exc_info=True,
+            )
+            return None
 
     async def _complete_or_none(
         self, messages: list[ChatMessage], temperature: float
     ) -> str | None:
         """Run the backend, swallowing any exception (timeout, connection error, ...)."""
         try:
-            return await self.backend.complete(messages, temperature=temperature)
+            content = await self.backend.complete(messages, temperature=temperature)
+            return (content or "").strip() or None
         except Exception:
             logger.warning(
                 "Agent %s backend call failed.",

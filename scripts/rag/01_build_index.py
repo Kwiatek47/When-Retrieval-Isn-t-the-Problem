@@ -77,7 +77,7 @@ def main() -> None:
         chunk_count, bm25_encoder = _prepare_chunk_store(conn, args)
         bm25_encoder.save(args.bm25_stats_out)
 
-        client = QdrantClient(url=args.qdrant_url, timeout=args.qdrant_timeout)
+        client = QdrantClient(path="/raid/s203270/When-Retrieval-Isn-t-the-Problem/local_qdrant_db")
         try:
             _ensure_collection(client, args)
             if args.embeddings:

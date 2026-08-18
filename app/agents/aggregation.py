@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
 import re
+from typing import Any
 
-from app.agents.models import AgentRoundOpinion, ClinicalOpinion
+from app.agents.models import (
+    AgentRoundOpinion,
+    ClinicalOpinion,
+    ConsensusDecision,
+    RankedHypothesis,
+    SharedDebateReport,
+    SupervisorDirectorOutput,
+)
+from app.agents.supervisor_agent import SupervisorAgent
 
 _LABELS = ("yes", "no", "maybe")
 _LABEL_RE = re.compile(r"\b(yes|no|maybe)\b", re.IGNORECASE)
@@ -151,3 +161,372 @@ def aggregate_pubmedqa_decision(
 
 def final_labels_by_agent(entries: list[AgentRoundOpinion]) -> dict[str, str | None]:
     return {entry.agent_id: opinion_label(entry.opinion) for entry in entries}
+
+
+def is_fallback_opinion(opinion: ClinicalOpinion) -> bool:
+    sources = [str(s).strip().lower() for s in (opinion.sources_used or [])]
+    if "fallback" in sources:
+        return True
+    missing = (opinion.missing_information or "").lower()
+    return "invalid" in missing and "json" in missing
+
+
+def opinion_validity_weight(opinion: ClinicalOpinion) -> float:
+    """MedARC-style validity weight: zero-out system-fallback opinions."""
+    if is_fallback_opinion(opinion):
+        return 0.0
+    try:
+        conf = float(opinion.confidence_level)
+    except (TypeError, ValueError):
+        conf = 0.4
+    return min(1.0, max(0.05, conf))
+
+
+def confidence_aware_vote(
+    opinions: list[ClinicalOpinion],
+) -> tuple[str | None, dict[str, float], dict[str, float]]:
+    """Confidence × validity weighted vote; fallbacks contribute 0."""
+    weights = [opinion_validity_weight(op) for op in opinions]
+    return weighted_vote(opinions, weights=weights)
+
+
+def build_debate_brief(
+    debate_history: list[list[AgentRoundOpinion]],
+    *,
+    shared_report: SharedDebateReport | None = None,
+) -> dict[str, Any]:
+    """Compact MedARC-style brief for the director (not a full transcript dump)."""
+    final = debate_history[-1] if debate_history else []
+    panel = []
+    for entry in final:
+        label = opinion_label(entry.opinion)
+        weight = opinion_validity_weight(entry.opinion)
+        panel.append(
+            {
+                "agent_id": entry.agent_id,
+                "persona": entry.persona,
+                "role": (
+                    "author_conclusion_reader"
+                    if entry.agent_id == "generalist"
+                    else (
+                        "uncertainty_auditor"
+                        if entry.agent_id == "uncertainty_advocate"
+                        else entry.persona
+                    )
+                ),
+                "label": label,
+                "confidence": float(entry.opinion.confidence_level),
+                "validity_weight": weight,
+                "is_fallback": is_fallback_opinion(entry.opinion),
+                "evidence_conclusiveness": entry.opinion.evidence_conclusiveness,
+                "pros": (entry.opinion.pros or [])[:1],
+                "cons": (entry.opinion.cons or [])[:1],
+            }
+        )
+    conf_label, conf_share, conf_scores = confidence_aware_vote(
+        [entry.opinion for entry in final]
+    )
+    advocate = next((p for p in panel if p["agent_id"] == "uncertainty_advocate"), None)
+    generalist = next((p for p in panel if p["agent_id"] == "generalist"), None)
+    return {
+        "rounds_completed": len(debate_history),
+        "confidence_aware_panel_vote": conf_label,
+        "confidence_aware_share": conf_share,
+        "confidence_aware_scores": conf_scores,
+        "dual_read": {
+            "author_conclusion_reader": generalist,
+            "uncertainty_auditor": advocate,
+        },
+        "panel": panel,
+        "shared_report": shared_report.model_dump() if shared_report is not None else None,
+    }
+
+
+def apply_maybe_director_gate(
+    output: SupervisorDirectorOutput,
+    *,
+    patient_case: str,
+    final_opinions: list[AgentRoundOpinion],
+    shared_report: SharedDebateReport | None = None,
+    advocate_maybe_confidence: float = 0.75,
+) -> SupervisorDirectorOutput:
+    """
+    Selective maybe gate on top of LLM director output.
+
+    Goals:
+    - Recover PubMedQA ``maybe`` when question coverage is partial/none or the
+      director already signals differential + non-decisive findings.
+    - Avoid v1 false-maybe: do not flip unanimous high-confidence binary panels.
+    """
+    from app.agents.heuristics import abstract_suggests_inconclusive
+
+    if output.final_label == "maybe":
+        return output
+
+    usable = [e for e in final_opinions if not is_fallback_opinion(e.opinion)]
+    panel_labels = [opinion_label(e.opinion) for e in usable]
+    panel_labels = [lab for lab in panel_labels if lab is not None]
+    panel_unanimous_binary = (
+        bool(panel_labels)
+        and len(set(panel_labels)) == 1
+        and panel_labels[0] in {"yes", "no"}
+    )
+    panel_agrees_with_director = panel_unanimous_binary and panel_labels[0] == output.final_label
+    mean_conf = (
+        sum(float(e.opinion.confidence_level) for e in usable) / len(usable) if usable else 0.0
+    )
+
+    # Hard protect: unanimous high-conf panel matching director yes/no.
+    if panel_agrees_with_director and mean_conf >= 0.85:
+        return output
+
+    coverage = (getattr(output, "question_coverage", None) or "full").strip().lower()
+    checklist_hits = sum(
+        [
+            not bool(output.primary_endpoint_answers_question),
+            not bool(output.findings_decisive_for_question),
+            bool(output.authors_state_uncertainty),
+        ]
+    )
+
+    reasons: list[str] = []
+
+    # Path A: abstract does not fully cover the research question.
+    if coverage == "none":
+        reasons.append("question_coverage=none")
+    elif coverage == "partial" and (
+        output.consensus_type in {"differential", "escalation"}
+        or not output.findings_decisive_for_question
+        or checklist_hits >= 1
+    ):
+        reasons.append("question_coverage=partial + uncertainty signal")
+
+    # Path B: director already marked differential and findings not decisive.
+    if (
+        output.consensus_type in {"differential", "escalation"}
+        and not output.findings_decisive_for_question
+    ):
+        reasons.append("differential + non-decisive findings")
+
+    # Path C: strong dual checklist (unchanged conservative path).
+    if checklist_hits >= 2:
+        reasons.append(f"checklist_hits={checklist_hits}")
+
+    # Path D: auditor maybe + residual + specific abstract cue (tight).
+    advocate = next(
+        (
+            e
+            for e in usable
+            if e.agent_id == "uncertainty_advocate" or e.persona == "uncertainty_advocate"
+        ),
+        None,
+    )
+    if advocate is not None:
+        adv_label = opinion_label(advocate.opinion)
+        if (
+            adv_label == "maybe"
+            and float(advocate.opinion.confidence_level) >= advocate_maybe_confidence
+        ):
+            residual = list(shared_report.residual_uncertainty) if shared_report else []
+            if residual and abstract_suggests_inconclusive(patient_case):
+                reasons.append("uncertainty auditor maybe + residual + abstract cue")
+
+    if not reasons:
+        return output
+
+    # Soft protect: confidence-aware panel agrees with director binary and
+    # coverage was claimed full — keep director (avoid v1 over-maybe).
+    conf_label, _, _ = confidence_aware_vote(
+        [e.opinion for e in usable] or [e.opinion for e in final_opinions]
+    )
+    if (
+        coverage == "full"
+        and conf_label == output.final_label
+        and conf_label in {"yes", "no"}
+        and "question_coverage" not in " ".join(reasons)
+    ):
+        return output
+
+    return SupervisorDirectorOutput(
+        final_label="maybe",
+        consensus_type="differential"
+        if output.consensus_type == "consensus"
+        else output.consensus_type,
+        rationale=(output.rationale + " | maybe_gate: " + "; ".join(reasons)).strip(),
+        primary_endpoint_answers_question=output.primary_endpoint_answers_question,
+        findings_decisive_for_question=output.findings_decisive_for_question,
+        authors_state_uncertainty=output.authors_state_uncertainty,
+        question_coverage=coverage if coverage in {"full", "partial", "none"} else "full",
+    )
+
+
+async def aggregate_with_llm_director(
+    patient_case: str,
+    debate_history: list[list[AgentRoundOpinion]],
+    biolinkbert_hint: str,
+    *,
+    supervisor: SupervisorAgent,
+    shared_report: SharedDebateReport | None = None,
+) -> str:
+    """
+    Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
+
+    Uses a compact debate brief + shared report (MedAgents/MedARC style) instead of
+    dumping the entire transcript. Applies a deterministic maybe-aware gate after
+    the LLM response.
+
+    Returns the Director's `final_label` ("yes" | "no" | "maybe").
+    """
+    # Prefer latest moderator shared report if caller did not pass one.
+    if shared_report is None:
+        last_mod = getattr(supervisor, "last_moderation_output", None)
+        if last_mod is not None and hasattr(last_mod, "as_shared_report"):
+            shared_report = last_mod.as_shared_report()
+
+    brief = build_debate_brief(debate_history, shared_report=shared_report)
+    debate_brief = json.dumps(brief, ensure_ascii=False)
+    shared_report_text = json.dumps(
+        shared_report.model_dump() if shared_report is not None else {},
+        ensure_ascii=False,
+    )
+
+    director_output = await supervisor.synthesize_decision(
+        patient_case=patient_case,
+        debate_transcript=debate_brief,
+        biolinkbert_hint=biolinkbert_hint,
+        shared_report=shared_report_text,
+        debate_brief=debate_brief,
+    )
+    final_opinions = debate_history[-1] if debate_history else []
+    gated = apply_maybe_director_gate(
+        director_output,
+        patient_case=patient_case,
+        final_opinions=final_opinions,
+        shared_report=shared_report,
+    )
+    setattr(supervisor, "last_director_output", gated)
+    return gated.final_label
+
+
+def build_consensus_decision(
+    agent_opinions: list[ClinicalOpinion],
+    *,
+    predicted_label: str | None,
+    vote_share: dict[str, float],
+    safety_blocked: bool = False,
+) -> ConsensusDecision:
+    """
+    Map panel aggregation into consensus / differential / escalation modes.
+
+    Rules (PubMedQA-oriented):
+    - High agreement + conclusive evidence -> consensus
+    - Two strong competing labels -> differential (ranked hypotheses)
+    - Safety block or unresolved low-confidence split -> escalation
+    """
+    labels = [opinion_label(opinion) for opinion in agent_opinions]
+    labels = [label for label in labels if label is not None]
+    if safety_blocked:
+        return ConsensusDecision(
+            mode="escalation",
+            final_label=None,
+            required_next_steps=_collect_next_steps(agent_opinions),
+            grounding_score=_grounding_score(agent_opinions),
+            safety_blocked=True,
+            rationale="Safety audit blocked a definitive consensus label.",
+        )
+
+    if not labels or predicted_label is None:
+        return ConsensusDecision(
+            mode="escalation",
+            final_label=None,
+            required_next_steps=_collect_next_steps(agent_opinions),
+            grounding_score=_grounding_score(agent_opinions),
+            rationale="Panel did not produce a usable consensus label.",
+        )
+
+    share = max(vote_share.values()) if vote_share else 0.0
+    unique = set(labels)
+    conclusive = sum(
+        1
+        for opinion in agent_opinions
+        if (opinion.evidence_conclusiveness or "").strip().lower() == "conclusive"
+    )
+    grounding = _grounding_score(agent_opinions)
+
+    if len(unique) == 1 and share >= 0.75 and conclusive >= max(1, len(agent_opinions) // 2):
+        return ConsensusDecision(
+            mode="consensus",
+            final_label=predicted_label,  # type: ignore[arg-type]
+            ranked_hypotheses=[RankedHypothesis(label=predicted_label, score=share)],
+            grounding_score=grounding,
+            rationale="High panel agreement with conclusive evidence grounding.",
+        )
+
+    if len(unique) >= 2:
+        ranked = [
+            RankedHypothesis(label=label, score=float(vote_share.get(label, 0.0)))
+            for label in sorted(unique, key=lambda item: vote_share.get(item, 0.0), reverse=True)
+        ]
+        top_share = ranked[0].score if ranked else 0.0
+        second_share = ranked[1].score if len(ranked) > 1 else 0.0
+        if top_share >= 0.34 and second_share >= 0.25:
+            return ConsensusDecision(
+                mode="differential",
+                final_label=predicted_label,  # type: ignore[arg-type]
+                ranked_hypotheses=ranked[:3],
+                required_next_steps=_collect_next_steps(agent_opinions),
+                grounding_score=grounding,
+                rationale="Competing hypotheses remain after debate; returning ranked differential.",
+            )
+
+    if share < 0.5 or grounding < 0.35:
+        return ConsensusDecision(
+            mode="escalation",
+            final_label="maybe" if predicted_label is None else predicted_label,  # type: ignore[arg-type]
+            ranked_hypotheses=[
+                RankedHypothesis(label=label, score=float(vote_share.get(label, 0.0)))
+                for label in _LABELS
+                if vote_share.get(label, 0.0) > 0
+            ],
+            required_next_steps=_collect_next_steps(agent_opinions),
+            grounding_score=grounding,
+            rationale="Insufficient agreement or grounding; escalate with next steps.",
+        )
+
+    return ConsensusDecision(
+        mode="consensus",
+        final_label=predicted_label,  # type: ignore[arg-type]
+        ranked_hypotheses=[RankedHypothesis(label=predicted_label, score=share)],
+        grounding_score=grounding,
+        rationale="Panel reached a workable majority consensus.",
+    )
+
+
+def _grounding_score(agent_opinions: list[ClinicalOpinion]) -> float:
+    if not agent_opinions:
+        return 0.0
+    grounded = 0
+    for opinion in agent_opinions:
+        if opinion.sources_used:
+            grounded += 1
+        elif (opinion.evidence_conclusiveness or "").strip().lower() == "conclusive":
+            grounded += 1
+    return grounded / len(agent_opinions)
+
+
+def _collect_next_steps(agent_opinions: list[ClinicalOpinion]) -> list[str]:
+    steps: list[str] = []
+    for opinion in agent_opinions:
+        steps.extend(opinion.required_further_tests)
+        if opinion.missing_information.strip():
+            steps.append(opinion.missing_information.strip())
+    # Preserve order, drop duplicates.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for step in steps:
+        key = step.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(step)
+    return unique[:8]

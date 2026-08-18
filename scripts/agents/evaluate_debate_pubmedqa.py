@@ -18,6 +18,13 @@ Examples:
     --aggregate-mode bert_gate --rounds 2 --limit 90 --resume \\
     --num-predict 400 --agent-concurrency 1 \\
     --label debate_balanced90_ollama_r2_bertgate
+
+  # Agents on OLLAMA_MODEL (e.g. 7b), supervisor-only on 14b
+  python scripts/agents/evaluate_debate_pubmedqa.py \\
+    --backend ollama --aggregate-mode llm_director --hint none \\
+    --rounds 3 --limit 50 --resume --num-predict 1200 \\
+    --supervisor-model qwen2.5:14b \\
+    --label llm_director_r3_no_hint_sup14b
 """
 
 from __future__ import annotations
@@ -33,26 +40,35 @@ import random
 from statistics import mean
 import sys
 from time import perf_counter
-from typing import Any
+from typing import Any, Callable
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.agents import DebateOrchestrator, MockInferenceBackend, build_default_agents, labels_unanimous
+from app.agents import (
+    DebateOrchestrator,
+    MockInferenceBackend,
+    build_default_agents,
+    check_early_exit_asymmetric_veto,
+)
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
+    aggregate_with_llm_director,
+    build_consensus_decision,
     final_labels_by_agent,
     majority_vote,
-    opinion_label,
 )
 from app.agents.backends import (
     BioLinkBERTHintProvider,
+    EvidenceHint,
     NullEvidenceHint,
     OllamaInferenceBackend,
     build_biolinkbert_hint_from_settings,
     hint_as_clinical_opinion,
+    parse_ollama_base_urls,
+    sticky_ollama_url,
 )
 from app.agents.models import AgentRoundOpinion
 from app.agents.evidence_audit import audit_evidence
@@ -100,10 +116,33 @@ class DebateCaseResult:
     routed_to_maybe: bool = False
     audit_score: float | None = None
     audit_detail: dict[str, Any] = field(default_factory=dict)
+    llm_director_rationale: str | None = None
+    llm_director_consensus_type: str | None = None
+    consensus_mode: str | None = None
+    consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
+    consensus_required_next_steps: list[str] = field(default_factory=list)
+
+
+class _StaticHintProvider:
+    """Per-case immutable hint provider for concurrent benchmark workers."""
+
+    def __init__(self, hint: EvidenceHint | None) -> None:
+        self._hint = hint
+
+    def get_hint(self, patient_case: str) -> EvidenceHint | None:  # noqa: ARG002 - protocol compatibility
+        return self._hint
 
 
 def main() -> None:
     args = _parse_args()
+    if args.no_supervisor_moderation:
+        args.debate_mode = "peer"
+    if args.max_rounds is None:
+        args.max_rounds = args.rounds
+    if args.adaptive_rounds and args.min_rounds > args.max_rounds:
+        raise SystemExit("--min-rounds cannot exceed --max-rounds")
+    if args.backend == "biolinkbert" and args.aggregate_mode == "llm_director":
+        raise SystemExit("--aggregate-mode llm_director requires a debate backend (mock/ollama), not --backend biolinkbert")
     cases = _load_cases(args.dataset)
     if args.offset:
         cases = cases[max(args.offset, 0) :]
@@ -116,6 +155,7 @@ def main() -> None:
         args.backend == "biolinkbert"
         or args.hint == "biolinkbert"
         or args.aggregate_with_biolinkbert
+        or args.aggregate_mode == "llm_director"
     )
     if need_classifier:
         hint_provider = build_biolinkbert_hint_from_settings()
@@ -147,66 +187,134 @@ def main() -> None:
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
     else:
-        backend = _build_backend(
-            args.backend,
-            fast=args.fast,
-            num_predict=args.num_predict,
-        )
-        agents = build_default_agents(
-            backend,
-            hint_provider=hint_provider if args.hint == "biolinkbert" else NullEvidenceHint(),
-            task_mode="pubmedqa",
-            compact=args.fast or args.compact,
-        )
-        bert_conf_threshold = args.early_exit_bert_confidence
+        from app.core.config import get_settings
 
-        def _should_early_exit(round_number: int, round_opinions: list[AgentRoundOpinion]) -> bool:
-            if not args.early_exit:
-                return False
-            if round_number < 1:
-                return False
-            if not labels_unanimous(round_opinions):
-                return False
-            if isinstance(hint_provider, BioLinkBERTHintProvider) and hint_provider.last_hint:
-                panel_label = opinion_label(round_opinions[0].opinion)
-                hint = hint_provider.last_hint
-                return (
-                    panel_label == hint.label
-                    and hint.confidence >= bert_conf_threshold
+        settings = get_settings()
+        ollama_urls = parse_ollama_base_urls(
+            args.ollama_base_urls,
+            default=settings.ollama_base_url,
+        )
+        if args.backend == "ollama":
+            print(f"Ollama pool ({len(ollama_urls)}): {', '.join(ollama_urls)}")
+
+        backend_cache: dict[tuple[str, str, str, str], MockInferenceBackend | OllamaInferenceBackend] = {}
+
+        def _cached_backend(
+            *,
+            base_url: str,
+            model: str | None = None,
+            num_predict: int | None = None,
+            quiet: bool = True,
+        ) -> MockInferenceBackend | OllamaInferenceBackend:
+            model_name = model or settings.default_model
+            predict_key = (
+                str(num_predict)
+                if num_predict is not None
+                else str(args.num_predict)
+            )
+            key = (base_url, model_name, predict_key, str(bool(args.fast)))
+            if key not in backend_cache:
+                backend_cache[key] = _build_backend(
+                    args.backend,
+                    fast=args.fast,
+                    num_predict=num_predict if num_predict is not None else args.num_predict,
+                    model=model,
+                    base_url=base_url,
+                    quiet=quiet,
                 )
-            return True
+            return backend_cache[key]
 
-        orchestrator = DebateOrchestrator(
-            agents,
-            rounds=args.rounds,
-            early_exit=_should_early_exit if args.early_exit else None,
-            agent_concurrency=args.agent_concurrency,
-        )
+        if args.supervisor_model and args.backend != "ollama":
+            raise SystemExit("--supervisor-model requires --backend ollama")
+        if args.supervisor_model:
+            print(f"Supervisor model={args.supervisor_model}")
+
+        def _build_orchestrator(
+            case_hint_provider: Any,
+            case_index: int = 1,
+        ) -> DebateOrchestrator:
+            base_url = sticky_ollama_url(ollama_urls, case_index)
+            backend = _cached_backend(base_url=base_url)
+            supervisor_backend = None
+            if args.supervisor_model:
+                supervisor_backend = _cached_backend(
+                    base_url=base_url,
+                    model=args.supervisor_model,
+                )
+            agents = build_default_agents(
+                backend,
+                hint_provider=case_hint_provider,
+                task_mode="pubmedqa",
+                compact=args.fast or args.compact,
+            )
+            def _should_early_exit(
+                round_number: int,
+                round_opinions: list[AgentRoundOpinion],
+                patient_case: str,
+            ) -> bool:
+                if not args.early_exit or round_number < 1:
+                    return False
+                # Option A: asymmetric maybe-veto + binary unanimity + keyword filter
+                # (no BERT gate).
+                return check_early_exit_asymmetric_veto(
+                    round_opinions,
+                    patient_case=patient_case,
+                )
+
+            return DebateOrchestrator(
+                agents,
+                rounds=args.rounds,
+                min_rounds=args.min_rounds,
+                max_rounds=args.max_rounds,
+                adaptive_rounds=args.adaptive_rounds,
+                conflict_entropy_threshold=args.conflict_entropy_threshold,
+                debate_mode=args.debate_mode,
+                early_exit=_should_early_exit if args.early_exit else None,
+                agent_concurrency=args.agent_concurrency,
+                supervisor_backend=supervisor_backend,
+            )
+
         audit_backend = None
         if args.audit_model:
-            audit_backend = _build_backend("ollama", num_predict=400, model=args.audit_model)
+            audit_backend = _cached_backend(
+                base_url=ollama_urls[0],
+                model=args.audit_model,
+                num_predict=400,
+                quiet=False,
+            )
             print(f"Evidence-audit backend enabled: {args.audit_model}")
+        print(f"Debate mode={args.debate_mode}")
+        if args.adaptive_rounds:
+            print(
+                f"Adaptive rounds enabled: min={args.min_rounds} "
+                f"max={args.max_rounds} entropy_threshold={args.conflict_entropy_threshold}"
+            )
         results = asyncio.run(
             _evaluate_debate(
-                orchestrator,
                 cases,
                 corpus,
-                hint_provider=hint_provider if need_classifier else None,
+                orchestrator_factory=_build_orchestrator,
+                hint_provider=hint_provider if isinstance(hint_provider, BioLinkBERTHintProvider) else None,
+                inject_hint=args.hint == "biolinkbert",
                 aggregate_with_biolinkbert=args.aggregate_with_biolinkbert,
                 aggregate_mode=args.aggregate_mode,
                 bert_gate_confidence=args.bert_gate_confidence,
                 bert_vote_weight=args.bert_vote_weight,
+                case_concurrency=args.case_concurrency,
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
                 audit_backend=audit_backend,
             )
         )
         rounds = args.rounds
-        aggregation = (
-            f"{args.aggregate_mode}+biolinkbert"
-            if args.aggregate_with_biolinkbert
-            else "confidence_weighted_majority_vote"
-        )
+        if args.aggregate_mode == "llm_director":
+            aggregation = "llm_director"
+        else:
+            aggregation = (
+                f"{args.aggregate_mode}+biolinkbert"
+                if args.aggregate_with_biolinkbert
+                else "confidence_weighted_majority_vote"
+            )
         architecture = DebateOrchestrator.ARCHITECTURE
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
@@ -351,10 +459,23 @@ def _default_label(args: argparse.Namespace) -> str:
     parts = [f"debate_pubmedqa_{args.backend}"]
     if args.backend != "biolinkbert":
         parts.append(f"r{args.rounds}")
+    if getattr(args, "case_concurrency", 1) > 1:
+        parts.append(f"cc{args.case_concurrency}")
+    if getattr(args, "debate_mode", "moderated") != "moderated":
+        parts.append(str(args.debate_mode))
+    if getattr(args, "adaptive_rounds", False):
+        parts.append(f"adapt{args.min_rounds}-{args.max_rounds}")
+    urls = getattr(args, "ollama_base_urls", None)
+    if urls and "," in str(urls):
+        parts.append(f"ollama{str(urls).count(',') + 1}")
     if args.hint == "biolinkbert":
         parts.append("hint")
     if args.aggregate_with_biolinkbert:
         parts.append(args.aggregate_mode)
+    if args.aggregate_mode == "llm_director":
+        parts.append("llm_director")
+    if args.supervisor_model:
+        parts.append(f"sup_{args.supervisor_model.replace(':', '').replace('.', '')}")
     if args.fast:
         parts.append("fast")
     return "_".join(parts)
@@ -432,51 +553,98 @@ def _evaluate_biolinkbert_only(
 
 
 async def _evaluate_debate(
-    orchestrator: DebateOrchestrator,
     cases: list[dict[str, Any]],
     corpus: dict[str, dict[str, Any]],
     *,
+    orchestrator_factory: Callable[[Any, int], DebateOrchestrator],
     hint_provider: BioLinkBERTHintProvider | None,
+    inject_hint: bool,
     aggregate_with_biolinkbert: bool,
     aggregate_mode: str,
     bert_gate_confidence: float,
     bert_vote_weight: float,
+    case_concurrency: int,
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
     audit_backend: Any = None,
 ) -> list[DebateCaseResult]:
-    results: list[DebateCaseResult] = []
-    for index, case in enumerate(cases, start=1):
+    case_concurrency = max(1, int(case_concurrency))
+    checkpoint_lock = asyncio.Lock()
+    classifier_lock = asyncio.Lock()
+
+    async def _run_case(index: int, case: dict[str, Any]) -> DebateCaseResult:
         if case["id"] in prior_results:
-            results.append(prior_results[case["id"]])
             print(f"[{index}/{len(cases)}] SKIP id={case['id']} (checkpoint)")
-            continue
+            return prior_results[case["id"]]
+
         started = perf_counter()
         docs = _case_documents(case, corpus)
+
+        hint: EvidenceHint | None = None
         if hint_provider is not None:
-            hint_provider.set_case(question=case["question"], documents=docs)
-            hint_provider.predict_current()
+            async with classifier_lock:
+                hint_provider.set_case(question=case["question"], documents=docs)
+                hint = hint_provider.predict_current()
+                hint_provider.clear_case()
+
+        if inject_hint and hint is None and hint_provider is not None:
+            raise SystemExit("BioLinkBERT hint is required but classifier returned no prediction.")
+
+        if aggregate_mode == "llm_director" and hint is None:
+            raise SystemExit("--aggregate-mode llm_director requires BioLinkBERT hint")
+
+        case_hint_provider = (
+            _StaticHintProvider(hint) if inject_hint else NullEvidenceHint()
+        )
+        orchestrator = orchestrator_factory(case_hint_provider, index)
         patient_case = _build_patient_case(case, corpus)
         debate = await orchestrator.run(patient_case)
-        hint = hint_provider.last_hint if hint_provider is not None else None
 
-        agent_opinions = [entry.opinion for entry in debate.final_opinions]
-        bert_opinion = hint_as_clinical_opinion(hint) if (aggregate_with_biolinkbert and hint) else None
-        predicted, share, rule = aggregate_pubmedqa_decision(
-            agent_opinions,
-            bert_opinion=bert_opinion,
-            mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
-            bert_gate_confidence=bert_gate_confidence,
-            bert_vote_weight=bert_vote_weight,
-        )
+        llm_director_rationale: str | None = None
+        llm_director_consensus_type: str | None = None
+
+        if aggregate_mode == "llm_director":
+            assert hint is not None
+            biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+            supervisor = getattr(orchestrator, "supervisor", None)
+            if supervisor is None:
+                raise SystemExit("SupervisorAgent missing from DebateOrchestrator instance")
+
+            predicted = await aggregate_with_llm_director(
+                patient_case=patient_case,
+                debate_history=debate.rounds,
+                biolinkbert_hint=biolinkbert_hint_text,
+                supervisor=supervisor,
+                shared_report=debate.shared_report,
+            )
+            director_output = getattr(supervisor, "last_director_output", None)
+            if director_output is not None:
+                llm_director_rationale = director_output.rationale
+                llm_director_consensus_type = director_output.consensus_type
+            share = {lab: (1.0 if lab == predicted else 0.0) for lab in ("yes", "no", "maybe")}
+            rule = "llm_director"
+        else:
+            agent_opinions = [entry.opinion for entry in debate.final_opinions]
+            bert_opinion = (
+                hint_as_clinical_opinion(hint)
+                if (aggregate_with_biolinkbert and hint)
+                else None
+            )
+            predicted, share, rule = aggregate_pubmedqa_decision(
+                agent_opinions,
+                bert_opinion=bert_opinion,
+                mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
+                bert_gate_confidence=bert_gate_confidence,
+                bert_vote_weight=bert_vote_weight,
+            )
+
         audit_result = None
         if audit_backend is not None:
-            evidence_text = "\n\n".join(
-                f"{d.title}\n{d.content}".strip() for d in docs
-            )
+            evidence_text = "\n\n".join(f"{d.title}\n{d.content}".strip() for d in docs)
             audit_result = await audit_evidence(
                 audit_backend, question=case["question"], evidence=evidence_text
             )
+
         signals = compute_uncertainty(
             debate.rounds,
             debate.final_opinions,
@@ -492,6 +660,30 @@ async def _evaluate_debate(
         label_values = [label for label in agent_labels.values() if label is not None]
         latency_ms = (perf_counter() - started) * 1000.0
         early_exit = len(debate.rounds) < orchestrator.rounds
+
+        agent_opinions_for_consensus = [entry.opinion for entry in debate.final_opinions]
+        safety_blocked = any(
+            entry.opinion.safety_opinion is not None
+            and not entry.opinion.safety_opinion.safety_passed
+            and entry.opinion.safety_opinion.immediate_intervention_required
+            for entry in debate.final_opinions
+        )
+        if aggregate_mode == "llm_director" and llm_director_consensus_type:
+            consensus_mode = llm_director_consensus_type
+            consensus_ranked_hypotheses: list[dict[str, Any]] = []
+            consensus_required_next_steps: list[str] = []
+        else:
+            consensus = build_consensus_decision(
+                agent_opinions_for_consensus,
+                predicted_label=predicted,
+                vote_share=share,
+                safety_blocked=safety_blocked,
+            )
+            consensus_mode = consensus.mode
+            consensus_ranked_hypotheses = [
+                item.model_dump() for item in consensus.ranked_hypotheses
+            ]
+            consensus_required_next_steps = consensus.required_next_steps
 
         result = DebateCaseResult(
             id=case["id"],
@@ -520,10 +712,15 @@ async def _evaluate_debate(
             base_label=predicted,
             audit_score=audit_result.audit_score if audit_result is not None else None,
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
+            llm_director_rationale=llm_director_rationale,
+            llm_director_consensus_type=llm_director_consensus_type,
+            consensus_mode=consensus_mode,
+            consensus_ranked_hypotheses=consensus_ranked_hypotheses,
+            consensus_required_next_steps=consensus_required_next_steps,
         )
-        results.append(result)
         if checkpoint_path is not None:
-            _append_checkpoint(checkpoint_path, result)
+            async with checkpoint_lock:
+                _append_checkpoint(checkpoint_path, result)
         status = "PASS" if result.label_pass else "FAIL"
         print(
             f"[{index}/{len(cases)}] {status} id={result.id} "
@@ -532,9 +729,27 @@ async def _evaluate_debate(
             f"r1={result.round1_vote_label} rounds={result.rounds_run} "
             f"({latency_ms:.0f} ms)"
         )
-        if hint_provider is not None:
-            hint_provider.clear_case()
-    return results
+        return result
+
+    if case_concurrency == 1:
+        results: list[DebateCaseResult] = []
+        for idx, case in enumerate(cases, start=1):
+            results.append(await _run_case(idx, case))
+        return results
+
+    sem = asyncio.Semaphore(case_concurrency)
+
+    async def _guarded_run(index: int, case: dict[str, Any]) -> tuple[int, DebateCaseResult]:
+        async with sem:
+            return index, await _run_case(index, case)
+
+    tasks = [
+        asyncio.create_task(_guarded_run(index, case))
+        for index, case in enumerate(cases, start=1)
+    ]
+    done = await asyncio.gather(*tasks)
+    done.sort(key=lambda item: item[0])
+    return [result for _, result in done]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -560,7 +775,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--aggregate-mode",
-        choices=("majority", "bert_weighted", "bert_gate"),
+        choices=("majority", "bert_weighted", "bert_gate", "llm_director"),
         default="bert_gate",
         help="How to combine panel + BioLinkBERT (bert_gate recommended)",
     )
@@ -576,7 +791,41 @@ def _parse_args() -> argparse.Namespace:
         default=3.0,
         help="BioLinkBERT weight in bert_weighted / uncertain bert_gate path",
     )
-    parser.add_argument("--rounds", type=int, default=3, choices=(2, 3))
+    parser.add_argument(
+        "--rounds",
+        type=int,
+        default=3,
+        choices=(2, 3, 4, 5),
+        help="Fixed round count when --adaptive-rounds is off; also default max for adaptive mode",
+    )
+    parser.add_argument(
+        "--adaptive-rounds",
+        action="store_true",
+        help=(
+            "Escalate beyond --min-rounds while panel conflict remains "
+            "(entropy / contradictions / non-unanimous), up to --max-rounds"
+        ),
+    )
+    parser.add_argument(
+        "--min-rounds",
+        type=int,
+        default=2,
+        choices=(2, 3, 4, 5),
+        help="Minimum rounds when --adaptive-rounds is enabled (default: 2)",
+    )
+    parser.add_argument(
+        "--max-rounds",
+        type=int,
+        default=None,
+        choices=(2, 3, 4, 5),
+        help="Maximum rounds when --adaptive-rounds is enabled (default: --rounds)",
+    )
+    parser.add_argument(
+        "--conflict-entropy-threshold",
+        type=float,
+        default=0.35,
+        help="Continue adaptive debate when normalized label entropy exceeds this value",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N cases")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
@@ -590,13 +839,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--early-exit",
         action="store_true",
-        help="Optional: skip later rounds when panel is unanimous (+ BERT agree if present)",
+        help=(
+            "Skip later rounds when panel is unanimously yes/no, "
+            "uncertainty_advocate does not veto (maybe / confidence < 0.65), "
+            "and the abstract has no inconclusiveness cue phrases. "
+            "Does not require BioLinkBERT agreement."
+        ),
     )
     parser.add_argument(
         "--early-exit-bert-confidence",
         type=float,
         default=0.85,
-        help="Min BioLinkBERT confidence required for early-exit agreement",
+        help="Deprecated/unused: early-exit no longer gates on BioLinkBERT (kept for CLI compat)",
     )
     parser.add_argument(
         "--agent-concurrency",
@@ -609,10 +863,54 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--case-concurrency",
+        type=int,
+        default=1,
+        help=(
+            "How many benchmark cases to process concurrently. "
+            "Each case runs its own debate orchestrator."
+        ),
+    )
+    parser.add_argument(
+        "--debate-mode",
+        choices=("moderated", "peer", "hybrid"),
+        default="moderated",
+        help=(
+            "Round 2+ debate style: moderated=supervisor-only (default), "
+            "peer=round-robin peer critique without supervisor, "
+            "hybrid=supervisor instructions plus round-robin peer context"
+        ),
+    )
+    parser.add_argument(
+        "--no-supervisor-moderation",
+        action="store_true",
+        help="Alias for --debate-mode peer (pure peer debate, no supervisor moderation)",
+    )
+    parser.add_argument(
         "--num-predict",
         type=int,
         default=None,
         help="Override Ollama num_predict (default: 220 with --fast, else settings)",
+    )
+    parser.add_argument(
+        "--supervisor-model",
+        type=str,
+        default=None,
+        help=(
+            "Ollama model for the supervisor only (moderation + llm_director). "
+            "Debate agents keep OLLAMA_MODEL / default backend model."
+        ),
+    )
+    parser.add_argument(
+        "--ollama-base-urls",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated Ollama endpoints for multi-GPU load balancing, e.g. "
+            "'http://127.0.0.1:11434,http://127.0.0.1:11435,http://127.0.0.1:11436'. "
+            "Cases are sticky-assigned round-robin across URLs. "
+            "Defaults to OLLAMA_BASE_URL."
+        ),
     )
     parser.add_argument(
         "--resume",
@@ -664,6 +962,8 @@ def _build_backend(
     fast: bool = False,
     num_predict: int | None = None,
     model: str | None = None,
+    base_url: str | None = None,
+    quiet: bool = False,
 ) -> MockInferenceBackend | OllamaInferenceBackend:
     if name == "mock":
         return MockInferenceBackend()
@@ -678,15 +978,17 @@ def _build_backend(
     else:
         # Do NOT inflate above .env — previous max(..., 800) made runs much slower.
         predict = settings.ollama_num_predict
+    resolved_url = (base_url or settings.ollama_base_url).rstrip("/")
     provider = OllamaProvider(
-        base_url=settings.ollama_base_url,
+        base_url=resolved_url,
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
-        num_ctx=min(max(settings.ollama_num_ctx, 2048), 4096),
+        num_ctx=min(max(settings.ollama_num_ctx, 4096), 8192),
     )
     model_name = model or settings.default_model
-    print(f"Ollama model={model_name} num_predict={predict}")
+    if not quiet:
+        print(f"Ollama model={model_name} num_predict={predict} url={resolved_url}")
     return OllamaInferenceBackend(provider, model=model_name, temperature=0.1)
 
 
@@ -771,7 +1073,6 @@ def _summarize(
     # only (the calibration split is excluded to keep the numbers leakage-free).
     routing_meta = dict(_UNCERTAINTY_ROUTING_META)
     report_ids = set(routing_meta.get("report_ids") or [])
-    all_results = results
     if report_ids:
         results = [r for r in results if r.id in report_ids]
 
@@ -814,7 +1115,7 @@ def _summarize(
         },
         "aggregation": aggregation,
         "architecture": architecture,
-        "supervisor": architecture not in {"round_robin_no_supervisor", "biolinkbert_only"},
+        "supervisor": architecture not in {"peer_round_robin", "biolinkbert_only"},
         "uncertainty_routing": (
             {
                 **routing_meta,
@@ -881,6 +1182,10 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
             f"pred={result.predicted_label} bert={result.biolinkbert_label} "
             f"r1={result.round1_vote_label} rounds={result.rounds_run}{extra}"
         )
+        if result.llm_director_consensus_type or result.llm_director_rationale:
+            lines.append(
+                f"  llm_director: consensus_type={result.llm_director_consensus_type} rationale={result.llm_director_rationale}"
+            )
     lines.append("")
     return "\n".join(lines)
 
