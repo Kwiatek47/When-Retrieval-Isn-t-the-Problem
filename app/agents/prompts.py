@@ -111,14 +111,16 @@ CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract.
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract relative to the research question as written.
 
 Choose 'maybe' when:
-1. Primary results are insignificant or mixed across key endpoints.
-2. Authors heavily hedge AND primary data are weak.
-3. The question is broad but the study answers only a narrow surrogate.
+1. Primary results are insignificant or mixed across key endpoints the question asks about.
+2. Authors heavily hedge AND primary data are weak or contradictory.
+3. The question is broad but the study answers only a narrow surrogate, subgroup, or related outcome (partial coverage).
+4. Authors explicitly leave the posed question open or unresolved.
 
-Do NOT choose 'maybe' solely for boilerplate limitations if primary findings are robust and authors state a clear yes/no. If data are weak or conflicting, advocate for 'maybe'.
+Do NOT choose 'maybe' solely for boilerplate limitations (small sample, retrospective design, "further research needed") if primary findings robustly and fully answer the exact question with a clear yes/no.
+When coverage is partial or mixed, advocate for 'maybe' with confidence reflecting that gap — not boilerplate alone.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
@@ -180,10 +182,11 @@ PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
 Decide the label based on the CORE DIRECTION of the findings:
 - Choose "yes" if the findings support the hypothesis or show an effect.
 - Choose "no" if the findings reject the hypothesis or show no significant effect.
-- Choose "maybe" if the findings are mixed, contradictory, or express genuine uncertainty.
+- Choose "maybe" if the findings are mixed, contradictory, express genuine uncertainty, or only partially answer the posed question (surrogate/subgroup).
 
 Set confidence_level to how strongly the text supports your chosen label.
 """.strip()
+
 
 PUBMEDQA_COMPACT_SCHEMA = """
 Return ONLY one compact JSON object (no markdown) with exactly:

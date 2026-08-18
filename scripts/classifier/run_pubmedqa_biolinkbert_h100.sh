@@ -28,6 +28,7 @@ export LEARNING_RATE="${LEARNING_RATE:-2e-5}"
 export FOCAL_LOSS_GAMMA="${FOCAL_LOSS_GAMMA:-0.0}"
 export AUX_WEIGHT="${AUX_WEIGHT:-0.10}"
 export NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 export NUM_WORKERS="${NUM_WORKERS:-8}"
 
 PYTHON_BIN="${PYTHON_BIN:-${PY:-python3}}" scripts/classifier/run_pubmedqa_research_experiments.sh
