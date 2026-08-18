@@ -12,7 +12,12 @@ from app.agents.models import (
     SupervisorDirectorOutput,
     SupervisorModerationOutput,
 )
-from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT, SUPERVISOR_MODERATOR_PROMPT
+from app.agents.prompts import (
+    SUPERVISOR_DIRECTOR_PROMPT,
+    SUPERVISOR_MODERATOR_PROMPT,
+    PeerContextMode,
+    format_opinions_for_supervisor,
+)
 from app.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -59,20 +64,27 @@ class SupervisorAgent:
         *,
         backend: InferenceBackend,
         temperature: float = 0.2,
+        peer_context: PeerContextMode = "nl",
     ) -> None:
         self.backend = backend
         self.temperature = temperature
+        self.peer_context: PeerContextMode = (peer_context or "nl")  # type: ignore[assignment]
         self.last_moderation_output: SupervisorModerationOutput | None = None
+        self.last_moderation_failed: bool = False
         self.last_director_output: SupervisorDirectorOutput | None = None
 
     async def moderate_round(
         self,
         patient_case: str,
-        agents_opinions: dict[str, Any],
+        agents_opinions: dict[str, Any] | list[Any],
     ) -> SupervisorModerationOutput:
+        rendered = format_opinions_for_supervisor(
+            agents_opinions,
+            peer_context=self.peer_context,
+        )
         prompt = SUPERVISOR_MODERATOR_PROMPT.format(
             patient_case=patient_case,
-            previous_round_opinions=json.dumps(agents_opinions, ensure_ascii=False),
+            previous_round_opinions=rendered,
         )
         messages = [
             ChatMessage(role="system", content="Return only valid JSON matching the requested schema."),
@@ -90,6 +102,7 @@ class SupervisorAgent:
             data.setdefault("primary_endpoint_result", "")
             output = SupervisorModerationOutput.model_validate(data)
             self.last_moderation_output = output
+            self.last_moderation_failed = False
             return output
         except Exception:
             logger.warning("Failed to parse SupervisorModerationOutput; using fallback.", exc_info=True)
@@ -104,6 +117,7 @@ class SupervisorAgent:
                 residual_uncertainty=[],
             )
             self.last_moderation_output = output
+            self.last_moderation_failed = True
             return output
 
     async def synthesize_decision(
@@ -117,11 +131,9 @@ class SupervisorAgent:
     ) -> SupervisorDirectorOutput:
         schema = SupervisorDirectorOutput.model_json_schema()
         brief = debate_brief if debate_brief is not None else debate_transcript
-        report = shared_report if shared_report is not None else "{}"
         prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case=patient_case,
-            shared_report=report,
-            debate_brief=brief,
+            full_debate_transcript=brief,
             biolinkbert_hint=biolinkbert_hint,
         )
 
@@ -140,10 +152,23 @@ class SupervisorAgent:
         raw = await self._complete_with_repair(messages, self.temperature)
         try:
             data = _safe_json_loads(raw)
-            # Defaults for older models that omit the maybe-gate fields.
+            # Defaults for models that omit optional / newer schema fields.
+            data.setdefault("debate_conflict_level", "medium")
+            data.setdefault("conclusiveness_score", 5)
+            if not isinstance(data.get("unresolved_contradictions"), list):
+                data["unresolved_contradictions"] = []
             data.setdefault("primary_endpoint_answers_question", True)
             data.setdefault("findings_decisive_for_question", True)
             data.setdefault("authors_state_uncertainty", False)
+            conflict = str(data.get("debate_conflict_level") or "medium").strip().lower()
+            if conflict not in {"low", "medium", "high"}:
+                conflict = "medium"
+            data["debate_conflict_level"] = conflict
+            try:
+                score = int(data.get("conclusiveness_score", 5))
+            except (TypeError, ValueError):
+                score = 5
+            data["conclusiveness_score"] = min(10, max(1, score))
             coverage = str(data.get("question_coverage") or "full").strip().lower()
             if coverage not in {"full", "partial", "none"}:
                 coverage = "full"
@@ -157,9 +182,12 @@ class SupervisorAgent:
                 final_label="maybe",
                 consensus_type="escalation",
                 rationale="Supervisor failed to produce valid output; defaulting to conservative 'maybe'.",
+                debate_conflict_level="high",
+                conclusiveness_score=3,
                 primary_endpoint_answers_question=False,
                 findings_decisive_for_question=False,
                 authors_state_uncertainty=True,
+                question_coverage="none",
             )
             self.last_director_output = output
             return output

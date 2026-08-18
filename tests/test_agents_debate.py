@@ -68,6 +68,26 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
             )
 
 
+class EvaluateDebateCliTests(unittest.TestCase):
+    def test_parse_supervisor_base_url(self) -> None:
+        from scripts.agents.evaluate_debate_pubmedqa import _parse_args
+        from unittest.mock import patch
+
+        argv = [
+            "evaluate_debate_pubmedqa.py",
+            "--backend",
+            "ollama",
+            "--supervisor-model",
+            "qwen2.5:14b",
+            "--supervisor-base-url",
+            "http://127.0.0.1:11437",
+        ]
+        with patch("sys.argv", argv):
+            args = _parse_args()
+        self.assertEqual(args.supervisor_model, "qwen2.5:14b")
+        self.assertEqual(args.supervisor_base_url, "http://127.0.0.1:11437")
+
+
 class DebateOrchestratorTests(unittest.TestCase):
     def test_runs_three_rounds_without_supervisor(self) -> None:
         backend = MockInferenceBackend()
@@ -147,6 +167,7 @@ class DebateOrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(len(result.rounds), 2)
         self.assertEqual(orch.adaptive_stops, 1)
+        self.assertFalse(result.exhausted_without_consensus)
 
     def test_adaptive_rounds_continues_on_conflict(self) -> None:
         class AlternatingBackend(MockInferenceBackend):
@@ -177,6 +198,98 @@ class DebateOrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(len(result.rounds), 4)
         self.assertEqual(orch.adaptive_stops, 0)
+        self.assertTrue(result.exhausted_without_consensus)
+
+    def test_exhausted_no_consensus_override_forces_maybe(self) -> None:
+        from app.agents.orchestrator import apply_exhausted_no_consensus_override
+
+        label, overridden = apply_exhausted_no_consensus_override(
+            "yes", exhausted_without_consensus=True
+        )
+        self.assertEqual(label, "maybe")
+        self.assertTrue(overridden)
+
+        keep, keep_flag = apply_exhausted_no_consensus_override(
+            "yes", exhausted_without_consensus=False
+        )
+        self.assertEqual(keep, "yes")
+        self.assertFalse(keep_flag)
+
+        already, already_flag = apply_exhausted_no_consensus_override(
+            "maybe", exhausted_without_consensus=True
+        )
+        self.assertEqual(already, "maybe")
+        self.assertFalse(already_flag)
+
+    def test_fundamental_conflict_2_2_and_guardian_alliance(self) -> None:
+        from app.agents.models import AgentRoundOpinion
+        from app.agents.orchestrator import fundamental_panel_conflict
+
+        def _panel(labels: dict[str, str]) -> list[AgentRoundOpinion]:
+            return [
+                AgentRoundOpinion(
+                    agent_id=agent_id,
+                    persona=agent_id,
+                    round=4,
+                    opinion=ClinicalOpinion(
+                        top_1_diagnosis=label,
+                        top_3_differential_diagnoses=["yes", "no", "maybe"],
+                        confidence_level=0.8,
+                        sources_used=["abstract"],
+                    ),
+                )
+                for agent_id, label in labels.items()
+            ]
+
+        self.assertTrue(
+            fundamental_panel_conflict(
+                _panel(
+                    {
+                        "generalist": "yes",
+                        "differential_expander": "yes",
+                        "evidence_skeptic": "no",
+                        "uncertainty_advocate": "no",
+                    }
+                )
+            )
+        )
+        self.assertTrue(
+            fundamental_panel_conflict(
+                _panel(
+                    {
+                        "generalist": "yes",
+                        "differential_expander": "yes",
+                        "evidence_skeptic": "no",
+                        "uncertainty_advocate": "maybe",
+                    }
+                )
+            )
+        )
+        self.assertTrue(
+            fundamental_panel_conflict(
+                _panel(
+                    {
+                        "generalist": "yes",
+                        "differential_expander": "no",
+                        "evidence_skeptic": "maybe",
+                        "uncertainty_advocate": "maybe",
+                    }
+                )
+            )
+        )
+        # 3-1: only advocate maybe → director may still assign yes/no.
+        self.assertFalse(
+            fundamental_panel_conflict(
+                _panel(
+                    {
+                        "generalist": "yes",
+                        "differential_expander": "yes",
+                        "evidence_skeptic": "yes",
+                        "uncertainty_advocate": "maybe",
+                    }
+                )
+            )
+        )
 
     def test_early_exit_skips_later_rounds(self) -> None:
         from app.agents.orchestrator import check_early_exit_asymmetric_veto
@@ -257,7 +370,7 @@ class DebateOrchestratorTests(unittest.TestCase):
             )
         )
 
-    def test_blind_critic_hides_hint_from_advocate_in_round1(self) -> None:
+    def test_blind_critic_hides_hint_from_advocate_all_rounds_by_default(self) -> None:
         from app.agents.agent import ClinicalAgent
         from app.agents.backends import EvidenceHint
 
@@ -305,8 +418,138 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertEqual(flags["generalist"][0], True)
         self.assertEqual(flags["differential_expander"][0], True)
         self.assertEqual(flags["uncertainty_advocate"][0], False)
-        # Round 2: advocate sees hint again.
+        # Default all-rounds: advocate stays blind in round 2.
+        self.assertEqual(flags["uncertainty_advocate"][1], False)
+
+    def test_blind_critic_r1_only_restores_hint_in_round2(self) -> None:
+        from app.agents.agent import ClinicalAgent
+        from app.agents.backends import EvidenceHint
+
+        flags: dict[str, list[bool]] = {}
+
+        class SpyAgent(ClinicalAgent):
+            async def generate_opinion(
+                self,
+                patient_case: str,
+                context=None,
+                *,
+                include_evidence_hint: bool = True,
+            ):
+                flags.setdefault(self.agent_id, []).append(include_evidence_hint)
+                return await super().generate_opinion(
+                    patient_case,
+                    context=context,
+                    include_evidence_hint=include_evidence_hint,
+                )
+
+        class StaticHint:
+            def get_hint(self, patient_case: str) -> EvidenceHint | None:
+                return EvidenceHint(label="yes", confidence=0.95, model_path="test")
+
+        backend = MockInferenceBackend()
+        hint = StaticHint()
+        agents = [
+            SpyAgent(
+                agent_id=aid,
+                persona=persona,
+                backend=backend,
+                hint_provider=hint,  # type: ignore[arg-type]
+                task_mode="pubmedqa",
+            )
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
+            )
+        ]
+        orch = DebateOrchestrator(
+            agents, rounds=2, debate_mode="peer", blind_critic="r1-only"
+        )
+        asyncio.run(orch.run("RESEARCH QUESTION:\nQ?\nEVIDENCE:\nstrong result"))
+
+        self.assertEqual(flags["uncertainty_advocate"][0], False)
         self.assertEqual(flags["uncertainty_advocate"][1], True)
+
+    def test_safety_red_flag_halts_debate_by_default(self) -> None:
+        from app.agents.agent import ClinicalAgent
+        from app.agents.models import SafetyOpinion
+
+        class SafetySpy(ClinicalAgent):
+            async def generate_opinion(self, patient_case: str, context=None, **kwargs):
+                if self.agent_id == "safety_officer":
+                    return ClinicalOpinion(
+                        top_1_diagnosis="Acute coronary syndrome",
+                        top_3_differential_diagnoses=["ACS", "PE", "Aortic dissection"],
+                        confidence_level=0.9,
+                        sources_used=["case"],
+                        safety_opinion=SafetyOpinion(
+                            safety_passed=False,
+                            red_flags_detected=["chest pain + hypoxia"],
+                            immediate_intervention_required=True,
+                            reasoning="Can't-miss emergency",
+                        ),
+                    )
+                return await super().generate_opinion(
+                    patient_case, context=context, **kwargs
+                )
+
+        backend = MockInferenceBackend()
+        agents = [
+            SafetySpy(agent_id=aid, persona=persona, backend=backend)
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("safety_officer", "safety_officer"),
+            )
+        ]
+        orch = DebateOrchestrator(agents, rounds=3, debate_mode="peer")
+        result = asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertTrue(result.safety_halted)
+        self.assertEqual(len(result.rounds), 1)
+        self.assertIn("RED FLAG", result.safety_red_flag_reason or "")
+        self.assertEqual(orch.safety_halts, 1)
+
+    def test_safety_red_flag_defer_continues_debate(self) -> None:
+        from app.agents.agent import ClinicalAgent
+        from app.agents.models import SafetyOpinion
+
+        class SafetySpy(ClinicalAgent):
+            async def generate_opinion(self, patient_case: str, context=None, **kwargs):
+                if self.agent_id == "safety_officer":
+                    return ClinicalOpinion(
+                        top_1_diagnosis="Acute coronary syndrome",
+                        top_3_differential_diagnoses=["ACS", "PE", "Aortic dissection"],
+                        confidence_level=0.9,
+                        sources_used=["case"],
+                        safety_opinion=SafetyOpinion(
+                            safety_passed=False,
+                            red_flags_detected=["chest pain"],
+                            immediate_intervention_required=True,
+                            reasoning="urgent",
+                        ),
+                    )
+                return await super().generate_opinion(
+                    patient_case, context=context, **kwargs
+                )
+
+        backend = MockInferenceBackend()
+        agents = [
+            SafetySpy(agent_id=aid, persona=persona, backend=backend)
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("safety_officer", "safety_officer"),
+            )
+        ]
+        orch = DebateOrchestrator(
+            agents, rounds=3, debate_mode="peer", safety_red_flag="defer"
+        )
+        result = asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertFalse(result.safety_halted)
+        self.assertEqual(len(result.rounds), 3)
 
     def test_abstract_suggests_inconclusive(self) -> None:
         from app.agents.heuristics import abstract_suggests_inconclusive
@@ -346,6 +589,56 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertGreaterEqual(supervisor_calls["n"], 1)
         self.assertIs(orch.supervisor.backend.__class__, SupervisorOnlyBackend)
 
+    def test_supervisor_fail_peer_round_skips_empty_moderation(self) -> None:
+        agent_backend = MockInferenceBackend()
+        captured: list[str] = []
+
+        class BrokenSupervisorBackend:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                return "NOT_VALID_JSON{{"
+
+        class SpyAgentBackend(MockInferenceBackend):
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                if "PATIENT CASE:" in user:
+                    captured.append(user)
+                return await super().complete(messages, temperature=temperature)
+
+        agents = build_default_agents(SpyAgentBackend())
+        orch = DebateOrchestrator(
+            agents,
+            rounds=2,
+            debate_mode="moderated",
+            supervisor_backend=BrokenSupervisorBackend(),
+            supervisor_fail="peer-round",
+        )
+        result = asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertEqual(orch.supervisor_failovers, 1)
+        self.assertEqual(len(result.supervisor_moderation), 0)
+        self.assertTrue(orch.supervisor.last_moderation_failed)
+        # Round 2 should be peer critique, not empty supervisor JSON noise.
+        round2 = captured[4:]
+        self.assertTrue(any("PEER OPINIONS SO FAR" in text for text in round2))
+        self.assertFalse(any("re-run moderation" in text for text in round2))
+
+    def test_supervisor_fail_empty_defer_injects_fallback(self) -> None:
+        class BrokenSupervisorBackend:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+                return "NOT_VALID_JSON{{"
+
+        agents = build_default_agents(MockInferenceBackend())
+        orch = DebateOrchestrator(
+            agents,
+            rounds=2,
+            debate_mode="moderated",
+            supervisor_backend=BrokenSupervisorBackend(),
+            supervisor_fail="empty-defer",
+        )
+        result = asyncio.run(orch.run(SAMPLE_CASE))
+        self.assertEqual(orch.supervisor_failovers, 0)
+        self.assertEqual(len(result.supervisor_moderation), 1)
+        self.assertIn("re-run moderation", result.supervisor_moderation[0].round_instructions[0])
+
     def test_supervisor_instructions_injected_on_round_2(self) -> None:
         """Round 2+ prompts include moderation instructions from the Supervisor."""
         captured: list[str] = []
@@ -368,14 +661,14 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         self.assertTrue(
             all(
-                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" not in call
+                "Supervisor moderation from the previous round" not in call
+                and "Oto wnioski i instrukcje od Supervisora" not in call
                 for call in round1_calls
             )
         )
         self.assertTrue(
             all(
-                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy"
-                in call
+                "Supervisor moderation from the previous round" in call
                 for call in round2_calls
             )
         )
@@ -406,8 +699,11 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertGreaterEqual(len(captured), 1)
         self.assertTrue(
             any(
-                "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" in call
-                and "generalist" in call
+                (
+                    "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" in call
+                    or "Supervisor moderation from the previous round:" in call
+                )
+                and ("generalist" in call or "clinical debate agent `generalist`" in call)
                 for call in captured
             )
         )
@@ -495,6 +791,71 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("yes", user)
         self.assertIn("0.720", user)
 
+    def test_peer_context_nl_renders_natural_language(self) -> None:
+        from app.agents.models import AgentRoundOpinion
+        from app.agents.prompts import format_opinion_nl
+
+        entry = AgentRoundOpinion(
+            agent_id="generalist",
+            persona="generalist",
+            round=1,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis="yes",
+                evidence_conclusiveness="conclusive",
+                top_3_differential_diagnoses=["yes", "no", "maybe"],
+                pros=["authors report significant primary benefit"],
+                cons=["small sample size"],
+                confidence_level=0.8,
+                sources_used=["abstract"],
+            ),
+        )
+        nl = format_opinion_nl(entry, current_round=2)
+        self.assertIn("[R1] generalist (conf=0.80, conclusive): yes", nl)
+        self.assertIn("Pro: authors report significant primary benefit", nl)
+        self.assertIn("Con: small sample size", nl)
+
+        messages = build_messages(
+            agent_id="evidence_skeptic",
+            persona="evidence_skeptic",
+            patient_case=SAMPLE_CASE,
+            context=[entry],
+            peer_context="nl",
+            task_mode="pubmedqa",
+        )
+        user = messages[1].content
+        self.assertIn("PEER OPINIONS SO FAR", user)
+        self.assertIn("generalist (conf=0.80, conclusive): yes", user)
+        self.assertNotIn('"agent_id"', user)
+
+    def test_peer_context_compact_json_still_dumps_json(self) -> None:
+        from app.agents.models import AgentRoundOpinion
+
+        entry = AgentRoundOpinion(
+            agent_id="generalist",
+            persona="generalist",
+            round=1,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis="no",
+                evidence_conclusiveness="inconclusive",
+                top_3_differential_diagnoses=["no", "yes", "maybe"],
+                pros=["null primary"],
+                cons=[],
+                confidence_level=0.6,
+                sources_used=["abstract"],
+            ),
+        )
+        messages = build_messages(
+            agent_id="evidence_skeptic",
+            persona="evidence_skeptic",
+            patient_case=SAMPLE_CASE,
+            context=[entry],
+            peer_context="compact-json",
+            task_mode="pubmedqa",
+        )
+        user = messages[1].content
+        self.assertIn('"agent_id"', user)
+        self.assertIn('"label"', user)
+
     def test_pubmedqa_prompt_requires_yes_no_maybe(self) -> None:
         messages = build_messages(
             agent_id="generalist",
@@ -528,17 +889,18 @@ class PromptAndParseTests(unittest.TestCase):
 
         filled = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case="CASE_TEXT_XYZ",
-            shared_report="REPORT_TEXT_XYZ",
-            debate_brief="BRIEF_TEXT_XYZ",
+            full_debate_transcript="TRANSCRIPT_TEXT_XYZ",
             biolinkbert_hint="HINT_TEXT_XYZ",
         )
         self.assertIn("CASE_TEXT_XYZ", filled)
-        self.assertIn("REPORT_TEXT_XYZ", filled)
-        self.assertIn("BRIEF_TEXT_XYZ", filled)
+        self.assertIn("TRANSCRIPT_TEXT_XYZ", filled)
         self.assertIn("HINT_TEXT_XYZ", filled)
-        self.assertIn("MAYBE-AWARE GATE", filled)
-        self.assertIn("question_coverage", filled)
+        self.assertIn("CRITICAL DISTINCTION FOR \"maybe\"", filled)
+        self.assertIn("BioLinkBERT is a hint, not a veto", filled)
+        self.assertNotIn("MUST output \"yes\" or \"no\"", filled)
+        self.assertIn("final_label", filled)
         self.assertNotIn("ClinicalOpinion JSON schema", filled)
+        self.assertNotIn("top_1_diagnosis", filled)
 
     def test_parse_recovers_json_embedded_in_prose(self) -> None:
         raw = (
@@ -655,6 +1017,58 @@ class PromptAndParseTests(unittest.TestCase):
         )
         self.assertEqual(gated.final_label, "no")
 
+    def test_maybe_gate_blocks_partial_when_panel_and_bert_agree(self) -> None:
+        from app.agents.aggregation import apply_maybe_director_gate
+        from app.agents.models import AgentRoundOpinion, SupervisorDirectorOutput
+
+        opinions = [
+            AgentRoundOpinion(
+                agent_id=aid,
+                persona=aid,
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.82,
+                    sources_used=["abstract"],
+                ),
+            )
+            for aid in (
+                "generalist",
+                "evidence_skeptic",
+                "differential_expander",
+                "uncertainty_advocate",
+            )
+        ]
+        # Force one soft maybe voter with low weight so conf vote still leans yes.
+        opinions[-1] = AgentRoundOpinion(
+            agent_id="uncertainty_advocate",
+            persona="uncertainty_advocate",
+            round=1,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis="maybe",
+                top_3_differential_diagnoses=["maybe", "yes", "no"],
+                confidence_level=0.4,
+                sources_used=["abstract"],
+            ),
+        )
+        out = SupervisorDirectorOutput(
+            final_label="yes",
+            consensus_type="differential",
+            rationale="partial coverage claimed",
+            primary_endpoint_answers_question=True,
+            findings_decisive_for_question=False,
+            authors_state_uncertainty=False,
+            question_coverage="partial",
+        )
+        gated = apply_maybe_director_gate(
+            out,
+            patient_case="EVIDENCE: clear positive primary endpoint.",
+            final_opinions=opinions,
+            bert_label="yes",
+        )
+        self.assertEqual(gated.final_label, "yes")
+
     def test_maybe_gate_promotes_on_coverage_none(self) -> None:
         from app.agents.aggregation import apply_maybe_director_gate
         from app.agents.models import AgentRoundOpinion, SupervisorDirectorOutput
@@ -693,8 +1107,67 @@ class PromptAndParseTests(unittest.TestCase):
             out,
             patient_case="EVIDENCE: unrelated surrogate only.",
             final_opinions=opinions,
+            bert_label="yes",
         )
         self.assertEqual(gated.final_label, "maybe")
+
+    def test_aggregate_llm_director_default_skips_posthoc_gate(self) -> None:
+        import asyncio
+        from app.agents.aggregation import aggregate_with_llm_director
+        from app.agents.models import AgentRoundOpinion, SupervisorDirectorOutput
+
+        class _FakeSupervisor:
+            def __init__(self) -> None:
+                self.last_director_output = None
+
+            async def synthesize_decision(self, *args, **kwargs):
+                return SupervisorDirectorOutput(
+                    final_label="yes",
+                    consensus_type="consensus",
+                    rationale="authors affirm",
+                    question_coverage="none",
+                    primary_endpoint_answers_question=False,
+                    findings_decisive_for_question=False,
+                    authors_state_uncertainty=True,
+                )
+
+        opinions = [
+            AgentRoundOpinion(
+                agent_id="generalist",
+                persona="generalist",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.7,
+                    sources_used=["abstract"],
+                ),
+            )
+        ]
+        supervisor = _FakeSupervisor()
+        label_off = asyncio.run(
+            aggregate_with_llm_director(
+                "CASE",
+                [opinions],
+                '{"label":"yes"}',
+                supervisor=supervisor,  # type: ignore[arg-type]
+                director_maybe_gate="off",
+            )
+        )
+        self.assertEqual(label_off, "yes")
+        self.assertEqual(supervisor.last_director_output.final_label, "yes")
+
+        label_legacy = asyncio.run(
+            aggregate_with_llm_director(
+                "CASE",
+                [opinions],
+                '{"label":"yes"}',
+                supervisor=supervisor,  # type: ignore[arg-type]
+                director_maybe_gate="legacy",
+            )
+        )
+        self.assertEqual(label_legacy, "maybe")
+        self.assertEqual(supervisor.last_director_output.final_label, "maybe")
 
     def test_abstract_suggests_inconclusive_ignores_broad_limitation(self) -> None:
         from app.agents.heuristics import abstract_suggests_inconclusive
@@ -806,7 +1279,7 @@ class AggregationTests(unittest.TestCase):
         self.assertEqual(label, "no")
         self.assertEqual(rule, "panel_unanimous_override")
 
-    def test_bert_gate_ignores_unanimous_maybe_override(self) -> None:
+    def test_bert_gate_unanimous_maybe_vetoes_high_conf_bert(self) -> None:
         agents = [
             ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
             ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
@@ -820,6 +1293,61 @@ class AggregationTests(unittest.TestCase):
         )
         label, _, rule = aggregate_pubmedqa_decision(
             agents, bert_opinion=bert, mode="bert_gate", bert_gate_confidence=0.9
+        )
+        self.assertEqual(label, "maybe")
+        self.assertEqual(rule, "panel_maybe_veto")
+
+    def test_bert_gate_majority_maybe_veto(self) -> None:
+        agents = [
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="yes", top_3_differential_diagnoses=["yes"], confidence_level=0.7),
+        ]
+        bert = ClinicalOpinion(
+            top_1_diagnosis="no",
+            top_3_differential_diagnoses=["no"],
+            confidence_level=0.95,
+        )
+        # Default unanimous: 3/4 maybe is not enough → trust BERT
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents,
+            bert_opinion=bert,
+            mode="bert_gate",
+            bert_gate_confidence=0.9,
+            panel_maybe_veto="unanimous",
+        )
+        self.assertEqual(label, "no")
+        self.assertEqual(rule, "bert_gate")
+
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents,
+            bert_opinion=bert,
+            mode="bert_gate",
+            bert_gate_confidence=0.9,
+            panel_maybe_veto="majority",
+        )
+        self.assertEqual(label, "maybe")
+        self.assertEqual(rule, "panel_maybe_veto")
+
+    def test_bert_gate_legacy_off_keeps_bert_vs_panel_maybe(self) -> None:
+        agents = [
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+            ClinicalOpinion(top_1_diagnosis="maybe", top_3_differential_diagnoses=["maybe"], confidence_level=0.7),
+        ]
+        bert = ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes"],
+            confidence_level=0.94,
+        )
+        label, _, rule = aggregate_pubmedqa_decision(
+            agents,
+            bert_opinion=bert,
+            mode="bert_gate",
+            bert_gate_confidence=0.9,
+            panel_maybe_veto="off",
         )
         self.assertEqual(label, "yes")
         self.assertEqual(rule, "bert_gate")

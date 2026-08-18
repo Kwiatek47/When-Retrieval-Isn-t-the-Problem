@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from app.agents.models import (
     AgentRoundOpinion,
@@ -92,6 +92,32 @@ def weighted_vote(
     return best, share, scored
 
 
+PanelMaybeVeto = Literal["unanimous", "majority", "off"]
+
+
+def _panel_maybe_share(agent_labels: list[str]) -> float:
+    if not agent_labels:
+        return 0.0
+    return sum(1 for label in agent_labels if label == "maybe") / len(agent_labels)
+
+
+def _panel_maybe_veto_triggered(
+    agent_labels: list[str],
+    *,
+    panel_maybe_veto: PanelMaybeVeto,
+) -> bool:
+    """Return True when the panel's maybe vote should override BioLinkBERT."""
+    mode = (panel_maybe_veto or "unanimous").strip().lower()
+    if mode == "off" or not agent_labels:
+        return False
+    maybe_share = _panel_maybe_share(agent_labels)
+    if mode == "unanimous":
+        return maybe_share >= 1.0
+    if mode == "majority":
+        return maybe_share > 0.5
+    raise ValueError(f"Unsupported panel_maybe_veto: {panel_maybe_veto}")
+
+
 def aggregate_pubmedqa_decision(
     agent_opinions: list[ClinicalOpinion],
     *,
@@ -99,6 +125,7 @@ def aggregate_pubmedqa_decision(
     mode: str = "majority",
     bert_gate_confidence: float = 0.90,
     bert_vote_weight: float = 3.0,
+    panel_maybe_veto: PanelMaybeVeto = "unanimous",
 ) -> tuple[str | None, dict[str, float], str]:
     """
     Aggregate panel (+ optional BioLinkBERT) into a final yes/no/maybe.
@@ -106,10 +133,22 @@ def aggregate_pubmedqa_decision(
     Modes:
       - majority: equal votes (confidence-weighted)
       - bert_weighted: BioLinkBERT vote amplified by bert_vote_weight
-      - bert_gate: trust high-confidence BioLinkBERT yes/no unless the full panel
-        unanimously disagrees; for maybe/low-confidence BERT, use weighted debate
+      - bert_gate: trust high-confidence BioLinkBERT yes/no unless the panel
+        triggers a maybe veto (``panel_maybe_veto``) or unanimously hard-flips
+        yes↔no; for maybe/low-confidence BERT, use weighted debate
+
+    ``panel_maybe_veto`` (bert_gate only):
+      - unanimous (default): all valid panel votes are maybe → final maybe
+      - majority: maybe share > 0.5 → final maybe
+      - off: legacy behavior (panel maybe does not override high-conf BERT)
     """
     mode = (mode or "majority").strip().lower()
+    veto_mode: PanelMaybeVeto
+    raw_veto = (panel_maybe_veto or "unanimous").strip().lower()
+    if raw_veto not in {"unanimous", "majority", "off"}:
+        raise ValueError(f"Unsupported panel_maybe_veto: {panel_maybe_veto}")
+    veto_mode = raw_veto  # type: ignore[assignment]
+
     if bert_opinion is None or mode == "majority":
         opinions = [*agent_opinions, bert_opinion] if bert_opinion is not None else agent_opinions
         label, share = majority_vote([o for o in opinions if o is not None])
@@ -121,11 +160,15 @@ def aggregate_pubmedqa_decision(
     unanimous = bool(agent_labels) and len(set(agent_labels)) == 1
 
     if mode == "bert_gate":
+        # Panel maybe is clinically absolute when enabled: overrides BERT on any path.
+        if _panel_maybe_veto_triggered(agent_labels, panel_maybe_veto=veto_mode):
+            share = {label: 0.0 for label in _LABELS}
+            share["maybe"] = 1.0
+            return "maybe", share, "panel_maybe_veto"
+
         high_conf = float(bert_opinion.confidence_level) >= bert_gate_confidence
         if high_conf and bert_label in {"yes", "no"}:
-            # Only allow a unanimous panel override when it is a hard yes↔no flip.
-            # Unanimous "maybe" must NOT veto a confident BioLinkBERT yes/no
-            # (this previously hurt accuracy on balanced90).
+            # Unanimous hard yes↔no flip still overrides confident BioLinkBERT.
             if (
                 unanimous
                 and agent_labels[0] in {"yes", "no"}
@@ -138,10 +181,15 @@ def aggregate_pubmedqa_decision(
                 share[bert_label] = 1.0
             return bert_label, share, "bert_gate"
 
-        # Uncertain / maybe / lower confidence:
-        # if the panel collapses to maybe-only, keep BioLinkBERT rather than
-        # diluting a stronger classifier signal.
-        if agent_labels and set(agent_labels) == {"maybe"} and bert_label in {"yes", "no"}:
+        # Uncertain / maybe / lower-confidence BERT → weighted panel+BERT vote.
+        # Legacy bert_keep_vs_panel_maybe is retired when veto != off (handled above);
+        # with veto=off, preserve old "keep BERT vs panel-maybe-only" behavior.
+        if (
+            veto_mode == "off"
+            and agent_labels
+            and set(agent_labels) == {"maybe"}
+            and bert_label in {"yes", "no"}
+        ):
             share = {label: 0.0 for label in _LABELS}
             share[bert_label] = 1.0
             return bert_label, share, "bert_keep_vs_panel_maybe"
@@ -242,6 +290,20 @@ def build_debate_brief(
     }
 
 
+def _parse_biolinkbert_label(biolinkbert_hint: str | None) -> str | None:
+    """Extract yes/no/maybe from director hint JSON or raw text."""
+    raw = (biolinkbert_hint or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return extract_label(str(data.get("label") or ""))
+    except Exception:
+        pass
+    return extract_label(raw)
+
+
 def apply_maybe_director_gate(
     output: SupervisorDirectorOutput,
     *,
@@ -249,14 +311,15 @@ def apply_maybe_director_gate(
     final_opinions: list[AgentRoundOpinion],
     shared_report: SharedDebateReport | None = None,
     advocate_maybe_confidence: float = 0.75,
+    bert_label: str | None = None,
 ) -> SupervisorDirectorOutput:
     """
     Selective maybe gate on top of LLM director output.
 
     Goals:
-    - Recover PubMedQA ``maybe`` when question coverage is partial/none or the
-      director already signals differential + non-decisive findings.
-    - Avoid v1 false-maybe: do not flip unanimous high-confidence binary panels.
+    - Recover PubMedQA ``maybe`` when question coverage is none / strong uncertainty.
+    - Avoid false maybe (v4): do not downgrade on ``partial`` alone when the panel
+      confidence-aware vote and BioLinkBERT already agree with the director yes/no.
     """
     from app.agents.heuristics import abstract_suggests_inconclusive
 
@@ -275,9 +338,13 @@ def apply_maybe_director_gate(
     mean_conf = (
         sum(float(e.opinion.confidence_level) for e in usable) / len(usable) if usable else 0.0
     )
+    bert_norm = (bert_label or "").strip().lower() or None
+    if bert_norm not in {"yes", "no", "maybe"}:
+        bert_norm = None
 
-    # Hard protect: unanimous high-conf panel matching director yes/no.
-    if panel_agrees_with_director and mean_conf >= 0.85:
+    # Hard protect: unanimous high-conf panel matching director yes/no (+ BERT if present).
+    bert_ok = bert_norm is None or bert_norm == output.final_label
+    if panel_agrees_with_director and mean_conf >= 0.8 and bert_ok:
         return output
 
     coverage = (getattr(output, "question_coverage", None) or "full").strip().lower()
@@ -308,7 +375,7 @@ def apply_maybe_director_gate(
     ):
         reasons.append("differential + non-decisive findings")
 
-    # Path C: strong dual checklist (unchanged conservative path).
+    # Path C: strong dual checklist.
     if checklist_hits >= 2:
         reasons.append(f"checklist_hits={checklist_hits}")
 
@@ -334,18 +401,27 @@ def apply_maybe_director_gate(
     if not reasons:
         return output
 
-    # Soft protect: confidence-aware panel agrees with director binary and
-    # coverage was claimed full — keep director (avoid v1 over-maybe).
-    conf_label, _, _ = confidence_aware_vote(
+    conf_label, conf_share, _ = confidence_aware_vote(
         [e.opinion for e in usable] or [e.opinion for e in final_opinions]
     )
-    if (
-        coverage == "full"
+    panel_bert_agree_binary = (
+        output.final_label in {"yes", "no"}
         and conf_label == output.final_label
-        and conf_label in {"yes", "no"}
-        and "question_coverage" not in " ".join(reasons)
-    ):
-        return output
+        and float(conf_share.get(output.final_label, 0.0)) >= 0.5
+        and (bert_norm is None or bert_norm == output.final_label)
+    )
+
+    # v5 safeguard: if panel vote + BERT already back the director binary, only allow
+    # the strongest maybe paths (coverage=none / auditor+abstract cue).
+    # Blocks false maybe from partial / soft differential / flaky checklist alone.
+    if panel_bert_agree_binary:
+        reasons = [
+            r
+            for r in reasons
+            if r.startswith("question_coverage=none") or "abstract cue" in r
+        ]
+        if not reasons:
+            return output
 
     return SupervisorDirectorOutput(
         final_label="maybe",
@@ -353,6 +429,9 @@ def apply_maybe_director_gate(
         if output.consensus_type == "consensus"
         else output.consensus_type,
         rationale=(output.rationale + " | maybe_gate: " + "; ".join(reasons)).strip(),
+        debate_conflict_level=output.debate_conflict_level,
+        conclusiveness_score=output.conclusiveness_score,
+        unresolved_contradictions=list(output.unresolved_contradictions),
         primary_endpoint_answers_question=output.primary_endpoint_answers_question,
         findings_decisive_for_question=output.findings_decisive_for_question,
         authors_state_uncertainty=output.authors_state_uncertainty,
@@ -367,16 +446,25 @@ async def aggregate_with_llm_director(
     *,
     supervisor: SupervisorAgent,
     shared_report: SharedDebateReport | None = None,
+    director_maybe_gate: Literal["off", "legacy"] = "off",
 ) -> str:
     """
     Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
 
     Uses a compact debate brief + shared report (MedAgents/MedARC style) instead of
-    dumping the entire transcript. Applies a deterministic maybe-aware gate after
-    the LLM response.
+    dumping the entire transcript.
+
+    By default (``director_maybe_gate="off"``) the Director's ``final_label`` and
+    ``rationale`` are taken as-is — maybe rules live in the Director prompt so label
+    and justification stay consistent. Pass ``director_maybe_gate="legacy"`` to
+    re-enable the post-hoc ``apply_maybe_director_gate`` override (ablation only).
 
     Returns the Director's `final_label` ("yes" | "no" | "maybe").
     """
+    gate_mode = (director_maybe_gate or "off").strip().lower()
+    if gate_mode not in {"off", "legacy"}:
+        raise ValueError(f"Unsupported director_maybe_gate: {director_maybe_gate}")
+
     # Prefer latest moderator shared report if caller did not pass one.
     if shared_report is None:
         last_mod = getattr(supervisor, "last_moderation_output", None)
@@ -397,15 +485,17 @@ async def aggregate_with_llm_director(
         shared_report=shared_report_text,
         debate_brief=debate_brief,
     )
-    final_opinions = debate_history[-1] if debate_history else []
-    gated = apply_maybe_director_gate(
-        director_output,
-        patient_case=patient_case,
-        final_opinions=final_opinions,
-        shared_report=shared_report,
-    )
-    setattr(supervisor, "last_director_output", gated)
-    return gated.final_label
+    if gate_mode == "legacy":
+        final_opinions = debate_history[-1] if debate_history else []
+        director_output = apply_maybe_director_gate(
+            director_output,
+            patient_case=patient_case,
+            final_opinions=final_opinions,
+            shared_report=shared_report,
+            bert_label=_parse_biolinkbert_label(biolinkbert_hint),
+        )
+    setattr(supervisor, "last_director_output", director_output)
+    return director_output.final_label
 
 
 def build_consensus_decision(

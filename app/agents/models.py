@@ -46,9 +46,24 @@ class SupervisorModerationOutput(BaseModel):
 class SupervisorDirectorOutput(BaseModel):
     """Supervisor director output with final label decision (PubMedQA-compatible)."""
 
+    # --- Chain of Thought Scoring Fields ---
+    debate_conflict_level: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="Assess the level of conflict between agents across rounds.",
+    )
+    conclusiveness_score: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Rate the conclusiveness of the primary evidence from 1 to 10.",
+    )
+    unresolved_contradictions: list[str] = Field(default_factory=list)
+    
+    # --- Final Output Fields ---
     final_label: Literal["yes", "no", "maybe"]
     consensus_type: Literal["consensus", "differential", "escalation"]
     rationale: str = Field(default="")
+    
     # Maybe-aware gate checklist (director must answer before locking yes/no).
     primary_endpoint_answers_question: bool = True
     findings_decisive_for_question: bool = True
@@ -120,3 +135,6 @@ class DebateResult(BaseModel):
     supervisor_moderation: list[SupervisorModerationOutput] = Field(default_factory=list)
     supervisor_director_output: SupervisorDirectorOutput | None = None
     shared_report: SharedDebateReport | None = None
+    safety_halted: bool = False
+    safety_red_flag_reason: str | None = None
+    exhausted_without_consensus: bool = False

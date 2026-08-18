@@ -10,6 +10,10 @@ Modes:
   --fast                    compact prompts + lower num_predict (does NOT enable early-exit)
   --aggregate-mode bert_gate|bert_weighted|majority
                             how to combine panel + BioLinkBERT (default: bert_gate)
+  --panel-maybe-veto unanimous|majority|off
+                            panel maybe overrides BioLinkBERT under bert_gate (default: unanimous)
+  --director-maybe-gate off|legacy
+                            llm_director: prompt-only maybe rules (default off) vs legacy post-hoc gate
 
 Examples:
   # Quality run on balanced90 (no early-exit; BERT-gate aggregation)
@@ -52,6 +56,10 @@ from app.agents import (
     MockInferenceBackend,
     build_default_agents,
     check_early_exit_asymmetric_veto,
+)
+from app.agents.orchestrator import (
+    EXHAUSTED_NO_CONSENSUS_NOTE,
+    apply_exhausted_no_consensus_override,
 )
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
@@ -121,6 +129,8 @@ class DebateCaseResult:
     consensus_mode: str | None = None
     consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
     consensus_required_next_steps: list[str] = field(default_factory=list)
+    safety_halted: bool = False
+    safety_red_flag_reason: str | None = None
 
 
 class _StaticHintProvider:
@@ -226,8 +236,12 @@ def main() -> None:
 
         if args.supervisor_model and args.backend != "ollama":
             raise SystemExit("--supervisor-model requires --backend ollama")
+        if args.supervisor_base_url and args.backend != "ollama":
+            raise SystemExit("--supervisor-base-url requires --backend ollama")
         if args.supervisor_model:
             print(f"Supervisor model={args.supervisor_model}")
+        if args.supervisor_base_url:
+            print(f"Supervisor url={args.supervisor_base_url}")
 
         def _build_orchestrator(
             case_hint_provider: Any,
@@ -238,7 +252,7 @@ def main() -> None:
             supervisor_backend = None
             if args.supervisor_model:
                 supervisor_backend = _cached_backend(
-                    base_url=base_url,
+                    base_url=(args.supervisor_base_url or base_url).rstrip("/"),
                     model=args.supervisor_model,
                 )
             agents = build_default_agents(
@@ -271,6 +285,10 @@ def main() -> None:
                 debate_mode=args.debate_mode,
                 early_exit=_should_early_exit if args.early_exit else None,
                 agent_concurrency=args.agent_concurrency,
+                blind_critic=args.blind_critic,
+                safety_red_flag=args.safety_red_flag,
+                peer_context=args.peer_context,
+                supervisor_fail=args.supervisor_fail,
                 supervisor_backend=supervisor_backend,
             )
 
@@ -284,6 +302,10 @@ def main() -> None:
             )
             print(f"Evidence-audit backend enabled: {args.audit_model}")
         print(f"Debate mode={args.debate_mode}")
+        print(f"Blind critic={args.blind_critic}")
+        print(f"Safety red flag={args.safety_red_flag}")
+        print(f"Peer context={args.peer_context}")
+        print(f"Supervisor fail={args.supervisor_fail}")
         if args.adaptive_rounds:
             print(
                 f"Adaptive rounds enabled: min={args.min_rounds} "
@@ -300,6 +322,9 @@ def main() -> None:
                 aggregate_mode=args.aggregate_mode,
                 bert_gate_confidence=args.bert_gate_confidence,
                 bert_vote_weight=args.bert_vote_weight,
+                panel_maybe_veto=args.panel_maybe_veto,
+                director_maybe_gate=args.director_maybe_gate,
+                safety_red_flag=args.safety_red_flag,
                 case_concurrency=args.case_concurrency,
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
@@ -476,6 +501,20 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append("llm_director")
     if args.supervisor_model:
         parts.append(f"sup_{args.supervisor_model.replace(':', '').replace('.', '')}")
+    if getattr(args, "director_maybe_gate", "off") == "legacy":
+        parts.append("dir_gate_legacy")
+    blind = getattr(args, "blind_critic", "all-rounds")
+    if blind and blind != "all-rounds":
+        parts.append(f"blind_{blind.replace('-', '')}")
+    safety_rf = getattr(args, "safety_red_flag", "halt")
+    if safety_rf and safety_rf != "halt":
+        parts.append(f"safety_{safety_rf.replace('-', '_')}")
+    peer_ctx = getattr(args, "peer_context", "nl")
+    if peer_ctx and peer_ctx != "nl":
+        parts.append(f"peer_{peer_ctx.replace('-', '_')}")
+    sup_fail = getattr(args, "supervisor_fail", "peer-round")
+    if sup_fail and sup_fail != "peer-round":
+        parts.append(f"supfail_{sup_fail.replace('-', '_')}")
     if args.fast:
         parts.append("fast")
     return "_".join(parts)
@@ -563,6 +602,9 @@ async def _evaluate_debate(
     aggregate_mode: str,
     bert_gate_confidence: float,
     bert_vote_weight: float,
+    panel_maybe_veto: str,
+    director_maybe_gate: str,
+    safety_red_flag: str,
     case_concurrency: int,
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
@@ -603,7 +645,13 @@ async def _evaluate_debate(
         llm_director_rationale: str | None = None
         llm_director_consensus_type: str | None = None
 
-        if aggregate_mode == "llm_director":
+        if debate.safety_halted and safety_red_flag == "escalate-label":
+            predicted = "maybe"
+            share = {lab: (1.0 if lab == "maybe" else 0.0) for lab in ("yes", "no", "maybe")}
+            rule = "safety_escalation"
+            llm_director_consensus_type = "escalation"
+            llm_director_rationale = debate.safety_red_flag_reason
+        elif aggregate_mode == "llm_director":
             assert hint is not None
             biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
             supervisor = getattr(orchestrator, "supervisor", None)
@@ -616,6 +664,7 @@ async def _evaluate_debate(
                 biolinkbert_hint=biolinkbert_hint_text,
                 supervisor=supervisor,
                 shared_report=debate.shared_report,
+                director_maybe_gate=director_maybe_gate,  # type: ignore[arg-type]
             )
             director_output = getattr(supervisor, "last_director_output", None)
             if director_output is not None:
@@ -636,7 +685,34 @@ async def _evaluate_debate(
                 mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
                 bert_gate_confidence=bert_gate_confidence,
                 bert_vote_weight=bert_vote_weight,
+                panel_maybe_veto=panel_maybe_veto,  # type: ignore[arg-type]
             )
+
+        predicted, exhausted_override = apply_exhausted_no_consensus_override(
+            predicted,
+            exhausted_without_consensus=bool(debate.exhausted_without_consensus),
+        )
+        if exhausted_override:
+            share = {lab: (1.0 if lab == "maybe" else 0.0) for lab in ("yes", "no", "maybe")}
+            rule = "exhausted_no_consensus"
+            llm_director_consensus_type = "escalation"
+            llm_director_rationale = (
+                f"{llm_director_rationale} | {EXHAUSTED_NO_CONSENSUS_NOTE}".strip(" |")
+                if llm_director_rationale
+                else EXHAUSTED_NO_CONSENSUS_NOTE
+            )
+            supervisor = getattr(orchestrator, "supervisor", None)
+            director_output = getattr(supervisor, "last_director_output", None)
+            if director_output is not None and supervisor is not None:
+                supervisor.last_director_output = director_output.model_copy(
+                    update={
+                        "final_label": "maybe",
+                        "consensus_type": "escalation",
+                        "rationale": (
+                            f"{director_output.rationale} | {EXHAUSTED_NO_CONSENSUS_NOTE}"
+                        ).strip(" |"),
+                    }
+                )
 
         audit_result = None
         if audit_backend is not None:
@@ -662,16 +738,22 @@ async def _evaluate_debate(
         early_exit = len(debate.rounds) < orchestrator.rounds
 
         agent_opinions_for_consensus = [entry.opinion for entry in debate.final_opinions]
-        safety_blocked = any(
+        safety_blocked = bool(debate.safety_halted) or any(
             entry.opinion.safety_opinion is not None
             and not entry.opinion.safety_opinion.safety_passed
             and entry.opinion.safety_opinion.immediate_intervention_required
             for entry in debate.final_opinions
         )
-        if aggregate_mode == "llm_director" and llm_director_consensus_type:
-            consensus_mode = llm_director_consensus_type
+        if rule == "safety_escalation" or (
+            aggregate_mode == "llm_director" and llm_director_consensus_type
+        ):
+            consensus_mode = llm_director_consensus_type or "escalation"
             consensus_ranked_hypotheses: list[dict[str, Any]] = []
-            consensus_required_next_steps: list[str] = []
+            consensus_required_next_steps: list[str] = (
+                [debate.safety_red_flag_reason]
+                if debate.safety_red_flag_reason
+                else []
+            )
         else:
             consensus = build_consensus_decision(
                 agent_opinions_for_consensus,
@@ -717,6 +799,8 @@ async def _evaluate_debate(
             consensus_mode=consensus_mode,
             consensus_ranked_hypotheses=consensus_ranked_hypotheses,
             consensus_required_next_steps=consensus_required_next_steps,
+            safety_halted=bool(debate.safety_halted),
+            safety_red_flag_reason=debate.safety_red_flag_reason,
         )
         if checkpoint_path is not None:
             async with checkpoint_lock:
@@ -784,6 +868,25 @@ def _parse_args() -> argparse.Namespace:
         type=float,
         default=0.90,
         help="Min BioLinkBERT confidence to trust yes/no under bert_gate",
+    )
+    parser.add_argument(
+        "--panel-maybe-veto",
+        choices=("unanimous", "majority", "off"),
+        default="unanimous",
+        help=(
+            "Under bert_gate: panel maybe overrides BioLinkBERT when unanimous "
+            "(default), majority (>50%%), or off (legacy keep-BERT behavior)"
+        ),
+    )
+    parser.add_argument(
+        "--director-maybe-gate",
+        choices=("off", "legacy"),
+        default="off",
+        help=(
+            "Under llm_director: off (default) uses prompt-only maybe rules so "
+            "label and rationale stay consistent; legacy re-enables post-hoc "
+            "apply_maybe_director_gate override (ablation)"
+        ),
     )
     parser.add_argument(
         "--bert-vote-weight",
@@ -882,6 +985,46 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--blind-critic",
+        choices=("all-rounds", "r1-only", "off"),
+        default="all-rounds",
+        help=(
+            "BioLinkBERT hint policy for uncertainty_advocate: "
+            "all-rounds (default) never shows hint; r1-only hides in round 1 only; "
+            "off shows hint from round 1"
+        ),
+    )
+    parser.add_argument(
+        "--safety-red-flag",
+        choices=("halt", "escalate-label", "defer"),
+        default="halt",
+        help=(
+            "On safety_officer critical red flag: halt debate immediately (default), "
+            "escalate-label also forces predicted=maybe, or defer injects RED FLAG "
+            "into the next round only (legacy)"
+        ),
+    )
+    parser.add_argument(
+        "--peer-context",
+        choices=("nl", "compact-json", "full-json"),
+        default="nl",
+        help=(
+            "How peer/supervisor opinions are injected into prompts: "
+            "nl (default) natural-language summaries, compact-json short JSON, "
+            "full-json full opinion dumps"
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-fail",
+        choices=("peer-round", "peer-rest", "empty-defer"),
+        default="peer-round",
+        help=(
+            "When supervisor moderation JSON fails after retry: peer-round "
+            "(default) runs that round as peer debate; peer-rest keeps peer for "
+            "the rest of the case; empty-defer injects legacy empty moderation"
+        ),
+    )
+    parser.add_argument(
         "--no-supervisor-moderation",
         action="store_true",
         help="Alias for --debate-mode peer (pure peer debate, no supervisor moderation)",
@@ -899,6 +1042,16 @@ def _parse_args() -> argparse.Namespace:
         help=(
             "Ollama model for the supervisor only (moderation + llm_director). "
             "Debate agents keep OLLAMA_MODEL / default backend model."
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-base-url",
+        type=str,
+        default=None,
+        help=(
+            "Optional dedicated Ollama endpoint for the supervisor only, e.g. "
+            "'http://127.0.0.1:11437'. Use this to pin the 14b supervisor/director "
+            "to a separate GPU from the 7b agent pool."
         ),
     )
     parser.add_argument(

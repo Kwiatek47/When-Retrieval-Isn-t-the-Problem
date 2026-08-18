@@ -13,6 +13,7 @@ from app.agents.backends import (
 )
 from app.agents.models import AgentRoundOpinion, ClinicalOpinion
 from app.agents.prompts import build_messages
+from app.agents.prompts import PeerContextMode  # re-export type for callers
 from app.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class ClinicalAgent:
         temperature: float = 0.3,
         task_mode: str = "clinical",
         compact: bool = False,
+        peer_context: PeerContextMode = "nl",
     ) -> None:
         self.agent_id = agent_id
         self.persona = persona
@@ -37,6 +39,7 @@ class ClinicalAgent:
         self.temperature = temperature
         self.task_mode = task_mode
         self.compact = compact
+        self.peer_context: PeerContextMode = (peer_context or "nl")  # type: ignore[assignment]
 
     async def generate_opinion(
         self,
@@ -73,6 +76,7 @@ class ClinicalAgent:
             evidence_hint=hint,
             task_mode=self.task_mode,
             compact=self.compact,
+            peer_context=self.peer_context,
         )
         raw = await self._complete_or_none(messages, self.temperature)
         opinion = self._try_parse(raw)
@@ -90,6 +94,7 @@ class ClinicalAgent:
             repair=True,
             task_mode=self.task_mode,
             compact=repair_compact,
+            peer_context=self.peer_context,
         )
         raw_retry = await self._complete_or_none(repair_messages, 0.0)
         opinion = self._try_parse(raw_retry, retry=True)

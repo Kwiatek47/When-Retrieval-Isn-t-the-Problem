@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, Literal
 
 from app.agents.backends import EvidenceHint
 from app.agents.models import AgentRoundOpinion
@@ -36,7 +37,7 @@ No markdown fences, no commentary outside JSON.
 
 
 SUPERVISOR_MODERATOR_PROMPT = """
-You are a Clinical Supervisor moderating a 4-agent PubMedQA debate and maintaining a shared reasoning report.
+You are a Clinical Supervisor moderating a 4-agent debate.
 
 Inputs:
 - patient_case:
@@ -45,23 +46,22 @@ Inputs:
 {previous_round_opinions}
 
 Task:
-1. From the ABSTRACT (not just agent chatter), fill the shared report:
-   - primary_endpoint_result: what the primary endpoint/result actually showed (1-2 sentences)
-   - author_conclusion: "yes" | "no" | "maybe" | "unclear" for the research question
-   - residual_uncertainty: concrete unresolved issues (empty if none)
-2. Analyze previous_round_opinions for evidence-grounded agreements and contradictions.
-3. Create round_instructions: concrete requirements for the next round.
-4. Do NOT invent claims unsupported by the abstract or agent evidence signals.
+1. Analyze the opinions from previous_round_opinions and identify:
+   - agreements: shared points across agents (grounded in sources_used or explicit evidence references)
+   - contradictions: disagreements that remain unresolved (again grounded)
+2. Create round_instructions: concrete requirements for agents to follow in the next round.
+3. Enforce grounding: if an agreement/contradiction is not clearly supported by the provided evidence signals
+   (e.g., sources_used and evidence references inside the opinions), do NOT include it.
 
-Output ONLY JSON:
+Output:
+Return ONLY a JSON object matching SupervisorModerationOutput:
 {{
-  "primary_endpoint_result": "...",
-  "author_conclusion": "yes" | "no" | "maybe" | "unclear",
-  "residual_uncertainty": ["..."],
   "agreements": ["..."],
   "contradictions": ["..."],
   "round_instructions": ["..."]
 }}
+
+No markdown fences, no commentary outside JSON.
 """.strip()
 
 SUPERVISOR_DIRECTOR_PROMPT = """
@@ -70,53 +70,33 @@ You are a Clinical Director synthesizing a multi-agent debate to answer a PubMed
 Inputs:
 - patient_case (original abstract and question — YOUR GROUND TRUTH):
 {patient_case}
-- shared_report (MedAgents-style summary from the moderator; prefer this over raw chatter):
-{shared_report}
-- debate_brief (compact final-round agent votes with confidence; discount fallbacks):
-{debate_brief}
+- full_debate_transcript (agent opinions across rounds):
+{full_debate_transcript}
 - biolinkbert_hint (classifier signal; use critically, do not rubber-stamp):
 {biolinkbert_hint}
 
 Task:
-Decide whether the ABSTRACT fully settles the research question as written.
-Do not rubber-stamp BioLinkBERT. Do not grade study quality for its own sake.
+Determine the ACTUAL conclusion made by the authors of the abstract.
+Do not grade study quality. Ask: what did the authors conclude about the research question?
 
-PubMedQA label semantics (critical):
-- "yes"/"no": the abstract provides a decisive answer to the posed question (authors' primary conclusion clearly affirms or rejects it).
-- "maybe": the abstract does NOT fully settle the question — even if authors report some directional finding.
-  Typical maybe patterns:
-  * mixed/partial results across endpoints or subgroups that the question asks about globally
-  * study answers only a narrow surrogate / related outcome, not the full clinical question
-  * findings conflict or are statistically null for the asked comparison
-  * authors leave the practical question open
-  Do NOT use maybe only for boilerplate "further research" / small-n when the primary answer is clear.
+CRITICAL RULES FOR CHOOSING THE LABEL:
+1. DISTINGUISHING "yes" AND "no":
+   - Choose "yes" if the authors conclude a positive association, effect, or affirmative answer.
+   - Choose "no" if the authors conclude NO association, NO effect, or a definitive negative answer. A definitive finding that something DOES NOT work is a "no", not a "yes".
+2. THE "BOILERPLATE" BAN:
+   - Do NOT choose "maybe" only because an agent cites boilerplate limitations (small sample, retrospective design). If the authors report a clear primary finding, prioritize the authors' explicit conclusion.
+3. TRUE UNCERTAINTY ("maybe") & COVERAGE:
+   - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory, or if the study answers a slightly different question than what was asked.
 
-Fill question_coverage:
-- "full": primary evidence fully answers the research question as written
-- "partial": evidence speaks to part of the question / subgroup / surrogate only
-- "none": evidence does not answer the question
+Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. BioLinkBERT is a hint, not a veto.
 
-MAYBE-AWARE GATE:
-1. primary_endpoint_answers_question
-2. findings_decisive_for_question
-3. authors_state_uncertainty (explicit open/mixed language — not routine limitations)
-
-Rules:
-- If question_coverage is "partial" or "none", prefer final_label="maybe" unless the authors state an unambiguous global yes/no to the exact question.
-- If consensus among agents is split or consensus_type would be differential, do not force a binary label.
-- Discount is_fallback=true opinions.
-- Dual-read: reconcile author_conclusion_reader vs uncertainty_auditor; auditor wins only with abstract support for unresolved coverage.
-- BioLinkBERT is a hint, not a veto.
-
-Output ONLY valid JSON:
+Output ONLY a valid JSON object (no markdown, no commentary):
 {{
+  "question_coverage": "full" | "partial" | "none",
+  "findings_decisive_for_question": true | false,
   "final_label": "yes" | "no" | "maybe",
   "consensus_type": "consensus" | "differential" | "escalation",
-  "rationale": "Brief abstract-grounded rationale.",
-  "primary_endpoint_answers_question": true | false,
-  "findings_decisive_for_question": true | false,
-  "authors_state_uncertainty": true | false,
-  "question_coverage": "full" | "partial" | "none"
+  "rationale": "Briefly state the authors' conclusion grounded in the abstract."
 }}
 """.strip()
 
@@ -131,28 +111,14 @@ CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
-AUTHOR_CONCLUSION_READER_PROMPT = """You are the AuthorConclusionReader (generalist dual-read role).
-Your ONLY job is to read what the AUTHORS conclude about the research question from the abstract.
-
-- Choose "yes" if authors report a positive/affirmative primary conclusion.
-- Choose "no" if authors report a null/negative primary conclusion.
-- Choose "maybe" ONLY if authors themselves leave the question unresolved or results are mixed for the asked question.
-Ignore peer pressure to invent uncertainty that authors did not express.
-
-Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
-""".strip()
-
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the UncertaintyAuditor (uncertainty_advocate dual-read role).
-Audit whether the abstract FULLY settles the research question as written.
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract.
 
 Choose 'maybe' when:
-1. Primary results are insignificant or mixed across key endpoints the question asks about.
-2. The study answers only a subgroup / surrogate / related outcome (partial coverage).
-3. Authors leave the practical question open, or findings conflict.
-4. A directional finding exists but does not fully answer the posed question.
+1. Primary results are insignificant or mixed across key endpoints.
+2. Authors heavily hedge AND primary data are weak.
+3. The question is broad but the study answers only a narrow surrogate.
 
-Do NOT choose 'maybe' solely for boilerplate limitations if the abstract clearly and fully answers the question with robust primary findings.
-If coverage is partial or mixed, advocate for 'maybe' with confidence reflecting that audit.
+Do NOT choose 'maybe' solely for boilerplate limitations if primary findings are robust and authors state a clear yes/no. If data are weak or conflicting, advocate for 'maybe'.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
@@ -182,7 +148,10 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
 }
 
 PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
-    "generalist": AUTHOR_CONCLUSION_READER_PROMPT,
+    "generalist": (
+        "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
+        "Choose 'yes' or 'no' based on the primary conclusion of the abstract."
+    ),
     "evidence_skeptic": EVIDENCE_SKEPTIC_PROMPT,
     "differential_expander": (
         "You stress alternative readings. Could the data actually imply the opposite conclusion? "
@@ -221,6 +190,165 @@ Return ONLY one compact JSON object (no markdown) with exactly:
 {"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
 """.strip()
 
+PeerContextMode = Literal["nl", "compact-json", "full-json"]
+
+
+def _clip_text(value: Any, *, max_chars: int = 180) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rstrip() + "…"
+
+
+def format_opinion_nl(
+    entry: AgentRoundOpinion,
+    *,
+    current_round: int | None = None,
+) -> str:
+    """Render one peer opinion as a short natural-language line block."""
+    opinion = entry.opinion
+    spoken_mark = ""
+    if current_round is not None and entry.round == current_round:
+        spoken_mark = "*"
+    conf = float(opinion.confidence_level)
+    conclusiveness = (opinion.evidence_conclusiveness or "").strip() or "unspecified"
+    header = (
+        f"[R{entry.round}{spoken_mark}] {entry.persona} "
+        f"(conf={conf:.2f}, {conclusiveness}): {opinion.top_1_diagnosis}"
+    )
+    lines = [header]
+    pros = [p for p in (opinion.pros or []) if str(p).strip()]
+    cons = [c for c in (opinion.cons or []) if str(c).strip()]
+    if pros:
+        lines.append(f"  Pro: {_clip_text(pros[0])}")
+    if cons:
+        lines.append(f"  Con: {_clip_text(cons[0])}")
+    safety = getattr(opinion, "safety_opinion", None)
+    if safety is not None:
+        lines.append(
+            "  Safety: "
+            f"passed={bool(safety.safety_passed)}, "
+            f"immediate={bool(safety.immediate_intervention_required)}, "
+            f"flags={_clip_text(', '.join(safety.red_flags_detected or []) or 'none', max_chars=120)}"
+        )
+    return "\n".join(lines)
+
+
+def format_peer_context(
+    entries: list[AgentRoundOpinion],
+    *,
+    peer_context: PeerContextMode = "nl",
+    compact: bool = False,
+    mode: str = "clinical",
+) -> str:
+    """Serialize peer opinions for prompt injection (NL or JSON)."""
+    if not entries:
+        return ""
+    style = (peer_context or "nl").strip().lower()
+    current_round = max(entry.round for entry in entries)
+
+    if style == "nl":
+        blocks = [
+            format_opinion_nl(entry, current_round=current_round) for entry in entries
+        ]
+        return "\n".join(blocks)
+
+    use_compact = style == "compact-json" or compact or (mode or "").strip().lower() == "pubmedqa"
+    if style == "full-json":
+        use_compact = False
+    serialized = [
+        _serialize_context_entry(
+            entry,
+            current_round=current_round,
+            compact=use_compact,
+            mode=mode,
+        )
+        for entry in entries
+    ]
+    return json.dumps(serialized, ensure_ascii=False)
+
+
+def format_moderation_nl(moderation_output: Any) -> str:
+    """Render supervisor moderation as concise natural language."""
+    if hasattr(moderation_output, "model_dump"):
+        data = moderation_output.model_dump()
+    elif isinstance(moderation_output, dict):
+        data = moderation_output
+    else:
+        data = {"raw": str(moderation_output)}
+
+    lines = [
+        "Supervisor moderation from the previous round:",
+        f"- author_conclusion: {data.get('author_conclusion', 'unclear')}",
+        f"- primary_endpoint_result: {_clip_text(data.get('primary_endpoint_result', ''), max_chars=220)}",
+    ]
+    for key, label in (
+        ("agreements", "Agreements"),
+        ("contradictions", "Contradictions"),
+        ("residual_uncertainty", "Residual uncertainty"),
+        ("round_instructions", "Round instructions"),
+    ):
+        items = [str(item).strip() for item in (data.get(key) or []) if str(item).strip()]
+        if not items:
+            lines.append(f"- {label}: (none)")
+            continue
+        lines.append(f"- {label}:")
+        for item in items[:6]:
+            lines.append(f"  • {_clip_text(item, max_chars=200)}")
+    return "\n".join(lines)
+
+
+def format_opinions_for_supervisor(
+    opinions: dict[str, Any] | list[AgentRoundOpinion],
+    *,
+    peer_context: PeerContextMode = "nl",
+) -> str:
+    """Format previous-round opinions for the supervisor moderator prompt."""
+    style = (peer_context or "nl").strip().lower()
+    if isinstance(opinions, list):
+        entries = opinions
+        if style == "nl":
+            return format_peer_context(entries, peer_context="nl")
+        if style == "full-json":
+            payload = {
+                entry.agent_id: json.loads(entry.opinion.model_dump_json())
+                for entry in entries
+            }
+            return json.dumps(payload, ensure_ascii=False)
+        # compact-json
+        payload = {
+            entry.agent_id: {
+                "label": entry.opinion.top_1_diagnosis,
+                "evidence_conclusiveness": entry.opinion.evidence_conclusiveness,
+                "confidence": entry.opinion.confidence_level,
+                "pros": (entry.opinion.pros or [])[:1],
+                "cons": (entry.opinion.cons or [])[:1],
+            }
+            for entry in entries
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    # Legacy dict[str, opinion_dump]
+    if style == "nl":
+        blocks: list[str] = []
+        for agent_id, raw in opinions.items():
+            data = raw if isinstance(raw, dict) else {}
+            label = data.get("top_1_diagnosis", "unknown")
+            conf = float(data.get("confidence_level", 0.0) or 0.0)
+            conclusiveness = data.get("evidence_conclusiveness") or "unspecified"
+            pros = data.get("pros") or []
+            cons = data.get("cons") or []
+            block = [
+                f"[agent] {agent_id} (conf={conf:.2f}, {conclusiveness}): {label}"
+            ]
+            if pros:
+                block.append(f"  Pro: {_clip_text(pros[0])}")
+            if cons:
+                block.append(f"  Con: {_clip_text(cons[0])}")
+            blocks.append("\n".join(block))
+        return "\n".join(blocks)
+    return json.dumps(opinions, ensure_ascii=False)
+
 
 def build_messages(
     *,
@@ -232,6 +360,7 @@ def build_messages(
     repair: bool = False,
     task_mode: str = "clinical",
     compact: bool = False,
+    peer_context: PeerContextMode = "nl",
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
 
@@ -300,17 +429,18 @@ def build_messages(
         )
 
     if context:
-        current_round = max(entry.round for entry in context)
-        serialized = [
-            _serialize_context_entry(entry, current_round=current_round, compact=compact, mode=mode)
-            for entry in context
-        ]
+        rendered = format_peer_context(
+            context,
+            peer_context=peer_context,
+            compact=compact,
+            mode=mode,
+        )
         parts.append(
             "PEER OPINIONS SO FAR (previous round's final opinions, plus anyone who "
             "has already spoken this round, in speaking order; critique weak "
             "arguments, update hypotheses, and resolve contradictions where "
             "possible):\n"
-            f"{json.dumps(serialized, ensure_ascii=False)}"
+            f"{rendered}"
         )
         parts.append(
             "Produce an UPDATED ClinicalOpinion that reflects what you accept, "
