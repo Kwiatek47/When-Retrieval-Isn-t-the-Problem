@@ -344,8 +344,6 @@ def _mock_pubmedqa_opinion(*, agent_id: str, case_text: str, revised: bool) -> C
         "generalist": "yes",
         "evidence_skeptic": "maybe",
         "differential_expander": "no",
-        "relevance_checker": "maybe",
-        "data_skeptic": "maybe",
         "safety_officer": "maybe",
         "uncertainty_advocate": "maybe",
     }

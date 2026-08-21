@@ -4,6 +4,7 @@ from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
     apply_maybe_director_gate,
     build_debate_brief,
+    build_full_debate_transcript,
     confidence_aware_vote,
     extract_label,
     majority_vote,
@@ -58,6 +59,7 @@ __all__ = [
     "build_biolinkbert_hint_from_settings",
     "build_default_agents",
     "build_debate_brief",
+    "build_full_debate_transcript",
     "check_early_exit_asymmetric_veto",
     "confidence_aware_vote",
     "extract_label",
@@ -82,10 +84,8 @@ def build_default_agents(
 ) -> list[ClinicalAgent]:
     """Create the standard debate panel sharing one inference backend.
 
-    For PubMedQA we swap the clinical `safety_officer` for two uncertainty
-    experts — `relevance_checker` (partial question coverage) and
-    `data_skeptic` (internal endpoint contradictions) — to counter silent
-    agreement collapse on the `maybe` class.
+    For PubMedQA we swap the clinical `safety_officer` for
+    `uncertainty_advocate`, which defends genuine `maybe` / coverage gaps.
     """
     personas = PUBMEDQA_PERSONAS if (task_mode or "").strip().lower() == "pubmedqa" else DEFAULT_PERSONAS
     return [

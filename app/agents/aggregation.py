@@ -238,12 +238,95 @@ def confidence_aware_vote(
     return weighted_vote(opinions, weights=weights)
 
 
+def _format_opinion_for_transcript(entry: AgentRoundOpinion) -> str:
+    """Full per-agent opinion block (all pros/cons) for Director contamination."""
+    opinion = entry.opinion
+    conf = float(opinion.confidence_level)
+    conclusiveness = (opinion.evidence_conclusiveness or "").strip() or "unspecified"
+    lines = [
+        f"[{entry.agent_id}|{entry.persona}] "
+        f"(conf={conf:.2f}, {conclusiveness}): {opinion.top_1_diagnosis}"
+    ]
+    for pro in opinion.pros or []:
+        text = str(pro).strip()
+        if text:
+            lines.append(f"  Pro: {text}")
+    for con in opinion.cons or []:
+        text = str(con).strip()
+        if text:
+            lines.append(f"  Con: {text}")
+    for flag in opinion.red_flags or []:
+        text = str(flag).strip()
+        if text:
+            lines.append(f"  RedFlag: {text}")
+    missing = str(opinion.missing_information or "").strip()
+    if missing:
+        lines.append(f"  Missing: {missing}")
+    return "\n".join(lines)
+
+
+def build_full_debate_transcript(
+    debate_history: list[list[AgentRoundOpinion]],
+    *,
+    shared_report: SharedDebateReport | None = None,
+) -> str:
+    """Multi-round transcript with unresolved conflicts kept visible for the Director.
+
+    Unlike ``build_debate_brief``, this keeps every round and every pro/con so the
+    Director sees the full contaminated discussion, not a sanitized final-round summary.
+    """
+    parts: list[str] = []
+    for round_idx, round_entries in enumerate(debate_history, start=1):
+        parts.append(f"=== ROUND {round_idx} ===")
+        if not round_entries:
+            parts.append("(no opinions)")
+            continue
+        for entry in round_entries:
+            parts.append(_format_opinion_for_transcript(entry))
+        labels = [
+            lab
+            for lab in (opinion_label(e.opinion) for e in round_entries)
+            if lab is not None
+        ]
+        if labels:
+            counts = Counter(labels)
+            tally = ", ".join(f"{lab}={n}" for lab, n in sorted(counts.items()))
+            parts.append(f"Round {round_idx} label tally: {tally}")
+            if len(counts) > 1:
+                split = "; ".join(
+                    f"{e.agent_id}={opinion_label(e.opinion)}" for e in round_entries
+                )
+                parts.append(f"Round {round_idx} CONFLICT: {split}")
+
+    if debate_history:
+        final = debate_history[-1]
+        final_labels = {
+            e.agent_id: opinion_label(e.opinion)
+            for e in final
+            if opinion_label(e.opinion) is not None
+        }
+        unique = {lab for lab in final_labels.values() if lab}
+        if len(unique) > 1:
+            parts.append("=== FINAL PANEL CONFLICT (unresolved) ===")
+            parts.append(
+                "; ".join(f"{aid}={lab}" for aid, lab in sorted(final_labels.items()))
+            )
+
+    if shared_report is not None:
+        parts.append("=== SUPERVISOR SHARED REPORT (conflict-preserving) ===")
+        from app.agents.prompts import format_moderation_nl
+
+        parts.append(format_moderation_nl(shared_report))
+
+    return "\n".join(parts).strip()
+
+
 def build_debate_brief(
     debate_history: list[list[AgentRoundOpinion]],
     *,
     shared_report: SharedDebateReport | None = None,
 ) -> dict[str, Any]:
-    """Compact MedARC-style brief for the director (not a full transcript dump)."""
+    """Compact MedARC-style brief (telemetry / SFT meta; not the Director primary input)."""
     final = debate_history[-1] if debate_history else []
     panel = []
     for entry in final:
@@ -257,13 +340,9 @@ def build_debate_brief(
                     "author_conclusion_reader"
                     if entry.agent_id == "generalist"
                     else (
-                        "relevance_checker"
-                        if entry.agent_id == "relevance_checker"
-                        else (
-                            "data_skeptic"
-                            if entry.agent_id == "data_skeptic"
-                            else entry.persona
-                        )
+                        "uncertainty_advocate"
+                        if entry.agent_id == "uncertainty_advocate"
+                        else entry.persona
                     )
                 ),
                 "label": label,
@@ -278,8 +357,7 @@ def build_debate_brief(
     conf_label, conf_share, conf_scores = confidence_aware_vote(
         [entry.opinion for entry in final]
     )
-    relevance = next((p for p in panel if p["agent_id"] == "relevance_checker"), None)
-    data_skeptic = next((p for p in panel if p["agent_id"] == "data_skeptic"), None)
+    advocate = next((p for p in panel if p["agent_id"] == "uncertainty_advocate"), None)
     generalist = next((p for p in panel if p["agent_id"] == "generalist"), None)
     return {
         "rounds_completed": len(debate_history),
@@ -288,8 +366,7 @@ def build_debate_brief(
         "confidence_aware_scores": conf_scores,
         "dual_read": {
             "author_conclusion_reader": generalist,
-            "relevance_checker": relevance,
-            "data_skeptic": data_skeptic,
+            "uncertainty_advocate": advocate,
         },
         "panel": panel,
         "shared_report": shared_report.model_dump() if shared_report is not None else None,
@@ -407,15 +484,11 @@ def apply_maybe_director_gate(
                 reasons.append(f"{role} maybe + residual + abstract cue")
                 break
 
-    # Path E: after 3+ rounds, any specialist auditor holding high-confidence
-    # maybe has survived multiple debate challenges — treat as a validated
-    # critical gap in their domain (relevance OR internal contradiction).
-    _SPECIALIST_AUDITORS = frozenset({"relevance_checker", "data_skeptic"})
+    # Path E: after 3+ rounds, uncertainty_advocate holding high-confidence
+    # maybe has survived multiple debate challenges — treat as a validated gap.
     if rounds_completed >= 3:
         for expert in uncertainty_experts:
             role = (expert.agent_id or expert.persona or "").strip().lower()
-            if role not in _SPECIALIST_AUDITORS:
-                continue
             expert_label = opinion_label(expert.opinion)
             if (
                 expert_label == "maybe"
@@ -480,13 +553,14 @@ async def aggregate_with_llm_director(
     """
     Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
 
-    Uses a compact debate brief + shared report (MedAgents/MedARC style) instead of
-    dumping the entire transcript.
+    Passes the **full multi-round conflict transcript** (every agent turn + shared
+    report contradictions). Compact ``build_debate_brief`` is kept only as unused
+    telemetry metadata on the supervisor for debugging.
 
     By default (``director_maybe_gate="off"``) the Director's ``final_label`` and
-    ``rationale`` are taken as-is — maybe rules live in the Director prompt so label
-    and justification stay consistent. Pass ``director_maybe_gate="legacy"`` to
-    re-enable the post-hoc ``apply_maybe_director_gate`` override (ablation only).
+    ``rationale`` are taken as-is — Python does not rewrite the verdict. Pass
+    ``director_maybe_gate="legacy"`` to re-enable the post-hoc
+    ``apply_maybe_director_gate`` override (ablation only).
 
     Returns the Director's `final_label` ("yes" | "no" | "maybe").
     """
@@ -500,19 +574,24 @@ async def aggregate_with_llm_director(
         if last_mod is not None and hasattr(last_mod, "as_shared_report"):
             shared_report = last_mod.as_shared_report()
 
+    transcript = build_full_debate_transcript(
+        debate_history, shared_report=shared_report
+    )
     brief = build_debate_brief(debate_history, shared_report=shared_report)
-    debate_brief = json.dumps(brief, ensure_ascii=False)
     shared_report_text = json.dumps(
         shared_report.model_dump() if shared_report is not None else {},
         ensure_ascii=False,
     )
+    # Telemetry only — never used to override final_label.
+    setattr(supervisor, "last_debate_brief", brief)
+    setattr(supervisor, "last_debate_transcript", transcript)
 
     director_output = await supervisor.synthesize_decision(
         patient_case=patient_case,
-        debate_transcript=debate_brief,
+        debate_transcript=transcript,
         biolinkbert_hint=biolinkbert_hint,
         shared_report=shared_report_text,
-        debate_brief=debate_brief,
+        debate_brief=None,
     )
     if gate_mode == "legacy":
         final_opinions = debate_history[-1] if debate_history else []

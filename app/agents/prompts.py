@@ -77,8 +77,6 @@ Inputs:
 {patient_case}
 - full_debate_transcript (agent opinions across rounds):
 {full_debate_transcript}
-- biolinkbert_hint (classifier signal; use critically, do not rubber-stamp):
-{biolinkbert_hint}
 
 Task:
 Determine the ACTUAL conclusion made by the authors of the abstract.
@@ -91,9 +89,10 @@ CRITICAL RULES FOR CHOOSING THE LABEL:
 2. THE "BOILERPLATE" BAN:
    - Do NOT choose "maybe" only because an agent cites boilerplate limitations (small sample, retrospective design). If the authors report a clear primary finding, prioritize the authors' explicit conclusion.
 3. TRUE UNCERTAINTY ("maybe") & COVERAGE:
-   - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory, or if the study answers a slightly different question than what was asked.
+   - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory.
+   - SPECULATIVE UTILITY: You MUST choose "maybe" if the question asks about a clinical/diagnostic role, and the authors only prove a correlation, concluding that the intervention "may", "could", or "has potential to" have a role in the future. Suggesting a hypothesis is not a definitive "yes".
 
-Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. BioLinkBERT is a hint, not a veto.
+Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. 
 
 Output ONLY a valid JSON object (no markdown, no commentary):
 {{
@@ -116,66 +115,24 @@ CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
-PUBMEDQA_LABEL_RULE_RELEVANCE = """
-PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
-
-You are NOT diagnosing the patient. You are an AUDITOR OF SCOPE.
-- Choose "maybe" IMMEDIATELY if there is ANY mismatch between the Question and the Results (e.g., the question asks about clinical survival, but the study only measures a blood biomarker; the question is broad, but the study is on a narrow subgroup). This is "partial coverage".
-- Choose "yes" or "no" ONLY if the study's scope perfectly matches the question's scope.
-""".strip()
-
-
-RELEVANCE_CHECKER_PROMPT = """You are the Relevance Checker on a PubMedQA debate panel.
-Your ONLY job is to assess whether the abstract actually answers the research question as written.
-
-CRITICAL RULES FOR "PARTIAL COVERAGE":
-1. SURROGATE ENDPOINT EXEMPTION: In medical research, questions are often answered using specific cohorts, animal models, or surrogate endpoints. You MUST treat standard scientific scoping and surrogate endpoints as FULL COVERAGE. Do not flag them as partial.
-2. TRUE PARTIAL COVERAGE: Flag as "partial" (and choose 'maybe') ONLY if the study investigates a fundamentally different condition, completely ignores the main intervention asked about, or the authors explicitly state their findings do not apply to the main question.
-
-If the abstract fully covers the question (even via a surrogate/proxy), support a 'yes' or 'no' depending on the results.
-
-Do NOT focus on methodology flaws or internal endpoint contradictions (another agent's job).
-""".strip()
-
-PUBMEDQA_LABEL_RULE_DATA_SKEPTIC = """
-PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
-
-You are NOT diagnosing the patient. You are an AUDITOR OF STATISTICAL CONSISTENCY.
-- Choose "maybe" IMMEDIATELY if you detect internal data conflicts: conflicting primary vs. secondary endpoints, statistically insignificant results (p > 0.05) for the main claim, or authors explicitly stating the results are "unclear" or "inconclusive".
-- Choose "yes" or "no" ONLY if the data is highly significant and perfectly uniform across all metrics.
-""".strip()
-
-DATA_SKEPTIC_PROMPT = """You are the Data Skeptic on a PubMedQA debate panel.
-Your ONLY job is to find contradictory results WITHIN the abstract itself.
-
-Focus exclusively on internal data contradictions:
-- Do primary vs secondary endpoints point in opposite directions?
-- Are subgroup findings inconsistent with overall results?
-- Do different outcome measures within the same study conflict?
-
-Choose 'maybe' IMMEDIATELY if you detect internal data conflicts, statistically insignificant results (p > 0.05) for the main claim, or if authors explicitly state the results are "unclear" or "inconclusive".
-Choose 'yes' or 'no' ONLY if the data is highly significant and directionally consistent.
-
-Do NOT focus on whether the abstract answers the research question or external methodology bias (another agent's job).
-""".strip()
 
 # Legacy single-role prompt (kept for backward-compatible tests / references).
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract relative to the research question as written.
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate on a PubMedQA debate panel.
+Your ONLY job is to identify fundamental gaps that prevent a definitive 'yes' or 'no' conclusion.
 
-Choose 'maybe' when:
-1. Primary results are insignificant or mixed across key endpoints the question asks about.
-2. Authors heavily hedge AND primary data are weak or contradictory.
-3. The question is broad but the study answers only a narrow surrogate, subgroup, or related outcome (partial coverage).
-4. Authors explicitly leave the posed question open or unresolved.
+You MUST champion the 'maybe' label if you detect:
+1. PARTIAL COVERAGE: The study investigates a related metric but doesn't fully answer the core question (e.g., using a surrogate endpoint).
+2. INTERNAL CONTRADICTIONS: Primary and secondary endpoints point in opposite directions.
+3. SPECULATIVE CLINICAL UTILITY: If the question asks whether X has a diagnostic/therapeutic role, and the authors only prove that X *correlates* with a disease, concluding that it "may/might" have a role. Proposing a future clinical application based on a correlation is a 'maybe', NOT a 'yes'.
+4. INSIGNIFICANT DATA: The main claim relies on statistically insignificant results (p > 0.05).
 
-Do NOT choose 'maybe' solely for boilerplate limitations (small sample, retrospective design, "further research needed") if primary findings robustly and fully answer the exact question with a clear yes/no.
-When coverage is partial or mixed, advocate for 'maybe' with confidence reflecting that gap — not boilerplate alone.
+CRITICAL CONFIDENCE RULE: When you choose 'maybe', you must set your `confidence_level` HIGH (e.g., 0.90 - 1.0). Do not use a low confidence score to reflect the paper's uncertainty; you must be highly confident IN your detection of that uncertainty.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
 PUBMEDQA_UNCERTAINTY_PERSONAS = frozenset(
-    {"relevance_checker", "data_skeptic", "uncertainty_advocate"}
+    {"uncertainty_advocate"}
 )
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
@@ -212,13 +169,13 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
         "You stress alternative readings. Could the data actually imply the opposite conclusion? "
         "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
     ),
-    "relevance_checker": (
-        RELEVANCE_CHECKER_PROMPT
+    "uncertainty_advocate": (
+        UNCERTAINTY_ADVOCATE_PROMPT +
+        "\n\nCRITICAL INSTRUCTION FOR DEBATE ROUNDS: You are the sole auditor of uncertainty. "
+        "Do NOT easily yield to the Generalist. "
+        "HOWEVER, if peer arguments logically resolve the apparent contradictions or prove the abstract fully addresses the question (e.g., via a valid surrogate endpoint), "
+        "you MUST update your diagnosis to 'yes' or 'no'. Only maintain 'maybe' if the gaps are genuine and unresolved."
     ),
-    "data_skeptic": (
-        DATA_SKEPTIC_PROMPT
-    ),
-    "uncertainty_advocate": UNCERTAINTY_ADVOCATE_PROMPT,
 }
 
 PUBMEDQA_LABEL_RULE = """

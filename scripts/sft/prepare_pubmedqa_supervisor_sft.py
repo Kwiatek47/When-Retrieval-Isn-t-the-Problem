@@ -22,7 +22,7 @@ from scripts.classifier.prepare_pubmedqa_deberta_dataset import (
     _heldout_pmids,
     _load_examples,
 )
-from app.agents.aggregation import opinion_label
+from app.agents.aggregation import build_full_debate_transcript, opinion_label
 from app.agents.models import (
     AgentRoundOpinion,
     SupervisorDirectorOutput,
@@ -199,12 +199,6 @@ def _conflict_summary(labels: dict[str, str]) -> list[str]:
         for role, label in sorted(labels.items())
         if label != plurality
     ]
-    relevance = labels.get("relevance_checker")
-    data = labels.get("data_skeptic")
-    if relevance and data and relevance != data:
-        contradictions.append(
-            f"relevance_checker votes {relevance} while data_skeptic votes {data}."
-        )
     return contradictions
 
 
@@ -219,9 +213,8 @@ def build_director_sft_record(debate: dict) -> dict:
     total = max(1, sum(counts.values()))
     top_count = max(counts.values(), default=0)
     conflict_level = "low" if len(counts) <= 1 else ("high" if top_count / total < 0.6 else "medium")
-    relevance_label = labels.get("relevance_checker")
-    data_label = labels.get("data_skeptic")
-    coverage = "partial" if relevance_label == "maybe" else "full"
+    advocate_label = labels.get("uncertainty_advocate")
+    coverage = "partial" if advocate_label == "maybe" else "full"
     uncertainty_text = _clean_long_answer(debate).lower()
     authors_uncertain = gold == "maybe" or any(
         phrase in uncertainty_text
@@ -230,7 +223,7 @@ def build_director_sft_record(debate: dict) -> dict:
     unresolved = _conflict_summary(labels)
     if top_count == total and gold != "maybe":
         consensus_type = "consensus"
-    elif gold == "maybe" and relevance_label == "maybe" and data_label == "maybe":
+    elif gold == "maybe" and advocate_label == "maybe":
         consensus_type = "escalation"
     else:
         consensus_type = "differential"
@@ -241,16 +234,30 @@ def build_director_sft_record(debate: dict) -> dict:
         final_label=gold,
         consensus_type=consensus_type,
         rationale=_clean_long_answer(debate),
-        primary_endpoint_answers_question=relevance_label != "maybe",
+        primary_endpoint_answers_question=advocate_label != "maybe",
         findings_decisive_for_question=gold != "maybe" and len(counts) <= 2,
         authors_state_uncertainty=authors_uncertain,
         question_coverage=coverage,
     )
-    brief_text = json.dumps(debate.get("debate_brief") or {}, ensure_ascii=False)
+    history_entries = [
+        [AgentRoundOpinion.model_validate(item) for item in round_entries]
+        for round_entries in (debate.get("history") or [])
+    ]
+    shared_raw = (debate.get("debate_brief") or {}).get("shared_report")
+    shared_report = None
+    if isinstance(shared_raw, dict) and shared_raw:
+        from app.agents.models import SharedDebateReport
+
+        shared_report = SharedDebateReport.model_validate(shared_raw)
+    transcript_text = build_full_debate_transcript(
+        history_entries, shared_report=shared_report
+    )
+    if not transcript_text:
+        transcript_text = json.dumps(debate.get("debate_brief") or {}, ensure_ascii=False)
     hint_text = json.dumps(debate.get("biolinkbert_hint") or {}, ensure_ascii=False)
     prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
         patient_case=str(debate.get("patient_case") or ""),
-        full_debate_transcript=brief_text,
+        full_debate_transcript=transcript_text,
         biolinkbert_hint=hint_text,
     )
     prompt += (
@@ -296,13 +303,9 @@ def build_moderator_sft_record(debate: dict) -> dict:
         "generalist: cite the exact abstract sentence that supports the proposed final label.",
         "evidence_skeptic: distinguish a decisive primary result from ordinary study limitations.",
     ]
-    if labels.get("relevance_checker") == "maybe":
+    if labels.get("uncertainty_advocate") == "maybe":
         instructions.append(
-            "relevance_checker: identify the exact scope mismatch between the question and measured outcome."
-        )
-    if labels.get("data_skeptic") == "maybe":
-        instructions.append(
-            "data_skeptic: name the primary and secondary endpoints that point in conflicting directions."
+            "uncertainty_advocate: name the coverage gap or internal contradiction that blocks yes/no."
         )
     if contradictions:
         instructions.append(
@@ -311,10 +314,8 @@ def build_moderator_sft_record(debate: dict) -> dict:
     residual = []
     if gold == "maybe":
         residual.append("The gold author conclusion remains inconclusive.")
-    if labels.get("relevance_checker") == "maybe":
-        residual.append("Question coverage remains disputed.")
-    if labels.get("data_skeptic") == "maybe":
-        residual.append("Internal endpoint consistency remains disputed.")
+    if labels.get("uncertainty_advocate") == "maybe":
+        residual.append("Coverage or internal consistency remains disputed.")
     target = SupervisorModerationOutput(
         agreements=agreements,
         contradictions=contradictions,

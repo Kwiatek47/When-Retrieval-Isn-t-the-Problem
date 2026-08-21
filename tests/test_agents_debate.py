@@ -179,7 +179,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                     label = "yes"
                 elif "agent_id=evidence_skeptic" in system:
                     label = "no"
-                elif "agent_id=relevance_checker" in system:
+                elif "agent_id=uncertainty_advocate" in system:
                     label = "no"
                 else:
                     label = "maybe"
@@ -233,8 +233,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                         "generalist": "yes",
                         "differential_expander": "yes",
                         "evidence_skeptic": "no",
-                        "relevance_checker": "no",
-                        "data_skeptic": "no",
+                        "uncertainty_advocate": "no",
                     }
                 )
             )
@@ -246,8 +245,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                         "generalist": "yes",
                         "differential_expander": "yes",
                         "evidence_skeptic": "no",
-                        "relevance_checker": "maybe",
-                        "data_skeptic": "no",
+                        "uncertainty_advocate": "maybe",
                     }
                 )
             )
@@ -259,13 +257,12 @@ class DebateOrchestratorTests(unittest.TestCase):
                         "generalist": "yes",
                         "differential_expander": "no",
                         "evidence_skeptic": "maybe",
-                        "relevance_checker": "maybe",
-                        "data_skeptic": "maybe",
+                        "uncertainty_advocate": "maybe",
                     }
                 )
             )
         )
-        # 4-1: only one uncertainty expert maybe → director may still assign yes/no.
+        # Only uncertainty_advocate maybe (evidence_skeptic agrees) → not fundamental.
         self.assertFalse(
             fundamental_panel_conflict(
                 _panel(
@@ -273,8 +270,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                         "generalist": "yes",
                         "differential_expander": "yes",
                         "evidence_skeptic": "yes",
-                        "relevance_checker": "maybe",
-                        "data_skeptic": "yes",
+                        "uncertainty_advocate": "maybe",
                     }
                 )
             )
@@ -327,25 +323,23 @@ class DebateOrchestratorTests(unittest.TestCase):
             _entry("generalist", "yes", 0.9),
             _entry("evidence_skeptic", "yes", 0.85),
             _entry("differential_expander", "yes", 0.8),
-            _entry("relevance_checker", "yes", 0.9),
-            _entry("data_skeptic", "yes", 0.9),
+            _entry("uncertainty_advocate", "yes", 0.9),
         ]
         self.assertTrue(check_early_exit_asymmetric_veto(panel_yes))
 
-        relevance_maybe = list(panel_yes)
-        relevance_maybe[3] = _entry("relevance_checker", "maybe", 0.9)
-        self.assertFalse(check_early_exit_asymmetric_veto(relevance_maybe))
+        advocate_maybe = list(panel_yes)
+        advocate_maybe[3] = _entry("uncertainty_advocate", "maybe", 0.9)
+        self.assertFalse(check_early_exit_asymmetric_veto(advocate_maybe))
 
-        data_low_conf = list(panel_yes)
-        data_low_conf[4] = _entry("data_skeptic", "yes", 0.5)
-        self.assertFalse(check_early_exit_asymmetric_veto(data_low_conf))
+        advocate_low_conf = list(panel_yes)
+        advocate_low_conf[3] = _entry("uncertainty_advocate", "yes", 0.5)
+        self.assertFalse(check_early_exit_asymmetric_veto(advocate_low_conf))
 
         unanimous_maybe = [
             _entry("generalist", "maybe", 0.9),
             _entry("evidence_skeptic", "maybe", 0.9),
             _entry("differential_expander", "maybe", 0.9),
-            _entry("relevance_checker", "maybe", 0.9),
-            _entry("data_skeptic", "maybe", 0.9),
+            _entry("uncertainty_advocate", "maybe", 0.9),
         ]
         self.assertFalse(check_early_exit_asymmetric_veto(unanimous_maybe))
 
@@ -400,8 +394,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 ("generalist", "generalist"),
                 ("evidence_skeptic", "evidence_skeptic"),
                 ("differential_expander", "differential_expander"),
-                ("relevance_checker", "relevance_checker"),
-                ("data_skeptic", "data_skeptic"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
             )
         ]
         orch = DebateOrchestrator(agents, rounds=2, debate_mode="peer")
@@ -409,11 +402,9 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(flags["generalist"][0], True)
         self.assertEqual(flags["differential_expander"][0], True)
-        self.assertEqual(flags["relevance_checker"][0], False)
-        self.assertEqual(flags["data_skeptic"][0], False)
-        # Default all-rounds: uncertainty experts stay blind in round 2.
-        self.assertEqual(flags["relevance_checker"][1], False)
-        self.assertEqual(flags["data_skeptic"][1], False)
+        self.assertEqual(flags["uncertainty_advocate"][0], False)
+        # Default all-rounds: uncertainty expert stays blind in round 2.
+        self.assertEqual(flags["uncertainty_advocate"][1], False)
 
     def test_blind_critic_r1_only_restores_hint_in_round2(self) -> None:
         from app.agents.agent import ClinicalAgent
@@ -454,8 +445,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 ("generalist", "generalist"),
                 ("evidence_skeptic", "evidence_skeptic"),
                 ("differential_expander", "differential_expander"),
-                ("relevance_checker", "relevance_checker"),
-                ("data_skeptic", "data_skeptic"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
             )
         ]
         orch = DebateOrchestrator(
@@ -463,10 +453,8 @@ class DebateOrchestratorTests(unittest.TestCase):
         )
         asyncio.run(orch.run("RESEARCH QUESTION:\nQ?\nEVIDENCE:\nstrong result"))
 
-        self.assertEqual(flags["relevance_checker"][0], False)
-        self.assertEqual(flags["relevance_checker"][1], True)
-        self.assertEqual(flags["data_skeptic"][0], False)
-        self.assertEqual(flags["data_skeptic"][1], True)
+        self.assertEqual(flags["uncertainty_advocate"][0], False)
+        self.assertEqual(flags["uncertainty_advocate"][1], True)
 
     def test_safety_red_flag_halts_debate_by_default(self) -> None:
         from app.agents.agent import ClinicalAgent
@@ -865,15 +853,9 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn('"yes", "no", "maybe"', system)
 
     def test_advocate_label_rule_omits_maybe_warning(self) -> None:
-        relevance = build_messages(
-            agent_id="relevance_checker",
-            persona="relevance_checker",
-            patient_case="Question: Is X useful?\nEvidence: ...",
-            task_mode="pubmedqa",
-        )[0].content
-        data_skeptic = build_messages(
-            agent_id="data_skeptic",
-            persona="data_skeptic",
+        advocate = build_messages(
+            agent_id="uncertainty_advocate",
+            persona="uncertainty_advocate",
             patient_case="Question: Is X useful?\nEvidence: ...",
             task_mode="pubmedqa",
         )[0].content
@@ -883,13 +865,10 @@ class PromptAndParseTests(unittest.TestCase):
             patient_case="Question: Is X useful?\nEvidence: ...",
             task_mode="pubmedqa",
         )[0].content
-        self.assertNotIn("WARNING", relevance)
-        self.assertNotIn("WARNING", data_skeptic)
-        self.assertIn("express genuine uncertainty", relevance)
-        self.assertIn("express genuine uncertainty", data_skeptic)
+        self.assertNotIn("WARNING", advocate)
+        self.assertIn("express genuine uncertainty", advocate)
         self.assertIn("WARNING", generalist)
-        self.assertIn("Relevance Checker", relevance)
-        self.assertIn("Data Skeptic", data_skeptic)
+        self.assertIn("Uncertainty Advocate", advocate)
 
     def test_director_prompt_includes_case_and_transcript(self) -> None:
         from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT
@@ -950,24 +929,24 @@ class PromptAndParseTests(unittest.TestCase):
                 ),
             ),
             AgentRoundOpinion(
-                agent_id="relevance_checker",
-                persona="relevance_checker",
-                round=1,
-                opinion=ClinicalOpinion(
-                    top_1_diagnosis="maybe",
-                    top_3_differential_diagnoses=["maybe", "yes", "no"],
-                    confidence_level=0.85,
-                    sources_used=["abstract"],
-                ),
-            ),
-            AgentRoundOpinion(
-                agent_id="data_skeptic",
-                persona="data_skeptic",
+                agent_id="differential_expander",
+                persona="differential_expander",
                 round=1,
                 opinion=ClinicalOpinion(
                     top_1_diagnosis="no",
                     top_3_differential_diagnoses=["no", "yes", "maybe"],
                     confidence_level=0.7,
+                    sources_used=["abstract"],
+                ),
+            ),
+            AgentRoundOpinion(
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.85,
                     sources_used=["abstract"],
                 ),
             ),
@@ -1012,8 +991,7 @@ class PromptAndParseTests(unittest.TestCase):
                 "generalist",
                 "evidence_skeptic",
                 "differential_expander",
-                "relevance_checker",
-                "data_skeptic",
+                "uncertainty_advocate",
             )
         ]
         out = SupervisorDirectorOutput(
@@ -1056,14 +1034,13 @@ class PromptAndParseTests(unittest.TestCase):
                 "generalist",
                 "evidence_skeptic",
                 "differential_expander",
-                "relevance_checker",
-                "data_skeptic",
+                "uncertainty_advocate",
             )
         ]
         # Force one soft maybe voter with low weight so conf vote still leans yes.
-        opinions[-2] = AgentRoundOpinion(
-            agent_id="relevance_checker",
-            persona="relevance_checker",
+        opinions[3] = AgentRoundOpinion(
+            agent_id="uncertainty_advocate",
+            persona="uncertainty_advocate",
             round=1,
             opinion=ClinicalOpinion(
                 top_1_diagnosis="maybe",
@@ -1106,8 +1083,8 @@ class PromptAndParseTests(unittest.TestCase):
                 ),
             ),
             AgentRoundOpinion(
-                agent_id="relevance_checker",
-                persona="relevance_checker",
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
                 round=1,
                 opinion=ClinicalOpinion(
                     top_1_diagnosis="maybe",
@@ -1147,12 +1124,12 @@ class PromptAndParseTests(unittest.TestCase):
                     sources_used=["abstract"],
                 ),
             )
-            for aid in ("generalist", "evidence_skeptic", "differential_expander", "data_skeptic")
+            for aid in ("generalist", "evidence_skeptic", "differential_expander")
         ]
         opinions.append(
             AgentRoundOpinion(
-                agent_id="relevance_checker",
-                persona="relevance_checker",
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
                 round=3,
                 opinion=ClinicalOpinion(
                     top_1_diagnosis="maybe",
@@ -1194,8 +1171,16 @@ class PromptAndParseTests(unittest.TestCase):
         class _FakeSupervisor:
             def __init__(self) -> None:
                 self.last_director_output = None
+                self.last_kwargs = None
 
             async def synthesize_decision(self, *args, **kwargs):
+                self.last_kwargs = dict(kwargs)
+                if args:
+                    # Positional fallback if callers ever change signature.
+                    keys = ("patient_case", "debate_transcript", "biolinkbert_hint")
+                    for idx, key in enumerate(keys):
+                        if idx < len(args) and key not in self.last_kwargs:
+                            self.last_kwargs[key] = args[idx]
                 return SupervisorDirectorOutput(
                     final_label="yes",
                     consensus_type="consensus",
@@ -1206,7 +1191,7 @@ class PromptAndParseTests(unittest.TestCase):
                     authors_state_uncertainty=True,
                 )
 
-        opinions = [
+        r1 = [
             AgentRoundOpinion(
                 agent_id="generalist",
                 persona="generalist",
@@ -1216,14 +1201,55 @@ class PromptAndParseTests(unittest.TestCase):
                     top_3_differential_diagnoses=["yes", "no", "maybe"],
                     confidence_level=0.7,
                     sources_used=["abstract"],
+                    pros=["Authors affirm benefit."],
+                    cons=["Sample is small."],
                 ),
-            )
+            ),
+            AgentRoundOpinion(
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
+                round=1,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.8,
+                    sources_used=["abstract"],
+                    pros=["Question coverage incomplete."],
+                    cons=[],
+                ),
+            ),
+        ]
+        r2 = [
+            AgentRoundOpinion(
+                agent_id="generalist",
+                persona="generalist",
+                round=2,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="yes",
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.75,
+                    sources_used=["abstract"],
+                    pros=["Primary endpoint positive."],
+                ),
+            ),
+            AgentRoundOpinion(
+                agent_id="uncertainty_advocate",
+                persona="uncertainty_advocate",
+                round=2,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis="maybe",
+                    top_3_differential_diagnoses=["maybe", "yes", "no"],
+                    confidence_level=0.85,
+                    sources_used=["abstract"],
+                    pros=["Coverage gap unresolved."],
+                ),
+            ),
         ]
         supervisor = _FakeSupervisor()
         label_off = asyncio.run(
             aggregate_with_llm_director(
                 "CASE",
-                [opinions],
+                [r1, r2],
                 '{"label":"yes"}',
                 supervisor=supervisor,  # type: ignore[arg-type]
                 director_maybe_gate="off",
@@ -1231,11 +1257,17 @@ class PromptAndParseTests(unittest.TestCase):
         )
         self.assertEqual(label_off, "yes")
         self.assertEqual(supervisor.last_director_output.final_label, "yes")
+        transcript = supervisor.last_kwargs["debate_transcript"]
+        self.assertIn("=== ROUND 1 ===", transcript)
+        self.assertIn("=== ROUND 2 ===", transcript)
+        self.assertIn("CONFLICT", transcript)
+        self.assertIn("Coverage gap unresolved.", transcript)
+        self.assertIsNone(supervisor.last_kwargs.get("debate_brief"))
 
         label_legacy = asyncio.run(
             aggregate_with_llm_director(
                 "CASE",
-                [opinions],
+                [r1, r2],
                 '{"label":"yes"}',
                 supervisor=supervisor,  # type: ignore[arg-type]
                 director_maybe_gate="legacy",
@@ -1469,17 +1501,16 @@ class MultiOllamaHelpersTests(unittest.TestCase):
 
 
 class PubmedqaDebateTests(unittest.TestCase):
-    def test_pubmedqa_panel_has_five_agents(self) -> None:
+    def test_pubmedqa_panel_has_four_agents(self) -> None:
         agents = build_default_agents(MockInferenceBackend(), task_mode="pubmedqa")
-        self.assertEqual(len(agents), 5)
+        self.assertEqual(len(agents), 4)
         self.assertEqual(
             {agent.agent_id for agent in agents},
             {
                 "generalist",
                 "evidence_skeptic",
                 "differential_expander",
-                "relevance_checker",
-                "data_skeptic",
+                "uncertainty_advocate",
             },
         )
 

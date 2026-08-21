@@ -305,6 +305,25 @@ def main() -> None:
         "metrics": metrics,
         "cases": details,
     }
+    from app.agents.prompt_versioning import snapshot_prompts_for_run
+
+    prompt_snapshot = snapshot_prompts_for_run(
+        args.output.parent,
+        run_label=args.output.stem,
+        script="scripts/sft/evaluate_qwen14b_supervisor.py",
+        extra_meta={
+            "dataset": str(args.dataset),
+            "model": report["model"],
+            "task_type": report["task_type"],
+        },
+    )
+    report["prompt_versioning"] = {
+        "prompt_version": prompt_snapshot["prompt_version"],
+        "prompt_sha256": prompt_snapshot["prompt_sha256"],
+        "prompts_py_sha256": prompt_snapshot.get("prompts_py_sha256"),
+        "captured_at": prompt_snapshot.get("captured_at"),
+        "snapshot_path": prompt_snapshot.get("snapshot_path"),
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",

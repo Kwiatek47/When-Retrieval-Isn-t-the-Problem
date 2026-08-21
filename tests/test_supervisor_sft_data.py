@@ -159,8 +159,13 @@ class SupervisorSftDataTests(unittest.TestCase):
         self.assertEqual(record["pmid"], "1")
         self.assertEqual(record["gold_label"], "yes")
         self.assertEqual(len(record["history"]), 2)
-        self.assertTrue(all(len(round_entries) == 5 for round_entries in record["history"]))
+        self.assertTrue(all(len(round_entries) == 4 for round_entries in record["history"]))
         self.assertEqual(record["debate_brief"]["rounds_completed"], 2)
+        dual_read = record["debate_brief"]["dual_read"]
+        self.assertIn("author_conclusion_reader", dual_read)
+        self.assertIn("uncertainty_advocate", dual_read)
+        self.assertNotIn("relevance_checker", dual_read)
+        self.assertNotIn("data_skeptic", dual_read)
         self.assertEqual(record["biolinkbert_hint"]["label"], "yes")
         self.assertNotIn(record["long_answer"], record["patient_case"])
 
@@ -211,6 +216,7 @@ class SupervisorSftDataTests(unittest.TestCase):
         self.assertEqual(moderator["task_type"], "moderator")
         self.assertEqual(director_target.final_label, "maybe")
         self.assertEqual(moderator_target.author_conclusion, "maybe")
+        self.assertIn("=== ROUND 1 ===", director["messages"][1]["content"])
         self.assertNotIn(source["long_answer"], director["messages"][1]["content"])
         self.assertNotIn(source["long_answer"], moderator["messages"][1]["content"])
         self.assertNotIn("4-agent", moderator["messages"][1]["content"])

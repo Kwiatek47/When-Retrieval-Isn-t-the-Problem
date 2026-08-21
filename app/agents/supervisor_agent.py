@@ -130,10 +130,12 @@ class SupervisorAgent:
         debate_brief: str | None = None,
     ) -> SupervisorDirectorOutput:
         schema = SupervisorDirectorOutput.model_json_schema()
-        brief = debate_brief if debate_brief is not None else debate_transcript
+        # Full multi-round conflict transcript is the primary Director input.
+        # ``debate_brief`` remains for backward-compatible callers only.
+        transcript = (debate_transcript or "").strip() or (debate_brief or "")
         prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case=patient_case,
-            full_debate_transcript=brief,
+            full_debate_transcript=transcript,
             biolinkbert_hint=biolinkbert_hint,
         )
 

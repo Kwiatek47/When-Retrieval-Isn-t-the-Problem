@@ -37,8 +37,7 @@ PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
     ("generalist", "generalist"),
     ("evidence_skeptic", "evidence_skeptic"),
     ("differential_expander", "differential_expander"),
-    ("relevance_checker", "relevance_checker"),
-    ("data_skeptic", "data_skeptic"),
+    ("uncertainty_advocate", "uncertainty_advocate"),
 )
 
 DebateMode = Literal["moderated", "peer", "hybrid"]
@@ -48,8 +47,8 @@ SupervisorFailMode = Literal["peer-round", "peer-rest", "empty-defer"]
 EarlyExitFn = Callable[[int, list[AgentRoundOpinion], str], bool]
 
 # Personas that can be kept blind to BioLinkBERT (see ``blind_critic``).
-_BLIND_HINT_PERSONAS: frozenset[str] = frozenset({"relevance_checker", "data_skeptic"})
-_UNCERTAINTY_EXPERT_ROLES: frozenset[str] = frozenset({"relevance_checker", "data_skeptic"})
+_BLIND_HINT_PERSONAS: frozenset[str] = frozenset({"uncertainty_advocate"})
+_UNCERTAINTY_EXPERT_ROLES: frozenset[str] = frozenset({"uncertainty_advocate"})
 # Backward-compatible alias.
 _BLIND_HINT_PERSONAS_R1 = _BLIND_HINT_PERSONAS
 
@@ -67,10 +66,10 @@ class DebateOrchestrator:
     Round 1 ("independent opinion"): every agent answers in parallel with no
     peer context, so nobody anchors on somebody else's first take.
 
-    Blind critic (``blind_critic``): by default ``relevance_checker`` and
-    ``data_skeptic`` never see BioLinkBERT hints (``all-rounds``), to avoid
-    authority bias after an independent round-1 ``maybe``. Legacy ``r1-only``
-    restores hint from round 2; ``off`` exposes the hint from round 1.
+    Blind critic (``blind_critic``): by default never see BioLinkBERT hints
+    (``all-rounds``), to avoid authority bias after an independent round-1
+    ``maybe``. Legacy ``r1-only`` restores hint from round 2; ``off`` exposes
+    the hint from round 1.
 
     Round 2+ depends on ``debate_mode``:
 
@@ -88,8 +87,7 @@ class DebateOrchestrator:
 
     Optional early-exit skips later rounds when the panel already agrees
     (typically via ``check_early_exit_asymmetric_veto``: binary unanimity plus
-    uncertainty experts (relevance_checker / data_skeptic) veto on ``maybe`` /
-    low confidence).
+    ``uncertainty_advocate`` veto on ``maybe`` / low confidence).
 
     Safety red flags (``safety_red_flag``): when ``safety_officer`` sets
     ``safety_passed=False`` and ``immediate_intervention_required=True``:
@@ -275,6 +273,7 @@ class DebateOrchestrator:
                     break
 
         final_opinions = history[-1] if history else []
+        # Telemetry only: never used to override Director / aggregator labels.
         exhausted = (
             not safety_halted
             and len(history) >= self.max_rounds
@@ -406,7 +405,8 @@ def labels_unanimous(round_opinions: list[AgentRoundOpinion]) -> bool:
 
 
 _CONVICTION_ROLES = frozenset({"generalist", "differential_expander"})
-_GUARDIAN_ROLES = frozenset({"evidence_skeptic", "relevance_checker", "data_skeptic"})
+_GUARDIAN_ROLES = frozenset({"evidence_skeptic", "uncertainty_advocate"})
+
 
 def _entry_role(entry: AgentRoundOpinion) -> str:
     return (entry.agent_id or entry.persona or "").strip().lower()
@@ -417,13 +417,12 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
 
     Activate when:
     - even 2-2 label split, or
-    - both uncertainty experts (relevance_checker and data_skeptic) vote maybe, or
-    - evidence_skeptic and at least one uncertainty expert vote maybe, or
-    - conviction bloc (generalist + expander) shares a binary yes/no while all
+    - evidence_skeptic and uncertainty_advocate both vote maybe, or
+    - conviction bloc (generalist + expander) shares a binary yes/no while both
       guardians dissent (no or maybe).
 
-    A split where only one uncertainty expert votes maybe is *not* fundamental:
-    the director may still assign yes/no.
+    A split where only one guardian votes maybe is *not* fundamental: the
+    director may still assign yes/no.
     """
     labels_by_role: dict[str, str] = {}
     labels: list[str] = []
@@ -437,11 +436,8 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
         return False
 
     skeptic = labels_by_role.get("evidence_skeptic")
-    relevance = labels_by_role.get("relevance_checker")
-    data_skeptic = labels_by_role.get("data_skeptic")
-    if relevance == "maybe" and data_skeptic == "maybe":
-        return True
-    if skeptic == "maybe" and (relevance == "maybe" or data_skeptic == "maybe"):
+    advocate = labels_by_role.get("uncertainty_advocate")
+    if skeptic == "maybe" and advocate == "maybe":
         return True
 
     counts: dict[str, int] = {}

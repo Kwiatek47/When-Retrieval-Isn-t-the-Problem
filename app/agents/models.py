@@ -137,4 +137,4 @@ class DebateResult(BaseModel):
     shared_report: SharedDebateReport | None = None
     safety_halted: bool = False
     safety_red_flag_reason: str | None = None
-    exhausted_without_consensus: bool = False
+    exhausted_without_consensus: bool = False  # telemetry only; never overrides labels

@@ -130,6 +130,7 @@ class DebateCaseResult:
     consensus_required_next_steps: list[str] = field(default_factory=list)
     safety_halted: bool = False
     safety_red_flag_reason: str | None = None
+    exhausted_without_consensus: bool = False  # telemetry/log only; never overrides predicted_label
 
 
 class _StaticHintProvider:
@@ -181,6 +182,30 @@ def main() -> None:
     md_path = report_dir / f"{label}.md"
     checkpoint_path = report_dir / f"{label}.checkpoint.jsonl"
 
+    from app.agents.prompt_versioning import snapshot_prompts_for_run
+
+    prompt_snapshot = snapshot_prompts_for_run(
+        report_dir,
+        run_label=label,
+        script="scripts/agents/evaluate_debate_pubmedqa.py",
+        extra_meta={
+            "dataset": str(args.dataset),
+            "backend": args.backend,
+            "aggregate_mode": args.aggregate_mode,
+            "supervisor_model": args.supervisor_model,
+            "hint": args.hint,
+            "rounds": args.rounds,
+            "debate_mode": args.debate_mode,
+            "blind_critic": args.blind_critic,
+            "director_maybe_gate": getattr(args, "director_maybe_gate", "off"),
+        },
+    )
+    print(
+        f"Prompt version={prompt_snapshot['prompt_version']} "
+        f"sha256={prompt_snapshot['prompt_sha256'][:16]}… "
+        f"snapshot={prompt_snapshot['snapshot_path']}"
+    )
+
     prior_results = _load_checkpoint(checkpoint_path) if args.resume else {}
     if prior_results:
         print(f"Resuming with {len(prior_results)} completed cases from {checkpoint_path}")
@@ -197,6 +222,7 @@ def main() -> None:
         aggregation = "biolinkbert_only"
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
+        exhausted_without_consensus_rate = 0.0
     else:
         from app.core.config import get_settings
 
@@ -346,6 +372,11 @@ def main() -> None:
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
         )
+        exhausted_without_consensus_rate = (
+            sum(1 for item in results if item.exhausted_without_consensus) / len(results)
+            if results
+            else 0.0
+        )
 
     if args.uncertainty_route and args.backend != "biolinkbert":
         _apply_uncertainty_routing(
@@ -366,16 +397,36 @@ def main() -> None:
         architecture=architecture,
         fast=args.fast,
         early_exit_rate=early_exit_rate,
+        exhausted_without_consensus_rate=exhausted_without_consensus_rate,
     )
-    payload = {"summary": summary, "cases": [asdict(item) for item in results]}
+    summary["prompt_version"] = prompt_snapshot["prompt_version"]
+    summary["prompt_sha256"] = prompt_snapshot["prompt_sha256"]
+    summary["prompts_py_sha256"] = prompt_snapshot.get("prompts_py_sha256")
+    summary["prompt_snapshot"] = prompt_snapshot.get("snapshot_path")
+    payload = {
+        "summary": summary,
+        "prompt_versioning": {
+            "prompt_version": prompt_snapshot["prompt_version"],
+            "prompt_sha256": prompt_snapshot["prompt_sha256"],
+            "prompts_py_sha256": prompt_snapshot.get("prompts_py_sha256"),
+            "captured_at": prompt_snapshot.get("captured_at"),
+            "snapshot_path": prompt_snapshot.get("snapshot_path"),
+            "prompts_py_copy": prompt_snapshot.get("prompts_py_copy"),
+            "registry_path": prompt_snapshot.get("registry_path"),
+        },
+        "cases": [asdict(item) for item in results],
+    }
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_markdown_report(summary, results), encoding="utf-8")
     print(f"\nWrote {json_path}")
     print(f"Wrote {md_path}")
+    print(f"Wrote {prompt_snapshot['snapshot_path']}")
     print(
         f"label_accuracy={summary['label_accuracy']:.3f} "
         f"biolinkbert_accuracy={summary.get('biolinkbert_accuracy')} "
         f"early_exit_rate={summary.get('early_exit_rate')} "
+        f"exhausted_without_consensus_rate={summary.get('exhausted_without_consensus_rate')} "
+        f"prompt_version={summary.get('prompt_version')} "
         f"mean_latency_ms={summary['mean_latency_ms']:.1f}"
     )
 
@@ -795,6 +846,7 @@ async def _evaluate_debate(
             consensus_required_next_steps=consensus_required_next_steps,
             safety_halted=bool(debate.safety_halted),
             safety_red_flag_reason=debate.safety_red_flag_reason,
+            exhausted_without_consensus=bool(debate.exhausted_without_consensus),
         )
         if checkpoint_path is not None:
             async with checkpoint_lock:
@@ -947,7 +999,7 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Skip later rounds when panel is unanimously yes/no, "
-            "relevance_checker and data_skeptic do not veto (maybe / confidence < 0.65), "
+            "uncertainty_advocate does not veto (maybe / confidence < 0.65), "
             "and the abstract has no inconclusiveness cue phrases. "
             "Does not require BioLinkBERT agreement."
         ),
@@ -992,7 +1044,7 @@ def _parse_args() -> argparse.Namespace:
         choices=("all-rounds", "r1-only", "off"),
         default="all-rounds",
         help=(
-            "BioLinkBERT hint policy for relevance_checker and data_skeptic: "
+            "BioLinkBERT hint policy for uncertainty_advocate: "
             "all-rounds (default) never shows hint; r1-only hides in round 1 only; "
             "off shows hint from round 1"
         ),
@@ -1224,6 +1276,7 @@ def _summarize(
     architecture: str,
     fast: bool,
     early_exit_rate: float,
+    exhausted_without_consensus_rate: float = 0.0,
 ) -> dict[str, Any]:
     # When uncertainty routing is active, report metrics on the held-out split
     # only (the calibration split is excluded to keep the numbers leakage-free).
@@ -1259,6 +1312,7 @@ def _summarize(
         "biolinkbert_accuracy": (sum(1 for flag in bert_flags if flag) / len(bert_flags)) if bert_flags else None,
         "unanimous_rate": sum(1 for r in results if r.unanimous_final) / n,
         "early_exit_rate": early_exit_rate,
+        "exhausted_without_consensus_rate": exhausted_without_consensus_rate,
         "mean_latency_ms": mean([r.latency_ms for r in results]) if results else 0.0,
         "predicted_label_counts": dict(pred_counts),
         "per_label_accuracy": {
@@ -1303,10 +1357,14 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Round-1 accuracy: {summary['round1_accuracy']:.3f}",
         f"- BioLinkBERT accuracy: {summary['biolinkbert_accuracy']}",
         f"- Early-exit rate: {summary['early_exit_rate']:.3f}",
+        f"- Exhausted-without-consensus rate (telemetry only): {summary.get('exhausted_without_consensus_rate', 0.0):.3f}",
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
         f"- Aggregation: `{summary['aggregation']}`",
+        f"- Prompt version: `{summary.get('prompt_version')}`",
+        f"- Prompt sha256: `{summary.get('prompt_sha256')}`",
+        f"- Prompt snapshot: `{summary.get('prompt_snapshot')}`",
         "",
         "## Per-label accuracy",
         "",
@@ -1333,6 +1391,8 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
     for result in results:
         mark = "ok" if result.label_pass else "FAIL"
         extra = " early_exit" if result.early_exit else ""
+        if result.exhausted_without_consensus:
+            extra += " exhausted_conflict"
         lines.append(
             f"- `{result.id}` [{mark}] expected={result.expected_label} "
             f"pred={result.predicted_label} bert={result.biolinkbert_label} "
