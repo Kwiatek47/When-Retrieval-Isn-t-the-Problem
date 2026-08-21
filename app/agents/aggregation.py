@@ -257,9 +257,13 @@ def build_debate_brief(
                     "author_conclusion_reader"
                     if entry.agent_id == "generalist"
                     else (
-                        "uncertainty_auditor"
-                        if entry.agent_id == "uncertainty_advocate"
-                        else entry.persona
+                        "relevance_checker"
+                        if entry.agent_id == "relevance_checker"
+                        else (
+                            "data_skeptic"
+                            if entry.agent_id == "data_skeptic"
+                            else entry.persona
+                        )
                     )
                 ),
                 "label": label,
@@ -274,7 +278,8 @@ def build_debate_brief(
     conf_label, conf_share, conf_scores = confidence_aware_vote(
         [entry.opinion for entry in final]
     )
-    advocate = next((p for p in panel if p["agent_id"] == "uncertainty_advocate"), None)
+    relevance = next((p for p in panel if p["agent_id"] == "relevance_checker"), None)
+    data_skeptic = next((p for p in panel if p["agent_id"] == "data_skeptic"), None)
     generalist = next((p for p in panel if p["agent_id"] == "generalist"), None)
     return {
         "rounds_completed": len(debate_history),
@@ -283,7 +288,8 @@ def build_debate_brief(
         "confidence_aware_scores": conf_scores,
         "dual_read": {
             "author_conclusion_reader": generalist,
-            "uncertainty_auditor": advocate,
+            "relevance_checker": relevance,
+            "data_skeptic": data_skeptic,
         },
         "panel": panel,
         "shared_report": shared_report.model_dump() if shared_report is not None else None,
@@ -312,6 +318,7 @@ def apply_maybe_director_gate(
     shared_report: SharedDebateReport | None = None,
     advocate_maybe_confidence: float = 0.75,
     bert_label: str | None = None,
+    rounds_completed: int = 1,
 ) -> SupervisorDirectorOutput:
     """
     Selective maybe gate on top of LLM director output.
@@ -379,24 +386,44 @@ def apply_maybe_director_gate(
     if checklist_hits >= 2:
         reasons.append(f"checklist_hits={checklist_hits}")
 
-    # Path D: auditor maybe + residual + specific abstract cue (tight).
-    advocate = next(
-        (
-            e
-            for e in usable
-            if e.agent_id == "uncertainty_advocate" or e.persona == "uncertainty_advocate"
-        ),
-        None,
-    )
-    if advocate is not None:
-        adv_label = opinion_label(advocate.opinion)
+    # Path D: uncertainty expert maybe + residual + specific abstract cue (tight).
+    from app.agents.prompts import PUBMEDQA_UNCERTAINTY_PERSONAS
+
+    uncertainty_experts = [
+        e
+        for e in usable
+        if e.agent_id in PUBMEDQA_UNCERTAINTY_PERSONAS
+        or e.persona in PUBMEDQA_UNCERTAINTY_PERSONAS
+    ]
+    for expert in uncertainty_experts:
+        expert_label = opinion_label(expert.opinion)
         if (
-            adv_label == "maybe"
-            and float(advocate.opinion.confidence_level) >= advocate_maybe_confidence
+            expert_label == "maybe"
+            and float(expert.opinion.confidence_level) >= advocate_maybe_confidence
         ):
             residual = list(shared_report.residual_uncertainty) if shared_report else []
             if residual and abstract_suggests_inconclusive(patient_case):
-                reasons.append("uncertainty auditor maybe + residual + abstract cue")
+                role = expert.agent_id or expert.persona or "uncertainty_expert"
+                reasons.append(f"{role} maybe + residual + abstract cue")
+                break
+
+    # Path E: after 3+ rounds, any specialist auditor holding high-confidence
+    # maybe has survived multiple debate challenges — treat as a validated
+    # critical gap in their domain (relevance OR internal contradiction).
+    _SPECIALIST_AUDITORS = frozenset({"relevance_checker", "data_skeptic"})
+    if rounds_completed >= 3:
+        for expert in uncertainty_experts:
+            role = (expert.agent_id or expert.persona or "").strip().lower()
+            if role not in _SPECIALIST_AUDITORS:
+                continue
+            expert_label = opinion_label(expert.opinion)
+            if (
+                expert_label == "maybe"
+                and float(expert.opinion.confidence_level) >= advocate_maybe_confidence
+            ):
+                reasons.append(
+                    f"{role} persistent maybe after {rounds_completed} rounds"
+                )
 
     if not reasons:
         return output
@@ -418,7 +445,9 @@ def apply_maybe_director_gate(
         reasons = [
             r
             for r in reasons
-            if r.startswith("question_coverage=none") or "abstract cue" in r
+            if r.startswith("question_coverage=none")
+            or "abstract cue" in r
+            or "persistent maybe" in r
         ]
         if not reasons:
             return output
@@ -493,6 +522,7 @@ async def aggregate_with_llm_director(
             final_opinions=final_opinions,
             shared_report=shared_report,
             bert_label=_parse_biolinkbert_label(biolinkbert_hint),
+            rounds_completed=len(debate_history),
         )
     setattr(supervisor, "last_director_output", director_output)
     return director_output.final_label

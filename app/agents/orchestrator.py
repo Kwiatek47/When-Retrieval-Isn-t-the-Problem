@@ -37,7 +37,8 @@ PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
     ("generalist", "generalist"),
     ("evidence_skeptic", "evidence_skeptic"),
     ("differential_expander", "differential_expander"),
-    ("uncertainty_advocate", "uncertainty_advocate"),
+    ("relevance_checker", "relevance_checker"),
+    ("data_skeptic", "data_skeptic"),
 )
 
 DebateMode = Literal["moderated", "peer", "hybrid"]
@@ -47,7 +48,8 @@ SupervisorFailMode = Literal["peer-round", "peer-rest", "empty-defer"]
 EarlyExitFn = Callable[[int, list[AgentRoundOpinion], str], bool]
 
 # Personas that can be kept blind to BioLinkBERT (see ``blind_critic``).
-_BLIND_HINT_PERSONAS: frozenset[str] = frozenset({"uncertainty_advocate"})
+_BLIND_HINT_PERSONAS: frozenset[str] = frozenset({"relevance_checker", "data_skeptic"})
+_UNCERTAINTY_EXPERT_ROLES: frozenset[str] = frozenset({"relevance_checker", "data_skeptic"})
 # Backward-compatible alias.
 _BLIND_HINT_PERSONAS_R1 = _BLIND_HINT_PERSONAS
 
@@ -65,10 +67,10 @@ class DebateOrchestrator:
     Round 1 ("independent opinion"): every agent answers in parallel with no
     peer context, so nobody anchors on somebody else's first take.
 
-    Blind critic (``blind_critic``): by default ``uncertainty_advocate`` never
-    sees BioLinkBERT hints (``all-rounds``), to avoid authority bias after an
-    independent round-1 ``maybe``. Legacy ``r1-only`` restores hint from round 2;
-    ``off`` exposes the hint from round 1.
+    Blind critic (``blind_critic``): by default ``relevance_checker`` and
+    ``data_skeptic`` never see BioLinkBERT hints (``all-rounds``), to avoid
+    authority bias after an independent round-1 ``maybe``. Legacy ``r1-only``
+    restores hint from round 2; ``off`` exposes the hint from round 1.
 
     Round 2+ depends on ``debate_mode``:
 
@@ -86,7 +88,8 @@ class DebateOrchestrator:
 
     Optional early-exit skips later rounds when the panel already agrees
     (typically via ``check_early_exit_asymmetric_veto``: binary unanimity plus
-    uncertainty_advocate veto on ``maybe`` / low confidence).
+    uncertainty experts (relevance_checker / data_skeptic) veto on ``maybe`` /
+    low confidence).
 
     Safety red flags (``safety_red_flag``): when ``safety_officer`` sets
     ``safety_passed=False`` and ``immediate_intervention_required=True``:
@@ -403,13 +406,7 @@ def labels_unanimous(round_opinions: list[AgentRoundOpinion]) -> bool:
 
 
 _CONVICTION_ROLES = frozenset({"generalist", "differential_expander"})
-_GUARDIAN_ROLES = frozenset({"evidence_skeptic", "uncertainty_advocate"})
-
-EXHAUSTED_NO_CONSENSUS_NOTE = (
-    "Debate exhausted max rounds with a fundamental panel split "
-    "(2-2 or skeptic+advocate maybe); defaulting to maybe."
-)
-
+_GUARDIAN_ROLES = frozenset({"evidence_skeptic", "relevance_checker", "data_skeptic"})
 
 def _entry_role(entry: AgentRoundOpinion) -> str:
     return (entry.agent_id or entry.persona or "").strip().lower()
@@ -420,12 +417,13 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
 
     Activate when:
     - even 2-2 label split, or
-    - both guardians (evidence_skeptic and uncertainty_advocate) vote maybe, or
-    - conviction bloc (generalist + expander) shares a binary yes/no while both
+    - both uncertainty experts (relevance_checker and data_skeptic) vote maybe, or
+    - evidence_skeptic and at least one uncertainty expert vote maybe, or
+    - conviction bloc (generalist + expander) shares a binary yes/no while all
       guardians dissent (no or maybe).
 
-    A 3-1 where only the advocate votes maybe is *not* fundamental: the
-    director may still assign yes/no.
+    A split where only one uncertainty expert votes maybe is *not* fundamental:
+    the director may still assign yes/no.
     """
     labels_by_role: dict[str, str] = {}
     labels: list[str] = []
@@ -439,8 +437,11 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
         return False
 
     skeptic = labels_by_role.get("evidence_skeptic")
-    advocate = labels_by_role.get("uncertainty_advocate")
-    if skeptic == "maybe" and advocate == "maybe":
+    relevance = labels_by_role.get("relevance_checker")
+    data_skeptic = labels_by_role.get("data_skeptic")
+    if relevance == "maybe" and data_skeptic == "maybe":
+        return True
+    if skeptic == "maybe" and (relevance == "maybe" or data_skeptic == "maybe"):
         return True
 
     counts: dict[str, int] = {}
@@ -460,7 +461,7 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
         for role in _GUARDIAN_ROLES
         if role in labels_by_role
     ]
-    if len(conviction) == 2 and len(guardians) == 2:
+    if len(conviction) == 2 and len(guardians) >= 2:
         conviction_label = conviction[0]
         if (
             conviction_label in {"yes", "no"}
@@ -469,22 +470,6 @@ def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
         ):
             return True
     return False
-
-
-def apply_exhausted_no_consensus_override(
-    predicted: str | None,
-    *,
-    exhausted_without_consensus: bool,
-) -> tuple[str | None, bool]:
-    """Force maybe after max rounds only on a fundamental panel split.
-
-    Returns ``(label, overridden)``. 3-1 advocate-only maybe, early exits,
-    adaptive stops, and safety halts are left to the director. Already-``maybe``
-    labels are not rewritten.
-    """
-    if not exhausted_without_consensus or predicted == "maybe":
-        return predicted, False
-    return "maybe", True
 
 
 DEFAULT_ADVOCATE_VETO_CONFIDENCE = 0.65
@@ -511,8 +496,8 @@ def check_early_exit_asymmetric_veto(
     Early-exit with asymmetric veto for the ``maybe`` class.
 
     Returns True only when the panel is unanimously ``yes`` or ``no`` *and*
-    ``uncertainty_advocate`` does not veto. The advocate vetoes when they label
-    ``maybe`` or their confidence is below ``advocate_confidence_threshold``.
+    no uncertainty expert vetoes. Each expert vetoes when they label ``maybe``
+    or their confidence is below ``advocate_confidence_threshold``.
 
     Also blocked when ``patient_case`` matches light inconclusiveness heuristics
     (e.g. ``further research is needed``), or when a majority of agents mark
@@ -535,18 +520,12 @@ def check_early_exit_asymmetric_veto(
     if inconclusive_marks >= max(3, len(round_opinions) - 1):
         return False
 
-    advocate = next(
-        (
-            entry
-            for entry in round_opinions
-            if entry.agent_id == "uncertainty_advocate"
-            or entry.persona == "uncertainty_advocate"
-        ),
-        None,
-    )
-    if advocate is not None:
-        confidence = _safe_confidence(advocate.opinion.confidence_level, default=1.0)
-        label = (opinion_label(advocate.opinion) or "").strip().lower()
+    for entry in round_opinions:
+        role = _entry_role(entry)
+        if role not in _UNCERTAINTY_EXPERT_ROLES:
+            continue
+        confidence = _safe_confidence(entry.opinion.confidence_level, default=1.0)
+        label = (opinion_label(entry.opinion) or "").strip().lower()
         if label == "maybe" or confidence < advocate_confidence_threshold:
             return False
 

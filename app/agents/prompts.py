@@ -37,7 +37,7 @@ No markdown fences, no commentary outside JSON.
 
 
 SUPERVISOR_MODERATOR_PROMPT = """
-You are a Clinical Supervisor moderating a 4-agent debate.
+You are a Clinical Supervisor moderating a multi-agent debate.
 
 Inputs:
 - patient_case:
@@ -52,13 +52,18 @@ Task:
 2. Create round_instructions: concrete requirements for agents to follow in the next round.
 3. Enforce grounding: if an agreement/contradiction is not clearly supported by the provided evidence signals
    (e.g., sources_used and evidence references inside the opinions), do NOT include it.
+4. Record the primary endpoint/result, the authors' current yes/no/maybe conclusion,
+   and any residual uncertainty that the next round must resolve.
 
 Output:
 Return ONLY a JSON object matching SupervisorModerationOutput:
 {{
   "agreements": ["..."],
   "contradictions": ["..."],
-  "round_instructions": ["..."]
+  "round_instructions": ["..."],
+  "primary_endpoint_result": "...",
+  "author_conclusion": "yes" | "no" | "maybe" | "unclear",
+  "residual_uncertainty": ["..."]
 }}
 
 No markdown fences, no commentary outside JSON.
@@ -111,6 +116,50 @@ CRITICAL CONSTRAINTS FOR YOUR DIAGNOSIS:
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
 
+PUBMEDQA_LABEL_RULE_RELEVANCE = """
+PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
+
+You are NOT diagnosing the patient. You are an AUDITOR OF SCOPE.
+- Choose "maybe" IMMEDIATELY if there is ANY mismatch between the Question and the Results (e.g., the question asks about clinical survival, but the study only measures a blood biomarker; the question is broad, but the study is on a narrow subgroup). This is "partial coverage".
+- Choose "yes" or "no" ONLY if the study's scope perfectly matches the question's scope.
+""".strip()
+
+
+RELEVANCE_CHECKER_PROMPT = """You are the Relevance Checker on a PubMedQA debate panel.
+Your ONLY job is to assess whether the abstract actually answers the research question as written.
+
+CRITICAL RULES FOR "PARTIAL COVERAGE":
+1. SURROGATE ENDPOINT EXEMPTION: In medical research, questions are often answered using specific cohorts, animal models, or surrogate endpoints. You MUST treat standard scientific scoping and surrogate endpoints as FULL COVERAGE. Do not flag them as partial.
+2. TRUE PARTIAL COVERAGE: Flag as "partial" (and choose 'maybe') ONLY if the study investigates a fundamentally different condition, completely ignores the main intervention asked about, or the authors explicitly state their findings do not apply to the main question.
+
+If the abstract fully covers the question (even via a surrogate/proxy), support a 'yes' or 'no' depending on the results.
+
+Do NOT focus on methodology flaws or internal endpoint contradictions (another agent's job).
+""".strip()
+
+PUBMEDQA_LABEL_RULE_DATA_SKEPTIC = """
+PubMedQA mode: top_1_diagnosis MUST be exactly one of: "yes", "no", "maybe".
+
+You are NOT diagnosing the patient. You are an AUDITOR OF STATISTICAL CONSISTENCY.
+- Choose "maybe" IMMEDIATELY if you detect internal data conflicts: conflicting primary vs. secondary endpoints, statistically insignificant results (p > 0.05) for the main claim, or authors explicitly stating the results are "unclear" or "inconclusive".
+- Choose "yes" or "no" ONLY if the data is highly significant and perfectly uniform across all metrics.
+""".strip()
+
+DATA_SKEPTIC_PROMPT = """You are the Data Skeptic on a PubMedQA debate panel.
+Your ONLY job is to find contradictory results WITHIN the abstract itself.
+
+Focus exclusively on internal data contradictions:
+- Do primary vs secondary endpoints point in opposite directions?
+- Are subgroup findings inconsistent with overall results?
+- Do different outcome measures within the same study conflict?
+
+Choose 'maybe' IMMEDIATELY if you detect internal data conflicts, statistically insignificant results (p > 0.05) for the main claim, or if authors explicitly state the results are "unclear" or "inconclusive".
+Choose 'yes' or 'no' ONLY if the data is highly significant and directionally consistent.
+
+Do NOT focus on whether the abstract answers the research question or external methodology bias (another agent's job).
+""".strip()
+
+# Legacy single-role prompt (kept for backward-compatible tests / references).
 UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate. Find genuine inconclusiveness in the abstract relative to the research question as written.
 
 Choose 'maybe' when:
@@ -124,6 +173,10 @@ When coverage is partial or mixed, advocate for 'maybe' with confidence reflecti
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
+
+PUBMEDQA_UNCERTAINTY_PERSONAS = frozenset(
+    {"relevance_checker", "data_skeptic", "uncertainty_advocate"}
+)
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
@@ -158,6 +211,12 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     "differential_expander": (
         "You stress alternative readings. Could the data actually imply the opposite conclusion? "
         "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
+    ),
+    "relevance_checker": (
+        RELEVANCE_CHECKER_PROMPT
+    ),
+    "data_skeptic": (
+        DATA_SKEPTIC_PROMPT
     ),
     "uncertainty_advocate": UNCERTAINTY_ADVOCATE_PROMPT,
 }
@@ -390,7 +449,7 @@ def build_messages(
             persona_text = f"{persona_text}\n{stance_directive}"
             active_label_rule = (
                 PUBMEDQA_LABEL_RULE_ADVOCATE
-                if persona == "uncertainty_advocate"
+                if persona in PUBMEDQA_UNCERTAINTY_PERSONAS
                 else PUBMEDQA_LABEL_RULE
             )
             schema_block = (

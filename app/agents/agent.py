@@ -57,7 +57,7 @@ class ClinicalAgent:
         and revise.
 
         Set ``include_evidence_hint=False`` to hide BioLinkBERT (e.g. blind
-        ``uncertainty_advocate`` in round 1).
+        ``relevance_checker`` / ``data_skeptic`` in round 1).
 
         Never raises: backend failures (timeout, connection error, invalid
         JSON after one repair attempt) degrade to a low-confidence fallback

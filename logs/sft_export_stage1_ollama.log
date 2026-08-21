@@ -1,0 +1,66 @@
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+==((====))==  Unsloth 2026.5.2: Fast Qwen2 patching. Transformers: 4.57.6.
+   \\   /|    NVIDIA A40. Num GPUs = 1. Max memory: 44.4 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.10.0+cu128. CUDA: 8.6. CUDA Toolkit: 12.8. Triton: 3.6.0
+\        /    Bfloat16 = TRUE. FA [Xformers = 0.0.35. FA2 = False]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+Unsloth: Fast downloading is enabled - ignore downloading bars which are red colored!
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.09s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:06<00:00,  3.00s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:06<00:00,  3.02s/it]
+Unsloth 2026.5.2 patched 48 layers with 48 QKV layers, 48 O layers and 48 MLP layers.
+Unsloth: Merging model weights to 16-bit format...
+Found HuggingFace hub cache directory: /home/s203270/.cache/huggingface/hub
+Checking cache directory for required files...
+Cache check failed: model-00001-of-00006.safetensors not found in local cache.
+Not all required files found in cache. Will proceed with downloading.
+Checking cache directory for required files...
+Cache check failed: tokenizer.model not found in local cache.
+Not all required files found in cache. Will proceed with downloading.
+Unsloth: Preparing safetensor model files:   0%|          | 0/6 [00:00<?, ?it/s]Unsloth: Preparing safetensor model files:  17%|█▋        | 1/6 [00:30<02:32, 30.46s/it]Unsloth: Preparing safetensor model files:  33%|███▎      | 2/6 [00:59<01:59, 29.88s/it]Unsloth: Preparing safetensor model files:  50%|█████     | 3/6 [01:28<01:27, 29.30s/it]Unsloth: Preparing safetensor model files:  67%|██████▋   | 4/6 [01:59<00:59, 29.92s/it]Unsloth: Preparing safetensor model files:  83%|████████▎ | 5/6 [02:30<00:30, 30.24s/it]Unsloth: Preparing safetensor model files: 100%|██████████| 6/6 [02:59<00:00, 29.78s/it]Unsloth: Preparing safetensor model files: 100%|██████████| 6/6 [02:59<00:00, 29.85s/it]
+Note: tokenizer.model not found (this is OK for non-SentencePiece models)
+Unsloth: Merging weights into 16bit:   0%|          | 0/6 [00:00<?, ?it/s]Unsloth: Merging weights into 16bit:  17%|█▋        | 1/6 [00:20<01:42, 20.57s/it]Unsloth: Merging weights into 16bit:  33%|███▎      | 2/6 [00:45<01:32, 23.09s/it]Unsloth: Merging weights into 16bit:  50%|█████     | 3/6 [01:10<01:12, 24.09s/it]Unsloth: Merging weights into 16bit:  67%|██████▋   | 4/6 [01:35<00:49, 24.56s/it]Unsloth: Merging weights into 16bit:  83%|████████▎ | 5/6 [02:00<00:24, 24.68s/it]Unsloth: Merging weights into 16bit: 100%|██████████| 6/6 [02:19<00:00, 22.70s/it]Unsloth: Merging weights into 16bit: 100%|██████████| 6/6 [02:19<00:00, 23.29s/it]
+Unsloth: Merge process complete. Saved to `/raid/s203270/When-Retrieval-Isn-t-the-Problem/artifacts/sft/qwen14b-supervisor/ollama-stage1-q4_k_m`
+Unsloth: Converting to GGUF format...
+==((====))==  Unsloth: Conversion from HF to GGUF information
+   \\   /|    [0] Installing llama.cpp might take 3 minutes.
+O^O/ \_/ \    [1] Converting HF to GGUF bf16 might take 3 minutes.
+\        /    [2] Converting GGUF bf16 to ['q4_k_m'] might take 10 minutes each.
+ "-____-"     In total, you will have to wait at least 16 minutes.
+
+Unsloth: Installing llama.cpp. This might take 3 minutes...
+Unsloth: Updating system package directories
+Unsloth: Missing packages: cmake libcurl4-openssl-dev libssl-dev
+Unsloth: Will attempt to install missing system packages.
+Unsloth: Installing packages: cmake libcurl4-openssl-dev libssl-dev
+Missing system packages. We need to execute `sudo apt-get install cmake libcurl4-openssl-dev libssl-dev -y` - do you accept? Press ENTER. Type NO if not.Traceback (most recent call last):
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth/save.py", line 1411, in save_to_gguf
+    quantizer_location, converter_location = check_llama_cpp()
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth_zoo/llama_cpp.py", line 523, in check_llama_cpp
+    raise RuntimeError(f"llama.cpp folder '{llama_cpp_folder}' does not exist")
+RuntimeError: llama.cpp folder '/home/s203270/.unsloth/llama.cpp' does not exist
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth/save.py", line 2315, in unsloth_save_pretrained_gguf
+    all_file_locations, want_full_precision, is_vlm_update = save_to_gguf(
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth/save.py", line 1421, in save_to_gguf
+    quantizer_location, converter_location = install_llama_cpp(
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth_zoo/llama_cpp.py", line 687, in install_llama_cpp
+    install_package(packages_to_install, sudo, system_type = system_type)
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth_zoo/llama_cpp.py", line 265, in install_package
+    acceptance = input(f"Missing system packages. We need to execute `{install_cmd}` - do you accept? Press ENTER. Type NO if not.")
+EOFError: EOF when reading a line
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/raid/s203270/When-Retrieval-Isn-t-the-Problem/scripts/sft/export_qwen14b_supervisor_ollama.py", line 161, in <module>
+    main()
+  File "/raid/s203270/When-Retrieval-Isn-t-the-Problem/scripts/sft/export_qwen14b_supervisor_ollama.py", line 123, in main
+    gguf_path = export_gguf(
+  File "/raid/s203270/When-Retrieval-Isn-t-the-Problem/scripts/sft/export_qwen14b_supervisor_ollama.py", line 68, in export_gguf
+    model.save_pretrained_gguf(
+  File "/raid/s203270/miniconda3/envs/qwen14b-supervisor/lib/python3.10/site-packages/unsloth/save.py", line 2335, in unsloth_save_pretrained_gguf
+    raise RuntimeError(f"Unsloth: GGUF conversion failed: {e}")
+RuntimeError: Unsloth: GGUF conversion failed: EOF when reading a line

@@ -28,7 +28,6 @@ from app.agents.orchestrator import (
     DEFAULT_PERSONAS,
     PUBMEDQA_PERSONAS,
     DebateOrchestrator,
-    apply_exhausted_no_consensus_override,
     check_early_exit_asymmetric_veto,
     fundamental_panel_conflict,
     labels_unanimous,
@@ -56,7 +55,6 @@ __all__ = [
     "aggregate_pubmedqa_decision",
     "abstract_suggests_inconclusive",
     "apply_maybe_director_gate",
-    "apply_exhausted_no_consensus_override",
     "build_biolinkbert_hint_from_settings",
     "build_default_agents",
     "build_debate_brief",
@@ -84,9 +82,10 @@ def build_default_agents(
 ) -> list[ClinicalAgent]:
     """Create the standard debate panel sharing one inference backend.
 
-    For PubMedQA we swap the clinical `safety_officer` for an
-    `uncertainty_advocate` persona that actively argues for inconclusive
-    evidence, to counter the silent-agreement collapse on the `maybe` class.
+    For PubMedQA we swap the clinical `safety_officer` for two uncertainty
+    experts — `relevance_checker` (partial question coverage) and
+    `data_skeptic` (internal endpoint contradictions) — to counter silent
+    agreement collapse on the `maybe` class.
     """
     personas = PUBMEDQA_PERSONAS if (task_mode or "").strip().lower() == "pubmedqa" else DEFAULT_PERSONAS
     return [

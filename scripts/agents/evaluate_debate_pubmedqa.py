@@ -5,10 +5,13 @@ Modes:
   --backend mock|ollama     4-agent debate + majority vote
   --backend biolinkbert     BioLinkBERT-large classifier only (seed47 from .env)
   --hint biolinkbert        inject classifier label into each agent prompt
+  --director-hint biolinkbert|none
+                            llm_director: pass classifier to Director (default) or withhold
+                            (none = debate/abstract only; BERT still recorded in metrics)
   --aggregate-with-biolinkbert
                             include BioLinkBERT vote in the final majority
   --fast                    compact prompts + lower num_predict (does NOT enable early-exit)
-  --aggregate-mode bert_gate|bert_weighted|majority
+  --aggregate-mode bert_gate|bert_weighted|majority|llm_director
                             how to combine panel + BioLinkBERT (default: bert_gate)
   --panel-maybe-veto unanimous|majority|off
                             panel maybe overrides BioLinkBERT under bert_gate (default: unanimous)
@@ -23,12 +26,12 @@ Examples:
     --num-predict 400 --agent-concurrency 1 \\
     --label debate_balanced90_ollama_r2_bertgate
 
-  # Agents on OLLAMA_MODEL (e.g. 7b), supervisor-only on 14b
+  # FT Director without classifier label (debate-first ablation)
   python scripts/agents/evaluate_debate_pubmedqa.py \\
     --backend ollama --aggregate-mode llm_director --hint none \\
-    --rounds 3 --limit 50 --resume --num-predict 1200 \\
-    --supervisor-model qwen2.5:14b \\
-    --label llm_director_r3_no_hint_sup14b
+    --director-hint none --rounds 2 --no-supervisor-moderation \\
+    --supervisor-model qwen2.5-supervisor-14b-stage1 \\
+    --label stage1_director_no_bert_label
 """
 
 from __future__ import annotations
@@ -56,10 +59,6 @@ from app.agents import (
     MockInferenceBackend,
     build_default_agents,
     check_early_exit_asymmetric_veto,
-)
-from app.agents.orchestrator import (
-    EXHAUSTED_NO_CONSENSUS_NOTE,
-    apply_exhausted_no_consensus_override,
 )
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
@@ -172,6 +171,8 @@ def main() -> None:
         if not hint_provider.available:
             raise SystemExit(f"BioLinkBERT classifier unavailable: {hint_provider.load_error}")
         print(f"Loaded BioLinkBERT classifier: {hint_provider.model_path}")
+    if args.aggregate_mode == "llm_director":
+        print(f"Director hint={args.director_hint}")
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -318,6 +319,7 @@ def main() -> None:
                 orchestrator_factory=_build_orchestrator,
                 hint_provider=hint_provider if isinstance(hint_provider, BioLinkBERTHintProvider) else None,
                 inject_hint=args.hint == "biolinkbert",
+                director_hint=args.director_hint,
                 aggregate_with_biolinkbert=args.aggregate_with_biolinkbert,
                 aggregate_mode=args.aggregate_mode,
                 bert_gate_confidence=args.bert_gate_confidence,
@@ -499,6 +501,8 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append(args.aggregate_mode)
     if args.aggregate_mode == "llm_director":
         parts.append("llm_director")
+        if getattr(args, "director_hint", "biolinkbert") == "none":
+            parts.append("nodirhint")
     if args.supervisor_model:
         parts.append(f"sup_{args.supervisor_model.replace(':', '').replace('.', '')}")
     if getattr(args, "director_maybe_gate", "off") == "legacy":
@@ -598,6 +602,7 @@ async def _evaluate_debate(
     orchestrator_factory: Callable[[Any, int], DebateOrchestrator],
     hint_provider: BioLinkBERTHintProvider | None,
     inject_hint: bool,
+    director_hint: str,
     aggregate_with_biolinkbert: bool,
     aggregate_mode: str,
     bert_gate_confidence: float,
@@ -613,6 +618,7 @@ async def _evaluate_debate(
     case_concurrency = max(1, int(case_concurrency))
     checkpoint_lock = asyncio.Lock()
     classifier_lock = asyncio.Lock()
+    director_hint_mode = (director_hint or "biolinkbert").strip().lower()
 
     async def _run_case(index: int, case: dict[str, Any]) -> DebateCaseResult:
         if case["id"] in prior_results:
@@ -632,8 +638,15 @@ async def _evaluate_debate(
         if inject_hint and hint is None and hint_provider is not None:
             raise SystemExit("BioLinkBERT hint is required but classifier returned no prediction.")
 
-        if aggregate_mode == "llm_director" and hint is None:
-            raise SystemExit("--aggregate-mode llm_director requires BioLinkBERT hint")
+        if (
+            aggregate_mode == "llm_director"
+            and director_hint_mode == "biolinkbert"
+            and hint is None
+        ):
+            raise SystemExit(
+                "--aggregate-mode llm_director with --director-hint biolinkbert "
+                "requires a BioLinkBERT prediction"
+            )
 
         case_hint_provider = (
             _StaticHintProvider(hint) if inject_hint else NullEvidenceHint()
@@ -652,8 +665,15 @@ async def _evaluate_debate(
             llm_director_consensus_type = "escalation"
             llm_director_rationale = debate.safety_red_flag_reason
         elif aggregate_mode == "llm_director":
-            assert hint is not None
-            biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+            if director_hint_mode == "biolinkbert":
+                assert hint is not None
+                biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+            else:
+                biolinkbert_hint_text = (
+                    "No classifier label provided. Decide only from the abstract "
+                    "(patient_case) and the debate transcript. Do not invent a "
+                    "BioLinkBERT prediction."
+                )
             supervisor = getattr(orchestrator, "supervisor", None)
             if supervisor is None:
                 raise SystemExit("SupervisorAgent missing from DebateOrchestrator instance")
@@ -687,32 +707,6 @@ async def _evaluate_debate(
                 bert_vote_weight=bert_vote_weight,
                 panel_maybe_veto=panel_maybe_veto,  # type: ignore[arg-type]
             )
-
-        predicted, exhausted_override = apply_exhausted_no_consensus_override(
-            predicted,
-            exhausted_without_consensus=bool(debate.exhausted_without_consensus),
-        )
-        if exhausted_override:
-            share = {lab: (1.0 if lab == "maybe" else 0.0) for lab in ("yes", "no", "maybe")}
-            rule = "exhausted_no_consensus"
-            llm_director_consensus_type = "escalation"
-            llm_director_rationale = (
-                f"{llm_director_rationale} | {EXHAUSTED_NO_CONSENSUS_NOTE}".strip(" |")
-                if llm_director_rationale
-                else EXHAUSTED_NO_CONSENSUS_NOTE
-            )
-            supervisor = getattr(orchestrator, "supervisor", None)
-            director_output = getattr(supervisor, "last_director_output", None)
-            if director_output is not None and supervisor is not None:
-                supervisor.last_director_output = director_output.model_copy(
-                    update={
-                        "final_label": "maybe",
-                        "consensus_type": "escalation",
-                        "rationale": (
-                            f"{director_output.rationale} | {EXHAUSTED_NO_CONSENSUS_NOTE}"
-                        ).strip(" |"),
-                    }
-                )
 
         audit_result = None
         if audit_backend is not None:
@@ -853,6 +847,15 @@ def _parse_args() -> argparse.Namespace:
         help="Inject BioLinkBERT yes/no/maybe hint into agent prompts",
     )
     parser.add_argument(
+        "--director-hint",
+        choices=("biolinkbert", "none"),
+        default="biolinkbert",
+        help=(
+            "llm_director only: pass BioLinkBERT label/confidence to the Director "
+            "(biolinkbert, default) or withhold it (none). Classifier is still run for report metrics."
+        ),
+    )
+    parser.add_argument(
         "--aggregate-with-biolinkbert",
         action="store_true",
         help="Include BioLinkBERT in the final aggregation",
@@ -944,7 +947,7 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Skip later rounds when panel is unanimously yes/no, "
-            "uncertainty_advocate does not veto (maybe / confidence < 0.65), "
+            "relevance_checker and data_skeptic do not veto (maybe / confidence < 0.65), "
             "and the abstract has no inconclusiveness cue phrases. "
             "Does not require BioLinkBERT agreement."
         ),
@@ -989,7 +992,7 @@ def _parse_args() -> argparse.Namespace:
         choices=("all-rounds", "r1-only", "off"),
         default="all-rounds",
         help=(
-            "BioLinkBERT hint policy for uncertainty_advocate: "
+            "BioLinkBERT hint policy for relevance_checker and data_skeptic: "
             "all-rounds (default) never shows hint; r1-only hides in round 1 only; "
             "off shows hint from round 1"
         ),
