@@ -1,7 +1,0 @@
-[2026-08-20T15:51:00+00:00] wait_for_export start
-[2026-08-20T15:51:00+00:00] export still running; gpu0=11160 MiB
-[2026-08-20T15:52:01+00:00] export still running; gpu0=11160 MiB
-[2026-08-20T15:53:01+00:00] export still running; gpu0=11160 MiB
-[2026-08-20T15:54:01+00:00] export still running; gpu0=11588 MiB
-[2026-08-20T15:55:01+00:00] export still running; gpu0=11228 MiB
-[2026-08-20T15:56:02+00:00] export still running; gpu0=11588 MiB
