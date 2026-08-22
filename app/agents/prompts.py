@@ -77,6 +77,8 @@ Inputs:
 {patient_case}
 - full_debate_transcript (agent opinions across rounds):
 {full_debate_transcript}
+- biolinkbert_hint (classifier signal; use critically, do not rubber-stamp):
+{biolinkbert_hint}
 
 Task:
 Determine the ACTUAL conclusion made by the authors of the abstract.
@@ -92,7 +94,7 @@ CRITICAL RULES FOR CHOOSING THE LABEL:
    - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory.
    - SPECULATIVE UTILITY: You MUST choose "maybe" if the question asks about a clinical/diagnostic role, and the authors only prove a correlation, concluding that the intervention "may", "could", or "has potential to" have a role in the future. Suggesting a hypothesis is not a definitive "yes".
 
-Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. 
+Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. BioLinkBERT is a hint, not a veto.
 
 Output ONLY a valid JSON object (no markdown, no commentary):
 {{

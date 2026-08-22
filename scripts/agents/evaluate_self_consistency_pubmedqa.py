@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from dataclasses import asdict
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -78,12 +79,15 @@ from scripts.agents.evaluate_debate_pubmedqa import (
     _build_backend,
     _build_patient_case,
     _case_documents,
+    _git_commit,
     _load_cases,
     _load_checkpoint,
     _load_corpus,
     _markdown_report,
+    _sha256_file,
     _StaticHintProvider,
     _summarize,
+    write_results_lockfile,
 )
 
 # The debate panel's first speaker; round 1 is exactly this agent with no context.
@@ -230,9 +234,35 @@ def main() -> None:
     }
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_self_consistency_markdown(summary, results), encoding="utf-8")
+
+    run_config = {
+        "label": label,
+        "script": "scripts/agents/evaluate_self_consistency_pubmedqa.py",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "git_commit": _git_commit(),
+        "backend": args.backend,
+        "model": settings.default_model,
+        "samples": samples,
+        "temperature": args.temperature,
+        "sampling_persona": SAMPLING_PERSONA,
+        "num_predict": args.num_predict,
+        "hint": args.hint,
+        "case_concurrency": args.case_concurrency,
+        "sample_concurrency": args.sample_concurrency,
+        "dataset": str(args.dataset),
+        "dataset_sha256": _sha256_file(args.dataset),
+        "corpus": str(args.corpus),
+        "corpus_sha256": _sha256_file(args.corpus),
+        "prompt_version": prompt_snapshot["prompt_version"],
+        "prompt_sha256": prompt_snapshot["prompt_sha256"],
+        "prompts_py_sha256": prompt_snapshot.get("prompts_py_sha256"),
+        "cost_matched_from": args.match_cost_report and str(args.match_cost_report),
+    }
+    lockfile_path = write_results_lockfile(label=label, summary=summary, run_config=run_config)
     print(f"\nWrote {json_path}")
     print(f"Wrote {md_path}")
     print(f"Wrote {prompt_snapshot['snapshot_path']}")
+    print(f"Wrote {lockfile_path}")
     print(
         f"label_accuracy={summary['label_accuracy']:.3f} "
         f"single_sample_accuracy={summary['single_sample_accuracy']:.3f} "

@@ -40,10 +40,13 @@ import argparse
 import asyncio
 from collections import Counter
 from dataclasses import asdict, dataclass, field, fields
+from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import random
+import subprocess
 from statistics import mean
 import sys
 from time import perf_counter
@@ -97,6 +100,47 @@ DEFAULT_CORPUS = (
 )
 DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports" / "debate"
 
+# `reports/*` is gitignored (checkpoints and full per-case transcripts are large
+# and disposable). This directory is tracked so a reviewer can see, per run, the
+# accuracy numbers and exactly what produced them without re-running anything.
+RESULTS_LOCKFILE_DIR = PROJECT_ROOT / "docs" / "research" / "results"
+
+
+def _sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _git_commit() -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except Exception:
+        return None
+
+
+def write_results_lockfile(
+    *,
+    label: str,
+    summary: dict[str, Any],
+    run_config: dict[str, Any],
+    results_dir: Path = RESULTS_LOCKFILE_DIR,
+) -> Path:
+    """Write the tracked repro record: summary metrics + exactly what produced them.
+
+    Unlike the full report in ``reports/`` (gitignored, includes checkpoints and
+    per-case transcripts), this file is small and committed, so a reviewer can
+    verify a reported number came from a specific dataset/prompt/model without
+    re-running the arm.
+    """
+    results_dir.mkdir(parents=True, exist_ok=True)
+    path = results_dir / f"{label}.json"
+    payload = {"label": label, "summary": summary, "run_config": run_config}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
 
 @dataclass
 class DebateCaseResult:
@@ -126,6 +170,11 @@ class DebateCaseResult:
     audit_detail: dict[str, Any] = field(default_factory=dict)
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
+    director_conclusiveness_score: int | None = None
+    director_question_coverage: str | None = None
+    director_primary_endpoint_answers_question: bool | None = None
+    director_findings_decisive_for_question: bool | None = None
+    director_authors_state_uncertainty: bool | None = None
     consensus_mode: str | None = None
     consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
     consensus_required_next_steps: list[str] = field(default_factory=list)
@@ -429,9 +478,45 @@ def main() -> None:
     }
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_markdown_report(summary, results), encoding="utf-8")
+
+    from app.core.config import get_settings as _get_settings
+
+    lockfile_settings = _get_settings()
+    run_config = {
+        "label": label,
+        "script": "scripts/agents/evaluate_debate_pubmedqa.py",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "git_commit": _git_commit(),
+        "backend": args.backend,
+        "model": args.supervisor_model or lockfile_settings.default_model,
+        "agent_model": lockfile_settings.default_model,
+        "supervisor_model": args.supervisor_model,
+        "num_predict": args.num_predict,
+        "rounds": args.rounds,
+        "adaptive_rounds": args.adaptive_rounds,
+        "aggregate_mode": args.aggregate_mode,
+        "hint": args.hint,
+        "director_hint": args.director_hint,
+        "case_concurrency": args.case_concurrency,
+        "agent_concurrency": args.agent_concurrency,
+        "dataset": str(args.dataset),
+        "dataset_sha256": _sha256_file(args.dataset),
+        "corpus": str(args.corpus),
+        "corpus_sha256": _sha256_file(args.corpus),
+        "prompt_version": prompt_snapshot["prompt_version"],
+        "prompt_sha256": prompt_snapshot["prompt_sha256"],
+        "prompts_py_sha256": prompt_snapshot.get("prompts_py_sha256"),
+        "biolinkbert_model_path": (
+            str(hint_provider.model_path)
+            if isinstance(hint_provider, BioLinkBERTHintProvider)
+            else None
+        ),
+    }
+    lockfile_path = write_results_lockfile(label=label, summary=summary, run_config=run_config)
     print(f"\nWrote {json_path}")
     print(f"Wrote {md_path}")
     print(f"Wrote {prompt_snapshot['snapshot_path']}")
+    print(f"Wrote {lockfile_path}")
     print(
         f"label_accuracy={summary['label_accuracy']:.3f} "
         f"biolinkbert_accuracy={summary.get('biolinkbert_accuracy')} "
@@ -734,6 +819,11 @@ async def _evaluate_debate(
 
         llm_director_rationale: str | None = None
         llm_director_consensus_type: str | None = None
+        director_conclusiveness_score: int | None = None
+        director_question_coverage: str | None = None
+        director_primary_endpoint_answers_question: bool | None = None
+        director_findings_decisive_for_question: bool | None = None
+        director_authors_state_uncertainty: bool | None = None
 
         if debate.safety_halted and safety_red_flag == "escalate-label":
             predicted = "maybe"
@@ -767,6 +857,17 @@ async def _evaluate_debate(
             if director_output is not None:
                 llm_director_rationale = director_output.rationale
                 llm_director_consensus_type = director_output.consensus_type
+                director_conclusiveness_score = director_output.conclusiveness_score
+                director_question_coverage = director_output.question_coverage
+                director_primary_endpoint_answers_question = (
+                    director_output.primary_endpoint_answers_question
+                )
+                director_findings_decisive_for_question = (
+                    director_output.findings_decisive_for_question
+                )
+                director_authors_state_uncertainty = (
+                    director_output.authors_state_uncertainty
+                )
             share = {lab: (1.0 if lab == predicted else 0.0) for lab in ("yes", "no", "maybe")}
             rule = "llm_director"
         else:
@@ -867,6 +968,11 @@ async def _evaluate_debate(
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
             llm_director_rationale=llm_director_rationale,
             llm_director_consensus_type=llm_director_consensus_type,
+            director_conclusiveness_score=director_conclusiveness_score,
+            director_question_coverage=director_question_coverage,
+            director_primary_endpoint_answers_question=director_primary_endpoint_answers_question,
+            director_findings_decisive_for_question=director_findings_decisive_for_question,
+            director_authors_state_uncertainty=director_authors_state_uncertainty,
             consensus_mode=consensus_mode,
             consensus_ranked_hypotheses=consensus_ranked_hypotheses,
             consensus_required_next_steps=consensus_required_next_steps,
