@@ -45,6 +45,8 @@ class OllamaProvider:
         model: str,
         messages: list[ChatMessage],
         temperature: float,
+        num_predict: int | None = None,
+        num_ctx: int | None = None,
     ) -> ChatResponse:
         payload = {
             "model": model,
@@ -53,8 +55,8 @@ class OllamaProvider:
             "keep_alive": self.keep_alive,
             "options": {
                 "temperature": temperature,
-                "num_predict": self.num_predict,
-                "num_ctx": self.num_ctx,
+                "num_predict": num_predict if num_predict is not None else self.num_predict,
+                "num_ctx": num_ctx if num_ctx is not None else self.num_ctx,
             },
         }
 

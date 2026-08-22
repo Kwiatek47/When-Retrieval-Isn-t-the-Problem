@@ -26,7 +26,13 @@ class EvidenceHint:
 class InferenceBackend(Protocol):
     """Pluggable text completion used by ClinicalAgent (swap mock / Ollama / vLLM)."""
 
-    async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+    async def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.3,
+        num_predict: int | None = None,
+    ) -> str:
         ...
 
 
@@ -209,8 +215,15 @@ def hint_as_clinical_opinion(hint: EvidenceHint) -> ClinicalOpinion:
 class MockInferenceBackend:
     """Deterministic offline backend for demos and unit tests."""
 
-    async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+    async def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.3,
+        num_predict: int | None = None,
+    ) -> str:
         _ = temperature
+        _ = num_predict
         system = next((m.content for m in messages if m.role == "system"), "")
         user = next((m.content for m in messages if m.role == "user"), "")
         agent_id = _extract_between(system, "agent_id=", "\n") or "agent"
@@ -244,7 +257,13 @@ class OllamaInferenceBackend:
         self._max_retries = max(0, int(max_retries))
         self.base_url = str(getattr(provider, "base_url", "") or "")
 
-    async def complete(self, messages: list[ChatMessage], *, temperature: float | None = None) -> str:
+    async def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float | None = None,
+        num_predict: int | None = None,
+    ) -> str:
         temp = self._temperature if temperature is None else temperature
         last_error: Exception | None = None
         attempts = self._max_retries + 1
@@ -254,6 +273,7 @@ class OllamaInferenceBackend:
                     model=self._model,
                     messages=messages,
                     temperature=temp if attempt == 0 else 0.0,
+                    num_predict=num_predict,
                 )
                 content = (response.message.content or "").strip()
                 if content:

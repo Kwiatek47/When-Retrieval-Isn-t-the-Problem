@@ -47,6 +47,8 @@ class ClinicalAgent:
         context: list[AgentRoundOpinion] | None = None,
         *,
         include_evidence_hint: bool = True,
+        frozen_label: str | None = None,
+        num_predict: int | None = None,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -78,8 +80,9 @@ class ClinicalAgent:
             task_mode=self.task_mode,
             compact=use_compact,
             peer_context=self.peer_context,
+            frozen_label=frozen_label,
         )
-        raw = await self._complete_or_none(messages, self.temperature)
+        raw = await self._complete_or_none(messages, self.temperature, num_predict=num_predict)
         opinion = self._try_parse(raw)
         if opinion is not None:
             return opinion
@@ -96,8 +99,9 @@ class ClinicalAgent:
             task_mode=self.task_mode,
             compact=repair_compact,
             peer_context=self.peer_context,
+            frozen_label=frozen_label,
         )
-        raw_retry = await self._complete_or_none(repair_messages, 0.0)
+        raw_retry = await self._complete_or_none(repair_messages, 0.0, num_predict=num_predict)
         opinion = self._try_parse(raw_retry, retry=True)
         if opinion is not None:
             return opinion
@@ -135,11 +139,19 @@ class ClinicalAgent:
             return None
 
     async def _complete_or_none(
-        self, messages: list[ChatMessage], temperature: float
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        *,
+        num_predict: int | None = None,
     ) -> str | None:
         """Run the backend, swallowing any exception (timeout, connection error, ...)."""
         try:
-            content = await self.backend.complete(messages, temperature=temperature)
+            content = await self.backend.complete(
+                messages,
+                temperature=temperature,
+                num_predict=num_predict,
+            )
             return (content or "").strip() or None
         except Exception:
             logger.warning(

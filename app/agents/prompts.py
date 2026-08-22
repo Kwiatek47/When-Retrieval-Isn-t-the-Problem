@@ -82,6 +82,8 @@ Task:
 Determine the ACTUAL conclusion made by the authors of the abstract.
 Do not grade study quality. Ask: what did the authors conclude about the research question?
 
+CRITICAL NOTE: The agents in the transcript are structurally forced by the system to stubbornly defend their Round 1 labels (playing Devil's Advocate). A prolonged, aggressive argument does NOT mean the medical abstract is inconclusive. You must cut through their forced stubbornness and independently judge the abstract's actual conclusion.
+
 CRITICAL RULES FOR CHOOSING THE LABEL:
 1. DISTINGUISHING "yes" AND "no":
    - Choose "yes" if the authors conclude a positive association, effect, or affirmative answer.
@@ -139,6 +141,11 @@ ROUND2_STRUCTURED_CRITICISM_RULE = (
     "In your 'cons' or 'pros', you MUST explicitly name an agent you disagree with "
     "using a JSON-safe tag like [uncertainty_advocate] or [evidence_skeptic], and refute "
     "their specific argument. Do not just restate your previous opinion."
+)
+
+ROUND2_NO_VERBATIM_QUOTE_RULE = (
+    "DO NOT copy or quote other agents' text verbatim in your pros/cons. "
+    "Synthesize your own counter-arguments."
 )
 
 ROUND2_JSON_SAFETY_RULE = (
@@ -393,6 +400,7 @@ def build_messages(
     task_mode: str = "clinical",
     compact: bool = False,
     peer_context: PeerContextMode = "nl",
+    frozen_label: str | None = None,
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
 
@@ -438,12 +446,26 @@ def build_messages(
             persona_text = f"{persona_text}\n{stance_directive}"
             schema_block = CLINICAL_OPINION_SCHEMA
 
+    round_number = max((entry.round for entry in context), default=1) if context else 1
+    adversarial_directive = ""
+    if frozen_label and round_number > 1:
+        adversarial_directive = (
+            f"\n\n[SYSTEM ARCHITECTURE OVERRIDE]\n"
+            f"In Round 1, you independently diagnosed the answer as '{frozen_label}'. "
+            f"The system has now FROZEN your stance. You are legally bound to act as a defense attorney for the '{frozen_label}' label.\n"
+            f"1. Your top_1_diagnosis MUST remain '{frozen_label}'. Do not change it.\n"
+            f"2. You MUST explicitly attack the PEERS who voted differently (e.g., if you are defending '{frozen_label}', you must attack the Generalist's opposing label by pointing out flaws in their 'pros'). DO NOT attack your own stance.\n"
+            f"3. Do not compromise. Find flaws in the opposing evidence.\n"
+            f"4. {ROUND2_NO_VERBATIM_QUOTE_RULE}\n"
+        )
+
     system = (
         f"You are clinical debate agent `{agent_id}` with persona `{persona}`.\n"
         f"agent_id={agent_id}\n"
         f"task_mode={mode}\n"
         f"{persona_text}\n\n"
         f"{schema_block}"
+        f"{adversarial_directive}"
     )
     if repair:
         system += (
@@ -482,6 +504,7 @@ def build_messages(
             "reject, or still find uncertain after reviewing peers."
         )
         parts.append(ROUND2_STRUCTURED_CRITICISM_RULE)
+        parts.append(ROUND2_NO_VERBATIM_QUOTE_RULE)
         parts.append(ROUND2_JSON_SAFETY_RULE)
     else:
         parts.append(

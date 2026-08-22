@@ -40,6 +40,8 @@ PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
     ("uncertainty_advocate", "uncertainty_advocate"),
 )
 
+DEFAULT_AGENT_NUM_PREDICT_ROUND3 = 1500
+
 DebateMode = Literal["moderated", "peer", "hybrid"]
 BlindCriticMode = Literal["all-rounds", "r1-only", "off"]
 SafetyRedFlagMode = Literal["halt", "escalate-label", "defer"]
@@ -81,6 +83,10 @@ class DebateOrchestrator:
       agent also sees supervisor agreements/contradictions/instructions plus
       peer opinions from the previous round.
 
+    Frozen stance (``frozen_stance=True``): after round 1, each agent's label is
+    locked and R2+ prompts instruct them to defend that label adversarially.
+    Disable with ``frozen_stance=False`` for legacy free revision in later rounds.
+
     With ``adaptive_rounds=True``, the debate runs at least ``min_rounds`` and
     continues up to ``max_rounds`` while conflict remains unresolved
     (label entropy / supervisor contradictions / non-unanimous panel).
@@ -120,6 +126,8 @@ class DebateOrchestrator:
         early_exit: EarlyExitFn | None = None,
         agent_concurrency: int = 4,
         supervisor_backend: Any | None = None,
+        frozen_stance: bool = False,
+        agent_num_predict_round3: int = DEFAULT_AGENT_NUM_PREDICT_ROUND3,
     ) -> None:
         if len(agents) < 2:
             raise ValueError("DebateOrchestrator requires at least 2 agents.")
@@ -167,6 +175,8 @@ class DebateOrchestrator:
         self.adaptive_stops = 0
         self.safety_halts = 0
         self.supervisor_failovers = 0
+        self.frozen_stance = frozen_stance
+        self.agent_num_predict_round3 = max(1, int(agent_num_predict_round3))
         self.ARCHITECTURE = _ARCHITECTURE_BY_MODE[debate_mode]
         for agent in self.agents:
             setattr(agent, "peer_context", self.peer_context)
@@ -182,6 +192,7 @@ class DebateOrchestrator:
         safety_halted = False
         safety_red_flag_reason: str | None = None
         force_peer_rest = False
+        frozen_labels: dict[str, str | None] | None = None
 
         for round_number in range(1, self.max_rounds + 1):
             if round_number == 1:
@@ -223,12 +234,14 @@ class DebateOrchestrator:
                         round_number=round_number,
                         previous_round=previous_round,
                         context_prefix=None,
+                        frozen_labels=frozen_labels,
                     )
                 elif self.debate_mode == "moderated":
                     round_opinions = await self._run_moderated_round(
                         patient_case=patient_case,
                         round_number=round_number,
                         supervisor_context=supervisor_prefix,
+                        frozen_labels=frozen_labels,
                     )
                 else:
                     round_opinions = await self._run_round_robin_round(
@@ -236,8 +249,15 @@ class DebateOrchestrator:
                         round_number=round_number,
                         previous_round=previous_round,
                         context_prefix=supervisor_prefix,
+                        frozen_labels=frozen_labels,
                     )
             history.append(round_opinions)
+
+            if round_number == 1 and self.frozen_stance:
+                frozen_labels = {
+                    entry.agent_id: opinion_label(entry.opinion)
+                    for entry in round_opinions
+                }
 
             critical_flag = _pending_red_flag_instruction(round_opinions)
             if critical_flag:
@@ -316,6 +336,7 @@ class DebateOrchestrator:
         round_number: int,
         previous_round: list[AgentRoundOpinion],
         context_prefix: list[AgentRoundOpinion] | None = None,
+        frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
         """Round 2+: sequential turns; each agent sees prefix + peer opinions."""
         spoken_so_far: list[AgentRoundOpinion] = []
@@ -329,11 +350,15 @@ class DebateOrchestrator:
                 spoken_so_far,
             )
             context = prefix + peer_context
+            agent_frozen_label = (
+                frozen_labels.get(agent.agent_id) if frozen_labels else None
+            )
             entry = await self._speak(
                 agent,
                 patient_case,
                 round_number=round_number,
                 context=context or None,
+                frozen_label=agent_frozen_label,
             )
             spoken_so_far.append(entry)
             round_opinions.append(entry)
@@ -345,17 +370,22 @@ class DebateOrchestrator:
         patient_case: str,
         round_number: int,
         supervisor_context: list[AgentRoundOpinion],
+        frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
         """Round 2+ moderated mode: concurrent revision using supervisor instructions."""
         semaphore = asyncio.Semaphore(self.agent_concurrency)
 
         async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
             async with semaphore:
+                agent_frozen_label = (
+                    frozen_labels.get(agent.agent_id) if frozen_labels else None
+                )
                 return await self._speak(
                     agent,
                     patient_case,
                     round_number=round_number,
                     context=supervisor_context,
+                    frozen_label=agent_frozen_label,
                 )
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
@@ -382,13 +412,19 @@ class DebateOrchestrator:
         round_number: int,
         context: list[AgentRoundOpinion] | None,
         include_evidence_hint: bool | None = None,
+        frozen_label: str | None = None,
     ) -> AgentRoundOpinion:
         if include_evidence_hint is None:
             include_evidence_hint = self._should_include_evidence_hint(agent, round_number)
+        num_predict = (
+            self.agent_num_predict_round3 if round_number >= 3 else None
+        )
         opinion = await agent.generate_opinion(
             patient_case,
             context=context,
             include_evidence_hint=include_evidence_hint,
+            frozen_label=frozen_label,
+            num_predict=num_predict,
         )
         return AgentRoundOpinion(
             agent_id=agent.agent_id,

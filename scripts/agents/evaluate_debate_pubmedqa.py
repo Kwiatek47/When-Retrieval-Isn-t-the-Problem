@@ -197,6 +197,7 @@ def main() -> None:
             "rounds": args.rounds,
             "debate_mode": args.debate_mode,
             "blind_critic": args.blind_critic,
+            "frozen_stance": args.frozen_stance,
             "director_maybe_gate": getattr(args, "director_maybe_gate", "off"),
         },
     )
@@ -317,6 +318,8 @@ def main() -> None:
                 peer_context=args.peer_context,
                 supervisor_fail=args.supervisor_fail,
                 supervisor_backend=supervisor_backend,
+                frozen_stance=args.frozen_stance,
+                agent_num_predict_round3=args.num_predict_round3,
             )
 
         audit_backend = None
@@ -333,6 +336,8 @@ def main() -> None:
         print(f"Safety red flag={args.safety_red_flag}")
         print(f"Peer context={args.peer_context}")
         print(f"Supervisor fail={args.supervisor_fail}")
+        print(f"Frozen stance={args.frozen_stance}")
+        print(f"Round-3 num_predict={args.num_predict_round3}")
         if args.adaptive_rounds:
             print(
                 f"Adaptive rounds enabled: min={args.min_rounds} "
@@ -403,6 +408,7 @@ def main() -> None:
     summary["prompt_sha256"] = prompt_snapshot["prompt_sha256"]
     summary["prompts_py_sha256"] = prompt_snapshot.get("prompts_py_sha256")
     summary["prompt_snapshot"] = prompt_snapshot.get("snapshot_path")
+    summary["frozen_stance"] = getattr(args, "frozen_stance", False)
     payload = {
         "summary": summary,
         "prompt_versioning": {
@@ -1080,6 +1086,15 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--frozen-stance",
+        action="store_true",
+        help=(
+            "After round 1, lock each agent's label and inject adversarial "
+            "defense instructions in R2+ to reduce sycophantic consensus. "
+            "Default: off (agents may freely revise labels in later rounds)."
+        ),
+    )
+    parser.add_argument(
         "--no-supervisor-moderation",
         action="store_true",
         help="Alias for --debate-mode peer (pure peer debate, no supervisor moderation)",
@@ -1088,7 +1103,16 @@ def _parse_args() -> argparse.Namespace:
         "--num-predict",
         type=int,
         default=None,
-        help="Override Ollama num_predict (default: 220 with --fast, else settings)",
+        help="Override Ollama num_predict for rounds 1-2 (default: 220 with --fast, else settings)",
+    )
+    parser.add_argument(
+        "--num-predict-round3",
+        type=int,
+        default=1500,
+        help=(
+            "Ollama num_predict for debate agents in round 3+ when the peer "
+            "transcript is longest (default: 1500)"
+        ),
     )
     parser.add_argument(
         "--supervisor-model",
@@ -1192,7 +1216,7 @@ def _build_backend(
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
-        num_ctx=min(max(settings.ollama_num_ctx, 4096), 8192),
+        num_ctx=max(settings.ollama_num_ctx, 8192),
     )
     model_name = model or settings.default_model
     if not quiet:
@@ -1361,6 +1385,7 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
+        f"- Frozen stance: {summary.get('frozen_stance', False)}",
         f"- Aggregation: `{summary['aggregation']}`",
         f"- Prompt version: `{summary.get('prompt_version')}`",
         f"- Prompt sha256: `{summary.get('prompt_sha256')}`",

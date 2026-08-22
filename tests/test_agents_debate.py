@@ -117,7 +117,7 @@ class DebateOrchestratorTests(unittest.TestCase):
         peer_flags: list[bool] = []
 
         class SpyBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 user = next(m.content for m in messages if m.role == "user")
                 if "PATIENT CASE:" in user:
                     peer_flags.append("PEER OPINIONS" in user)
@@ -145,7 +145,7 @@ class DebateOrchestratorTests(unittest.TestCase):
 
     def test_adaptive_rounds_stops_after_min_when_unanimous(self) -> None:
         class UnanimousBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 return ClinicalOpinion(
                     top_1_diagnosis="yes",
                     evidence_conclusiveness="conclusive",
@@ -171,7 +171,7 @@ class DebateOrchestratorTests(unittest.TestCase):
 
     def test_adaptive_rounds_continues_on_conflict(self) -> None:
         class ConflictBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 system = messages[0].content if messages else ""
                 if "agent_id=generalist" in system:
                     label = "yes"
@@ -288,7 +288,7 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         # Force unanimous high-confidence yes via a custom backend.
         class UnanimousBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 from app.agents.models import ClinicalOpinion
 
                 return ClinicalOpinion(
@@ -368,12 +368,16 @@ class DebateOrchestratorTests(unittest.TestCase):
                 context=None,
                 *,
                 include_evidence_hint: bool = True,
+                frozen_label: str | None = None,
+                num_predict: int | None = None,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
                     patient_case,
                     context=context,
                     include_evidence_hint=include_evidence_hint,
+                    frozen_label=frozen_label,
+                    num_predict=num_predict,
                 )
 
         class StaticHint:
@@ -419,12 +423,16 @@ class DebateOrchestratorTests(unittest.TestCase):
                 context=None,
                 *,
                 include_evidence_hint: bool = True,
+                frozen_label: str | None = None,
+                num_predict: int | None = None,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
                     patient_case,
                     context=context,
                     include_evidence_hint=include_evidence_hint,
+                    frozen_label=frozen_label,
+                    num_predict=num_predict,
                 )
 
         class StaticHint:
@@ -455,6 +463,117 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(flags["uncertainty_advocate"][0], False)
         self.assertEqual(flags["uncertainty_advocate"][1], True)
+
+    def test_frozen_stance_flag_controls_round2_frozen_label(self) -> None:
+        from app.agents.agent import ClinicalAgent
+
+        frozen_seen: dict[str, list[str | None]] = {}
+
+        class SpyAgent(ClinicalAgent):
+            async def generate_opinion(
+                self,
+                patient_case: str,
+                context=None,
+                *,
+                include_evidence_hint: bool = True,
+                frozen_label: str | None = None,
+                num_predict: int | None = None,
+            ):
+                frozen_seen.setdefault(self.agent_id, []).append(frozen_label)
+                return await super().generate_opinion(
+                    patient_case,
+                    context=context,
+                    include_evidence_hint=include_evidence_hint,
+                    frozen_label=frozen_label,
+                    num_predict=num_predict,
+                )
+
+        backend = MockInferenceBackend()
+        agents = [
+            SpyAgent(
+                agent_id=aid,
+                persona=persona,
+                backend=backend,
+                task_mode="pubmedqa",
+            )
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
+            )
+        ]
+        case = "RESEARCH QUESTION:\nQ?\nEVIDENCE:\nstrong result"
+
+        asyncio.run(
+            DebateOrchestrator(
+                agents, rounds=2, debate_mode="peer", frozen_stance=False
+            ).run(case)
+        )
+        for agent_id, values in frozen_seen.items():
+            self.assertEqual(values, [None, None], msg=agent_id)
+
+        frozen_seen.clear()
+        asyncio.run(
+            DebateOrchestrator(
+                agents, rounds=2, debate_mode="peer", frozen_stance=True
+            ).run(case)
+        )
+        for agent_id, values in frozen_seen.items():
+            self.assertIsNone(values[0], msg=agent_id)
+            self.assertIsNotNone(values[1], msg=agent_id)
+
+    def test_round3_uses_higher_num_predict(self) -> None:
+        from app.agents.agent import ClinicalAgent
+
+        predict_seen: list[int | None] = []
+
+        class SpyAgent(ClinicalAgent):
+            async def generate_opinion(
+                self,
+                patient_case: str,
+                context=None,
+                *,
+                include_evidence_hint: bool = True,
+                frozen_label: str | None = None,
+                num_predict: int | None = None,
+            ):
+                predict_seen.append(num_predict)
+                return await super().generate_opinion(
+                    patient_case,
+                    context=context,
+                    include_evidence_hint=include_evidence_hint,
+                    frozen_label=frozen_label,
+                    num_predict=num_predict,
+                )
+
+        backend = MockInferenceBackend()
+        agents = [
+            SpyAgent(
+                agent_id=aid,
+                persona=persona,
+                backend=backend,
+                task_mode="pubmedqa",
+            )
+            for aid, persona in (
+                ("generalist", "generalist"),
+                ("evidence_skeptic", "evidence_skeptic"),
+                ("differential_expander", "differential_expander"),
+                ("uncertainty_advocate", "uncertainty_advocate"),
+            )
+        ]
+        asyncio.run(
+            DebateOrchestrator(
+                agents,
+                rounds=3,
+                debate_mode="peer",
+                agent_num_predict_round3=1500,
+            ).run("RESEARCH QUESTION:\nQ?\nEVIDENCE:\nstrong result")
+        )
+        # 4 agents x 3 rounds = 12 calls; round 3 should use 1500
+        self.assertEqual(predict_seen[:4], [None, None, None, None])
+        self.assertEqual(predict_seen[4:8], [None, None, None, None])
+        self.assertEqual(predict_seen[8:], [1500, 1500, 1500, 1500])
 
     def test_safety_red_flag_halts_debate_by_default(self) -> None:
         from app.agents.agent import ClinicalAgent
@@ -559,10 +678,16 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         class SupervisorOnlyBackend(MockInferenceBackend):
             async def complete(
-                self, messages: list[ChatMessage], *, temperature: float = 0.3
+                self,
+                messages: list[ChatMessage],
+                *,
+                temperature: float = 0.3,
+                num_predict: int | None = None,
             ) -> str:
                 supervisor_calls["n"] += 1
-                return await super().complete(messages, temperature=temperature)
+                return await super().complete(
+                    messages, temperature=temperature, num_predict=num_predict
+                )
 
         agents = build_default_agents(agent_backend)
         orch = DebateOrchestrator(
@@ -579,11 +704,11 @@ class DebateOrchestratorTests(unittest.TestCase):
         captured: list[str] = []
 
         class BrokenSupervisorBackend:
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 return "NOT_VALID_JSON{{"
 
         class SpyAgentBackend(MockInferenceBackend):
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 user = next(m.content for m in messages if m.role == "user")
                 if "PATIENT CASE:" in user:
                     captured.append(user)
@@ -608,7 +733,7 @@ class DebateOrchestratorTests(unittest.TestCase):
 
     def test_supervisor_fail_empty_defer_injects_fallback(self) -> None:
         class BrokenSupervisorBackend:
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 return "NOT_VALID_JSON{{"
 
         agents = build_default_agents(MockInferenceBackend())
@@ -630,12 +755,18 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         class SpyBackend(MockInferenceBackend):
             async def complete(
-                self, messages: list[ChatMessage], *, temperature: float = 0.3
+                self,
+                messages: list[ChatMessage],
+                *,
+                temperature: float = 0.3,
+                num_predict: int | None = None,
             ) -> str:
                 user = next(m.content for m in messages if m.role == "user")
                 if "PATIENT CASE:" in user:
                     captured.append(user)
-                return await super().complete(messages, temperature=temperature)
+                return await super().complete(
+                    messages, temperature=temperature, num_predict=num_predict
+                )
 
         agents = build_default_agents(SpyBackend())
         asyncio.run(DebateOrchestrator(agents, rounds=2).run(SAMPLE_CASE))
@@ -671,12 +802,18 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         class SpyBackend(MockInferenceBackend):
             async def complete(
-                self, messages: list[ChatMessage], *, temperature: float = 0.3
+                self,
+                messages: list[ChatMessage],
+                *,
+                temperature: float = 0.3,
+                num_predict: int | None = None,
             ) -> str:
                 user = next(m.content for m in messages if m.role == "user")
                 if "PATIENT CASE:" in user and "PEER OPINIONS" in user:
                     captured.append(user)
-                return await super().complete(messages, temperature=temperature)
+                return await super().complete(
+                    messages, temperature=temperature, num_predict=num_predict
+                )
 
         agents = build_default_agents(SpyBackend())
         asyncio.run(DebateOrchestrator(agents, rounds=2, debate_mode="hybrid").run(SAMPLE_CASE))
@@ -697,7 +834,7 @@ class DebateOrchestratorTests(unittest.TestCase):
         """A single flaky backend must not crash the whole debate round."""
 
         class ExplodingBackend:
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 raise RuntimeError("simulated backend failure")
 
         good_backend = MockInferenceBackend()
@@ -720,7 +857,7 @@ class ClinicalAgentTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.calls = 0
 
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 self.calls += 1
                 if self.calls == 1:
                     return "not-json"
@@ -749,7 +886,7 @@ class ClinicalAgentTests(unittest.TestCase):
 
     def test_backend_exception_falls_back_instead_of_raising(self) -> None:
         class ExplodingBackend:
-            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
+            async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3, num_predict: int | None = None) -> str:
                 raise ConnectionError("simulated timeout")
 
         agent = ClinicalAgent(
@@ -813,6 +950,7 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertNotIn('"agent_id"', user)
         self.assertIn("[uncertainty_advocate]", user)
         self.assertIn("MUST explicitly name an agent you disagree with", user)
+        self.assertIn("Synthesize your own counter-arguments", user)
         self.assertIn("valid JSON", user)
 
     def test_round1_prompt_omits_structured_criticism_rule(self) -> None:
@@ -884,18 +1022,60 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("WARNING", generalist)
         self.assertIn("Uncertainty Advocate", advocate)
 
+    def test_frozen_stance_injects_adversarial_directive_in_round2(self) -> None:
+        from app.agents.models import AgentRoundOpinion
+
+        entry = AgentRoundOpinion(
+            agent_id="generalist",
+            persona="generalist",
+            round=2,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis="yes",
+                evidence_conclusiveness="conclusive",
+                top_3_differential_diagnoses=["yes", "no", "maybe"],
+                pros=["primary endpoint met"],
+                cons=[],
+                confidence_level=0.8,
+                sources_used=["abstract"],
+            ),
+        )
+        messages = build_messages(
+            agent_id="evidence_skeptic",
+            persona="evidence_skeptic",
+            patient_case=SAMPLE_CASE,
+            context=[entry],
+            task_mode="pubmedqa",
+            frozen_label="no",
+        )
+        system = messages[0].content
+        self.assertIn("[SYSTEM ARCHITECTURE OVERRIDE]", system)
+        self.assertIn("FROZEN your stance", system)
+        self.assertIn("top_1_diagnosis MUST remain 'no'", system)
+        self.assertIn("defense attorney for the 'no' label", system)
+        self.assertIn("DO NOT attack your own stance", system)
+        self.assertIn("Synthesize your own counter-arguments", system)
+
+        round1_messages = build_messages(
+            agent_id="evidence_skeptic",
+            persona="evidence_skeptic",
+            patient_case=SAMPLE_CASE,
+            task_mode="pubmedqa",
+            frozen_label=None,
+        )
+        self.assertNotIn("[SYSTEM ARCHITECTURE OVERRIDE]", round1_messages[0].content)
+
     def test_director_prompt_includes_case_and_transcript(self) -> None:
         from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT
 
         filled = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case="CASE_TEXT_XYZ",
             full_debate_transcript="TRANSCRIPT_TEXT_XYZ",
-            biolinkbert_hint="HINT_TEXT_XYZ",
         )
         self.assertIn("CASE_TEXT_XYZ", filled)
         self.assertIn("TRANSCRIPT_TEXT_XYZ", filled)
-        self.assertIn("HINT_TEXT_XYZ", filled)
         self.assertIn("CRITICAL RULES FOR CHOOSING THE LABEL", filled)
+        self.assertIn("forced stubbornness", filled)
+        self.assertIn("Devil's Advocate", filled)
         self.assertIn("BOILERPLATE", filled)
         self.assertNotIn("MUST output \"yes\" or \"no\"", filled)
         self.assertIn("final_label", filled)
