@@ -68,6 +68,7 @@ class ClinicalAgent:
             if include_evidence_hint
             else None
         )
+        use_compact = self.compact or (self.task_mode or "").strip().lower() == "pubmedqa"
         messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -75,7 +76,7 @@ class ClinicalAgent:
             context=context,
             evidence_hint=hint,
             task_mode=self.task_mode,
-            compact=self.compact,
+            compact=use_compact,
             peer_context=self.peer_context,
         )
         raw = await self._complete_or_none(messages, self.temperature)
@@ -84,7 +85,7 @@ class ClinicalAgent:
             return opinion
 
         # Repair: force compact PubMedQA schema to reduce empty/truncated JSON under load.
-        repair_compact = self.compact or (self.task_mode or "").strip().lower() == "pubmedqa"
+        repair_compact = use_compact
         repair_messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -129,7 +130,7 @@ class ClinicalAgent:
                 self.agent_id,
                 "; retry failed, using fallback" if retry else "; retrying once",
                 preview,
-                exc_info=True,
+                exc_info=retry,
             )
             return None
 

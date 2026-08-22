@@ -811,6 +811,20 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("PEER OPINIONS SO FAR", user)
         self.assertIn("generalist (conf=0.80, conclusive): yes", user)
         self.assertNotIn('"agent_id"', user)
+        self.assertIn("[uncertainty_advocate]", user)
+        self.assertIn("MUST explicitly name an agent you disagree with", user)
+        self.assertIn("valid JSON", user)
+
+    def test_round1_prompt_omits_structured_criticism_rule(self) -> None:
+        messages = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case=SAMPLE_CASE,
+            task_mode="pubmedqa",
+        )
+        user = messages[1].content
+        self.assertIn("independent first-round opinion", user)
+        self.assertNotIn("MUST explicitly name an agent you disagree with", user)
 
     def test_peer_context_compact_json_still_dumps_json(self) -> None:
         from app.agents.models import AgentRoundOpinion
@@ -896,6 +910,16 @@ class PromptAndParseTests(unittest.TestCase):
         )
         parsed = parse_clinical_opinion_json(raw)
         self.assertEqual(parsed.top_1_diagnosis, "yes")
+
+    def test_parse_recovers_truncated_json_with_label(self) -> None:
+        raw = (
+            '{\n    "top_1_diagnosis": "no",\n    "evidence_conclusiveness": "conclusive",\n'
+            '    "top_3_differential_diagnoses": ["no", "maybe", "no"],\n'
+            '    "pros": ["Study shows high vitamin D '
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "no")
+        self.assertEqual(parsed.evidence_conclusiveness, "conclusive")
 
     def test_parse_rejects_empty(self) -> None:
         with self.assertRaises(ValueError):

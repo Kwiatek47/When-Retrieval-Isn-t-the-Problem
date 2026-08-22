@@ -135,6 +135,19 @@ PUBMEDQA_UNCERTAINTY_PERSONAS = frozenset(
     {"uncertainty_advocate"}
 )
 
+ROUND2_STRUCTURED_CRITICISM_RULE = (
+    "In your 'cons' or 'pros', you MUST explicitly name an agent you disagree with "
+    "using a JSON-safe tag like [uncertainty_advocate] or [evidence_skeptic], and refute "
+    "their specific argument. Do not just restate your previous opinion."
+)
+
+ROUND2_JSON_SAFETY_RULE = (
+    "Your output MUST be valid JSON. Use double-quoted strings in pros/cons. "
+    "Do NOT use @mentions or possessive apostrophes (write [evidence_skeptic] argument, "
+    "never evidence_skeptic's). Limit pros and cons to exactly one short sentence each "
+    "(max 25 words). Escape any internal double quotes as \\\"."
+)
+
 PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
         "You are a broad clinical generalist. Prioritize the most likely common diagnoses "
@@ -205,8 +218,8 @@ Set confidence_level to how strongly the text supports your chosen label.
 
 
 PUBMEDQA_COMPACT_SCHEMA = """
-Return ONLY one compact JSON object (no markdown) with exactly:
-{"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason"],"cons":["one short caveat"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
+Return ONLY one MINIFIED single-line JSON object (no markdown, no indentation, no line breaks) with exactly:
+{"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason max 20 words"],"cons":["one short caveat max 20 words"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
 """.strip()
 
 PeerContextMode = Literal["nl", "compact-json", "full-json"]
@@ -390,6 +403,8 @@ def build_messages(
     """
     mode = (task_mode or "clinical").strip().lower()
     is_safety_officer = persona.strip().lower() == "safety_officer"
+    peer_revision = bool(context)
+    use_compact_schema = compact or mode == "pubmedqa"
     stance_directive = (
         "Base your decision strictly on the provided evidence. "
         "If the evidence strongly supports a conclusion, choose 'yes' or 'no'. "
@@ -411,7 +426,7 @@ def build_messages(
             )
             schema_block = (
                 f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{active_label_rule}"
-                if compact
+                if use_compact_schema
                 else f"{CLINICAL_OPINION_SCHEMA}\n\n{active_label_rule}"
             )
     else:
@@ -433,7 +448,8 @@ def build_messages(
     if repair:
         system += (
             "\n\nYour previous reply was invalid JSON. "
-            "Respond again with ONLY a valid JSON object matching the schema."
+            "Respond again with ONLY a valid JSON object matching the schema. "
+            f"{ROUND2_JSON_SAFETY_RULE}"
         )
 
     parts = [f"PATIENT CASE:\n{patient_case.strip()}"]
@@ -451,7 +467,7 @@ def build_messages(
         rendered = format_peer_context(
             context,
             peer_context=peer_context,
-            compact=compact,
+            compact=use_compact_schema,
             mode=mode,
         )
         parts.append(
@@ -465,6 +481,8 @@ def build_messages(
             "Produce an UPDATED ClinicalOpinion that reflects what you accept, "
             "reject, or still find uncertain after reviewing peers."
         )
+        parts.append(ROUND2_STRUCTURED_CRITICISM_RULE)
+        parts.append(ROUND2_JSON_SAFETY_RULE)
     else:
         parts.append(
             "This is an independent first-round opinion. Do not assume peer input. "

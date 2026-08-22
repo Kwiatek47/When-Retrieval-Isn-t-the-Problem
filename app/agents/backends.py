@@ -371,17 +371,75 @@ def _mock_pubmedqa_opinion(*, agent_id: str, case_text: str, revised: bool) -> C
     )
 
 
+def _sanitize_clinical_opinion_json(text: str) -> str:
+    """Best-effort fixes for common LLM JSON mistakes in pros/cons agent tags."""
+    cleaned = text
+    # @agent_id's -> [agent_id] (apostrophe breaks many model outputs)
+    cleaned = re.sub(r"@(\w+)'s\b", r"[\1]", cleaned)
+    cleaned = re.sub(r"@(\w+)\b", r"[\1]", cleaned)
+    return cleaned
+
+
+def _recover_partial_clinical_json(text: str) -> dict[str, Any] | None:
+    """Extract minimal fields from truncated / broken JSON (common under long debates)."""
+    label_match = re.search(
+        r'"top_1_diagnosis"\s*:\s*"(yes|no|maybe)"',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if not label_match:
+        return None
+    label = label_match.group(1).lower()
+    conf_match = re.search(r'"confidence_level"\s*:\s*([0-9.]+)', text)
+    try:
+        confidence = float(conf_match.group(1)) if conf_match else 0.5
+    except ValueError:
+        confidence = 0.5
+    concl_match = re.search(
+        r'"evidence_conclusiveness"\s*:\s*"(conclusive|inconclusive)"',
+        text,
+        flags=re.IGNORECASE,
+    )
+    conclusiveness = (
+        concl_match.group(1).lower() if concl_match else "inconclusive"
+    )
+    return {
+        "top_1_diagnosis": label,
+        "evidence_conclusiveness": conclusiveness,
+        "top_3_differential_diagnoses": ["yes", "no", "maybe"],
+        "pros": [],
+        "cons": [],
+        "required_further_tests": [],
+        "confidence_level": confidence,
+        "sources_used": ["abstract"],
+        "red_flags": [],
+        "missing_information": "Recovered from truncated agent JSON.",
+    }
+
+
 def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
     """Parse model output into ClinicalOpinion, tolerating fenced/partial JSON."""
     text = _extract_json_object(raw)
     if not text:
         raise ValueError("Empty model response; expected ClinicalOpinion JSON.")
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid ClinicalOpinion JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected JSON object, got {type(data).__name__}")
+    candidates = [text, _sanitize_clinical_opinion_json(text)]
+    last_exc: json.JSONDecodeError | None = None
+    data: dict[str, Any] | None = None
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                data = parsed
+                break
+        except json.JSONDecodeError as exc:
+            last_exc = exc
+    if data is None:
+        recovered = _recover_partial_clinical_json(text)
+        if recovered is not None:
+            data = recovered
+        else:
+            assert last_exc is not None
+            raise ValueError(f"Invalid ClinicalOpinion JSON: {last_exc}") from last_exc
     return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(data))
 
 
