@@ -4,6 +4,7 @@ This directory contains paper-facing research notes. These files are not runtime
 
 ## Files
 
+- `2026-08-stan-i-plan-eksperymentow.md` - **start tutaj**: teza Paper 1, stan kodu, punkt 0 z komendami, pełna lista zadań (PL, 22.08.2026).
 - `orientacja-paper1-recenzja.md` - mentorska orientacja: Paper 1, co odłożyć, plan 6–8 tyg. (PL, do zespołu/profesora).
 - `pubmedqa-evidence-to-decision-findings.md` - consolidated experimental findings for PubMedQA/PQA-L, including full-run and Colab diagnostic results.
 - `medical-rag-research-gap-and-positioning.md` - defensible research gaps, paper claims, non-claims, and the bridge from RAG to MAS.

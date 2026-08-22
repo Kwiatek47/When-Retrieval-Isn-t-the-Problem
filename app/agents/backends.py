@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.agents.models import ClinicalOpinion, SafetyOpinion
+from app.core.usage import record_llm_usage
 from app.rag.models import RetrievedDocument
 from app.schemas import ChatMessage
 
@@ -211,6 +212,9 @@ class MockInferenceBackend:
 
     async def complete(self, messages: list[ChatMessage], *, temperature: float = 0.3) -> str:
         _ = temperature
+        # Counted so the cost plumbing (call counts, per-case scopes) is testable
+        # without a GPU; token counts stay 0 because nothing is really generated.
+        record_llm_usage(model="mock")
         system = next((m.content for m in messages if m.role == "system"), "")
         user = next((m.content for m in messages if m.role == "user"), "")
         agent_id = _extract_between(system, "agent_id=", "\n") or "agent"

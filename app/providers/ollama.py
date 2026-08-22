@@ -1,5 +1,6 @@
 import httpx
 
+from app.core.usage import record_llm_usage
 from app.providers.base import ProviderError, ProviderUnavailableError
 from app.schemas import ChatMessage, ChatResponse
 
@@ -59,9 +60,43 @@ class OllamaProvider:
         }
 
         try:
+            response = await self._post_chat(payload)
+        except Exception:
+            # Compute was still spent, but token counts never arrived (see app/core/usage.py).
+            record_llm_usage(model=model, failed=True)
+            raise
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            record_llm_usage(model=model, failed=True)
+            raise ProviderError("Ollama returned an invalid JSON response.") from exc
+
+        # Record before the empty-content check: an empty completion still costs
+        # a prompt evaluation, and dropping it would understate the arm's compute.
+        record_llm_usage(
+            model=str(data.get("model") or model),
+            prompt_tokens=data.get("prompt_eval_count") or 0,
+            completion_tokens=data.get("eval_count") or 0,
+        )
+
+        message = data.get("message") or {}
+        content = str(message.get("content") or "").strip()
+        if not content:
+            raise ProviderError("Ollama returned an empty response.")
+
+        return ChatResponse(
+            model=str(data.get("model") or model),
+            message=ChatMessage(role="assistant", content=content),
+            done=bool(data.get("done", True)),
+        )
+
+    async def _post_chat(self, payload: dict) -> httpx.Response:
+        try:
             async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
                 response = await client.post("/api/chat", json=payload)
                 response.raise_for_status()
+                return response
         except httpx.ConnectError as exc:
             raise ProviderUnavailableError(
                 f"Cannot connect to Ollama at {self.base_url} (connection refused). "
@@ -79,19 +114,3 @@ class OllamaProvider:
             raise ProviderError(f"Ollama returned an error: {detail}") from exc
         except httpx.HTTPError as exc:
             raise ProviderError(f"Ollama request failed: {exc}") from exc
-
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise ProviderError("Ollama returned an invalid JSON response.") from exc
-
-        message = data.get("message") or {}
-        content = str(message.get("content") or "").strip()
-        if not content:
-            raise ProviderError("Ollama returned an empty response.")
-
-        return ChatResponse(
-            model=str(data.get("model") or model),
-            message=ChatMessage(role="assistant", content=content),
-            done=bool(data.get("done", True)),
-        )

@@ -27,7 +27,7 @@ CORPORA_REGISTRY ?= scripts/data/corpora/registry.json
 CORPORA ?=
 CORPORA_ARG := $(if $(CORPORA),--corpora $(CORPORA),)
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-self-consistency-pubmedqa eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -182,6 +182,13 @@ eval-debate-ollama-fast:
 		--agent-concurrency 1 \
 		--resume \
 		--label debate_balanced90_ollama_r2_bertgate
+
+eval-self-consistency-pubmedqa:
+	$(PY) scripts/agents/evaluate_self_consistency_pubmedqa.py \
+		--dataset data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json \
+		--backend mock \
+		--samples 5 \
+		--label self_consistency_balanced90_mock_n5
 
 eval-medical-suite:
 	PYTHON_BIN=$(PY) scripts/eval/run_medical_eval_suite.sh
