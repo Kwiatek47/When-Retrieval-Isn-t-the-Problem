@@ -49,6 +49,8 @@ class ClinicalAgent:
         include_evidence_hint: bool = True,
         frozen_label: str | None = None,
         num_predict: int | None = None,
+        moderator_instruction: str | None = None,
+        round_number: int | None = None,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -81,6 +83,8 @@ class ClinicalAgent:
             compact=use_compact,
             peer_context=self.peer_context,
             frozen_label=frozen_label,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
         )
         raw = await self._complete_or_none(messages, self.temperature, num_predict=num_predict)
         opinion = self._try_parse(raw)
@@ -100,6 +104,8 @@ class ClinicalAgent:
             compact=repair_compact,
             peer_context=self.peer_context,
             frozen_label=frozen_label,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
         )
         raw_retry = await self._complete_or_none(repair_messages, 0.0, num_predict=num_predict)
         opinion = self._try_parse(raw_retry, retry=True)

@@ -370,6 +370,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                 include_evidence_hint: bool = True,
                 frozen_label: str | None = None,
                 num_predict: int | None = None,
+                moderator_instruction: str | None = None,
+                round_number: int | None = None,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
@@ -378,6 +380,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                     include_evidence_hint=include_evidence_hint,
                     frozen_label=frozen_label,
                     num_predict=num_predict,
+                    moderator_instruction=moderator_instruction,
+                    round_number=round_number,
                 )
 
         class StaticHint:
@@ -425,6 +429,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                 include_evidence_hint: bool = True,
                 frozen_label: str | None = None,
                 num_predict: int | None = None,
+                moderator_instruction: str | None = None,
+                round_number: int | None = None,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
@@ -433,6 +439,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                     include_evidence_hint=include_evidence_hint,
                     frozen_label=frozen_label,
                     num_predict=num_predict,
+                    moderator_instruction=moderator_instruction,
+                    round_number=round_number,
                 )
 
         class StaticHint:
@@ -478,6 +486,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                 include_evidence_hint: bool = True,
                 frozen_label: str | None = None,
                 num_predict: int | None = None,
+                moderator_instruction: str | None = None,
+                round_number: int | None = None,
             ):
                 frozen_seen.setdefault(self.agent_id, []).append(frozen_label)
                 return await super().generate_opinion(
@@ -486,6 +496,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                     include_evidence_hint=include_evidence_hint,
                     frozen_label=frozen_label,
                     num_predict=num_predict,
+                    moderator_instruction=moderator_instruction,
+                    round_number=round_number,
                 )
 
         backend = MockInferenceBackend()
@@ -537,6 +549,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                 include_evidence_hint: bool = True,
                 frozen_label: str | None = None,
                 num_predict: int | None = None,
+                moderator_instruction: str | None = None,
+                round_number: int | None = None,
             ):
                 predict_seen.append(num_predict)
                 return await super().generate_opinion(
@@ -545,6 +559,8 @@ class DebateOrchestratorTests(unittest.TestCase):
                     include_evidence_hint=include_evidence_hint,
                     frozen_label=frozen_label,
                     num_predict=num_predict,
+                    moderator_instruction=moderator_instruction,
+                    round_number=round_number,
                 )
 
         backend = MockInferenceBackend()
@@ -777,14 +793,14 @@ class DebateOrchestratorTests(unittest.TestCase):
 
         self.assertTrue(
             all(
-                "Supervisor moderation from the previous round" not in call
-                and "Oto wnioski i instrukcje od Supervisora" not in call
+                "[SYSTEM INSTRUCTION FROM MODERATOR]" not in call
                 for call in round1_calls
             )
         )
         self.assertTrue(
             all(
-                "Supervisor moderation from the previous round" in call
+                "[SYSTEM INSTRUCTION FROM MODERATOR]" in call
+                and "Supervisor moderation from the previous round" in call
                 for call in round2_calls
             )
         )
@@ -821,10 +837,8 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertGreaterEqual(len(captured), 1)
         self.assertTrue(
             any(
-                (
-                    "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy" in call
-                    or "Supervisor moderation from the previous round:" in call
-                )
+                "[SYSTEM INSTRUCTION FROM MODERATOR]" in call
+                and "Supervisor moderation from the previous round:" in call
                 and ("generalist" in call or "clinical debate agent `generalist`" in call)
                 for call in captured
             )
@@ -1052,8 +1066,8 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("FROZEN your stance", system)
         self.assertIn("top_1_diagnosis MUST remain 'no'", system)
         self.assertIn("defense attorney for the 'no' label", system)
-        self.assertIn("DO NOT attack your own stance", system)
-        self.assertIn("Synthesize your own counter-arguments", system)
+        self.assertIn("ANTI-LAZINESS RULE", system)
+        self.assertIn("overstates", system)
 
         round1_messages = build_messages(
             agent_id="evidence_skeptic",
@@ -1063,6 +1077,50 @@ class PromptAndParseTests(unittest.TestCase):
             frozen_label=None,
         )
         self.assertNotIn("[SYSTEM ARCHITECTURE OVERRIDE]", round1_messages[0].content)
+
+    def test_moderator_instruction_prepended_inside_peer_opinions_block(self) -> None:
+        from app.agents.models import AgentRoundOpinion, SupervisorModerationOutput
+        from app.agents.prompts import format_moderator_instruction_block
+
+        moderation = SupervisorModerationOutput(
+            agreements=["Panel agrees primary endpoint was significant"],
+            contradictions=["Split on maybe vs yes"],
+            round_instructions=["Reconcile using explicit p-values from the abstract"],
+            primary_endpoint_result="p=0.02 favoring intervention",
+            author_conclusion="yes",
+            residual_uncertainty=[],
+        )
+        moderator_block = format_moderator_instruction_block(moderation, peer_context="nl")
+        entry = AgentRoundOpinion(
+            agent_id="generalist",
+            persona="generalist",
+            round=1,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis="yes",
+                evidence_conclusiveness="conclusive",
+                top_3_differential_diagnoses=["yes", "no", "maybe"],
+                pros=["significant endpoint"],
+                cons=[],
+                confidence_level=0.8,
+                sources_used=["abstract"],
+            ),
+        )
+        messages = build_messages(
+            agent_id="evidence_skeptic",
+            persona="evidence_skeptic",
+            patient_case=SAMPLE_CASE,
+            context=[entry],
+            moderator_instruction=moderator_block,
+            task_mode="pubmedqa",
+        )
+        user = messages[1].content
+        self.assertIn("PEER OPINIONS SO FAR", user)
+        mod_idx = user.index("[SYSTEM INSTRUCTION FROM MODERATOR]")
+        peer_idx = user.index("PEER OPINIONS SO FAR")
+        self.assertGreater(mod_idx, peer_idx)
+        self.assertIn("Supervisor moderation from the previous round:", user)
+        self.assertIn("generalist (conf=0.80, conclusive): yes", user)
+        self.assertNotIn("[R1] supervisor", user)
 
     def test_director_prompt_includes_case_and_transcript(self) -> None:
         from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT
@@ -1100,6 +1158,31 @@ class PromptAndParseTests(unittest.TestCase):
         parsed = parse_clinical_opinion_json(raw)
         self.assertEqual(parsed.top_1_diagnosis, "no")
         self.assertEqual(parsed.evidence_conclusiveness, "conclusive")
+
+    def test_parse_coerces_structured_cons_objects(self) -> None:
+        raw = (
+            '{"top_1_diagnosis":"no","evidence_conclusiveness":"conclusive",'
+            '"top_3_differential_diagnoses":["no","maybe","yes"],'
+            '"pros":[],"cons":[{"uncertainty_advocate":"Overstates lack of evidence"}],'
+            '"confidence_level":0.7}'
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "no")
+        self.assertEqual(len(parsed.cons), 1)
+        self.assertIn("[uncertainty_advocate]", parsed.cons[0])
+
+    def test_parse_sanitizes_possessive_in_pros(self) -> None:
+        # Unescaped apostrophe inside a JSON string (common LLM mistake).
+        raw = (
+            '{"top_1_diagnosis":"yes","evidence_conclusiveness":"conclusive",'
+            '"top_3_differential_diagnoses":["yes","no","maybe"],'
+            '"pros":["Significant correlation in UC, supports calprotectin\'s role"],'
+            '"cons":[],"confidence_level":0.8,"sources_used":["abstract"],'
+            '"red_flags":[],"missing_information":""}'
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "yes")
+        self.assertTrue(parsed.pros)
 
     def test_parse_rejects_empty(self) -> None:
         with self.assertRaises(ValueError):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-import json
 from typing import Any, Literal
 
 from app.agents.agent import ClinicalAgent
@@ -15,7 +14,6 @@ from app.agents.heuristics import (
 )
 from app.agents.models import (
     AgentRoundOpinion,
-    ClinicalOpinion,
     DebateResult,
     SupervisorModerationOutput,
 )
@@ -23,7 +21,7 @@ from app.agents.supervisor_agent import SupervisorAgent
 from app.agents.uncertainty import _label_entropy
 from app.agents.prompts import (
     PeerContextMode,
-    format_moderation_nl,
+    format_moderator_instruction_block,
 )
 
 DEFAULT_PERSONAS: tuple[tuple[str, str], ...] = (
@@ -199,7 +197,7 @@ class DebateOrchestrator:
                 round_opinions = await self._run_independent_round(patient_case)
             else:
                 previous_round = history[-1]
-                supervisor_prefix: list[AgentRoundOpinion] = []
+                moderator_instruction: str | None = None
                 failover_to_peer = False
                 skip_supervisor = force_peer_rest or self.debate_mode == "peer"
 
@@ -222,9 +220,8 @@ class DebateOrchestrator:
                                 0, pending_red_flag_instruction
                             )
                         supervisor_moderation.append(moderation)
-                        supervisor_prefix = _moderation_as_supervisor_context(
-                            moderation_output=moderation,
-                            round_number=round_number,
+                        moderator_instruction = format_moderator_instruction_block(
+                            moderation,
                             peer_context=self.peer_context,
                         )
 
@@ -233,14 +230,14 @@ class DebateOrchestrator:
                         patient_case,
                         round_number=round_number,
                         previous_round=previous_round,
-                        context_prefix=None,
+                        moderator_instruction=None,
                         frozen_labels=frozen_labels,
                     )
                 elif self.debate_mode == "moderated":
                     round_opinions = await self._run_moderated_round(
                         patient_case=patient_case,
                         round_number=round_number,
-                        supervisor_context=supervisor_prefix,
+                        moderator_instruction=moderator_instruction,
                         frozen_labels=frozen_labels,
                     )
                 else:
@@ -248,7 +245,7 @@ class DebateOrchestrator:
                         patient_case,
                         round_number=round_number,
                         previous_round=previous_round,
-                        context_prefix=supervisor_prefix,
+                        moderator_instruction=moderator_instruction,
                         frozen_labels=frozen_labels,
                     )
             history.append(round_opinions)
@@ -335,13 +332,12 @@ class DebateOrchestrator:
         *,
         round_number: int,
         previous_round: list[AgentRoundOpinion],
-        context_prefix: list[AgentRoundOpinion] | None = None,
+        moderator_instruction: str | None = None,
         frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
-        """Round 2+: sequential turns; each agent sees prefix + peer opinions."""
+        """Round 2+: sequential turns; each agent sees moderator block + peer opinions."""
         spoken_so_far: list[AgentRoundOpinion] = []
         round_opinions: list[AgentRoundOpinion] = []
-        prefix = list(context_prefix or [])
 
         for agent in self.agents:
             peer_context = _round_robin_context(
@@ -349,7 +345,6 @@ class DebateOrchestrator:
                 previous_round,
                 spoken_so_far,
             )
-            context = prefix + peer_context
             agent_frozen_label = (
                 frozen_labels.get(agent.agent_id) if frozen_labels else None
             )
@@ -357,8 +352,9 @@ class DebateOrchestrator:
                 agent,
                 patient_case,
                 round_number=round_number,
-                context=context or None,
+                context=peer_context or None,
                 frozen_label=agent_frozen_label,
+                moderator_instruction=moderator_instruction,
             )
             spoken_so_far.append(entry)
             round_opinions.append(entry)
@@ -369,7 +365,7 @@ class DebateOrchestrator:
         *,
         patient_case: str,
         round_number: int,
-        supervisor_context: list[AgentRoundOpinion],
+        moderator_instruction: str | None = None,
         frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
         """Round 2+ moderated mode: concurrent revision using supervisor instructions."""
@@ -384,8 +380,9 @@ class DebateOrchestrator:
                     agent,
                     patient_case,
                     round_number=round_number,
-                    context=supervisor_context,
+                    context=None,
                     frozen_label=agent_frozen_label,
+                    moderator_instruction=moderator_instruction,
                 )
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
@@ -413,6 +410,7 @@ class DebateOrchestrator:
         context: list[AgentRoundOpinion] | None,
         include_evidence_hint: bool | None = None,
         frozen_label: str | None = None,
+        moderator_instruction: str | None = None,
     ) -> AgentRoundOpinion:
         if include_evidence_hint is None:
             include_evidence_hint = self._should_include_evidence_hint(agent, round_number)
@@ -425,6 +423,8 @@ class DebateOrchestrator:
             include_evidence_hint=include_evidence_hint,
             frozen_label=frozen_label,
             num_predict=num_predict,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
         )
         return AgentRoundOpinion(
             agent_id=agent.agent_id,
@@ -632,45 +632,3 @@ def _pending_red_flag_instruction(round_opinions: list[AgentRoundOpinion]) -> st
                 f"Safety officer reasoning: {safety.reasoning}".strip()
             )
     return None
-
-
-def _moderation_as_supervisor_context(
-    moderation_output: Any,
-    round_number: int,
-    *,
-    peer_context: PeerContextMode = "nl",
-) -> list[AgentRoundOpinion]:
-    style = (peer_context or "nl").strip().lower()
-    if style == "nl":
-        instruction = format_moderation_nl(moderation_output) + "\nRespond to these instructions."
-    else:
-        moderation_payload = (
-            moderation_output.model_dump()
-            if hasattr(moderation_output, "model_dump")
-            else moderation_output
-        )
-        instruction = (
-            "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy: "
-            + json.dumps(moderation_payload, ensure_ascii=False)
-            + ". Odpowiedz na nie"
-        )
-
-    supervisor_opinion = ClinicalOpinion(
-        top_1_diagnosis="maybe",
-        evidence_conclusiveness="inconclusive",
-        top_3_differential_diagnoses=["yes", "no", "maybe"],
-        pros=[instruction],
-        cons=[],
-        required_further_tests=[],
-        confidence_level=0.0,
-        sources_used=[],
-        red_flags=[],
-        missing_information="",
-    )
-    supervisor_entry = AgentRoundOpinion(
-        agent_id="supervisor",
-        persona="supervisor",
-        round=round_number,
-        opinion=supervisor_opinion,
-    )
-    return [supervisor_entry]

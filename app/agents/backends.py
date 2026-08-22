@@ -397,7 +397,41 @@ def _sanitize_clinical_opinion_json(text: str) -> str:
     # @agent_id's -> [agent_id] (apostrophe breaks many model outputs)
     cleaned = re.sub(r"@(\w+)'s\b", r"[\1]", cleaned)
     cleaned = re.sub(r"@(\w+)\b", r"[\1]", cleaned)
+    # Unescaped possessives inside JSON strings (e.g. calprotectin's).
+    cleaned = re.sub(r"(\w)'s\b", r"\1s", cleaned)
     return cleaned
+
+
+def _flatten_pro_con_item(item: Any) -> str:
+    """Coerce structured criticism objects into JSON-safe strings."""
+    if isinstance(item, str):
+        return item.strip()
+    if isinstance(item, dict):
+        chunks: list[str] = []
+        for key, value in item.items():
+            tag = str(key).strip()
+            if tag and not tag.startswith("["):
+                tag = f"[{tag}]"
+            text = str(value or "").strip()
+            chunks.append(f"{tag} {text}".strip() if tag else text)
+        return " ".join(chunk for chunk in chunks if chunk).strip()
+    return str(item or "").strip()
+
+
+def _coerce_string_list(value: Any, *, flatten_pro_con: bool = False) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        text = _flatten_pro_con_item(item) if flatten_pro_con else str(item or "").strip()
+        if text:
+            out.append(text)
+    return out
 
 
 def _recover_partial_clinical_json(text: str) -> dict[str, Any] | None:
@@ -455,12 +489,23 @@ def parse_clinical_opinion_json(raw: str) -> ClinicalOpinion:
             last_exc = exc
     if data is None:
         recovered = _recover_partial_clinical_json(text)
+        if recovered is None:
+            recovered = _recover_partial_clinical_json(_sanitize_clinical_opinion_json(text))
         if recovered is not None:
             data = recovered
         else:
             assert last_exc is not None
             raise ValueError(f"Invalid ClinicalOpinion JSON: {last_exc}") from last_exc
-    return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(data))
+    normalized = _normalize_clinical_opinion_payload(data)
+    try:
+        return ClinicalOpinion.model_validate(normalized)
+    except Exception:
+        recovered = _recover_partial_clinical_json(text)
+        if recovered is None:
+            recovered = _recover_partial_clinical_json(_sanitize_clinical_opinion_json(text))
+        if recovered is not None:
+            return ClinicalOpinion.model_validate(_normalize_clinical_opinion_payload(recovered))
+        raise
 
 
 def _extract_json_object(raw: str) -> str:
@@ -556,7 +601,7 @@ def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
         confidence = 0.4
     payload["confidence_level"] = min(max(confidence, 0.0), 1.0)
 
-    for key in ("pros", "cons", "required_further_tests", "sources_used", "red_flags"):
+    for key in ("required_further_tests", "sources_used", "red_flags"):
         value = payload.get(key, [])
         if value is None:
             payload[key] = []
@@ -564,6 +609,9 @@ def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
             payload[key] = [value] if value.strip() else []
         elif not isinstance(value, list):
             payload[key] = []
+
+    payload["pros"] = _coerce_string_list(payload.get("pros"), flatten_pro_con=True)
+    payload["cons"] = _coerce_string_list(payload.get("cons"), flatten_pro_con=True)
 
     if payload.get("missing_information") is None:
         payload["missing_information"] = ""

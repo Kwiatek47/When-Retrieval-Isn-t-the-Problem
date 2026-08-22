@@ -337,6 +337,29 @@ def format_moderation_nl(moderation_output: Any) -> str:
     return "\n".join(lines)
 
 
+def format_moderator_instruction_block(
+    moderation_output: Any,
+    *,
+    peer_context: PeerContextMode = "nl",
+) -> str:
+    """Render supervisor moderation as a dedicated moderator block for agent prompts."""
+    style = (peer_context or "nl").strip().lower()
+    if style == "nl":
+        body = format_moderation_nl(moderation_output) + "\nRespond to these instructions."
+    else:
+        moderation_payload = (
+            moderation_output.model_dump()
+            if hasattr(moderation_output, "model_dump")
+            else moderation_output
+        )
+        body = (
+            "Supervisor moderation from the previous round:\n"
+            + json.dumps(moderation_payload, ensure_ascii=False)
+            + "\nRespond to these instructions."
+        )
+    return f"[SYSTEM INSTRUCTION FROM MODERATOR]\n{body}"
+
+
 def format_opinions_for_supervisor(
     opinions: dict[str, Any] | list[AgentRoundOpinion],
     *,
@@ -401,6 +424,8 @@ def build_messages(
     compact: bool = False,
     peer_context: PeerContextMode = "nl",
     frozen_label: str | None = None,
+    moderator_instruction: str | None = None,
+    round_number: int | None = None,
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
 
@@ -411,7 +436,7 @@ def build_messages(
     """
     mode = (task_mode or "clinical").strip().lower()
     is_safety_officer = persona.strip().lower() == "safety_officer"
-    peer_revision = bool(context)
+    peer_revision = bool(context) or bool(moderator_instruction)
     use_compact_schema = compact or mode == "pubmedqa"
     stance_directive = (
         "Base your decision strictly on the provided evidence. "
@@ -446,17 +471,21 @@ def build_messages(
             persona_text = f"{persona_text}\n{stance_directive}"
             schema_block = CLINICAL_OPINION_SCHEMA
 
-    round_number = max((entry.round for entry in context), default=1) if context else 1
+    resolved_round = (
+        round_number
+        if round_number is not None
+        else (max((entry.round for entry in context), default=1) if context else 1)
+    )
     adversarial_directive = ""
-    if frozen_label and round_number > 1:
+    if frozen_label and resolved_round > 1:
         adversarial_directive = (
             f"\n\n[SYSTEM ARCHITECTURE OVERRIDE]\n"
-            f"In Round 1, you independently diagnosed the answer as '{frozen_label}'. "
-            f"The system has now FROZEN your stance. You are legally bound to act as a defense attorney for the '{frozen_label}' label.\n"
-            f"1. Your top_1_diagnosis MUST remain '{frozen_label}'. Do not change it.\n"
-            f"2. You MUST explicitly attack the PEERS who voted differently (e.g., if you are defending '{frozen_label}', you must attack the Generalist's opposing label by pointing out flaws in their 'pros'). DO NOT attack your own stance.\n"
-            f"3. Do not compromise. Find flaws in the opposing evidence.\n"
-            f"4. {ROUND2_NO_VERBATIM_QUOTE_RULE}\n"
+            f"In Round 1, you diagnosed the answer as '{frozen_label}'. "
+            f"The system has FROZEN your stance. You are now the defense attorney for the '{frozen_label}' label.\n"
+            f"1. Your top_1_diagnosis MUST remain '{frozen_label}'.\n"
+            f"2. You MUST explicitly attack the PEERS who voted differently.\n"
+            f"3. ANTI-LAZINESS RULE: You must NOT use generic phrases like 'overstates' or 'underestimates'. "
+            f"You MUST quote specific data points, numbers, or phrases from the PATIENT CASE to prove why the opposing agent is medically wrong.\n"
         )
 
     system = (
@@ -485,19 +514,25 @@ def build_messages(
             f"- model: {evidence_hint.model_path or 'unspecified'}"
         )
 
-    if context:
-        rendered = format_peer_context(
-            context,
-            peer_context=peer_context,
-            compact=use_compact_schema,
-            mode=mode,
-        )
+    if peer_revision:
+        peer_block_parts: list[str] = []
+        if moderator_instruction and moderator_instruction.strip():
+            peer_block_parts.append(moderator_instruction.strip())
+        if context:
+            rendered = format_peer_context(
+                context,
+                peer_context=peer_context,
+                compact=use_compact_schema,
+                mode=mode,
+            )
+            if rendered.strip():
+                peer_block_parts.append(rendered)
         parts.append(
             "PEER OPINIONS SO FAR (previous round's final opinions, plus anyone who "
             "has already spoken this round, in speaking order; critique weak "
             "arguments, update hypotheses, and resolve contradictions where "
             "possible):\n"
-            f"{rendered}"
+            + "\n\n".join(peer_block_parts)
         )
         parts.append(
             "Produce an UPDATED ClinicalOpinion that reflects what you accept, "
