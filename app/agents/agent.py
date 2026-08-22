@@ -56,9 +56,8 @@ class ClinicalAgent:
         Generate a structured clinical opinion.
 
         Round 1: pass empty/None context for an independent opinion.
-        Later rounds: pass peer AgentRoundOpinion entries (previous round's
-        finals plus anyone who has already spoken this round) to critique
-        and revise.
+        Later rounds: pass peer AgentRoundOpinion entries from the previous
+        round only (agents revise in isolation from same-round peers).
 
         Set ``include_evidence_hint=False`` to hide BioLinkBERT (e.g. blind
         ``uncertainty_advocate`` when ``blind_critic`` is enabled).

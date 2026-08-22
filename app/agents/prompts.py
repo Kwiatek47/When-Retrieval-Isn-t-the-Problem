@@ -93,6 +93,7 @@ CRITICAL RULES FOR CHOOSING THE LABEL:
 3. TRUE UNCERTAINTY ("maybe") & COVERAGE:
    - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory.
    - SPECULATIVE UTILITY: You MUST choose "maybe" if the question asks about a clinical/diagnostic role, and the authors only prove a correlation, concluding that the intervention "may", "could", or "has potential to" have a role in the future. Suggesting a hypothesis is not a definitive "yes".
+5. DO NOT TALLY VOTES: The agents are forced into an adversarial debate. A majority of agents voting "yes" or "no" means NOTHING. Do not count their votes. You must base your final_label SOLELY on the logic you write in your rationale.
 
 Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. 
 
@@ -429,10 +430,10 @@ def build_messages(
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
 
-    `context` is the round-robin discussion so far: the previous round's final
-    opinions plus any peers who have already spoken in the current round, in
-    speaking order. Each entry keeps its agent_id/persona/round so the model
-    sees an actual discussion transcript rather than an anonymous opinion dump.
+    `context` is the previous round's final peer opinions (excluding self).
+    Agents revise in isolation: they never see same-round peer drafts.
+    Each entry keeps its agent_id/persona/round so the model sees an identified
+    discussion transcript rather than an anonymous opinion dump.
     """
     mode = (task_mode or "clinical").strip().lower()
     is_safety_officer = persona.strip().lower() == "safety_officer"
@@ -483,9 +484,8 @@ def build_messages(
             f"In Round 1, you diagnosed the answer as '{frozen_label}'. "
             f"The system has FROZEN your stance. You are now the defense attorney for the '{frozen_label}' label.\n"
             f"1. Your top_1_diagnosis MUST remain '{frozen_label}'.\n"
-            f"2. You MUST explicitly attack the PEERS who voted differently.\n"
-            f"3. ANTI-LAZINESS RULE: You must NOT use generic phrases like 'overstates' or 'underestimates'. "
-            f"You MUST quote specific data points, numbers, or phrases from the PATIENT CASE to prove why the opposing agent is medically wrong.\n"
+            f"2. ALIGNMENT RULE: Your 'pros' MUST logically support '{frozen_label}'. If your label is 'no' or 'maybe', your pros MUST explain what is wrong with the study or why it fails. NEVER use arguments that support the opposite label.\n"
+            f"3. ANTI-LAZINESS RULE: You MUST explicitly attack the PEERS who voted differently. Do not use generic phrases. Quote specific data points from the abstract to prove your peers are wrong.\n"
         )
 
     system = (
@@ -528,10 +528,10 @@ def build_messages(
             if rendered.strip():
                 peer_block_parts.append(rendered)
         parts.append(
-            "PEER OPINIONS SO FAR (previous round's final opinions, plus anyone who "
-            "has already spoken this round, in speaking order; critique weak "
-            "arguments, update hypotheses, and resolve contradictions where "
-            "possible):\n"
+            "PEER OPINIONS FROM THE PREVIOUS ROUND (final opinions only; peers in "
+            "this round write in isolation — you do not see their current drafts. "
+            "Critique weak arguments, update hypotheses, and resolve contradictions "
+            "where possible):\n"
             + "\n\n".join(peer_block_parts)
         )
         parts.append(

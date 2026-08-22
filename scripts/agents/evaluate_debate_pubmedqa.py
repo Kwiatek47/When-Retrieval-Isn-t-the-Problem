@@ -1021,9 +1021,9 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help=(
-            "Max concurrent Ollama agent calls in round 1 (the independent-opinion "
-            "round). Round 2+ are round-robin turns and always run sequentially, "
-            "since each turn depends on the previous one's output."
+            "Max concurrent Ollama agent calls per debate round. "
+            "All rounds (including R2+) run in parallel; each agent only sees "
+            "the previous round's final opinions (no same-round peer drafts)."
         ),
     )
     parser.add_argument(
@@ -1041,8 +1041,8 @@ def _parse_args() -> argparse.Namespace:
         default="moderated",
         help=(
             "Round 2+ debate style: moderated=supervisor-only (default), "
-            "peer=round-robin peer critique without supervisor, "
-            "hybrid=supervisor instructions plus round-robin peer context"
+            "peer=concurrent previous-round peer critique without supervisor, "
+            "hybrid=supervisor instructions plus concurrent previous-round peer context"
         ),
     )
     parser.add_argument(
@@ -1349,7 +1349,7 @@ def _summarize(
         },
         "aggregation": aggregation,
         "architecture": architecture,
-        "supervisor": architecture not in {"peer_round_robin", "biolinkbert_only"},
+        "supervisor": architecture not in {"peer_parallel", "peer_round_robin", "biolinkbert_only"},
         "uncertainty_routing": (
             {
                 **routing_meta,

@@ -744,7 +744,7 @@ class DebateOrchestratorTests(unittest.TestCase):
         self.assertTrue(orch.supervisor.last_moderation_failed)
         # Round 2 should be peer critique, not empty supervisor JSON noise.
         round2 = captured[4:]
-        self.assertTrue(any("PEER OPINIONS SO FAR" in text for text in round2))
+        self.assertTrue(any("PEER OPINIONS FROM THE PREVIOUS ROUND" in text for text in round2))
         self.assertFalse(any("re-run moderation" in text for text in round2))
 
     def test_supervisor_fail_empty_defer_injects_fallback(self) -> None:
@@ -811,7 +811,38 @@ class DebateOrchestratorTests(unittest.TestCase):
             DebateOrchestrator(agents, rounds=2, debate_mode="peer").run(SAMPLE_CASE)
         )
         self.assertEqual(result.supervisor_moderation, [])
-        self.assertEqual(DebateOrchestrator(agents, rounds=2, debate_mode="peer").ARCHITECTURE, "peer_round_robin")
+        self.assertEqual(DebateOrchestrator(agents, rounds=2, debate_mode="peer").ARCHITECTURE, "peer_parallel")
+
+    def test_parallel_peer_round_sees_only_previous_round(self) -> None:
+        """R2 agents must not observe same-round peer drafts (no round-robin)."""
+        captured: list[str] = []
+
+        class SpyBackend(MockInferenceBackend):
+            async def complete(
+                self,
+                messages: list[ChatMessage],
+                *,
+                temperature: float = 0.3,
+                num_predict: int | None = None,
+            ) -> str:
+                user = next(m.content for m in messages if m.role == "user")
+                if "PATIENT CASE:" in user and "PEER OPINIONS" in user:
+                    captured.append(user)
+                return await super().complete(
+                    messages, temperature=temperature, num_predict=num_predict
+                )
+
+        agents = build_default_agents(SpyBackend())
+        asyncio.run(
+            DebateOrchestrator(agents, rounds=2, debate_mode="peer").run(SAMPLE_CASE)
+        )
+        self.assertEqual(len(captured), 4)
+        for user in captured:
+            self.assertIn("PEER OPINIONS FROM THE PREVIOUS ROUND", user)
+            self.assertIn("write in isolation", user)
+            # Round-1 opinions are marked [R1]; no same-round [R2] peer drafts.
+            self.assertNotIn("[R2]", user)
+            self.assertNotIn("[R2*]", user)
 
     def test_hybrid_mode_includes_peer_and_supervisor_context(self) -> None:
         captured: list[str] = []
@@ -959,7 +990,7 @@ class PromptAndParseTests(unittest.TestCase):
             task_mode="pubmedqa",
         )
         user = messages[1].content
-        self.assertIn("PEER OPINIONS SO FAR", user)
+        self.assertIn("PEER OPINIONS FROM THE PREVIOUS ROUND", user)
         self.assertIn("generalist (conf=0.80, conclusive): yes", user)
         self.assertNotIn('"agent_id"', user)
         self.assertIn("[uncertainty_advocate]", user)
@@ -1066,8 +1097,9 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("FROZEN your stance", system)
         self.assertIn("top_1_diagnosis MUST remain 'no'", system)
         self.assertIn("defense attorney for the 'no' label", system)
+        self.assertIn("ALIGNMENT RULE", system)
         self.assertIn("ANTI-LAZINESS RULE", system)
-        self.assertIn("overstates", system)
+        self.assertIn("NEVER use arguments that support the opposite label", system)
 
         round1_messages = build_messages(
             agent_id="evidence_skeptic",
@@ -1114,9 +1146,9 @@ class PromptAndParseTests(unittest.TestCase):
             task_mode="pubmedqa",
         )
         user = messages[1].content
-        self.assertIn("PEER OPINIONS SO FAR", user)
+        self.assertIn("PEER OPINIONS FROM THE PREVIOUS ROUND", user)
         mod_idx = user.index("[SYSTEM INSTRUCTION FROM MODERATOR]")
-        peer_idx = user.index("PEER OPINIONS SO FAR")
+        peer_idx = user.index("PEER OPINIONS FROM THE PREVIOUS ROUND")
         self.assertGreater(mod_idx, peer_idx)
         self.assertIn("Supervisor moderation from the previous round:", user)
         self.assertIn("generalist (conf=0.80, conclusive): yes", user)
@@ -1135,6 +1167,8 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("forced stubbornness", filled)
         self.assertIn("Devil's Advocate", filled)
         self.assertIn("BOILERPLATE", filled)
+        self.assertIn("DO NOT TALLY VOTES", filled)
+        self.assertIn("base your final_label SOLELY on the logic", filled)
         self.assertNotIn("MUST output \"yes\" or \"no\"", filled)
         self.assertIn("final_label", filled)
         self.assertNotIn("ClinicalOpinion JSON schema", filled)

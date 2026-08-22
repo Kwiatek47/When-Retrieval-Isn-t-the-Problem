@@ -54,7 +54,7 @@ _BLIND_HINT_PERSONAS_R1 = _BLIND_HINT_PERSONAS
 
 _ARCHITECTURE_BY_MODE: dict[DebateMode, str] = {
     "moderated": "supervised_moderation",
-    "peer": "peer_round_robin",
+    "peer": "peer_parallel",
     "hybrid": "hybrid_supervised_peer",
 }
 
@@ -71,15 +71,15 @@ class DebateOrchestrator:
     ``maybe``. Legacy ``r1-only`` restores hint from round 2; ``off`` exposes
     the hint from round 1.
 
-    Round 2+ depends on ``debate_mode``:
+    Round 2+ depends on ``debate_mode`` (always concurrent like round 1 —
+    agents never see same-round peer drafts):
 
     - ``moderated`` (default): supervisor moderates, then all agents revise
       concurrently using supervisor instructions only (legacy behavior).
-    - ``peer``: round-robin peer debate; each agent sees prior-round opinions
-      plus peers who already spoke this round. No supervisor moderation.
-    - ``hybrid``: supervisor moderates, then round-robin peer debate where each
-      agent also sees supervisor agreements/contradictions/instructions plus
-      peer opinions from the previous round.
+    - ``peer``: all agents revise concurrently; each sees only the previous
+      round's peer opinions (excluding self). No supervisor moderation.
+    - ``hybrid``: supervisor moderates, then all agents revise concurrently
+      with moderator instructions plus previous-round peer opinions only.
 
     Frozen stance (``frozen_stance=True``): after round 1, each agent's label is
     locked and R2+ prompts instruct them to defend that label adversarially.
@@ -100,7 +100,7 @@ class DebateOrchestrator:
     - ``defer``: legacy — inject ``RED FLAG DETECTED`` into the next round only
 
     Supervisor parse failure (``supervisor_fail``): after retry at temperature 0,
-    - ``peer-round`` (default): run this round as peer round-robin (no empty moderation)
+    - ``peer-round`` (default): run this round as concurrent peer critique (no empty moderation)
     - ``peer-rest``: same, then keep peer for remaining rounds of the case
     - ``empty-defer``: legacy empty moderation fallback injected into moderated/hybrid
     """
@@ -226,7 +226,7 @@ class DebateOrchestrator:
                         )
 
                 if failover_to_peer or force_peer_rest or self.debate_mode == "peer":
-                    round_opinions = await self._run_round_robin_round(
+                    round_opinions = await self._run_parallel_peer_round(
                         patient_case,
                         round_number=round_number,
                         previous_round=previous_round,
@@ -241,7 +241,8 @@ class DebateOrchestrator:
                         frozen_labels=frozen_labels,
                     )
                 else:
-                    round_opinions = await self._run_round_robin_round(
+                    # hybrid: parallel previous-round peers + moderator block
+                    round_opinions = await self._run_parallel_peer_round(
                         patient_case,
                         round_number=round_number,
                         previous_round=previous_round,
@@ -326,7 +327,7 @@ class DebateOrchestrator:
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
-    async def _run_round_robin_round(
+    async def _run_parallel_peer_round(
         self,
         patient_case: str,
         *,
@@ -335,30 +336,28 @@ class DebateOrchestrator:
         moderator_instruction: str | None = None,
         frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
-        """Round 2+: sequential turns; each agent sees moderator block + peer opinions."""
-        spoken_so_far: list[AgentRoundOpinion] = []
-        round_opinions: list[AgentRoundOpinion] = []
+        """Round 2+: concurrent turns; each agent sees only the previous round.
 
-        for agent in self.agents:
-            peer_context = _round_robin_context(
-                agent.agent_id,
-                previous_round,
-                spoken_so_far,
-            )
-            agent_frozen_label = (
-                frozen_labels.get(agent.agent_id) if frozen_labels else None
-            )
-            entry = await self._speak(
-                agent,
-                patient_case,
-                round_number=round_number,
-                context=peer_context or None,
-                frozen_label=agent_frozen_label,
-                moderator_instruction=moderator_instruction,
-            )
-            spoken_so_far.append(entry)
-            round_opinions.append(entry)
-        return round_opinions
+        Agents never observe same-round peer drafts (no round-robin leakage).
+        """
+        semaphore = asyncio.Semaphore(self.agent_concurrency)
+
+        async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
+            async with semaphore:
+                peer_context = _previous_round_context(agent.agent_id, previous_round)
+                agent_frozen_label = (
+                    frozen_labels.get(agent.agent_id) if frozen_labels else None
+                )
+                return await self._speak(
+                    agent,
+                    patient_case,
+                    round_number=round_number,
+                    context=peer_context or None,
+                    frozen_label=agent_frozen_label,
+                    moderator_instruction=moderator_instruction,
+                )
+
+        return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
     async def _run_moderated_round(
         self,
@@ -602,15 +601,12 @@ def should_continue_debate(
     return _label_entropy(labels) > entropy_threshold
 
 
-def _round_robin_context(
+def _previous_round_context(
     agent_id: str,
     previous_round: list[AgentRoundOpinion],
-    spoken_so_far: list[AgentRoundOpinion],
 ) -> list[AgentRoundOpinion]:
-    """Previous round's peers (excluding self) followed by this round's turns so far."""
-    previous_peers = [entry for entry in previous_round if entry.agent_id != agent_id]
-    current_peers = [entry for entry in spoken_so_far if entry.agent_id != agent_id]
-    return previous_peers + current_peers
+    """Previous round's peer opinions only (excluding self); no same-round drafts."""
+    return [entry for entry in previous_round if entry.agent_id != agent_id]
 
 
 def _pending_red_flag_instruction(round_opinions: list[AgentRoundOpinion]) -> str | None:
