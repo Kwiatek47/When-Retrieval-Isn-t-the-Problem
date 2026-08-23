@@ -56,6 +56,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.agents.sld import panel  # noqa: E402
+from app.agents.sld.decision import TriggerConfig  # noqa: E402
 from app.agents.sld.ledger import SLDResult  # noqa: E402
 from app.agents.sld.pipeline import SLDCase, SLDPipeline  # noqa: E402
 from app.agents.sld.segmentation import classify_question_type  # noqa: E402
@@ -476,6 +477,22 @@ def _markdown_report(summary: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _load_trigger_config(path: Path | None) -> TriggerConfig:
+    """Load a TriggerConfig frozen by tune_sld_trigger_config.py.
+
+    Without this, a tuned-and-frozen config silently never gets used by
+    later runs (they'd fall back to the all-enabled default) — the whole
+    point of freezing it is to carry a dev-90 tuning result into a PQA-L 500
+    report without re-tuning there (leakage).
+    """
+    if path is None:
+        return TriggerConfig()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    config = TriggerConfig(**data["trigger_config"])
+    print(f"Loaded trigger_config from {path} (hash {data.get('config_hash')}): {config}")
+    return config
+
+
 def _build_ollama_backend(args: argparse.Namespace, base_url: str) -> Any:
     from app.agents.backends import OllamaInferenceBackend
     from app.core.config import get_settings
@@ -542,6 +559,8 @@ async def _run(args: argparse.Namespace) -> None:
         # field compose_label's rule table reads directly.
         personas = tuple(p for p in panel.R1_PERSONAS if p != "gap_auditor")
 
+    trigger_config = _load_trigger_config(args.trigger_config)
+
     pipeline_by_url: dict[str, SLDPipeline] = {}
     if args.arm in ARM_PIPELINE_KWARGS:
         pipeline_by_url = {
@@ -558,6 +577,7 @@ async def _run(args: argparse.Namespace) -> None:
                 use_stats_profile=not args.no_stats_profile,
                 label_blind=not args.not_label_blind,
                 neutral_personas=args.neutral_personas,
+                trigger_config=trigger_config,
                 **ARM_PIPELINE_KWARGS[args.arm],
             )
             for url in base_urls
@@ -623,6 +643,7 @@ async def _run(args: argparse.Namespace) -> None:
     summary = _summarize(results)
     summary["arm"] = args.arm
     summary["dataset"] = str(args.dataset)
+    summary["trigger_config_source"] = str(args.trigger_config) if args.trigger_config else "default (all enabled)"
     json_path = report_dir / f"{args.label}.json"
     json_path.write_text(
         json.dumps(
@@ -694,6 +715,14 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Ablation (c): replace the four specialized R1 personas with identical "
         "neutral agents doing the full extraction task, to isolate the value of role specialization.",
+    )
+    parser.add_argument(
+        "--trigger-config",
+        type=Path,
+        default=None,
+        help="Path to a frozen_trigger_config.json written by tune_sld_trigger_config.py. "
+        "Without this, TriggerConfig defaults to all triggers enabled — a dev-90 tuning result "
+        "is NOT applied automatically.",
     )
     parser.add_argument(
         "--hallucinate",
