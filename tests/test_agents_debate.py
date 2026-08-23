@@ -2060,3 +2060,122 @@ class DirectorOutputRobustnessTests(unittest.TestCase):
         )
         self.assertEqual(out.final_label, "yes")
         self.assertEqual(out.consensus_type, "consensus")
+
+
+class MaybeDetectorTests(unittest.TestCase):
+    """Standalone answer-split detector (docs/agents/maybe-detector-spec.md)."""
+
+    def _detect(self, payload):
+        import asyncio, json as _json
+        from app.agents.maybe_detector import detect_answer_split
+
+        class _Backend:
+            async def complete(self, messages, **kwargs):
+                return payload if isinstance(payload, str) else _json.dumps(payload)
+
+        return asyncio.run(
+            detect_answer_split(_Backend(), question="Q?", abstract="A.")
+        )
+
+    def test_split_with_quoted_findings_is_detected(self) -> None:
+        v = self._detect(
+            {
+                "split_detected": True,
+                "split_kind": "subgroup",
+                "conflicting_findings": ["significant in UC", "not significant in CD"],
+                "confidence": 0.8,
+            }
+        )
+        self.assertTrue(v.is_usable)
+        self.assertEqual(v.split_kind, "subgroup")
+
+    def test_split_claim_without_quotes_is_downgraded(self) -> None:
+        """An unsupported assertion of uncertainty is the failure mode to avoid."""
+        v = self._detect(
+            {"split_detected": True, "split_kind": "subgroup", "conflicting_findings": []}
+        )
+        self.assertFalse(v.split_detected)
+        self.assertFalse(v.is_usable)
+        self.assertEqual(v.split_kind, "none")
+
+    def test_single_quote_is_not_a_split(self) -> None:
+        v = self._detect(
+            {
+                "split_detected": True,
+                "split_kind": "outcome_conflict",
+                "conflicting_findings": ["only one finding"],
+            }
+        )
+        self.assertFalse(v.is_usable)
+
+    def test_unparseable_output_reports_no_split(self) -> None:
+        """A detector failure must never fabricate uncertainty."""
+        v = self._detect("the model rambled without JSON")
+        self.assertFalse(v.split_detected)
+        self.assertEqual(v.split_kind, "none")
+
+    def test_unknown_split_kind_is_normalized(self) -> None:
+        v = self._detect(
+            {
+                "split_detected": True,
+                "split_kind": "totally_made_up",
+                "conflicting_findings": ["a", "b"],
+            }
+        )
+        self.assertEqual(v.split_kind, "none")
+
+    def test_apply_only_ever_produces_maybe_never_flips_direction(self) -> None:
+        from app.agents.maybe_detector import AnswerSplitVerdict, apply_split_detector
+
+        usable = AnswerSplitVerdict(
+            split_detected=True,
+            split_kind="subgroup",
+            conflicting_findings=["a", "b"],
+            confidence=0.9,
+        )
+        self.assertEqual(apply_split_detector("yes", usable), ("maybe", True))
+        self.assertEqual(apply_split_detector("no", usable), ("maybe", True))
+        # Never rewrites an existing maybe, and never turns yes into no.
+        self.assertEqual(apply_split_detector("maybe", usable), ("maybe", False))
+        self.assertEqual(apply_split_detector(None, usable), (None, False))
+
+    def test_apply_respects_confidence_floor(self) -> None:
+        from app.agents.maybe_detector import AnswerSplitVerdict, apply_split_detector
+
+        weak = AnswerSplitVerdict(
+            split_detected=True,
+            split_kind="subgroup",
+            conflicting_findings=["a", "b"],
+            confidence=0.2,
+        )
+        self.assertEqual(
+            apply_split_detector("yes", weak, min_confidence=0.6), ("yes", False)
+        )
+
+    def test_outcome_conflict_is_detected_but_not_acted_on(self) -> None:
+        """Measured at precision 0.150 on balanced90 — below the 0.333 base rate.
+
+        Acting on it drops composed accuracy from 0.689 to 0.556, so it is
+        recorded for analysis but never overrides a binary answer.
+        """
+        from app.agents.maybe_detector import AnswerSplitVerdict, apply_split_detector
+
+        verdict = AnswerSplitVerdict(
+            split_detected=True,
+            split_kind="outcome_conflict",
+            conflicting_findings=["marker a up", "marker b flat"],
+            confidence=1.0,
+        )
+        self.assertTrue(verdict.is_usable)
+        self.assertEqual(apply_split_detector("yes", verdict), ("yes", False))
+
+    def test_compound_question_split_is_actionable(self) -> None:
+        from app.agents.maybe_detector import AnswerSplitVerdict, apply_split_detector
+
+        verdict = AnswerSplitVerdict(
+            split_detected=True,
+            split_kind="compound_question",
+            conflicting_findings=["recalled the weight", "could not explain it"],
+            confidence=1.0,
+        )
+        self.assertEqual(apply_split_detector("no", verdict), ("maybe", True))

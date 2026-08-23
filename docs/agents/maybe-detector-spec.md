@@ -91,6 +91,38 @@ Sygnał jest semantyczny: trzeba porównać obiekt pytania z rzeczywiście rapor
 
 Poniżej **precision ≈ 0.55** detektor szkodzi niezależnie od recall. Obecne najlepsze sygnały w panelu (v6): `differential_expander` 0.433, `evidence_skeptic` 0.500 przy recall 0.167 — wszystkie poniżej progu.
 
+### 3.1 Wyniki wdrożenia (2026-08-23, `qwen2.5:14b`, balanced90)
+
+Kod: [`app/agents/maybe_detector.py`](../../app/agents/maybe_detector.py), ewaluacja: [`scripts/agents/evaluate_maybe_detector.py`](../../scripts/agents/evaluate_maybe_detector.py), raport: `reports/debate/maybe_detector_14b_v1.json`.
+
+**Ścieżka regexowa odrzucona.** Siedem wariantów reguły powierzchniowej (współwystępowanie twierdzeń pozytywnych i zanegowanych + spójniki przeciwstawne) zmierzonych na 90 case'ach: najlepszy dał precision 0.444 przy recall 0.133. Kategoria 1 jest mechaniczna strukturalnie, ale nie na poziomie łańcuchów znaków — powiązanie wyniku z podgrupą wymaga zrozumienia zdania.
+
+**Detektor LLM — wyniki per podtyp:**
+
+| podtyp splitu | strzały | precision |
+|---|---|---|
+| `subgroup` | 25 | **0.600** |
+| `compound_question` | 1 | 1.000 |
+| `outcome_conflict` | 20 | **0.150** |
+
+`outcome_conflict` wypada **poniżej base rate** (0.333), bo prawie każdy abstrakt raportuje wiele endpointów o różnej istotności — to normalne w badaniu, które ma jasną odpowiedź. Ten podtyp nie dyskryminuje i nie należy do kategorii 1, wbrew pierwotnej taksonomii z §2.
+
+**Kompozycja z binarną odpowiedzią BioLinkBERT (baseline 0.656):**
+
+| działamy na podtypach | accuracy | delta |
+|---|---|---|
+| wszystkie trzy | 0.556 | −0.100 |
+| **`subgroup` + `compound_question`** | **0.689** | **+0.033** |
+| tylko `outcome_conflict` | 0.522 | −0.133 |
+
+Wdrożone: `ACTIONABLE_SPLIT_KINDS = {subgroup, compound_question}`. `outcome_conflict` jest nadal wykrywany i zapisywany do analizy, ale nie nadpisuje etykiety.
+
+**To pierwszy wynik w całej serii, który bije sam klasyfikator** (0.689 vs 0.656). Predykcja z tabeli progów w §3 (precision 0.6 / recall 0.5 → ok. 0.698) zgadza się z pomiarem (0.689), więc model kompromisu precision/recall jest poprawny.
+
+**Uwaga o `confidence`:** model zwrócił `1.0` na **wszystkich** 46 strzałach — pole nie niesie sygnału, a knob `min_confidence` jest w praktyce martwy. Ta sama patologia co przy `uncertainty_advocate`. Nie opierać na nim progowania bez uprzedniego sprawdzenia, czy dany model w ogóle różnicuje.
+
+**Zastrzeżenie statystyczne:** +0.033 to 3 case'y na 90. Przy tej wielkości próby to jest w granicach szumu (95% CI ≈ ±0.10) — wynik wskazuje kierunek, ale **nie jest jeszcze potwierdzony**. Wymaga replikacji na pełnym PQA-L przed jakimkolwiek twierdzeniem o przewadze nad BioLinkBERT.
+
 **Kolejność prac wynikająca z taksonomii:**
 
 1. **Zacząć od kategorii 1** — połowa twardych case'ów i najbardziej mechaniczny sygnał. Detektor pyta: *czy abstrakt raportuje wyniki dla wielu podgrup/outcome'ów o różnym kierunku lub istotności, przy jednowartościowo postawionym pytaniu?* Samo to, przy precision ~0.6, przekracza próg opłacalności.
