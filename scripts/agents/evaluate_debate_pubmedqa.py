@@ -240,21 +240,21 @@ def main() -> None:
         if args.maybe_detector == "on":
             from app.core.config import get_settings as _gs
 
+            _settings = _gs()
+            # There is no --model flag; the agent model comes from OLLAMA_MODEL.
+            detector_model = args.maybe_detector_model or _settings.default_model
             # _cached_backend lives in the debate branch; build directly here.
             detector_backend = _build_backend(
                 "ollama",
                 fast=False,
                 num_predict=600,
-                model=args.maybe_detector_model or args.model,
+                model=detector_model,
                 base_url=parse_ollama_base_urls(
-                    args.ollama_base_urls, default=_gs().ollama_base_url
+                    args.ollama_base_urls, default=_settings.ollama_base_url
                 )[0],
                 quiet=False,
             )
-            print(
-                "Answer-split detector enabled: "
-                f"{args.maybe_detector_model or args.model}"
-            )
+            print(f"Answer-split detector enabled: {detector_model}")
             by_id = {c["id"]: c for c in cases}
 
             async def _detect_all() -> list[DebateCaseResult]:
@@ -404,13 +404,15 @@ def main() -> None:
             )
         maybe_detector_backend = None
         if args.maybe_detector == "on":
+            # There is no --model flag; agents take settings.default_model (OLLAMA_MODEL).
+            detector_model = args.maybe_detector_model or settings.default_model
             maybe_detector_backend = _cached_backend(
                 base_url=ollama_urls[0],
-                model=args.maybe_detector_model or args.model,
+                model=detector_model,
                 num_predict=600,
                 quiet=False,
             )
-            print(f"Answer-split detector enabled: {args.maybe_detector_model or args.model}")
+            print(f"Answer-split detector enabled: {detector_model}")
 
         results = asyncio.run(
             _evaluate_debate(
