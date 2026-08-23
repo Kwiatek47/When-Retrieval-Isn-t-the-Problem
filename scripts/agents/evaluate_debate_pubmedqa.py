@@ -166,6 +166,7 @@ def main() -> None:
         or args.hint == "biolinkbert"
         or args.aggregate_with_biolinkbert
         or args.aggregate_mode == "llm_director"
+        or args.record_biolinkbert
     )
     if need_classifier:
         hint_provider = build_biolinkbert_hint_from_settings()
@@ -917,6 +918,15 @@ def _parse_args() -> argparse.Namespace:
         "--aggregate-with-biolinkbert",
         action="store_true",
         help="Include BioLinkBERT in the final aggregation",
+    )
+    parser.add_argument(
+        "--record-biolinkbert",
+        action="store_true",
+        help=(
+            "Run the classifier for reference metrics only (biolinkbert_accuracy) "
+            "without letting it touch prompts or aggregation. Use in the clean-debate "
+            "arm so it can be compared against the classifier on the same cases."
+        ),
     )
     parser.add_argument(
         "--aggregate-mode",
