@@ -69,6 +69,11 @@ from app.agents.aggregation import (
     majority_vote,
     panel_conflict_kind,
 )
+from app.agents.maybe_detector import (
+    AnswerSplitVerdict,
+    apply_split_detector,
+    detect_answer_split,
+)
 from app.agents.backends import (
     BioLinkBERTHintProvider,
     EvidenceHint,
@@ -127,6 +132,11 @@ class DebateCaseResult:
     audit_detail: dict[str, Any] = field(default_factory=dict)
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
+    # Answer-split detector composed on top of whatever produced predicted_label.
+    base_label_before_detector: str | None = None
+    maybe_detector_fired: bool = False
+    maybe_detector_split_kind: str | None = None
+    maybe_detector_changed_label: bool = False
     # Objective panel telemetry (independent of what the Director claims).
     panel_vote_label: str | None = None
     panel_conflict_kind: str | None = None
@@ -227,8 +237,49 @@ def main() -> None:
             prior_results=prior_results,
             checkpoint_path=checkpoint_path if args.resume else None,
         )
+        if args.maybe_detector == "on":
+            from app.core.config import get_settings as _gs
+
+            # _cached_backend lives in the debate branch; build directly here.
+            detector_backend = _build_backend(
+                "ollama",
+                fast=False,
+                num_predict=600,
+                model=args.maybe_detector_model or args.model,
+                base_url=parse_ollama_base_urls(
+                    args.ollama_base_urls, default=_gs().ollama_base_url
+                )[0],
+                quiet=False,
+            )
+            print(
+                "Answer-split detector enabled: "
+                f"{args.maybe_detector_model or args.model}"
+            )
+            by_id = {c["id"]: c for c in cases}
+
+            async def _detect_all() -> list[DebateCaseResult]:
+                # Bounded: an unbounded gather would fire one request per case at
+                # Ollama simultaneously.
+                semaphore = asyncio.Semaphore(max(1, int(args.case_concurrency)))
+
+                async def _one(r: DebateCaseResult) -> DebateCaseResult:
+                    async with semaphore:
+                        return await _apply_maybe_detector(
+                            r,
+                            case=by_id[r.id],
+                            corpus=corpus,
+                            backend=detector_backend,
+                        )
+
+                return list(await asyncio.gather(*[_one(r) for r in results]))
+
+            results = asyncio.run(_detect_all())
         rounds = 0
-        aggregation = "biolinkbert_only"
+        aggregation = (
+            "biolinkbert_only+split_detector"
+            if args.maybe_detector == "on"
+            else "biolinkbert_only"
+        )
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
         exhausted_without_consensus_rate = 0.0
@@ -351,6 +402,16 @@ def main() -> None:
                 f"Adaptive rounds enabled: min={args.min_rounds} "
                 f"max={args.max_rounds} entropy_threshold={args.conflict_entropy_threshold}"
             )
+        maybe_detector_backend = None
+        if args.maybe_detector == "on":
+            maybe_detector_backend = _cached_backend(
+                base_url=ollama_urls[0],
+                model=args.maybe_detector_model or args.model,
+                num_predict=600,
+                quiet=False,
+            )
+            print(f"Answer-split detector enabled: {args.maybe_detector_model or args.model}")
+
         results = asyncio.run(
             _evaluate_debate(
                 cases,
@@ -370,6 +431,7 @@ def main() -> None:
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
                 audit_backend=audit_backend,
+                maybe_detector_backend=maybe_detector_backend,
             )
         )
         rounds = args.rounds
@@ -679,6 +741,7 @@ async def _evaluate_debate(
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
     audit_backend: Any = None,
+    maybe_detector_backend: Any = None,
 ) -> list[DebateCaseResult]:
     case_concurrency = max(1, int(case_concurrency))
     checkpoint_lock = asyncio.Lock()
@@ -887,6 +950,9 @@ async def _evaluate_debate(
             safety_red_flag_reason=debate.safety_red_flag_reason,
             exhausted_without_consensus=bool(debate.exhausted_without_consensus),
         )
+        result = await _apply_maybe_detector(
+            result, case=case, corpus=corpus, backend=maybe_detector_backend
+        )
         if checkpoint_path is not None:
             async with checkpoint_lock:
                 _append_checkpoint(checkpoint_path, result)
@@ -1026,6 +1092,20 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N cases")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
+    parser.add_argument(
+        "--maybe-detector",
+        choices=["on", "off"],
+        default="off",
+        help=(
+            "Compose the answer-split detector over the final label "
+            "(turns yes/no into maybe on subgroup / compound-question splits)."
+        ),
+    )
+    parser.add_argument(
+        "--maybe-detector-model",
+        default=None,
+        help="Model for the split detector (default: the agent model).",
+    )
     parser.add_argument("--label", type=str, default=None)
     parser.add_argument(
         "--fast",
@@ -1320,6 +1400,40 @@ def _build_patient_case(case: dict[str, Any], corpus: dict[str, dict[str, Any]])
         f"RESEARCH QUESTION:\n{case['question']}\n\n"
         "EVIDENCE:\n" + "\n\n".join(evidence_blocks)
     )
+
+
+async def _apply_maybe_detector(
+    result: DebateCaseResult,
+    *,
+    case: dict[str, Any],
+    corpus: dict[str, Any],
+    backend: Any,
+) -> DebateCaseResult:
+    """Compose the answer-split detector on top of any base label.
+
+    Runs after aggregation so it layers over BioLinkBERT, majority vote or the
+    Director alike. It can only turn yes/no into maybe (see maybe_detector).
+    """
+    if backend is None or result.predicted_label not in {"yes", "no"}:
+        return result
+    docs = _case_documents(case, corpus)
+    abstract = "\n\n".join(
+        f"{d.title}\n{d.content}".strip() for d in docs
+    ).split("Abstract context:", 1)[-1].strip()
+    verdict: AnswerSplitVerdict = await detect_answer_split(
+        backend, question=case["question"], abstract=abstract
+    )
+    base = result.predicted_label
+    label, overridden = apply_split_detector(base, verdict)
+    result.base_label_before_detector = base
+    result.maybe_detector_fired = verdict.is_usable
+    result.maybe_detector_split_kind = verdict.split_kind
+    result.maybe_detector_changed_label = overridden
+    if overridden:
+        result.predicted_label = label
+        result.label_pass = label == result.expected_label
+        result.aggregation_rule = f"{result.aggregation_rule}+split_detector"
+    return result
 
 
 def _summarize(

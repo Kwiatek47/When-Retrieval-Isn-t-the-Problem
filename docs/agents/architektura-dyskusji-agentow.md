@@ -357,6 +357,51 @@ Detektor `maybe` opłaca się dopiero od **precision ≈ 0.55**; przy 0.6 precis
 
 ---
 
+## 8c. Warstwa detektora splitów (`--maybe-detector`)
+
+Detektor odpowiedzi rozszczepionych ([`app/agents/maybe_detector.py`](../../app/agents/maybe_detector.py)) jest **warstwą kompozycyjną nad dowolną bazą**, nie kolejną personą. Włącza się flagą `--maybe-detector on` i działa tak samo w ścieżce `--backend biolinkbert` jak i w pełnej debacie: nakłada się na finalną etykietę i może wyłącznie zamienić `yes`/`no` na `maybe`.
+
+Zmierzone na balanced90 (kompozycja policzona na tych samych 90 case'ach):
+
+| baza | sama | + detektor | koszt/case |
+|---|---|---|---|
+| **BioLinkBERT** | 0.656 | **0.689** | **~7 s** |
+| debata majority + hint (v4) | 0.656 | **0.689** | ~188 s |
+| debata director + hint (v3) | 0.600 | 0.622 | ~198 s |
+| debata majority bez hintu (v6) | 0.567 | 0.633 | ~124 s |
+| debata director + hint (v1) | 0.589 | 0.578 | ~138 s |
+
+**Wniosek architektoniczny:** `BioLinkBERT + detektor` osiąga ten sam wynik co `debata + BioLinkBERT + detektor` przy **26× niższym koszcie**. Etap debaty nie wnosi mierzalnej wartości do finalnej etykiety na tym zbiorze.
+
+Debata pozostaje w repo i jest w pełni wspierana — to przedmiot badania, a detektor działa jako warstwa również nad nią. Ale **domyślną rekomendacją produkcyjną jest ścieżka bez debaty**:
+
+```bash
+python scripts/agents/evaluate_debate_pubmedqa.py \
+  --backend biolinkbert --maybe-detector on --maybe-detector-model qwen2.5:14b \
+  --label bert_plus_split_detector
+```
+
+**Potwierdzenie end-to-end** (`bert_plus_split_detector_balanced90_v1`, pełne 90 case'ów): accuracy **0.689** wobec 0.656. Detektor strzelił 42×, zmienił etykietę 23× (13 trafnych), podtypy nadpisań: 22 `subgroup`, 1 `compound_question`.
+
+Rozkład zysku pokazuje, skąd on się bierze:
+
+| klasa | BioLinkBERT sam | + detektor |
+|---|---|---|
+| **maybe** (30) | 0.133 (4/30) | **0.567 (17/30)** |
+| yes (30) | 0.900 (27/30) | 0.667 (20/30) |
+| no (30) | 0.933 (28/30) | 0.833 (25/30) |
+| **razem** | **59/90** | **62/90** |
+
+Detektor podnosi `maybe` z 4 na 17 trafień, oddając 13 przypadków na klasach binarnych — netto +3. To pierwszy raz w całej serii, gdy klasa `maybe` ruszyła powyżej ~0.17. Jednocześnie widać cenę: klasa `yes` spada z 0.900 na 0.667, więc detektor kupuje `maybe` kosztem binarnych. Przy tym bilansie **poprawa precision detektora jest ważniejsza niż jego recall** — każdy fałszywy alarm kosztuje case, który BioLinkBERT miał dobrze.
+
+Telemetria per case: `base_label_before_detector`, `maybe_detector_fired`, `maybe_detector_split_kind`, `maybe_detector_changed_label`.
+
+Uwaga: `mean_latency_ms` w tym raporcie mierzy tylko etap klasyfikacji — detektor działa jako post-pass i nie wchodzi do latencji per case. Rzeczywisty koszt detektora to ~7 s/case (z `maybe_detector_14b_v1`).
+
+**Zastrzeżenie:** przewaga +0.033 to 3 case'y na 90, w granicach szumu (95% CI ≈ ±0.10). Kierunek jest spójny we wszystkich pięciu kompozycjach, ale wymaga replikacji na pełnym PQA-L. Szczegóły i progi w [maybe-detector-spec.md](maybe-detector-spec.md).
+
+---
+
 ## 9. Konfiguracja (istotne knoby)
 
 ### Orchestrator
