@@ -12,11 +12,13 @@ from app.agents.sld.ledger import (
     FindingsAuditorContribution,
     Gap,
     GapAuditorContribution,
+    NeutralContribution,
     QuestionFramerContribution,
 )
 from app.agents.sld.supervisor import (
     aggregate_director_verdicts,
     label_agreement_fraction,
+    merge_neutral_contributions,
     merge_verified_contributions,
 )
 
@@ -179,6 +181,60 @@ class AggregateDirectorVerdictsTests(unittest.TestCase):
     def test_raises_on_empty_input(self) -> None:
         with self.assertRaises(ValueError):
             aggregate_director_verdicts([])
+
+
+class MergeNeutralContributionsTests(unittest.TestCase):
+    def _neutral(self, agent_id: str, **overrides) -> NeutralContribution:
+        base = dict(
+            agent_id=agent_id,
+            question_type="utility",
+            direction="none",
+            conclusion_direction="none",
+            conclusion_strength="speculative",
+        )
+        base.update(overrides)
+        return NeutralContribution(**base)
+
+    def test_categorical_fields_use_majority_vote(self) -> None:
+        contributions = [
+            self._neutral("neutral_1", direction="positive"),
+            self._neutral("neutral_2", direction="positive"),
+            self._neutral("neutral_3", direction="negative"),
+        ]
+        ledger = merge_neutral_contributions(contributions)
+        self.assertEqual(ledger.direction, "positive")
+
+    def test_categorical_tie_falls_back_to_conservative(self) -> None:
+        contributions = [
+            self._neutral("neutral_1", direction="positive"),
+            self._neutral("neutral_2", direction="negative"),
+        ]
+        ledger = merge_neutral_contributions(contributions)
+        self.assertEqual(ledger.direction, "none")
+
+    def test_claim_fields_use_first_available(self) -> None:
+        contributions = [
+            self._neutral("neutral_1", primary_endpoint=None),
+            self._neutral("neutral_2", primary_endpoint=Claim(text="x improved", sentence_ids=["S2"])),
+            self._neutral("neutral_3", primary_endpoint=Claim(text="y worsened", sentence_ids=["S3"])),
+        ]
+        ledger = merge_neutral_contributions(contributions)
+        self.assertEqual(ledger.primary_endpoint.text, "x improved")
+
+    def test_gaps_are_unioned_not_deduplicated(self) -> None:
+        gap = Gap(gap_type="underpowered", description="small n", sentence_ids=["S1"])
+        contributions = [
+            self._neutral("neutral_1", gaps=[gap]),
+            self._neutral("neutral_2", gaps=[gap]),
+            self._neutral("neutral_3", gaps=[]),
+        ]
+        ledger = merge_neutral_contributions(contributions)
+        self.assertEqual(len(ledger.gaps), 2)
+
+    def test_empty_input_yields_empty_ledger(self) -> None:
+        ledger = merge_neutral_contributions([])
+        self.assertIsNone(ledger.target_population)
+        self.assertEqual(ledger.gaps, [])
 
 
 class LabelAgreementFractionTests(unittest.TestCase):

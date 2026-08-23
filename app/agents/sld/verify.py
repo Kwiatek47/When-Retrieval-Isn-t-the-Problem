@@ -31,6 +31,7 @@ from app.agents.sld.ledger import (
     Gap,
     GapAuditorContribution,
     LedgerConflict,
+    NeutralContribution,
     QuestionFramerContribution,
     RoundTwoOpinion,
 )
@@ -45,6 +46,7 @@ T = TypeVar(
     FindingsAuditorContribution,
     GapAuditorContribution,
     ConclusionReconstructorContribution,
+    NeutralContribution,
     RoundTwoOpinion,
 )
 
@@ -215,6 +217,36 @@ def verify_contribution(
     elif isinstance(contribution, ConclusionReconstructorContribution):
         cleaned = contribution.model_copy(
             update={
+                "reconstructed_conclusion": _check(
+                    contribution.reconstructed_conclusion, "reconstructed_conclusion"
+                ),
+            }
+        )
+    elif isinstance(contribution, NeutralContribution):
+        verified_gaps = []
+        for index, gap in enumerate(contribution.gaps):
+            label = f"gap[{index}:{gap.gap_type}]"
+            checked.append(label)
+            verified, reason = _verify_gap(gap, sentences, coverage_threshold=coverage_threshold)
+            if reason is not None:
+                dropped.append(reason)
+            if verified is not None:
+                verified_gaps.append(verified)
+        cleaned = contribution.model_copy(
+            update={
+                "target_population": _check(contribution.target_population, "target_population"),
+                "target_exposure": _check(contribution.target_exposure, "target_exposure"),
+                "target_outcome": _check(contribution.target_outcome, "target_outcome"),
+                "primary_endpoint": _check(
+                    contribution.primary_endpoint, "primary_endpoint", restrict_to_results=True
+                ),
+                "significance": _check(
+                    contribution.significance, "significance", restrict_to_results=True
+                ),
+                "effect_magnitude": _check(
+                    contribution.effect_magnitude, "effect_magnitude", restrict_to_results=True
+                ),
+                "gaps": verified_gaps,
                 "reconstructed_conclusion": _check(
                     contribution.reconstructed_conclusion, "reconstructed_conclusion"
                 ),

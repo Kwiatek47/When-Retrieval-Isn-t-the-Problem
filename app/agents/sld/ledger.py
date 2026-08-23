@@ -93,12 +93,36 @@ class ConclusionReconstructorContribution(BaseModel):
     strength: ConclusionStrength
 
 
+class NeutralContribution(BaseModel):
+    """Ablation (c) (design doc §7c): the four specialized R1 tasks collapsed
+    into one omnibus schema, run by identical agents instead of specialized
+    personas — isolates whether role specialization itself adds value, at
+    the same total extraction surface (every field the four personas
+    together would have covered)."""
+
+    persona: Literal["neutral"] = "neutral"
+    agent_id: str
+    target_population: Claim | None = None
+    target_exposure: Claim | None = None
+    target_outcome: Claim | None = None
+    question_type: QuestionType
+    primary_endpoint: Claim | None = None
+    direction: Direction
+    significance: Claim | None = None
+    effect_magnitude: Claim | None = None
+    gaps: list[Gap] = Field(default_factory=list)
+    reconstructed_conclusion: Claim | None = None
+    conclusion_direction: Direction
+    conclusion_strength: ConclusionStrength
+
+
 PanelContribution = Annotated[
     Union[
         QuestionFramerContribution,
         FindingsAuditorContribution,
         GapAuditorContribution,
         ConclusionReconstructorContribution,
+        NeutralContribution,
     ],
     Field(discriminator="persona"),
 ]

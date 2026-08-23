@@ -276,6 +276,26 @@ class PipelineMockE2ETests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(l3_result.director_confidence)
         self.assertIsNone(l4_result.director_confidence)
 
+    async def test_neutral_personas_ablation_runs_cleanly_across_several_cases(self) -> None:
+        """Ablation (c): 4 identical agents instead of 4 specialized personas."""
+        corpus = _load_corpus(CORPUS)
+        cases = _load_sample_cases(5)
+        backend = MockSLDBackend(hallucinate=False)
+        pipeline = SLDPipeline(backend=backend, director_samples=1, neutral_personas=True)
+
+        for case in cases:
+            sld_case = SLDCase(
+                case_id=case["id"],
+                question=case["question"],
+                abstract_raw=_case_abstract_raw(case, corpus),
+                expected_label=case["expected_label"],
+            )
+            result = await pipeline.run(sld_case)
+            self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
+            self.assertEqual(len(result.panel_r1_raw), 4)
+            for contribution in result.panel_r1_raw:
+                self.assertEqual(contribution.persona, "neutral")
+
 
 if __name__ == "__main__":
     unittest.main()

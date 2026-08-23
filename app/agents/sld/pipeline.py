@@ -88,6 +88,10 @@ class SLDPipeline:
     # Ablation (d) (design doc §7): reveal the eventual yes/no/maybe task to
     # R1 personas instead of withholding it (P2's fix, reverted for measurement).
     label_blind: bool = True
+    # Ablation (c) (design doc §7): replace the four specialized R1 personas
+    # with len(personas) identical neutral agents, each doing the full
+    # extraction task — isolates whether role specialization itself helps.
+    neutral_personas: bool = False
 
     async def run(self, case: SLDCase) -> SLDResult:
         abstract = extract_abstract_text(case.abstract_raw)
@@ -97,18 +101,32 @@ class SLDPipeline:
         stats_profile = extract_stats_profile(sentence_list) if self.use_stats_profile else StatsProfile()
         heuristic_question_type = classify_question_type(case.question)
 
-        raw_r1 = await panel.run_round_one(
-            question=case.question,
-            sentences=sentences,
-            section_tags=section_tags,
-            stats_profile=stats_profile,
-            backend=self.backend,
-            personas=self.personas,
-            concurrency=self.concurrency,
-            temperature=self.r1_temperature,
-            num_predict=self.r1_num_predict,
-            label_blind=self.label_blind,
-        )
+        if self.neutral_personas:
+            raw_r1 = await panel.run_round_one_neutral(
+                question=case.question,
+                sentences=sentences,
+                section_tags=section_tags,
+                stats_profile=stats_profile,
+                backend=self.backend,
+                count=len(self.personas),
+                concurrency=self.concurrency,
+                temperature=self.r1_temperature,
+                num_predict=self.r1_num_predict,
+                label_blind=self.label_blind,
+            )
+        else:
+            raw_r1 = await panel.run_round_one(
+                question=case.question,
+                sentences=sentences,
+                section_tags=section_tags,
+                stats_profile=stats_profile,
+                backend=self.backend,
+                personas=self.personas,
+                concurrency=self.concurrency,
+                temperature=self.r1_temperature,
+                num_predict=self.r1_num_predict,
+                label_blind=self.label_blind,
+            )
         verified_r1: list[PanelContribution] = []
         r1_checked: list[str] = []
         r1_dropped: list[str] = []
@@ -136,6 +154,7 @@ class SLDPipeline:
             sentences=sentences,
             verified_r1=verified_r1,
             fallback_question_type=heuristic_question_type,
+            neutral=self.neutral_personas,
         )
 
         question_type = ledger.question_type or heuristic_question_type

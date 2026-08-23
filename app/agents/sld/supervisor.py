@@ -21,12 +21,14 @@ from dataclasses import dataclass, field
 
 from app.agents.backends import InferenceBackend
 from app.agents.sld.ledger import (
+    Claim,
     ConclusionReconstructorContribution,
     DirectorVerdict,
     EvidenceLedger,
     FindingsAuditorContribution,
     Gap,
     GapAuditorContribution,
+    NeutralContribution,
     PanelContribution,
     QuestionFramerContribution,
     RoundTwoOpinion,
@@ -80,6 +82,56 @@ def merge_verified_contributions(
         fields["question_type"] = fallback_question_type
 
     return EvidenceLedger(gaps=gaps, **fields)  # type: ignore[arg-type]
+
+
+def merge_neutral_contributions(neutral_r1: list[NeutralContribution]) -> EvidenceLedger:
+    """Ablation (c) (design doc §7c) 0-LLM merge.
+
+    Unlike ``merge_verified_contributions``, these copies are NOT
+    role-partitioned — every neutral agent independently attempted the full
+    extraction task, so this reconciles up to 4 redundant answers instead of
+    relocating 4 disjoint ones. Categorical fields (question_type, direction,
+    conclusion_direction, conclusion_strength) get a majority vote across
+    copies; free-text Claim fields use first-available-wins (comparing
+    extracted text for semantic equivalence isn't meaningful, so no
+    majority vote there). Gaps are the union across all copies, not
+    deduplicated — a gap independently raised by 3/4 agents simply appears
+    3 times, which is itself a legitimate confidence signal for a reader.
+    """
+    if not neutral_r1:
+        return EvidenceLedger()
+
+    def first_claim(field_name: str) -> Claim | None:
+        for contribution in neutral_r1:
+            value = getattr(contribution, field_name)
+            if value is not None:
+                return value
+        return None
+
+    def majority(field_name: str, *, conservative: str) -> str:
+        values = [getattr(contribution, field_name) for contribution in neutral_r1]
+        return _majority_categorical(values, conservative=conservative)
+
+    gaps: list[Gap] = []
+    for contribution in neutral_r1:
+        gaps.extend(contribution.gaps)
+
+    return EvidenceLedger(
+        target_population=first_claim("target_population"),
+        target_exposure=first_claim("target_exposure"),
+        target_outcome=first_claim("target_outcome"),
+        question_type=majority("question_type", conservative=neutral_r1[0].question_type),  # type: ignore[arg-type]
+        primary_endpoint=first_claim("primary_endpoint"),
+        direction=majority("direction", conservative="none"),  # type: ignore[arg-type]
+        significance=first_claim("significance"),
+        effect_magnitude=first_claim("effect_magnitude"),
+        reconstructed_conclusion=first_claim("reconstructed_conclusion"),
+        conclusion_direction=majority("conclusion_direction", conservative="none"),  # type: ignore[arg-type]
+        conclusion_strength=majority(  # type: ignore[arg-type]
+            "conclusion_strength", conservative=neutral_r1[0].conclusion_strength
+        ),
+        gaps=gaps,
+    )
 
 
 def _fallback_moderator_synthesis() -> ModeratorSynthesis:
@@ -220,9 +272,15 @@ class LedgerSupervisor:
         sentences: dict[str, str],
         verified_r1: list[PanelContribution],
         fallback_question_type: QuestionType | None = None,
+        neutral: bool = False,
     ) -> EvidenceLedger:
-        draft = merge_verified_contributions(
-            verified_r1, fallback_question_type=fallback_question_type
+        # Ablation (c): neutral R1 contributions are redundant copies, not
+        # role-partitioned fields, so they need the majority-vote merge
+        # (merge_neutral_contributions) instead of the field-relocation one.
+        draft = (
+            merge_neutral_contributions(verified_r1)  # type: ignore[arg-type]
+            if neutral
+            else merge_verified_contributions(verified_r1, fallback_question_type=fallback_question_type)
         )
         prompt = build_moderator_prompt(question, verified_r1)
         synthesis = await call_structured_llm(

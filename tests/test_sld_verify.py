@@ -13,6 +13,7 @@ from app.agents.sld.ledger import (
     Gap,
     GapAuditorContribution,
     LedgerConflict,
+    NeutralContribution,
     QuestionFramerContribution,
     RoundTwoOpinion,
 )
@@ -133,6 +134,58 @@ class TokenCoverageGateTests(unittest.TestCase):
         result = verify_contribution(contribution, SENTENCES, section_tags=SECTION_TAGS)
         self.assertNotIn("target_population", result.checked)
         self.assertEqual(grounding_score(result), 1.0)
+
+
+class NeutralContributionVerificationTests(unittest.TestCase):
+    def _neutral(self, **overrides) -> NeutralContribution:
+        base = dict(
+            agent_id="neutral_1",
+            question_type="utility",
+            direction="none",
+            conclusion_direction="none",
+            conclusion_strength="speculative",
+        )
+        base.update(overrides)
+        return NeutralContribution(**base)
+
+    def test_grounded_fields_all_survive(self) -> None:
+        contribution = self._neutral(
+            target_population=Claim(
+                text="twenty consecutive patients recruited", sentence_ids=["S3"]
+            ),
+            primary_endpoint=Claim(
+                text="the anal sphincter became paradoxically thicker during straining",
+                sentence_ids=["S4"],
+            ),
+            significance=Claim(text="p<0.01 was reached", sentence_ids=["S5"]),
+        )
+        result = verify_contribution(contribution, SENTENCES, section_tags=SECTION_TAGS)
+        self.assertEqual(dropped_claims(result), [])
+        self.assertIsNotNone(result.value.target_population)
+        self.assertIsNotNone(result.value.primary_endpoint)
+
+    def test_primary_endpoint_cannot_cite_outside_results_even_for_neutral(self) -> None:
+        contribution = self._neutral(
+            primary_endpoint=Claim(
+                text="prospective study demonstrate sphincter dysfunction", sentence_ids=["S2"]
+            )
+        )
+        result = verify_contribution(contribution, SENTENCES, section_tags=SECTION_TAGS)
+        self.assertIsNone(result.value.primary_endpoint)
+        self.assertTrue(any("out-of-section" in d for d in dropped_claims(result)))
+
+    def test_fabricated_gap_is_dropped(self) -> None:
+        contribution = self._neutral(
+            gaps=[
+                Gap(
+                    gap_type="underpowered",
+                    description="Patients reported dizziness and nausea after the procedure.",
+                    sentence_ids=["S3"],
+                )
+            ]
+        )
+        result = verify_contribution(contribution, SENTENCES, section_tags=SECTION_TAGS)
+        self.assertEqual(result.value.gaps, [])
 
 
 class GapAuditorVerificationTests(unittest.TestCase):

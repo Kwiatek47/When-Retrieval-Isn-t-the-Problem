@@ -169,6 +169,31 @@ class MockSLDBackend:
                     "strength": "qualified",
                 }
             )
+        if "identical analysts independently doing the full extraction task" in prompt:
+            return json.dumps(
+                {
+                    "persona": "neutral",
+                    "agent_id": "neutral",
+                    "target_population": {"text": claim_text, "sentence_ids": citation_ids},
+                    "target_exposure": {"text": claim_text, "sentence_ids": citation_ids},
+                    "target_outcome": {"text": claim_text, "sentence_ids": citation_ids},
+                    "question_type": "utility",
+                    "primary_endpoint": {"text": claim_text, "sentence_ids": citation_ids},
+                    "direction": "positive",
+                    "significance": {"text": claim_text, "sentence_ids": citation_ids},
+                    "effect_magnitude": {"text": claim_text, "sentence_ids": citation_ids},
+                    "gaps": [
+                        {
+                            "gap_type": "underpowered",
+                            "description": claim_text,
+                            "sentence_ids": citation_ids,
+                        }
+                    ],
+                    "reconstructed_conclusion": {"text": claim_text, "sentence_ids": citation_ids},
+                    "conclusion_direction": "positive",
+                    "conclusion_strength": "qualified",
+                }
+            )
         if "You are the Supervisor moderating a panel" in prompt:
             return json.dumps({"conflicts": [], "open_questions": [], "round_instructions": []})
         if "You are the same analyst from round 1" in prompt:
@@ -532,6 +557,7 @@ async def _run(args: argparse.Namespace) -> None:
                 verification_enabled=not args.no_verification_gate,
                 use_stats_profile=not args.no_stats_profile,
                 label_blind=not args.not_label_blind,
+                neutral_personas=args.neutral_personas,
                 **ARM_PIPELINE_KWARGS[args.arm],
             )
             for url in base_urls
@@ -662,6 +688,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Ablation (d): reveal the eventual yes/no/maybe task to R1 personas "
         "instead of withholding it (measures the cost of the label prior this normally avoids).",
+    )
+    parser.add_argument(
+        "--neutral-personas",
+        action="store_true",
+        help="Ablation (c): replace the four specialized R1 personas with identical "
+        "neutral agents doing the full extraction task, to isolate the value of role specialization.",
     )
     parser.add_argument(
         "--hallucinate",

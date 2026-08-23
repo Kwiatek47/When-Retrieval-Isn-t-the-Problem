@@ -23,6 +23,7 @@ from app.agents.sld.ledger import (
     FindingsAuditorContribution,
     GapAuditorContribution,
     LedgerConflict,
+    NeutralContribution,
     PanelContribution,
     QuestionFramerContribution,
     RoundTwoOpinion,
@@ -191,6 +192,35 @@ def render_contribution(contribution: PanelContribution, *, max_field_chars: int
             parts.append(
                 f"reconstructed_conclusion: {t(contribution.reconstructed_conclusion.text)} "
                 f"({', '.join(contribution.reconstructed_conclusion.sentence_ids)})"
+            )
+    elif persona == "neutral":
+        parts.append(f"question_type: {contribution.question_type}")
+        for field_name in ("target_population", "target_exposure", "target_outcome", "primary_endpoint"):
+            claim = getattr(contribution, field_name)
+            if claim:
+                parts.append(f"{field_name}: {t(claim.text)} ({', '.join(claim.sentence_ids)})")
+        parts.append(f"direction: {contribution.direction}")
+        if contribution.significance:
+            parts.append(
+                f"significance: {t(contribution.significance.text)} "
+                f"({', '.join(contribution.significance.sentence_ids)})"
+            )
+        if contribution.effect_magnitude:
+            parts.append(
+                f"effect_magnitude: {t(contribution.effect_magnitude.text)} "
+                f"({', '.join(contribution.effect_magnitude.sentence_ids)})"
+            )
+        if not contribution.gaps:
+            parts.append("gaps: (none found)")
+        for gap in contribution.gaps:
+            cites = f" ({', '.join(gap.sentence_ids)})" if gap.sentence_ids else ""
+            parts.append(f"gap[{gap.gap_type}]: {t(gap.description)}{cites}")
+        if contribution.reconstructed_conclusion:
+            parts.append(
+                f"reconstructed_conclusion: {t(contribution.reconstructed_conclusion.text)} "
+                f"({', '.join(contribution.reconstructed_conclusion.sentence_ids)}), "
+                f"conclusion_direction: {contribution.conclusion_direction}, "
+                f"strength: {contribution.conclusion_strength}"
             )
     return "\n".join(parts)
 
@@ -392,6 +422,62 @@ Produce:
 - strength: definitive (authors would state it plainly), qualified (authors would hedge it, e.g. "may", "suggests"), or speculative (authors would flag it as needing further study)
 """
     return _with_schema(prompt.strip(), ConclusionReconstructorContribution)
+
+
+# --- Ablation (c): neutral (non-specialized) R1 agent -------------------------
+# Same total extraction surface as the four specialized personas combined,
+# run by identical agents instead — isolates whether role specialization
+# itself adds value (design doc §7c).
+
+
+def build_neutral_prompt(
+    question: str,
+    sentences: dict[str, str],
+    section_tags: dict[str, str],
+    stats_profile: StatsProfile,
+    *,
+    label_blind: bool = True,
+) -> str:
+    prompt = f"""{_r1_preamble(label_blind)}
+
+ROLE: none — you are one of several identical analysts independently doing the full extraction \
+task below (there is no role specialization in this ablation run). Sentences are tagged with \
+their section in brackets, e.g. "S6 [RESULTS]: ...".
+
+RESEARCH QUESTION:
+{question}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences, section_tags=section_tags)}
+
+STATISTICAL MARKERS FOUND (for reference, already extracted by regex — cross-check, don't invent new ones):
+{render_stats_profile(stats_profile)}
+
+Produce:
+- target_population: who/what was studied (cite sentence_ids)
+- target_exposure: the intervention/exposure/test named in the question (cite sentence_ids)
+- target_outcome: the outcome the question is actually asking about (cite sentence_ids)
+- question_type: one of utility, association, causal, comparison, diagnostic_accuracy, prevalence
+- primary_endpoint: the main result relevant to the research question (cite sentence_ids — [RESULTS] sentences only)
+- direction: positive (supports a "yes" reading), negative (supports a "no" reading), or none (no clear direction)
+- significance: what the text says about statistical significance, if anything (cite sentence_ids — [RESULTS] sentences only)
+- effect_magnitude: the size of the effect, if stated (cite sentence_ids — [RESULTS] sentences only)
+- gaps: evidentiary gaps that would make the research question hard to answer confidently \
+(gap_type one of surrogate_outcome, subgroup_only, association_not_utility, no_comparator, \
+underpowered, contradictory_endpoints, weak_discrimination; empty list is a valid answer)
+- reconstructed_conclusion: this abstract has no CONCLUSIONS sentence (stripped from the source \
+data) — reconstruct, in your own words, the sentence the authors most likely would have written \
+(cite the sentence_ids it's based on)
+- conclusion_direction: positive, negative, or none
+- conclusion_strength: definitive (authors would state it plainly), qualified (authors would hedge \
+it, e.g. "may", "suggests"), or speculative (authors would flag it as needing further study)
+"""
+    # Legitimately more work per call than any single specialized R1 prompt
+    # (it does all four personas' extraction at once), so it needs more than
+    # the standard R1 budget — unlike Moderator/Director this call still runs
+    # x4 per round (once per neutral agent), so this is a real, not free,
+    # compute trade-off inherent to the ablation, not a workaround for bloat.
+    return _with_schema(prompt.strip(), NeutralContribution, max_tokens=AGGREGATE_MAX_PROMPT_TOKENS)
 
 
 # --- Supervisor / Moderator ---------------------------------------------------

@@ -21,6 +21,7 @@ from app.agents.sld.ledger import (
     EvidenceLedger,
     FindingsAuditorContribution,
     GapAuditorContribution,
+    NeutralContribution,
     PanelContribution,
     QuestionFramerContribution,
     RoundTwoOpinion,
@@ -31,6 +32,7 @@ from app.agents.sld.prompts import (
     build_conclusion_reconstructor_prompt,
     build_findings_auditor_prompt,
     build_gap_auditor_prompt,
+    build_neutral_prompt,
     build_question_framer_prompt,
     build_round_two_peer_prompt,
     build_round_two_prompt,
@@ -148,6 +150,16 @@ def _fallback_conclusion_reconstructor(agent_id: str) -> ConclusionReconstructor
     return ConclusionReconstructorContribution(agent_id=agent_id, direction="none", strength="speculative")
 
 
+def _fallback_neutral(agent_id: str) -> NeutralContribution:
+    return NeutralContribution(
+        agent_id=agent_id,
+        question_type="association",
+        direction="none",
+        conclusion_direction="none",
+        conclusion_strength="speculative",
+    )
+
+
 def _fallback_round_two(agent_id: str) -> RoundTwoOpinion:
     return RoundTwoOpinion(
         agent_id=agent_id,
@@ -232,6 +244,43 @@ async def run_round_one(
             raise ValueError(f"Unknown R1 persona: {persona!r}")
 
     return list(await asyncio.gather(*[_one(persona) for persona in personas]))
+
+
+async def run_round_one_neutral(
+    *,
+    question: str,
+    sentences: dict[str, str],
+    section_tags: dict[str, str],
+    stats_profile: StatsProfile,
+    backend: InferenceBackend,
+    count: int = 4,
+    concurrency: int = 4,
+    temperature: float = 0.3,
+    num_predict: int | None = None,
+    label_blind: bool = True,
+) -> list[NeutralContribution]:
+    """Ablation (c) (design doc §7c): ``count`` identical agents each attempt
+    the full extraction task (all four specialized personas' fields at
+    once), instead of one specialized persona each."""
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _one(agent_id: str) -> NeutralContribution:
+        async with semaphore:
+            prompt = build_neutral_prompt(
+                question, sentences, section_tags, stats_profile, label_blind=label_blind
+            )
+            return await call_structured_llm(
+                backend,
+                user_prompt=prompt,
+                model_cls=NeutralContribution,
+                fallback=_fallback_neutral(agent_id),
+                temperature=temperature,
+                num_predict=num_predict,
+                label=agent_id,
+            )
+
+    agent_ids = [f"neutral_{i + 1}" for i in range(max(1, count))]
+    return list(await asyncio.gather(*[_one(agent_id) for agent_id in agent_ids]))
 
 
 # --- Round 2 -------------------------------------------------------------------

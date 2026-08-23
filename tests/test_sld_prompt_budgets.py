@@ -140,5 +140,26 @@ class ModeratorPromptBudgetTests(unittest.TestCase):
             prompts.build_moderator_prompt("Is X valuable in Y?", contributions)
 
 
+class NeutralPromptBudgetTests(unittest.TestCase):
+    def test_full_abstract_stays_within_budget(self) -> None:
+        """build_neutral_prompt does all four personas' extraction in one
+        call (ablation c), so it legitimately needs AGGREGATE_MAX_PROMPT_TOKENS
+        rather than the standard per-persona budget — this locks that in."""
+        from app.agents.sld.segmentation import extract_stats_profile, tag_sections
+
+        with open(CORPUS_PATH, encoding="utf-8") as f:
+            corpus = json.load(f)
+        for doc in corpus[:SAMPLE_SIZE]:
+            abstract = extract_abstract_text(doc["content"])
+            sentence_list = split_sentences(abstract)
+            sentences = dict(sentence_list)
+            if len(sentences) < 3:
+                continue
+            tags = tag_sections(sentence_list)
+            profile = extract_stats_profile(sentence_list)
+            # Must not raise PromptBudgetExceeded.
+            prompts.build_neutral_prompt(doc["title"], sentences, tags, profile)
+
+
 if __name__ == "__main__":
     unittest.main()
