@@ -252,17 +252,33 @@ def render_round_two_opinion(opinion: RoundTwoOpinion, *, max_field_chars: int |
 
 
 # --- Round 1: label-blind panel -----------------------------------------------
-# None of these prompts mention "yes", "no", or "maybe" anywhere (P2 fix).
+# None of these prompts mention "yes", "no", or "maybe" anywhere by default (P2 fix).
 
-_R1_PREAMBLE = """You are one analyst on a panel reviewing a biomedical research abstract. \
+_R1_PREAMBLE_BLIND = """You are one analyst on a panel reviewing a biomedical research abstract. \
 Your job is narrow and factual: extract what the text actually says, citing sentence IDs \
 for every claim. You do NOT decide or hint at a yes/no/maybe answer to the research question \
 — that is a different agent's job later. Never cite a sentence ID that isn't listed below, \
 and never assert something the cited sentence doesn't actually say."""
 
+# Ablation (d) (design doc §7): removes the label-blind instruction and tells
+# the analyst the eventual task up front, to measure the cost of the label
+# prior it reintroduces (P2 in the design doc: this is exactly what produced
+# a zero-information uncertainty_advocate in the legacy debate).
+_R1_PREAMBLE_NOT_BLIND = """You are one analyst on a panel reviewing a biomedical research \
+abstract. The panel's ultimate job is to answer the research question yes, no, or maybe; keep \
+that in mind while you extract what the text actually says, citing sentence IDs for every \
+claim. Never cite a sentence ID that isn't listed below, and never assert something the cited \
+sentence doesn't actually say."""
 
-def build_question_framer_prompt(question: str, sentences: dict[str, str]) -> str:
-    prompt = f"""{_R1_PREAMBLE}
+
+def _r1_preamble(label_blind: bool) -> str:
+    return _R1_PREAMBLE_BLIND if label_blind else _R1_PREAMBLE_NOT_BLIND
+
+
+def build_question_framer_prompt(
+    question: str, sentences: dict[str, str], *, label_blind: bool = True
+) -> str:
+    prompt = f"""{_r1_preamble(label_blind)}
 
 ROLE: question_framer. Identify what the research question is actually asking, independent \
 of what the abstract found.
@@ -289,9 +305,11 @@ def build_findings_auditor_prompt(
     sentences: dict[str, str],
     section_tags: dict[str, str],
     stats_profile: StatsProfile,
+    *,
+    label_blind: bool = True,
 ) -> str:
     results_ids = {sid for sid, tag in section_tags.items() if tag == "RESULTS"}
-    prompt = f"""{_R1_PREAMBLE}
+    prompt = f"""{_r1_preamble(label_blind)}
 
 ROLE: findings_auditor. Report ONLY what the results actually showed. You may cite ONLY the \
 RESULTS sentences listed below — citing any other sentence will get your claim rejected.
@@ -315,9 +333,13 @@ Produce:
 
 
 def build_gap_auditor_prompt(
-    question: str, sentences: dict[str, str], stats_profile: StatsProfile
+    question: str,
+    sentences: dict[str, str],
+    stats_profile: StatsProfile,
+    *,
+    label_blind: bool = True,
 ) -> str:
-    prompt = f"""{_R1_PREAMBLE}
+    prompt = f"""{_r1_preamble(label_blind)}
 
 ROLE: gap_auditor. Identify evidentiary gaps that would make the research question hard to \
 answer confidently from this abstract alone. An empty list is a completely valid answer if you \
@@ -347,8 +369,10 @@ in a specific sentence — omit sentence_ids only if the gap is an *absence*, li
     return _with_schema(prompt.strip(), GapAuditorContribution)
 
 
-def build_conclusion_reconstructor_prompt(question: str, sentences: dict[str, str]) -> str:
-    prompt = f"""{_R1_PREAMBLE}
+def build_conclusion_reconstructor_prompt(
+    question: str, sentences: dict[str, str], *, label_blind: bool = True
+) -> str:
+    prompt = f"""{_r1_preamble(label_blind)}
 
 ROLE: conclusion_reconstructor. This abstract has no CONCLUSIONS sentence — it was stripped \
 from the source data. Reconstruct, in your own words, the single sentence the authors most \

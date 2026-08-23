@@ -171,14 +171,20 @@ async def run_round_one(
     concurrency: int = 4,
     temperature: float = 0.3,
     num_predict: int | None = None,
+    label_blind: bool = True,
 ) -> list[PanelContribution]:
-    """Every persona answers concurrently, label-blind, seeing no peer output."""
+    """Every persona answers concurrently, seeing no peer output.
+
+    ``label_blind=False`` is ablation (d) (design doc §7): reveals the
+    eventual yes/no/maybe task to R1 personas instead of withholding it,
+    to measure the cost of the label prior this normally avoids (P2).
+    """
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _one(persona: str) -> PanelContribution:
         async with semaphore:
             if persona == "question_framer":
-                prompt = build_question_framer_prompt(question, sentences)
+                prompt = build_question_framer_prompt(question, sentences, label_blind=label_blind)
                 return await call_structured_llm(
                     backend,
                     user_prompt=prompt,
@@ -189,7 +195,9 @@ async def run_round_one(
                     label=persona,
                 )
             if persona == "findings_auditor":
-                prompt = build_findings_auditor_prompt(question, sentences, section_tags, stats_profile)
+                prompt = build_findings_auditor_prompt(
+                    question, sentences, section_tags, stats_profile, label_blind=label_blind
+                )
                 return await call_structured_llm(
                     backend,
                     user_prompt=prompt,
@@ -200,7 +208,7 @@ async def run_round_one(
                     label=persona,
                 )
             if persona == "gap_auditor":
-                prompt = build_gap_auditor_prompt(question, sentences, stats_profile)
+                prompt = build_gap_auditor_prompt(question, sentences, stats_profile, label_blind=label_blind)
                 return await call_structured_llm(
                     backend,
                     user_prompt=prompt,
@@ -211,7 +219,7 @@ async def run_round_one(
                     label=persona,
                 )
             if persona == "conclusion_reconstructor":
-                prompt = build_conclusion_reconstructor_prompt(question, sentences)
+                prompt = build_conclusion_reconstructor_prompt(question, sentences, label_blind=label_blind)
                 return await call_structured_llm(
                     backend,
                     user_prompt=prompt,

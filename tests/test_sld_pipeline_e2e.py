@@ -212,6 +212,22 @@ class PipelineMockE2ETests(unittest.IsolatedAsyncioTestCase):
         result = await pipeline.run(sld_case)
         self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
 
+    async def test_not_label_blind_runs_cleanly(self) -> None:
+        """Ablation (d): revealing the task to R1 shouldn't crash the run."""
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        backend = MockSLDBackend(hallucinate=False)
+        pipeline = SLDPipeline(backend=backend, director_samples=1, label_blind=False)
+
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        result = await pipeline.run(sld_case)
+        self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
+
 
 if __name__ == "__main__":
     unittest.main()

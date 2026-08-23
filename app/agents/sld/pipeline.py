@@ -85,6 +85,9 @@ class SLDPipeline:
     # Ablation (b) (design doc §7): withhold the free, hallucination-proof
     # regex signal from R1 prompts, to measure its marginal value.
     use_stats_profile: bool = True
+    # Ablation (d) (design doc §7): reveal the eventual yes/no/maybe task to
+    # R1 personas instead of withholding it (P2's fix, reverted for measurement).
+    label_blind: bool = True
 
     async def run(self, case: SLDCase) -> SLDResult:
         abstract = extract_abstract_text(case.abstract_raw)
@@ -104,6 +107,7 @@ class SLDPipeline:
             concurrency=self.concurrency,
             temperature=self.r1_temperature,
             num_predict=self.r1_num_predict,
+            label_blind=self.label_blind,
         )
         verified_r1: list[PanelContribution] = []
         r1_checked: list[str] = []

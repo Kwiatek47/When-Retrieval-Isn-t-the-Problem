@@ -531,6 +531,7 @@ async def _run(args: argparse.Namespace) -> None:
                 personas=personas,
                 verification_enabled=not args.no_verification_gate,
                 use_stats_profile=not args.no_stats_profile,
+                label_blind=not args.not_label_blind,
                 **ARM_PIPELINE_KWARGS[args.arm],
             )
             for url in base_urls
@@ -655,6 +656,12 @@ def _parse_args() -> argparse.Namespace:
         "--no-stats-profile",
         action="store_true",
         help="Ablation (b): withhold the regex stats_profile block from R1 prompts.",
+    )
+    parser.add_argument(
+        "--not-label-blind",
+        action="store_true",
+        help="Ablation (d): reveal the eventual yes/no/maybe task to R1 personas "
+        "instead of withholding it (measures the cost of the label prior this normally avoids).",
     )
     parser.add_argument(
         "--hallucinate",
