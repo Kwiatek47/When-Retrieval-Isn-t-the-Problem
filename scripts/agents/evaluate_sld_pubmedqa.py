@@ -378,14 +378,13 @@ def _summarize(results: list[SLDResult]) -> dict[str, Any]:
     }
 
 
-def _build_ollama_backend(args: argparse.Namespace) -> Any:
+def _build_ollama_backend(args: argparse.Namespace, base_url: str) -> Any:
     from app.agents.backends import OllamaInferenceBackend
     from app.core.config import get_settings
     from app.providers.ollama import OllamaProvider
 
     settings = get_settings()
     model_name = args.model or settings.default_model
-    base_url = (args.ollama_base_url or settings.ollama_base_url).rstrip("/")
     provider = OllamaProvider(
         base_url=base_url,
         timeout=settings.ollama_timeout,
@@ -407,10 +406,23 @@ async def _run(args: argparse.Namespace) -> None:
         cases = cases[: max(args.limit, 0)]
     corpus = _load_corpus(args.corpus)
 
+    # A cluster with several independent Ollama hosts/GPUs: each case sticks
+    # to one URL (deterministic by case index) so retries/resume stay on the
+    # same host instead of round-robining mid-case.
     if args.backend == "mock":
-        backend = MockSLDBackend(hallucinate=args.hallucinate)
+        base_urls = ["mock"]
+        backend_by_url: dict[str, Any] = {"mock": MockSLDBackend(hallucinate=args.hallucinate)}
     else:
-        backend = _build_ollama_backend(args)
+        from app.agents.backends import parse_ollama_base_urls
+        from app.core.config import get_settings
+
+        base_urls = parse_ollama_base_urls(args.ollama_base_urls, default=get_settings().ollama_base_url)
+        backend_by_url = {url: _build_ollama_backend(args, url) for url in base_urls}
+
+    def _backend_for(index: int) -> Any:
+        from app.agents.backends import sticky_ollama_url
+
+        return backend_by_url[sticky_ollama_url(base_urls, index)]
 
     needs_biolinkbert = args.arm in ("L1", "L8")
     hint_provider = None
@@ -425,18 +437,26 @@ async def _run(args: argparse.Namespace) -> None:
                 f"({hint_provider.load_error})"
             )
 
-    pipeline: SLDPipeline | None = None
+    pipeline_by_url: dict[str, SLDPipeline] = {}
     if args.arm in ARM_PIPELINE_KWARGS:
-        pipeline = SLDPipeline(
-            backend=backend,
-            director_samples=args.director_samples,
-            concurrency=args.agent_concurrency,
-            r1_num_predict=args.num_predict,
-            r2_num_predict=args.num_predict,
-            moderator_num_predict=args.num_predict,
-            director_num_predict=args.num_predict,
-            **ARM_PIPELINE_KWARGS[args.arm],
-        )
+        pipeline_by_url = {
+            url: SLDPipeline(
+                backend=backend_by_url[url],
+                director_samples=args.director_samples,
+                concurrency=args.agent_concurrency,
+                r1_num_predict=args.num_predict,
+                r2_num_predict=args.num_predict,
+                moderator_num_predict=args.num_predict,
+                director_num_predict=args.num_predict,
+                **ARM_PIPELINE_KWARGS[args.arm],
+            )
+            for url in base_urls
+        }
+
+    def _pipeline_for(index: int) -> SLDPipeline:
+        from app.agents.backends import sticky_ollama_url
+
+        return pipeline_by_url[sticky_ollama_url(base_urls, index)]
 
     report_dir = args.report_dir
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -454,11 +474,11 @@ async def _run(args: argparse.Namespace) -> None:
         async with semaphore:
             started = time.perf_counter()
             if args.arm == "L0":
-                result = await _run_l0_case(case, corpus, backend)
+                result = await _run_l0_case(case, corpus, _backend_for(index))
             elif args.arm == "L1":
                 result = await _run_l1_case(case, corpus, hint_provider, classifier_lock)
             else:
-                assert pipeline is not None
+                pipeline = _pipeline_for(index)
                 biolinkbert_label = None
                 if needs_biolinkbert:
                     documents = _case_documents(case, corpus)
@@ -521,7 +541,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--case-concurrency", type=int, default=1)
     parser.add_argument("--agent-concurrency", type=int, default=4)
     parser.add_argument("--model", type=str, default=None, help="Ollama model (default from settings/.env)")
-    parser.add_argument("--ollama-base-url", type=str, default=None)
+    parser.add_argument(
+        "--ollama-base-urls",
+        type=str,
+        default=None,
+        help="Comma-separated Ollama base URLs for a multi-host/multi-GPU cluster "
+        "(e.g. http://10.0.0.1:11434,http://10.0.0.2:11434). Each case sticks to one "
+        "URL by case index (app.agents.backends.sticky_ollama_url), matching "
+        "evaluate_debate_pubmedqa.py's convention. Default: single URL from settings/.env.",
+    )
     parser.add_argument("--num-predict", type=int, default=500)
     parser.add_argument("--num-ctx", type=int, default=4096)
     parser.add_argument(
