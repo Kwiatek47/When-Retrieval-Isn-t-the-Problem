@@ -121,6 +121,8 @@ Wdrożone: `ACTIONABLE_SPLIT_KINDS = {subgroup, compound_question}`. `outcome_co
 
 **Uwaga o `confidence`:** model zwrócił `1.0` na **wszystkich** 46 strzałach — pole nie niesie sygnału, a knob `min_confidence` jest w praktyce martwy. Ta sama patologia co przy `uncertainty_advocate`. Nie opierać na nim progowania bez uprzedniego sprawdzenia, czy dany model w ogóle różnicuje.
 
+**REPLIKACJA OBALIŁA TEN WYNIK.** Na pełnym PQA-L (`eval.json`, 500 case'ów, 11% `maybe`) ta sama konfiguracja daje **0.656 wobec 0.726 baseline'u, czyli −0.070**. Precision nadpisań spada z 0.615 do **0.258**, bo częstość fałszywych alarmów na case'ach binarnych trzyma się stale na ~16%, a binarnych jest tam 445 zamiast 60. Szczegóły i przetestowane bramkowania w [architektura-dyskusji-agentow.md](architektura-dyskusji-agentow.md) §8d. Detektor **nie nadaje się do użycia produkcyjnego** w obecnej postaci; `--maybe-detector` zostaje domyślnie `off`.
+
 **Zastrzeżenie statystyczne:** +0.033 to 3 case'y na 90. Przy tej wielkości próby to jest w granicach szumu (95% CI ≈ ±0.10) — wynik wskazuje kierunek, ale **nie jest jeszcze potwierdzony**. Wymaga replikacji na pełnym PQA-L przed jakimkolwiek twierdzeniem o przewadze nad BioLinkBERT.
 
 **Kolejność prac wynikająca z taksonomii:**

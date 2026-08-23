@@ -373,13 +373,11 @@ Zmierzone na balanced90 (kompozycja policzona na tych samych 90 case'ach):
 
 **Wniosek architektoniczny:** `BioLinkBERT + detektor` osiąga ten sam wynik co `debata + BioLinkBERT + detektor` przy **26× niższym koszcie**. Etap debaty nie wnosi mierzalnej wartości do finalnej etykiety na tym zbiorze.
 
-Debata pozostaje w repo i jest w pełni wspierana — to przedmiot badania, a detektor działa jako warstwa również nad nią. Ale **domyślną rekomendacją produkcyjną jest ścieżka bez debaty**:
+Debata pozostaje w repo i jest w pełni wspierana — to przedmiot badania, a detektor działa jako warstwa również nad nią.
 
-```bash
-python scripts/agents/evaluate_debate_pubmedqa.py \
-  --backend biolinkbert --maybe-detector on --maybe-detector-model qwen2.5:14b \
-  --label bert_plus_split_detector
-```
+> ### ⚠️ Detektor NIE jest gotowy do użycia domyślnego — patrz §8d
+>
+> Powyższe +0.033 pochodzi ze zbioru **zbalansowanego** (33% `maybe`). Na rozkładzie naturalnym PubMedQA (11% `maybe`) ta sama konfiguracja **traci 7 punktów**. `--maybe-detector` domyślnie pozostaje `off` i tak ma zostać do czasu podniesienia precyzji.
 
 **Potwierdzenie end-to-end** (`bert_plus_split_detector_balanced90_v1`, pełne 90 case'ów): accuracy **0.689** wobec 0.656. Detektor strzelił 42×, zmienił etykietę 23× (13 trafnych), podtypy nadpisań: 22 `subgroup`, 1 `compound_question`.
 
@@ -399,6 +397,40 @@ Telemetria per case: `base_label_before_detector`, `maybe_detector_fired`, `mayb
 Uwaga: `mean_latency_ms` w tym raporcie mierzy tylko etap klasyfikacji — detektor działa jako post-pass i nie wchodzi do latencji per case. Rzeczywisty koszt detektora to ~7 s/case (z `maybe_detector_14b_v1`).
 
 **Zastrzeżenie:** przewaga +0.033 to 3 case'y na 90, w granicach szumu (95% CI ≈ ±0.10). Kierunek jest spójny we wszystkich pięciu kompozycjach, ale wymaga replikacji na pełnym PQA-L. Szczegóły i progi w [maybe-detector-spec.md](maybe-detector-spec.md).
+
+---
+
+## 8d. Replikacja na pełnym PQA-L — detektor nie przenosi się na rozkład naturalny
+
+`bert_plus_split_detector_pqal500_v1`, zbiór `eval.json` (500 case'ów: 276 yes / 169 no / **55 maybe**).
+
+| | balanced90 (33% maybe) | **PQA-L 500 (11% maybe)** |
+|---|---|---|
+| BioLinkBERT sam | 0.656 | **0.726** |
+| + detektor | **0.689** (+0.033) | **0.656 (−0.070)** |
+| precision nadpisań | 0.615 | **0.258** |
+| recall na `maybe` | 0.533 | 0.455 |
+| FP rate na binarnych | 0.167 | 0.162 |
+
+**Wynik z balanced90 był artefaktem zbalansowanego zbioru.** Mechanizm jest widoczny w ostatnim wierszu: częstość fałszywych alarmów na case'ach binarnych trzyma się stale na ~16% niezależnie od zbioru. Przy 60 case'ach binarnych to 10 pomyłek, przy 445 — już 72. Zdobycz rośnie znacznie wolniej (30 → 55 dostępnych `maybe`), więc precision spada z 0.615 do 0.258, głęboko poniżej progu opłacalności 0.55.
+
+Innymi słowy: próg opłacalności na **pojedynczy strzał** nie zależy od base rate, ale **osiągalna** precyzja tak — bo licznik skaluje się z liczbą `maybe`, a mianownik z liczbą wszystkich case'ów.
+
+**Żadne bramkowanie tego nie ratuje** (zmierzone na 500 case'ach):
+
+| bramka | delta |
+|---|---|
+| bez bramki | −35 |
+| pewność BERT < 0.95 | −1 |
+| pewność BERT < 0.90 | −3 |
+| tylko gdy BERT mówi `no` | −8 |
+| tylko `compound_question` | +1 (jeden case — szum) |
+
+Pewność BioLinkBERT nie separuje trafnych nadpisań od fałszywych: **0.918 vs 0.945**. To trzecie już potwierdzenie w tym projekcie, że ten klasyfikator jest nieskalibrowany i nie nadaje się na przełącznik.
+
+**Wniosek:** detektor w obecnej postaci **nie nadaje się do użycia produkcyjnego**. `--maybe-detector` zostaje domyślnie `off`. Aby był użyteczny, precision na rozkładzie naturalnym musi wzrosnąć z 0.258 do >0.5, czyli mniej więcej podwoić — a to znaczy **zacieśnić warunek odpalenia, nie zwiększać recall**. Kierunki do sprawdzenia: wymóg jawnie nazwanej podgrupy z liczbami po obu stronach, wymóg przeciwnego *kierunku* (nie tylko różnej istotności), odrzucanie splitów dotyczących endpointów pobocznych względem pytania.
+
+**Uwaga metodologiczna na przyszłość:** każdy wynik z `balanced90` dotyczący klasy `maybe` należy replikować na `eval.json` przed wyciągnięciem wniosku. Zbalansowany zbiór zawyża wartość wszystkiego, co zwiększa liczbę predykcji `maybe`, ponieważ trzykrotnie zawyża nagrodę i trzykrotnie zaniża karę względem rzeczywistego rozkładu.
 
 ---
 
