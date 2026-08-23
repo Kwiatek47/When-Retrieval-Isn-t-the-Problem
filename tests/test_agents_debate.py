@@ -1160,12 +1160,13 @@ class PromptAndParseTests(unittest.TestCase):
         filled = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case="CASE_TEXT_XYZ",
             full_debate_transcript="TRANSCRIPT_TEXT_XYZ",
+            biolinkbert_hint="HINT_TEXT_XYZ",
         )
         self.assertIn("CASE_TEXT_XYZ", filled)
         self.assertIn("TRANSCRIPT_TEXT_XYZ", filled)
+        self.assertIn("HINT_TEXT_XYZ", filled)
         self.assertIn("CRITICAL RULES FOR CHOOSING THE LABEL", filled)
-        self.assertIn("forced stubbornness", filled)
-        self.assertIn("Devil's Advocate", filled)
+        self.assertIn("not a structural guarantee", filled)
         self.assertIn("BOILERPLATE", filled)
         self.assertIn("DO NOT TALLY VOTES", filled)
         self.assertIn("base your final_label SOLELY on the logic", filled)

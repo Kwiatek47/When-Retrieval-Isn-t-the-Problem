@@ -246,6 +246,121 @@ def signal_cis(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
     return out
 
 
+def _mcnemar(correct_a: list[float], correct_b: list[float]) -> dict:
+    """Paired McNemar test: is arm A's accuracy different from arm B's on the same cases?
+
+    Only discordant pairs carry information about which arm is systematically
+    better (concordant pairs — both right or both wrong — are ignored). Uses
+    the exact binomial test when the discordant count is below 25 (recommended
+    at small n, and the balanced90 arms land well below that), else the
+    chi-square approximation with continuity correction.
+    """
+    assert len(correct_a) == len(correct_b)
+    b = sum(1 for a, bb in zip(correct_a, correct_b) if a == 1.0 and bb == 0.0)
+    c = sum(1 for a, bb in zip(correct_a, correct_b) if a == 0.0 and bb == 1.0)
+    n_discordant = b + c
+    if n_discordant == 0:
+        p_value = 1.0
+    elif n_discordant < 25:
+        from math import comb
+
+        k = min(b, c)
+        p_value = min(
+            1.0,
+            2 * sum(comb(n_discordant, i) * 0.5**n_discordant for i in range(0, k + 1)),
+        )
+    else:
+        from math import erfc, sqrt
+
+        chi2 = (abs(b - c) - 1) ** 2 / n_discordant
+        p_value = erfc(sqrt(chi2 / 2.0))
+    return {
+        "b_a_wins": b,
+        "c_b_wins": c,
+        "n_discordant": n_discordant,
+        "n_concordant": len(correct_a) - n_discordant,
+        "p_value": round(p_value, 5),
+        "exact": n_discordant < 25,
+    }
+
+
+def _paired_bootstrap_diff_ci(
+    correct_a: list[float], correct_b: list[float], rng: random.Random, n_boot: int
+) -> dict:
+    """Bootstrap 95% CI for the paired accuracy difference (A - B), same case order."""
+    n = len(correct_a)
+    point = sum(correct_a) / n - sum(correct_b) / n
+    diffs = []
+    for _ in range(n_boot):
+        idx = [rng.randrange(n) for _ in range(n)]
+        a = sum(correct_a[i] for i in idx) / n
+        b = sum(correct_b[i] for i in idx) / n
+        diffs.append(a - b)
+    return {
+        "diff": round(point, 4),
+        "ci_low": round(_percentile(diffs, 0.025), 4),
+        "ci_high": round(_percentile(diffs, 0.975), 4),
+    }
+
+
+def _load_case_field(path: Path, field: str) -> dict[str, float]:
+    """id -> 1.0/0.0 for a boolean per-case field (e.g. label_pass, biolinkbert_pass)."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    cases = data.get("cases") if isinstance(data, dict) else data
+    out: dict[str, float] = {}
+    for c in cases:
+        v = c.get(field)
+        if v is None:
+            continue
+        out[c["id"]] = 1.0 if v else 0.0
+    return out
+
+
+def compare_arms(
+    report_paths: list[Path], labels: list[str], rng: random.Random, n_boot: int
+) -> dict:
+    """Pairwise McNemar + bootstrap accuracy-gap CI across debate/SC report JSONs.
+
+    Aligns by case id (so arms must share the same dataset). Also compares each
+    arm's `label_pass` against its own embedded `biolinkbert_pass` and
+    `round1_pass` columns when present, so debate-vs-classifier and
+    debate-vs-N=1 come for free from a single report without a second file.
+    """
+    per_label_correct: dict[str, dict[str, float]] = {}
+    per_label_bert: dict[str, dict[str, float]] = {}
+    per_label_round1: dict[str, dict[str, float]] = {}
+    for path, label in zip(report_paths, labels):
+        per_label_correct[label] = _load_case_field(path, "label_pass")
+        bert = _load_case_field(path, "biolinkbert_pass")
+        if bert:
+            per_label_bert[label] = bert
+        r1 = _load_case_field(path, "round1_pass")
+        if r1:
+            per_label_round1[label] = r1
+
+    def _paired(a_map: dict[str, float], b_map: dict[str, float]) -> dict:
+        ids = sorted(set(a_map) & set(b_map))
+        a = [a_map[i] for i in ids]
+        b = [b_map[i] for i in ids]
+        out = _mcnemar(a, b)
+        out.update(_paired_bootstrap_diff_ci(a, b, rng, n_boot))
+        out["n_paired"] = len(ids)
+        return out
+
+    result: dict = {"pairwise_label_pass": {}, "vs_biolinkbert": {}, "vs_round1": {}}
+    for i in range(len(labels)):
+        for j in range(i + 1, len(labels)):
+            key = f"{labels[i]}_vs_{labels[j]}"
+            result["pairwise_label_pass"][key] = _paired(
+                per_label_correct[labels[i]], per_label_correct[labels[j]]
+            )
+    for label, bert in per_label_bert.items():
+        result["vs_biolinkbert"][label] = _paired(per_label_correct[label], bert)
+    for label, r1 in per_label_round1.items():
+        result["vs_round1"][label] = _paired(per_label_correct[label], r1)
+    return result
+
+
 def human_vs_model(rng: random.Random, n_boot: int) -> dict:
     """Human maybe-recall vs model maybe-recall (model recall = 0 on maybe).
 
@@ -301,9 +416,57 @@ def main() -> None:
     parser.add_argument("--route-seeds", type=int, nargs="*", default=[11, 23, 42, 47, 101, 202, 303])
     parser.add_argument("--route-split", type=float, default=0.5)
     parser.add_argument("--route-objective", type=str, default="macro_f1")
+    parser.add_argument(
+        "--reports",
+        nargs="*",
+        default=None,
+        help=(
+            "Debate/SC report JSONs to compare pairwise (McNemar + bootstrap "
+            "accuracy-gap CI on label_pass), plus each arm vs its own embedded "
+            "biolinkbert_pass/round1_pass columns. Short-circuits the rest of "
+            "this script (no CSV/PQA-L500 files needed)."
+        ),
+    )
+    parser.add_argument(
+        "--report-labels",
+        nargs="*",
+        default=None,
+        help="Labels for --reports, same order and count (e.g. arm_clean arm_sc)",
+    )
+    parser.add_argument(
+        "--reports-out", type=Path, default=ANALYSIS / "arm_comparison.json"
+    )
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
+
+    if args.reports:
+        if not args.report_labels or len(args.report_labels) != len(args.reports):
+            raise SystemExit("--report-labels must be given, same count as --reports")
+        cmp_result = compare_arms(
+            [Path(p) for p in args.reports], args.report_labels, rng, args.n_boot
+        )
+        args.reports_out.parent.mkdir(parents=True, exist_ok=True)
+        args.reports_out.write_text(json.dumps(cmp_result, indent=2), encoding="utf-8")
+
+        def _line(prefix: str, r: dict) -> str:
+            sig = "*" if r["p_value"] < 0.05 else ""
+            return (
+                f"{prefix:34s} diff={r['diff']:+.3f} [{r['ci_low']:+.3f},{r['ci_high']:+.3f}] "
+                f"b={r['b_a_wins']} c={r['c_b_wins']} n_disc={r['n_discordant']} "
+                f"p={r['p_value']} {sig}"
+            )
+
+        print("=== Pairwise arm comparison (McNemar + bootstrap diff CI) ===")
+        for key, r in cmp_result["pairwise_label_pass"].items():
+            print(_line(key, r))
+        for label, r in cmp_result["vs_biolinkbert"].items():
+            print(_line(f"{label} vs biolinkbert", r))
+        for label, r in cmp_result["vs_round1"].items():
+            print(_line(f"{label} vs round1/N=1", r))
+        print(f"\nWrote {args.reports_out}")
+        return
+
     rows = _load_rows()
 
     result = {

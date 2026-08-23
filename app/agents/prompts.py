@@ -77,12 +77,14 @@ Inputs:
 {patient_case}
 - full_debate_transcript (agent opinions across rounds):
 {full_debate_transcript}
+- biolinkbert_hint (an external classifier's prediction, if any; a signal to weigh critically, never ground truth on its own):
+{biolinkbert_hint}
 
 Task:
 Determine the ACTUAL conclusion made by the authors of the abstract.
 Do not grade study quality. Ask: what did the authors conclude about the research question?
 
-CRITICAL NOTE: The agents in the transcript are structurally forced by the system to stubbornly defend their Round 1 labels (playing Devil's Advocate). A prolonged, aggressive argument does NOT mean the medical abstract is inconclusive. You must cut through their forced stubbornness and independently judge the abstract's actual conclusion.
+CAUTION: Some agents may be instructed to keep defending their Round 1 label in later rounds (a role-play device to surface counter-arguments, not a structural guarantee — they remain free to change their label). A prolonged, aggressive argument does NOT mean the medical abstract is inconclusive. Judge the abstract's actual conclusion independently of how hard any agent argued for it.
 
 CRITICAL RULES FOR CHOOSING THE LABEL:
 1. DISTINGUISHING "yes" AND "no":
@@ -92,10 +94,10 @@ CRITICAL RULES FOR CHOOSING THE LABEL:
    - Do NOT choose "maybe" only because an agent cites boilerplate limitations (small sample, retrospective design). If the authors report a clear primary finding, prioritize the authors' explicit conclusion.
 3. TRUE UNCERTAINTY ("maybe") & COVERAGE:
    - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory.
-   - SPECULATIVE UTILITY: You MUST choose "maybe" if the question asks about a clinical/diagnostic role, and the authors only prove a correlation, concluding that the intervention "may", "could", or "has potential to" have a role in the future. Suggesting a hypothesis is not a definitive "yes".
-5. DO NOT TALLY VOTES: The agents are forced into an adversarial debate. A majority of agents voting "yes" or "no" means NOTHING. Do not count their votes. You must base your final_label SOLELY on the logic you write in your rationale.
+   - SPECULATIVE UTILITY: Choose "maybe" only when there is a STRUCTURAL gap between what was measured and what was asked — e.g. the authors used a surrogate/proxy endpoint instead of the outcome the question asks about, or the primary and secondary endpoints point in different directions. Hedging verbs alone ("may", "could", "has potential to") are NOT sufficient grounds for "maybe" on their own — check whether the measured endpoint actually differs from the question before applying this rule.
+4. DO NOT TALLY VOTES: Agents may be under role-play instructions to argue adversarially. A majority of agents voting "yes" or "no" means NOTHING. Do not count their votes. You must base your final_label SOLELY on the logic you write in your rationale.
 
-Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. 
+Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text.
 
 Output ONLY a valid JSON object (no markdown, no commentary):
 {{
@@ -129,7 +131,7 @@ You MUST champion the 'maybe' label if you detect:
 3. SPECULATIVE CLINICAL UTILITY: If the question asks whether X has a diagnostic/therapeutic role, and the authors only prove that X *correlates* with a disease, concluding that it "may/might" have a role. Proposing a future clinical application based on a correlation is a 'maybe', NOT a 'yes'.
 4. INSIGNIFICANT DATA: The main claim relies on statistically insignificant results (p > 0.05).
 
-CRITICAL CONFIDENCE RULE: When you choose 'maybe', you must set your `confidence_level` HIGH (e.g., 0.90 - 1.0). Do not use a low confidence score to reflect the paper's uncertainty; you must be highly confident IN your detection of that uncertainty.
+Set `confidence_level` to how strongly the abstract text supports your chosen label — including when that label is 'maybe'. A genuinely ambiguous abstract warrants a moderate confidence score, not an artificially high one.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
@@ -152,8 +154,8 @@ ROUND2_NO_VERBATIM_QUOTE_RULE = (
 ROUND2_JSON_SAFETY_RULE = (
     "Your output MUST be valid JSON. Use double-quoted strings in pros/cons. "
     "Do NOT use @mentions or possessive apostrophes (write [evidence_skeptic] argument, "
-    "never evidence_skeptic's). Limit pros and cons to exactly one short sentence each "
-    "(max 25 words). Escape any internal double quotes as \\\"."
+    "never evidence_skeptic's). Limit pros and cons to up to 3 short sentences each "
+    "(max 40 words per sentence). Escape any internal double quotes as \\\"."
 )
 
 PERSONA_INSTRUCTIONS: dict[str, str] = {
@@ -180,16 +182,29 @@ PERSONA_INSTRUCTIONS: dict[str, str] = {
     ),
 }
 
+# Round 1: no peer context exists yet, so the task must be answerable standalone.
+PUBMEDQA_DIFFERENTIAL_EXPANDER_R1 = (
+    "You ground the differential in what was literally measured. Read the RESULTS "
+    "section itself, not just the CONCLUSIONS paraphrase, and extract the primary "
+    "numeric/statistical finding. Then check whether the question asks exactly what "
+    "RESULTS measured, or whether there is a gap (surrogate endpoint, subgroup-only "
+    "result, mismatched outcome). State any such gap explicitly."
+)
+
+# Round 2+: peer context exists, so contrarian stress-testing becomes meaningful.
+PUBMEDQA_DIFFERENTIAL_EXPANDER_R2PLUS = (
+    "You stress-test the panel's reading. Could the data actually imply the opposite "
+    "conclusion? Argue for the counter-hypothesis to whatever your peers converged on, "
+    "grounded in the literal RESULTS wording rather than the CONCLUSIONS paraphrase."
+)
+
 PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     "generalist": (
         "You answer PubMedQA-style yes/no/maybe questions from abstracts. "
         "Choose 'yes' or 'no' based on the primary conclusion of the abstract."
     ),
     "evidence_skeptic": EVIDENCE_SKEPTIC_PROMPT,
-    "differential_expander": (
-        "You stress alternative readings. Could the data actually imply the opposite conclusion? "
-        "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
-    ),
+    "differential_expander": PUBMEDQA_DIFFERENTIAL_EXPANDER_R1,
     "uncertainty_advocate": (
         UNCERTAINTY_ADVOCATE_PROMPT +
         "\n\nCRITICAL INSTRUCTION FOR DEBATE ROUNDS: You are the sole auditor of uncertainty. "
@@ -228,6 +243,13 @@ Set confidence_level to how strongly the text supports your chosen label.
 PUBMEDQA_COMPACT_SCHEMA = """
 Return ONLY one MINIFIED single-line JSON object (no markdown, no indentation, no line breaks) with exactly:
 {"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["one short reason max 20 words"],"cons":["one short caveat max 20 words"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
+""".strip()
+
+# Round 2+: agents are asked to name and refute a specific peer, which needs more
+# room than round 1's single-sentence justification allows.
+PUBMEDQA_COMPACT_SCHEMA_R2PLUS = """
+Return ONLY one MINIFIED single-line JSON object (no markdown, no indentation, no line breaks) with exactly:
+{"top_1_diagnosis":"yes|no|maybe","evidence_conclusiveness":"conclusive|inconclusive","top_3_differential_diagnoses":["yes","no","maybe"],"pros":["up to 3 reasons, each max 40 words"],"cons":["up to 3 caveats, each max 40 words"],"required_further_tests":[],"confidence_level":0.0,"sources_used":["abstract"],"red_flags":[],"missing_information":""}
 """.strip()
 
 PeerContextMode = Literal["nl", "compact-json", "full-json"]
@@ -439,6 +461,11 @@ def build_messages(
     is_safety_officer = persona.strip().lower() == "safety_officer"
     peer_revision = bool(context) or bool(moderator_instruction)
     use_compact_schema = compact or mode == "pubmedqa"
+    resolved_round = (
+        round_number
+        if round_number is not None
+        else (max((entry.round for entry in context), default=1) if context else 1)
+    )
     stance_directive = (
         "Base your decision strictly on the provided evidence. "
         "If the evidence strongly supports a conclusion, choose 'yes' or 'no'. "
@@ -449,17 +476,27 @@ def build_messages(
             persona_text = PERSONA_INSTRUCTIONS["safety_officer"]
             schema_block = SAFETY_OPINION_SCHEMA
         else:
-            persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
-                persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
-            )
+            if persona == "differential_expander":
+                persona_text = (
+                    PUBMEDQA_DIFFERENTIAL_EXPANDER_R2PLUS
+                    if resolved_round > 1
+                    else PUBMEDQA_DIFFERENTIAL_EXPANDER_R1
+                )
+            else:
+                persona_text = PUBMEDQA_PERSONA_INSTRUCTIONS.get(
+                    persona, PUBMEDQA_PERSONA_INSTRUCTIONS["generalist"]
+                )
             persona_text = f"{persona_text}\n{stance_directive}"
             active_label_rule = (
                 PUBMEDQA_LABEL_RULE_ADVOCATE
                 if persona in PUBMEDQA_UNCERTAINTY_PERSONAS
                 else PUBMEDQA_LABEL_RULE
             )
+            compact_schema = (
+                PUBMEDQA_COMPACT_SCHEMA_R2PLUS if resolved_round > 1 else PUBMEDQA_COMPACT_SCHEMA
+            )
             schema_block = (
-                f"{PUBMEDQA_COMPACT_SCHEMA}\n\n{active_label_rule}"
+                f"{compact_schema}\n\n{active_label_rule}"
                 if use_compact_schema
                 else f"{CLINICAL_OPINION_SCHEMA}\n\n{active_label_rule}"
             )
@@ -471,12 +508,6 @@ def build_messages(
             persona_text = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["generalist"])
             persona_text = f"{persona_text}\n{stance_directive}"
             schema_block = CLINICAL_OPINION_SCHEMA
-
-    resolved_round = (
-        round_number
-        if round_number is not None
-        else (max((entry.round for entry in context), default=1) if context else 1)
-    )
     adversarial_directive = ""
     if frozen_label and resolved_round > 1:
         adversarial_directive = (
