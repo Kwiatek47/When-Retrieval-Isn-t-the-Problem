@@ -197,5 +197,9 @@ class SLDResult(BaseModel):
     dropped_claims_r2: list[str] = Field(default_factory=list)
 
     director_verdict: DirectorVerdict | None = None
+    # Fraction of Director self-consistency samples agreeing with the final
+    # label; None when director_samples<=1 (no self-consistency to measure).
+    # Free selective-prediction signal — design doc §10's "second honest result".
+    director_confidence: float | None = None
     predicted_label: Literal["yes", "no", "maybe"] | None = None
     rule_name: str | None = None

@@ -186,6 +186,20 @@ def aggregate_director_verdicts(verdicts: list[DirectorVerdict]) -> DirectorVerd
     )
 
 
+def label_agreement_fraction(verdicts: list[DirectorVerdict], aggregated_label: str) -> float | None:
+    """Fraction of self-consistency samples whose own ``label`` matches the
+    aggregated label — a free confidence signal for selective prediction
+    (design doc §10: "drugi uczciwy wynik", risk-coverage/AURC).
+
+    ``None`` when there's only one sample: with ``director_samples=1`` there
+    is no self-consistency to measure, and reporting a fake 1.0 "confidence"
+    would be misleading rather than informative.
+    """
+    if len(verdicts) <= 1:
+        return None
+    return sum(1 for v in verdicts if v.label == aggregated_label) / len(verdicts)
+
+
 @dataclass
 class LedgerSupervisor:
     backend: InferenceBackend
@@ -197,6 +211,7 @@ class LedgerSupervisor:
     # whether moderate() returns the cleaned or the raw candidate ledger.
     verification_enabled: bool = True
     last_ledger_verification: VerificationResult | None = field(default=None, init=False)
+    last_director_confidence: float | None = field(default=None, init=False)
 
     async def moderate(
         self,
@@ -255,4 +270,6 @@ class LedgerSupervisor:
         verdicts = list(
             await asyncio.gather(*[_one(i) for i in range(max(1, samples))])
         )
-        return aggregate_director_verdicts(verdicts)
+        aggregated = aggregate_director_verdicts(verdicts)
+        self.last_director_confidence = label_agreement_fraction(verdicts, aggregated.label)
+        return aggregated

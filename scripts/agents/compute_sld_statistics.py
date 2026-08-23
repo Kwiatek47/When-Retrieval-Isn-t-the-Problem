@@ -36,6 +36,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.agents.uncertainty import risk_coverage_curve  # noqa: E402
 from scripts.agents.compute_statistics import _mcnemar, _paired_bootstrap_diff_ci  # noqa: E402
 
 
@@ -86,6 +87,46 @@ def compare_arms(
     return pairwise
 
 
+def risk_coverage_report(report_path: Path) -> dict[str, Any] | None:
+    """Selective-prediction analysis using Director self-consistency agreement
+    as the uncertainty score (design doc §10: "drugi uczciwy wynik" — a
+    system with named abstention reasons should be a better selective
+    predictor than a system that just votes).
+
+    Reuses ``app.agents.uncertainty.risk_coverage_curve`` verbatim (same
+    function the legacy debate arm already reports AURC with) rather than a
+    parallel implementation. Treats ``1 - director_confidence`` as the
+    uncertainty score: agreement is confidence, so low agreement should route
+    toward ``maybe`` first as the threshold sweeps.
+
+    Only meaningful for arms that actually call the Director with
+    ``director_samples > 1`` (L5, L6, L8) — cases without a confidence signal
+    (L3, L4, or director_samples=1) are excluded, and ``None`` is returned if
+    too few remain to be informative.
+    """
+    data = json.loads(report_path.read_text(encoding="utf-8"))
+    cases = data.get("cases") if isinstance(data, dict) else data
+    usable = [
+        c
+        for c in cases
+        if c.get("director_confidence") is not None
+        and c.get("predicted_label")
+        and c.get("expected_label")
+    ]
+    if len(usable) < 10:
+        return None
+    scores = [1.0 - c["director_confidence"] for c in usable]
+    base_labels = [c["predicted_label"] for c in usable]
+    gold_labels = [c["expected_label"] for c in usable]
+    curve = risk_coverage_curve(scores, base_labels, gold_labels)
+    return {
+        "n_cases_with_signal": len(usable),
+        "n_cases_total": len(cases),
+        "aurc": curve["aurc"],
+        "points": curve["points"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--report", action="append", required=True, type=Path, dest="reports")
@@ -93,6 +134,14 @@ def main() -> None:
     parser.add_argument("--n-boot", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=47)
     parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "reports" / "sld" / "analysis" / "statistics.json")
+    parser.add_argument(
+        "--risk-coverage-report",
+        type=Path,
+        default=None,
+        help="An SLD report JSON (typically the main L5 arm) to run selective-prediction "
+        "risk-coverage/AURC analysis on, using Director self-consistency agreement as the "
+        "confidence signal. Only meaningful with --director-samples > 1.",
+    )
     args = parser.parse_args()
 
     if len(args.reports) != len(args.labels):
@@ -115,6 +164,22 @@ def main() -> None:
         },
         "pairwise_label_pass": pairwise,
     }
+
+    if args.risk_coverage_report is not None:
+        rc = risk_coverage_report(args.risk_coverage_report)
+        result["risk_coverage"] = rc
+        if rc is None:
+            print(
+                f"\nrisk-coverage: skipped, fewer than 10 cases in "
+                f"{args.risk_coverage_report} have a director_confidence signal "
+                "(need director_samples > 1)"
+            )
+        else:
+            print(
+                f"\n=== Risk-coverage (Director self-consistency as confidence) ===\n"
+                f"AURC={rc['aurc']:.4f} (lower is better) "
+                f"n_with_signal={rc['n_cases_with_signal']}/{rc['n_cases_total']}"
+            )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

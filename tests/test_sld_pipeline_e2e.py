@@ -228,6 +228,54 @@ class PipelineMockE2ETests(unittest.IsolatedAsyncioTestCase):
         result = await pipeline.run(sld_case)
         self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
 
+    async def test_director_confidence_is_none_with_a_single_sample(self) -> None:
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        backend = MockSLDBackend(hallucinate=False)
+        pipeline = SLDPipeline(backend=backend, director_samples=1)
+
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        result = await pipeline.run(sld_case)
+        self.assertIsNone(result.director_confidence)
+
+    async def test_director_confidence_is_populated_with_multiple_samples(self) -> None:
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        backend = MockSLDBackend(hallucinate=False)
+        pipeline = SLDPipeline(backend=backend, director_samples=3)
+
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        result = await pipeline.run(sld_case)
+        self.assertIsNotNone(result.director_confidence)
+        self.assertGreaterEqual(result.director_confidence, 0.0)
+        self.assertLessEqual(result.director_confidence, 1.0)
+
+    async def test_l3_and_l4_arms_leave_director_confidence_none(self) -> None:
+        """Neither arm calls the Director, so there's no self-consistency signal."""
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        backend = MockSLDBackend(hallucinate=False)
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        l3_result = await SLDPipeline(backend=backend, run_round_two=False).run(sld_case)
+        l4_result = await SLDPipeline(backend=backend, show_ledger_in_r2=False).run(sld_case)
+        self.assertIsNone(l3_result.director_confidence)
+        self.assertIsNone(l4_result.director_confidence)
+
 
 if __name__ == "__main__":
     unittest.main()

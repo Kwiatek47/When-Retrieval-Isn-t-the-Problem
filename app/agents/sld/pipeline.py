@@ -192,6 +192,7 @@ class SLDPipeline:
         # state for a Director to synthesize from — a plain majority vote is
         # the honest final step, not an LLM call dressed up as one.
         verdict: DirectorVerdict | None
+        director_confidence: float | None = None
         if not self.show_ledger_in_r2:
             label = majority_vote_label(verified_r2)
             rule_name = "majority_vote_no_ledger"
@@ -204,6 +205,7 @@ class SLDPipeline:
                 samples=self.director_samples,
                 temperature=self.director_temperature,
             )
+            director_confidence = supervisor.last_director_confidence
             if self.verdict_source == "llm":
                 label, rule_name = verdict.label, "director_llm_label"
             else:
@@ -228,6 +230,7 @@ class SLDPipeline:
             grounding_score_r2=grounding_r2,
             dropped_claims_r2=r2_dropped,
             director_verdict=verdict,
+            director_confidence=director_confidence,
             predicted_label=label,
             rule_name=rule_name,
         )

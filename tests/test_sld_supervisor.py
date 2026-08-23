@@ -14,7 +14,11 @@ from app.agents.sld.ledger import (
     GapAuditorContribution,
     QuestionFramerContribution,
 )
-from app.agents.sld.supervisor import aggregate_director_verdicts, merge_verified_contributions
+from app.agents.sld.supervisor import (
+    aggregate_director_verdicts,
+    label_agreement_fraction,
+    merge_verified_contributions,
+)
 
 
 class MergeVerifiedContributionsTests(unittest.TestCase):
@@ -175,6 +179,23 @@ class AggregateDirectorVerdictsTests(unittest.TestCase):
     def test_raises_on_empty_input(self) -> None:
         with self.assertRaises(ValueError):
             aggregate_director_verdicts([])
+
+
+class LabelAgreementFractionTests(unittest.TestCase):
+    def test_single_sample_has_no_signal(self) -> None:
+        self.assertIsNone(label_agreement_fraction([_verdict(label="yes")], "yes"))
+
+    def test_unanimous_agreement_is_one(self) -> None:
+        verdicts = [_verdict(label="yes") for _ in range(3)]
+        self.assertEqual(label_agreement_fraction(verdicts, "yes"), 1.0)
+
+    def test_partial_agreement_is_the_matching_fraction(self) -> None:
+        verdicts = [_verdict(label="yes"), _verdict(label="yes"), _verdict(label="maybe")]
+        self.assertAlmostEqual(label_agreement_fraction(verdicts, "yes"), 2 / 3)
+
+    def test_no_sample_matching_aggregated_label_is_zero(self) -> None:
+        verdicts = [_verdict(label="yes"), _verdict(label="no")]
+        self.assertEqual(label_agreement_fraction(verdicts, "maybe"), 0.0)
 
 
 if __name__ == "__main__":
