@@ -364,6 +364,23 @@ def _summarize(results: list[SLDResult]) -> dict[str, Any]:
     macro_f1, per_label_f1 = _macro_f1(results)
     rule_counts = Counter(r.rule_name or "none" for r in results)
     pred_counts = Counter(r.predicted_label or "none" for r in results)
+
+    # Two signals aimed squarely at the failure mode that sank the legacy
+    # debate arm (design doc, memory `pubmedqa-debata-jest-atrapa`): a panel
+    # that never actually disagrees, or a Moderator that never finds a real
+    # conflict, is a classifier wearing a debate costume. Both are 0 when a
+    # case never had a ledger/round 2 (e.g. L0/L1), so they're computed only
+    # over cases where the signal could exist.
+    with_ledger = [r for r in results if r.ledger is not None]
+    conflict_rate = (
+        sum(1 for r in with_ledger if r.ledger.conflicts) / len(with_ledger) if with_ledger else None
+    )
+    with_r2 = [r for r in results if r.panel_r2_verified]
+    r2_unanimous_rate = (
+        sum(1 for r in with_r2 if len({o.label for o in r.panel_r2_verified}) == 1) / len(with_r2)
+        if with_r2
+        else None
+    )
     return {
         "cases": len(results),
         "label_accuracy": correct / n,
@@ -373,9 +390,65 @@ def _summarize(results: list[SLDResult]) -> dict[str, Any]:
         "mean_grounding_score_r2": sum(r.grounding_score_r2 for r in results) / n,
         "total_dropped_claims_r1": sum(len(r.dropped_claims_r1) for r in results),
         "total_dropped_claims_r2": sum(len(r.dropped_claims_r2) for r in results),
+        "ledger_conflict_rate": conflict_rate,
+        "round2_unanimous_rate": r2_unanimous_rate,
         "predicted_label_counts": dict(pred_counts),
         "rule_name_counts": dict(rule_counts),
     }
+
+
+def _markdown_report(summary: dict[str, Any]) -> str:
+    lines = [
+        "# Supervised Ledger Debate — SLD v2 benchmark",
+        "",
+        f"- Arm: `{summary.get('arm')}`",
+        f"- Dataset: `{summary.get('dataset')}`",
+        f"- Cases: {summary['cases']}",
+        f"- Label accuracy: {summary['label_accuracy']:.3f}",
+        f"- Macro-F1: {summary['macro_f1']:.3f}",
+        f"- Mean grounding score (R1): {summary['mean_grounding_score_r1']:.3f}",
+        f"- Mean grounding score (R2): {summary['mean_grounding_score_r2']:.3f}",
+        f"- Dropped claims (R1 / R2): {summary['total_dropped_claims_r1']} / {summary['total_dropped_claims_r2']}",
+    ]
+    conflict_rate = summary.get("ledger_conflict_rate")
+    unanimous_rate = summary.get("round2_unanimous_rate")
+    lines.append(
+        f"- Ledger conflict rate: {conflict_rate:.3f}" if conflict_rate is not None else "- Ledger conflict rate: n/a (no ledger in this arm)"
+    )
+    lines.append(
+        f"- Round 2 unanimous rate: {unanimous_rate:.3f} "
+        "(high + low accuracy = likely rubber-stamping, see memory `pubmedqa-debata-jest-atrapa`)"
+        if unanimous_rate is not None
+        else "- Round 2 unanimous rate: n/a (no round 2 in this arm)"
+    )
+    lines += [
+        "",
+        "## Per-label F1",
+        "",
+        "| Label | F1 |",
+        "|---|---:|",
+    ]
+    for label, f1 in summary["per_label_f1"].items():
+        lines.append(f"| {label} | {f1:.3f} |")
+    lines += [
+        "",
+        "## Predicted label counts",
+        "",
+        "| Label | Count |",
+        "|---|---:|",
+    ]
+    for label, count in summary["predicted_label_counts"].items():
+        lines.append(f"| {label} | {count} |")
+    lines += [
+        "",
+        "## Rule name counts",
+        "",
+        "| Rule | Count |",
+        "|---|---:|",
+    ]
+    for rule, count in summary["rule_name_counts"].items():
+        lines.append(f"| {rule} | {count} |")
+    return "\n".join(lines) + "\n"
 
 
 def _build_ollama_backend(args: argparse.Namespace, base_url: str) -> Any:
@@ -437,6 +510,13 @@ async def _run(args: argparse.Namespace) -> None:
                 f"({hint_provider.load_error})"
             )
 
+    personas = panel.R1_PERSONAS
+    if args.panel_size == 3:
+        # gap_auditor dropped: its output feeds only `gaps`/round_instructions
+        # (supplementary signal), unlike the other three which each feed a
+        # field compose_label's rule table reads directly.
+        personas = tuple(p for p in panel.R1_PERSONAS if p != "gap_auditor")
+
     pipeline_by_url: dict[str, SLDPipeline] = {}
     if args.arm in ARM_PIPELINE_KWARGS:
         pipeline_by_url = {
@@ -448,6 +528,9 @@ async def _run(args: argparse.Namespace) -> None:
                 r2_num_predict=args.num_predict,
                 moderator_num_predict=args.num_predict,
                 director_num_predict=args.num_predict,
+                personas=personas,
+                verification_enabled=not args.no_verification_gate,
+                use_stats_profile=not args.no_stats_profile,
                 **ARM_PIPELINE_KWARGS[args.arm],
             )
             for url in base_urls
@@ -522,7 +605,10 @@ async def _run(args: argparse.Namespace) -> None:
         ),
         encoding="utf-8",
     )
+    md_path = report_dir / f"{args.label}.md"
+    md_path.write_text(_markdown_report(summary), encoding="utf-8")
     print(f"\nWrote {json_path}")
+    print(f"Wrote {md_path}")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
@@ -552,6 +638,24 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--num-predict", type=int, default=500)
     parser.add_argument("--num-ctx", type=int, default=4096)
+    parser.add_argument(
+        "--panel-size",
+        type=int,
+        choices=(3, 4),
+        default=4,
+        help="Ablation (f): 3 drops gap_auditor from both rounds (design doc §7)",
+    )
+    parser.add_argument(
+        "--no-verification-gate",
+        action="store_true",
+        help="Ablation (a): let unverified/hallucinated claims flow through to the ledger "
+        "and prompts. grounding_score/dropped_claims are still computed and reported either way.",
+    )
+    parser.add_argument(
+        "--no-stats-profile",
+        action="store_true",
+        help="Ablation (b): withhold the regex stats_profile block from R1 prompts.",
+    )
     parser.add_argument(
         "--hallucinate",
         action="store_true",

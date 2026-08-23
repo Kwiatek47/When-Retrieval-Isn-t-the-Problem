@@ -192,6 +192,10 @@ class LedgerSupervisor:
     temperature: float = 0.3
     num_predict: int | None = None
     coverage_threshold: float = 0.5
+    # Ablation (a) (design doc §7): verification always runs and
+    # last_ledger_verification always reflects it — this only controls
+    # whether moderate() returns the cleaned or the raw candidate ledger.
+    verification_enabled: bool = True
     last_ledger_verification: VerificationResult | None = field(default=None, init=False)
 
     async def moderate(
@@ -224,7 +228,7 @@ class LedgerSupervisor:
         )
         result = verify_ledger(candidate, sentences, coverage_threshold=self.coverage_threshold)
         self.last_ledger_verification = result
-        return result.value  # type: ignore[return-value]
+        return result.value if self.verification_enabled else candidate  # type: ignore[return-value]
 
     async def direct(
         self,

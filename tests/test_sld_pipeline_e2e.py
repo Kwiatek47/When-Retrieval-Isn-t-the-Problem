@@ -165,6 +165,53 @@ class PipelineMockE2ETests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result.rule_name, "majority_vote_no_ledger")
             self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
 
+    async def test_verification_disabled_lets_hallucinated_claims_through_but_still_measures_them(
+        self,
+    ) -> None:
+        """Ablation (a): grounding_score/dropped_claims stay populated either
+        way (the damage is always measured); the flag only controls whether
+        the raw or cleaned contribution is what actually reaches the ledger."""
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        hallucinating_backend = MockSLDBackend(hallucinate=True)
+
+        gated = SLDPipeline(backend=hallucinating_backend, director_samples=1, verification_enabled=True)
+        ungated = SLDPipeline(backend=hallucinating_backend, director_samples=1, verification_enabled=False)
+
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        gated_result = await gated.run(sld_case)
+        ungated_result = await ungated.run(sld_case)
+
+        # Both measure the same damage...
+        self.assertEqual(gated_result.grounding_score_r1, 0.0)
+        self.assertEqual(ungated_result.grounding_score_r1, 0.0)
+        self.assertEqual(len(gated_result.dropped_claims_r1), len(ungated_result.dropped_claims_r1))
+        # ...but only the gated run actually strips the fabricated claims.
+        self.assertIsNone(gated_result.ledger.primary_endpoint)
+        self.assertIsNotNone(ungated_result.ledger.primary_endpoint)
+
+    async def test_stats_profile_disabled_yields_an_empty_profile_in_the_prompt(self) -> None:
+        """Ablation (b): withholding stats_profile shouldn't crash the run —
+        findings_auditor/gap_auditor prompts just lose that reference block."""
+        corpus = _load_corpus(CORPUS)
+        case = _load_sample_cases(1)[0]
+        backend = MockSLDBackend(hallucinate=False)
+        pipeline = SLDPipeline(backend=backend, director_samples=1, use_stats_profile=False)
+
+        sld_case = SLDCase(
+            case_id=case["id"],
+            question=case["question"],
+            abstract_raw=_case_abstract_raw(case, corpus),
+            expected_label=case["expected_label"],
+        )
+        result = await pipeline.run(sld_case)
+        self.assertIn(result.predicted_label, {"yes", "no", "maybe"})
+
 
 if __name__ == "__main__":
     unittest.main()

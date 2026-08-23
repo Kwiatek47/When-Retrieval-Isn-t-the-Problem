@@ -23,6 +23,7 @@ from app.agents.sld.decision import (
 )
 from app.agents.sld.ledger import DirectorVerdict, PanelContribution, RoundTwoOpinion, SLDResult
 from app.agents.sld.segmentation import (
+    StatsProfile,
     classify_question_type,
     extract_abstract_text,
     extract_stats_profile,
@@ -74,12 +75,23 @@ class SLDPipeline:
     # a plain majority vote over round 2 labels (decision.majority_vote_label).
     show_ledger_in_r2: bool = True
 
+    # Ablation (a) (design doc §7): verification always runs and is always
+    # measured (grounding_score/dropped_claims stay populated either way) —
+    # this only controls whether the *cleaned* or the *raw, unchecked* result
+    # is what actually flows downstream into the ledger/prompts. Off = let
+    # hallucinated claims through, to measure how much damage the gate
+    # normally prevents.
+    verification_enabled: bool = True
+    # Ablation (b) (design doc §7): withhold the free, hallucination-proof
+    # regex signal from R1 prompts, to measure its marginal value.
+    use_stats_profile: bool = True
+
     async def run(self, case: SLDCase) -> SLDResult:
         abstract = extract_abstract_text(case.abstract_raw)
         sentence_list = split_sentences(abstract)
         sentences = dict(sentence_list)
         section_tags = tag_sections(sentence_list)
-        stats_profile = extract_stats_profile(sentence_list)
+        stats_profile = extract_stats_profile(sentence_list) if self.use_stats_profile else StatsProfile()
         heuristic_question_type = classify_question_type(case.question)
 
         raw_r1 = await panel.run_round_one(
@@ -103,7 +115,7 @@ class SLDPipeline:
                 section_tags=section_tags,
                 coverage_threshold=self.coverage_threshold,
             )
-            verified_r1.append(result.value)  # type: ignore[arg-type]
+            verified_r1.append(result.value if self.verification_enabled else contribution)  # type: ignore[arg-type]
             r1_checked.extend(result.checked)
             r1_dropped.extend(result.dropped)
         grounding_r1 = 1.0 - (len(r1_dropped) / len(r1_checked)) if r1_checked else 1.0
@@ -113,6 +125,7 @@ class SLDPipeline:
             temperature=self.moderator_temperature,
             num_predict=self.moderator_num_predict,
             coverage_threshold=self.coverage_threshold,
+            verification_enabled=self.verification_enabled,
         )
         ledger = await supervisor.moderate(
             question=case.question,
@@ -166,7 +179,7 @@ class SLDPipeline:
             result = verify_contribution(
                 opinion, sentences, coverage_threshold=self.coverage_threshold
             )
-            verified_r2.append(result.value)  # type: ignore[arg-type]
+            verified_r2.append(result.value if self.verification_enabled else opinion)  # type: ignore[arg-type]
             r2_checked.extend(result.checked)
             r2_dropped.extend(result.dropped)
         grounding_r2 = 1.0 - (len(r2_dropped) / len(r2_checked)) if r2_checked else 1.0
