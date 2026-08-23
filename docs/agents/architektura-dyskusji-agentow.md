@@ -349,6 +349,8 @@ Pięć runów na `balanced90` (90 case'ów: 60 yes/no, 30 maybe), agenci `qwen2.
 
 **5. Nic w systemie nie wykrywa `maybe`.** `uncertainty_advocate` odpowiadał `maybe` na **78 z 90** case'ów (87%) — precision 0.372 przy bazowym 0.333, czyli stała, nie detektor. Pozostali agenci są na poziomie losowania (najlepszy `evidence_skeptic`: precision 0.444 przy recall 0.133). Osiem prostych reguł „nadpisz BERT na `maybe`, gdy…" przetestowano — **wszystkie ujemne**, od −2 do −9 punktów.
 
+Run v6 (kontrolowany test przepisanej persony `uncertainty_advocate`) potwierdził to eksperymentalnie: fire rate spadł 0.867 → 0.622, ale precision stanęła w miejscu (0.372 → 0.375), a McNemar dał +4/−2 case'y przy p ≈ 0.68. Poziom promptu jest wyczerpany — pełna analiza 18 twardych case'ów i specyfikacja detektora: [maybe-detector-spec.md](maybe-detector-spec.md).
+
 **Wniosek kierunkowy:** to nie jest problem agregacji, tylko reprezentacji. Skoro żaden komponent nie produkuje sygnału `maybe`, żadna agregacja go nie odzyska — dlatego zmiany w promptach Directora przesuwały wynik o ułamki punktu. Wszystkie predyktory odpowiadają na pytanie „w którą stronę wskazują wyniki?", podczas gdy `maybe` w PubMedQA pyta „czy badanie rozstrzyga postawione pytanie?" (surogatowy endpoint, wynik tylko w podgrupie, sprzeczność primary/secondary).
 
 Detektor `maybe` opłaca się dopiero od **precision ≈ 0.55**; przy 0.6 precision / 0.5 recall daje ok. 0.70, przy 0.7/0.7 — ok. 0.766. Dlatego eval raportuje teraz `maybe_detection` (fire rate, precision, recall, lift ponad base rate) dla każdego głosującego — stała udająca opinię jest w tej tabeli natychmiast widoczna, czego `per_agent_accuracy` nie pokazuje.
