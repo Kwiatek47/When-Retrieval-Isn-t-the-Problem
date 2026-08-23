@@ -60,6 +60,7 @@ from app.agents import (
     build_default_agents,
     check_early_exit_asymmetric_veto,
 )
+from app.agents.orchestrator import ARCHITECTURE_BY_MODE
 from app.agents.aggregation import (
     aggregate_pubmedqa_decision,
     aggregate_with_llm_director,
@@ -80,6 +81,7 @@ from app.agents.backends import (
 from app.agents.models import AgentRoundOpinion
 from app.agents.evidence_audit import audit_evidence
 from app.agents.uncertainty import calibrate_threshold, compute_uncertainty, risk_coverage_curve
+from app.core.usage import start_usage_scope
 from app.rag.models import RetrievedDocument
 
 DEFAULT_DATASET = (
@@ -131,6 +133,15 @@ class DebateCaseResult:
     safety_halted: bool = False
     safety_red_flag_reason: str | None = None
     exhausted_without_consensus: bool = False  # telemetry/log only; never overrides predicted_label
+    # Compute cost of this case (see app/core/usage.py). `cost_measured` is False
+    # for cases replayed from a checkpoint written before the counter existed, so
+    # their zeros never get averaged into the reported cost.
+    cost_measured: bool = False
+    llm_calls: int = 0
+    failed_llm_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 class _StaticHintProvider:
@@ -374,7 +385,7 @@ def main() -> None:
                 if args.aggregate_with_biolinkbert
                 else "confidence_weighted_majority_vote"
             )
-        architecture = DebateOrchestrator.ARCHITECTURE
+        architecture = ARCHITECTURE_BY_MODE[args.debate_mode]
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
         )
@@ -436,6 +447,15 @@ def main() -> None:
         f"prompt_version={summary.get('prompt_version')} "
         f"mean_latency_ms={summary['mean_latency_ms']:.1f}"
     )
+    cost = summary.get("cost") or {}
+    if cost.get("measured_cases"):
+        print(
+            f"mean_llm_calls_per_case={cost['mean_llm_calls_per_case']:.2f} "
+            f"mean_total_tokens_per_case={cost['mean_total_tokens_per_case']:.0f} "
+            f"(prompt={cost['mean_prompt_tokens_per_case']:.0f} "
+            f"completion={cost['mean_completion_tokens_per_case']:.0f}) "
+            f"measured_on={cost['measured_cases']}/{len(results)} cases"
+        )
 
 
 def _apply_uncertainty_routing(
@@ -639,6 +659,9 @@ def _evaluate_biolinkbert_only(
             aggregation_rule="biolinkbert_only",
             latency_ms=latency_ms,
             final_opinions=[],
+            # A real zero, not a missing measurement: the classifier arm makes no
+            # LLM calls at all, which is the point of reporting it next to debate.
+            cost_measured=True,
         )
         results.append(result)
         if checkpoint_path is not None:
@@ -683,6 +706,9 @@ async def _evaluate_debate(
             print(f"[{index}/{len(cases)}] SKIP id={case['id']} (checkpoint)")
             return prior_results[case["id"]]
 
+        # One scope per case: agent/supervisor/audit calls spawned from here land
+        # in `usage`, and concurrent cases stay separate (own asyncio.Task context).
+        usage = start_usage_scope()
         started = perf_counter()
         docs = _case_documents(case, corpus)
 
@@ -854,6 +880,12 @@ async def _evaluate_debate(
             safety_halted=bool(debate.safety_halted),
             safety_red_flag_reason=debate.safety_red_flag_reason,
             exhausted_without_consensus=bool(debate.exhausted_without_consensus),
+            cost_measured=True,
+            llm_calls=usage.llm_calls,
+            failed_llm_calls=usage.failed_llm_calls,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
         )
         if checkpoint_path is not None:
             async with checkpoint_lock:
@@ -864,6 +896,7 @@ async def _evaluate_debate(
             f"exp={result.expected_label} pred={result.predicted_label} "
             f"bert={result.biolinkbert_label} rule={rule} "
             f"r1={result.round1_vote_label} rounds={result.rounds_run} "
+            f"calls={result.llm_calls} tok={result.total_tokens} "
             f"({latency_ms:.0f} ms)"
         )
         return result
@@ -1335,6 +1368,7 @@ def _summarize(
 
     bert_flags = [r.biolinkbert_pass for r in results if r.biolinkbert_pass is not None]
     return {
+        "cost": _summarize_cost(results),
         "dataset": dataset,
         "backend": backend,
         "hint": hint,
@@ -1359,7 +1393,8 @@ def _summarize(
         },
         "aggregation": aggregation,
         "architecture": architecture,
-        "supervisor": architecture not in {"peer_parallel", "peer_round_robin", "biolinkbert_only"},
+        "supervisor": architecture
+        not in {"peer_parallel", "peer_round_robin", "biolinkbert_only", "self_consistency"},
         "uncertainty_routing": (
             {
                 **routing_meta,
@@ -1373,6 +1408,55 @@ def _summarize(
             else None
         ),
     }
+
+
+def _summarize_cost(results: list[DebateCaseResult]) -> dict[str, Any]:
+    """Inference cost per case — the number the compute-matched comparison needs.
+
+    Averaged only over cases actually measured in this process; cases replayed
+    from an older checkpoint carry no counts and would otherwise drag the mean
+    toward zero. ``mean_llm_calls_per_case`` is what
+    ``evaluate_self_consistency_pubmedqa.py --match-cost-report`` reads to pick N.
+    """
+    measured = [r for r in results if r.cost_measured]
+    if not measured:
+        return {
+            "measured_cases": 0,
+            "unmeasured_cases": len(results),
+            "note": "No case was run in this process (all resumed from a pre-counter checkpoint).",
+        }
+    n = len(measured)
+    return {
+        "measured_cases": n,
+        "unmeasured_cases": len(results) - n,
+        "llm_calls_total": sum(r.llm_calls for r in measured),
+        "failed_llm_calls_total": sum(r.failed_llm_calls for r in measured),
+        "prompt_tokens_total": sum(r.prompt_tokens for r in measured),
+        "completion_tokens_total": sum(r.completion_tokens for r in measured),
+        "total_tokens_total": sum(r.total_tokens for r in measured),
+        "mean_llm_calls_per_case": sum(r.llm_calls for r in measured) / n,
+        "mean_prompt_tokens_per_case": sum(r.prompt_tokens for r in measured) / n,
+        "mean_completion_tokens_per_case": sum(r.completion_tokens for r in measured) / n,
+        "mean_total_tokens_per_case": sum(r.total_tokens for r in measured) / n,
+    }
+
+
+def _cost_report_lines(cost: dict[str, Any]) -> list[str]:
+    if not cost.get("measured_cases"):
+        return ["- Cost: not measured in this run (resumed from a pre-counter checkpoint)"]
+    lines = [
+        f"- Mean LLM calls / case: {cost['mean_llm_calls_per_case']:.2f}",
+        f"- Mean tokens / case: {cost['mean_total_tokens_per_case']:.0f} "
+        f"(prompt {cost['mean_prompt_tokens_per_case']:.0f} + "
+        f"completion {cost['mean_completion_tokens_per_case']:.0f})",
+        f"- Cost measured on {cost['measured_cases']} case(s); "
+        f"{cost['unmeasured_cases']} replayed from checkpoint",
+    ]
+    if cost.get("failed_llm_calls_total"):
+        lines.append(
+            f"- Failed LLM calls (compute spent, tokens unknown): {cost['failed_llm_calls_total']}"
+        )
+    return lines
 
 
 def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -> str:
@@ -1394,6 +1478,7 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Exhausted-without-consensus rate (telemetry only): {summary.get('exhausted_without_consensus_rate', 0.0):.3f}",
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
+        *_cost_report_lines(summary.get("cost") or {}),
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
         f"- Frozen stance: {summary.get('frozen_stance', False)}",
         f"- Aggregation: `{summary['aggregation']}`",

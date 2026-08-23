@@ -1,0 +1,521 @@
+"""Prompt builders for the Supervised Ledger Debate pipeline.
+
+Every prompt is built from the typed ``S1..Sn`` sentence dictionary
+(:mod:`app.agents.sld.segmentation`), never from a raw abstract string, so a
+persona can only ever cite an ID that actually exists. Round 1 prompts never
+mention "yes/no/maybe" — personas are label-blind (P2 in the design doc: label
+priors baked into persona prompts is what produced a zero-information
+``uncertainty_advocate`` in the legacy debate). Round 2 drops the legacy
+"attack the peers" framing entirely; its instructions ask agents to complete
+the ledger, not win an argument (P1 / ColMAD, design doc §3).
+"""
+
+from __future__ import annotations
+
+import json
+
+from pydantic import BaseModel, Field
+
+from app.agents.sld.ledger import (
+    ConclusionReconstructorContribution,
+    DirectorVerdict,
+    EvidenceLedger,
+    FindingsAuditorContribution,
+    GapAuditorContribution,
+    LedgerConflict,
+    PanelContribution,
+    QuestionFramerContribution,
+    RoundTwoOpinion,
+)
+from app.agents.sld.segmentation import StatsProfile
+
+SYSTEM_JSON_ONLY = "Return only valid JSON matching the requested schema. No markdown fences, no commentary."
+
+# "~1600 tok" per the design doc (§4 P4 fix). Char-based estimate is
+# deliberately coarse (real tokenization is the provider's job); the point is
+# to fail loudly on a runaway prompt, not to silently truncate it the way the
+# legacy Director prompt does today (design doc P4).
+MAX_PROMPT_TOKENS = 1600
+CHARS_PER_TOKEN_ESTIMATE = 4
+
+
+class PromptBudgetExceeded(ValueError):
+    pass
+
+
+def assert_token_budget(text: str, *, label: str, max_tokens: int = MAX_PROMPT_TOKENS) -> None:
+    estimated_tokens = len(text) / CHARS_PER_TOKEN_ESTIMATE
+    if estimated_tokens > max_tokens:
+        raise PromptBudgetExceeded(
+            f"{label}: prompt is ~{estimated_tokens:.0f} estimated tokens, "
+            f"over the {max_tokens} budget ({len(text)} chars). "
+            "Shorten the prompt instead of letting the provider truncate it."
+        )
+
+
+# --- A narrow local schema for the Moderator's synthesis-only call -----------
+# Not part of the public Evidence Ledger schema (app.agents.sld.ledger): the
+# Moderator LLM call only ever produces conflicts/open_questions/
+# round_instructions; merging that into a full EvidenceLedger is
+# supervisor.py's job, not something this call's schema needs to represent.
+
+
+class ModeratorSynthesis(BaseModel):
+    conflicts: list[LedgerConflict] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    round_instructions: list[str] = Field(default_factory=list)
+
+
+# --- Rendering helpers --------------------------------------------------------
+
+
+def render_sentences(
+    sentences: dict[str, str],
+    *,
+    section_tags: dict[str, str] | None = None,
+    only_ids: set[str] | None = None,
+) -> str:
+    """Render the S-ID dictionary as ``S1 [RESULTS]: text`` lines.
+
+    ``only_ids`` restricts which sentences are shown at all (e.g. RESULTS-only
+    for findings_auditor); ``section_tags`` just annotates each line.
+    """
+    ids = sorted(
+        (sid for sid in sentences if only_ids is None or sid in only_ids),
+        key=lambda sid: int(sid[1:]),
+    )
+    lines = []
+    for sid in ids:
+        tag = f" [{section_tags[sid]}]" if section_tags and sid in section_tags else ""
+        lines.append(f"{sid}{tag}: {sentences[sid]}")
+    return "\n".join(lines)
+
+
+def render_stats_profile(profile: StatsProfile) -> str:
+    """Render regex-extracted statistical markers as a compact reference block.
+
+    Free, hallucination-proof signal (design doc §4 Stage 0 step 3) that no
+    persona sees explicitly today; surfacing it lets findings_auditor and
+    gap_auditor reason about significance/power without re-deriving it from
+    prose.
+    """
+    rows: list[str] = []
+    for label, hits in (
+        ("p-value", profile.p_values),
+        ("CI", profile.confidence_intervals),
+        ("percentage", profile.percentages),
+        ("sample size", profile.sample_sizes),
+        ("effect size", profile.effect_sizes),
+        ("diagnostic metric", profile.diagnostic_metrics),
+    ):
+        for hit in hits:
+            rows.append(f"- {label}: {hit.span} ({hit.sentence_id})")
+    return "\n".join(rows) if rows else "(none found)"
+
+
+def _with_schema(prompt: str, model_cls: type[BaseModel]) -> str:
+    schema = model_cls.model_json_schema()
+    full = f"{prompt}\n\nJSON schema:\n{json.dumps(schema, ensure_ascii=False)}"
+    assert_token_budget(full, label=model_cls.__name__)
+    return full
+
+
+def render_contribution(contribution: PanelContribution) -> str:
+    """Compact human-readable rendering of one R1 contribution for the
+    Supervisor/Moderator and for a Round 2 agent's own R1 note."""
+    parts = [f"[{contribution.persona} / {contribution.agent_id}]"]
+    persona = contribution.persona
+    if persona == "question_framer":
+        parts.append(f"question_type: {contribution.question_type}")
+        if contribution.target_population:
+            parts.append(f"target_population: {contribution.target_population.text}")
+        if contribution.target_exposure:
+            parts.append(f"target_exposure: {contribution.target_exposure.text}")
+        if contribution.target_outcome:
+            parts.append(f"target_outcome: {contribution.target_outcome.text}")
+        parts.append(f"yes_requires: {contribution.yes_requires}")
+        parts.append(f"no_requires: {contribution.no_requires}")
+    elif persona == "findings_auditor":
+        parts.append(f"direction: {contribution.direction}")
+        if contribution.primary_endpoint:
+            parts.append(
+                f"primary_endpoint: {contribution.primary_endpoint.text} "
+                f"({', '.join(contribution.primary_endpoint.sentence_ids)})"
+            )
+        if contribution.significance:
+            parts.append(
+                f"significance: {contribution.significance.text} "
+                f"({', '.join(contribution.significance.sentence_ids)})"
+            )
+        if contribution.effect_magnitude:
+            parts.append(
+                f"effect_magnitude: {contribution.effect_magnitude.text} "
+                f"({', '.join(contribution.effect_magnitude.sentence_ids)})"
+            )
+    elif persona == "gap_auditor":
+        if not contribution.gaps:
+            parts.append("gaps: (none found)")
+        for gap in contribution.gaps:
+            cites = f" ({', '.join(gap.sentence_ids)})" if gap.sentence_ids else ""
+            parts.append(f"gap[{gap.gap_type}]: {gap.description}{cites}")
+    elif persona == "conclusion_reconstructor":
+        parts.append(f"direction: {contribution.direction}, strength: {contribution.strength}")
+        if contribution.reconstructed_conclusion:
+            parts.append(
+                f"reconstructed_conclusion: {contribution.reconstructed_conclusion.text} "
+                f"({', '.join(contribution.reconstructed_conclusion.sentence_ids)})"
+            )
+    return "\n".join(parts)
+
+
+def render_ledger(ledger: EvidenceLedger) -> str:
+    lines: list[str] = []
+    if ledger.question_type:
+        lines.append(f"question_type: {ledger.question_type}")
+    for field_name, claim in (
+        ("target_population", ledger.target_population),
+        ("target_exposure", ledger.target_exposure),
+        ("target_outcome", ledger.target_outcome),
+        ("primary_endpoint", ledger.primary_endpoint),
+        ("significance", ledger.significance),
+        ("effect_magnitude", ledger.effect_magnitude),
+        ("reconstructed_conclusion", ledger.reconstructed_conclusion),
+    ):
+        if claim is not None:
+            lines.append(f"{field_name}: {claim.text} ({', '.join(claim.sentence_ids)})")
+    if ledger.direction:
+        lines.append(f"direction (findings): {ledger.direction}")
+    if ledger.conclusion_direction:
+        lines.append(
+            f"conclusion_direction: {ledger.conclusion_direction} "
+            f"(strength: {ledger.conclusion_strength})"
+        )
+    if ledger.gaps:
+        for gap in ledger.gaps:
+            cites = f" ({', '.join(gap.sentence_ids)})" if gap.sentence_ids else ""
+            lines.append(f"gap[{gap.gap_type}]: {gap.description}{cites}")
+    if ledger.conflicts:
+        for conflict in ledger.conflicts:
+            lines.append(
+                f"conflict: {conflict.description} "
+                f"[{', '.join(conflict.agent_ids)}] ({', '.join(conflict.sentence_ids)})"
+            )
+    if ledger.open_questions:
+        lines.append("open_questions: " + "; ".join(ledger.open_questions))
+    if ledger.round_instructions:
+        lines.append("round_instructions: " + "; ".join(ledger.round_instructions))
+    return "\n".join(lines) if lines else "(empty ledger)"
+
+
+def render_round_two_opinion(opinion: RoundTwoOpinion) -> str:
+    parts = [f"[{opinion.agent_id}] label={opinion.label}: {opinion.rationale}"]
+    if opinion.citations:
+        parts.append(f"citations: {', '.join(opinion.citations)}")
+    if opinion.complement:
+        parts.append(f"complement: {opinion.complement}")
+    if opinion.self_audit:
+        parts.append(f"self_audit: {opinion.self_audit}")
+    return "\n".join(parts)
+
+
+# --- Round 1: label-blind panel -----------------------------------------------
+# None of these prompts mention "yes", "no", or "maybe" anywhere (P2 fix).
+
+_R1_PREAMBLE = """You are one analyst on a panel reviewing a biomedical research abstract. \
+Your job is narrow and factual: extract what the text actually says, citing sentence IDs \
+for every claim. You do NOT decide or hint at a yes/no/maybe answer to the research question \
+— that is a different agent's job later. Never cite a sentence ID that isn't listed below, \
+and never assert something the cited sentence doesn't actually say."""
+
+
+def build_question_framer_prompt(question: str, sentences: dict[str, str]) -> str:
+    prompt = f"""{_R1_PREAMBLE}
+
+ROLE: question_framer. Identify what the research question is actually asking, independent \
+of what the abstract found.
+
+RESEARCH QUESTION:
+{question}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+Produce:
+- target_population: who/what was studied (cite sentence_ids)
+- target_exposure: the intervention/exposure/test named in the question (cite sentence_ids)
+- target_outcome: the outcome the question is actually asking about (cite sentence_ids)
+- question_type: one of utility, association, causal, comparison, diagnostic_accuracy, prevalence
+- yes_requires: in one sentence, what finding would make the answer "yes"
+- no_requires: in one sentence, what finding would make the answer "no"
+"""
+    return _with_schema(prompt.strip(), QuestionFramerContribution)
+
+
+def build_findings_auditor_prompt(
+    question: str,
+    sentences: dict[str, str],
+    section_tags: dict[str, str],
+    stats_profile: StatsProfile,
+) -> str:
+    results_ids = {sid for sid, tag in section_tags.items() if tag == "RESULTS"}
+    prompt = f"""{_R1_PREAMBLE}
+
+ROLE: findings_auditor. Report ONLY what the results actually showed. You may cite ONLY the \
+RESULTS sentences listed below — citing any other sentence will get your claim rejected.
+
+RESEARCH QUESTION:
+{question}
+
+RESULTS SENTENCES ONLY:
+{render_sentences(sentences, section_tags=section_tags, only_ids=results_ids) or "(no RESULTS-tagged sentences found)"}
+
+STATISTICAL MARKERS FOUND (for reference, already extracted by regex — cross-check, don't invent new ones):
+{render_stats_profile(stats_profile)}
+
+Produce:
+- primary_endpoint: the main result relevant to the research question (cite sentence_ids, RESULTS only)
+- direction: positive (supports a "yes" reading), negative (supports a "no" reading), or none (no clear direction)
+- significance: what the text says about statistical significance, if anything (cite sentence_ids, RESULTS only)
+- effect_magnitude: the size of the effect, if stated (cite sentence_ids, RESULTS only)
+"""
+    return _with_schema(prompt.strip(), FindingsAuditorContribution)
+
+
+def build_gap_auditor_prompt(
+    question: str, sentences: dict[str, str], stats_profile: StatsProfile
+) -> str:
+    prompt = f"""{_R1_PREAMBLE}
+
+ROLE: gap_auditor. Identify evidentiary gaps that would make the research question hard to \
+answer confidently from this abstract alone. An empty list is a completely valid answer if you \
+find no real gaps — do not invent a gap to have something to say.
+
+RESEARCH QUESTION:
+{question}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+STATISTICAL MARKERS FOUND (for reference):
+{render_stats_profile(stats_profile)}
+
+For each gap you find, use one of these gap_type values:
+- surrogate_outcome: the measured outcome is a stand-in for the outcome the question really asks about
+- subgroup_only: the finding only applies to a subgroup, not the population the question asks about
+- association_not_utility: an association is shown but the question asks about utility/benefit
+- no_comparator: no control/comparison group was used
+- underpowered: sample size is explicitly too small to support the claim
+- contradictory_endpoints: different results point in different directions
+- weak_discrimination: a diagnostic/test result barely distinguishes groups
+
+Produce: gaps (a list; each with gap_type, description, and sentence_ids if the gap is grounded \
+in a specific sentence — omit sentence_ids only if the gap is an *absence*, like no_comparator).
+"""
+    return _with_schema(prompt.strip(), GapAuditorContribution)
+
+
+def build_conclusion_reconstructor_prompt(question: str, sentences: dict[str, str]) -> str:
+    prompt = f"""{_R1_PREAMBLE}
+
+ROLE: conclusion_reconstructor. This abstract has no CONCLUSIONS sentence — it was stripped \
+from the source data. Reconstruct, in your own words, the single sentence the authors most \
+likely would have written as their conclusion, based only on the METHODS and RESULTS given. \
+Do NOT answer the research question yourself; only characterize the conclusion's direction and \
+how strongly it would likely be worded.
+
+RESEARCH QUESTION:
+{question}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+Produce:
+- reconstructed_conclusion: the likely conclusion sentence, in your own words (cite the sentence_ids it's based on)
+- direction: positive, negative, or none
+- strength: definitive (authors would state it plainly), qualified (authors would hedge it, e.g. "may", "suggests"), or speculative (authors would flag it as needing further study)
+"""
+    return _with_schema(prompt.strip(), ConclusionReconstructorContribution)
+
+
+# --- Supervisor / Moderator ---------------------------------------------------
+# Deterministic code already merges verified R1 claims into a draft ledger
+# (see supervisor.py:merge_verified_contributions) — this call's only job is
+# judgment: is there an actual conflict, what's still unknown, what should R2
+# focus on. Keeping its output schema narrow (conflicts/open_questions/
+# round_instructions only) means the LLM never re-asserts a claim that was
+# already verified, so it can't reintroduce a hallucination gate #1 removed.
+
+
+def build_moderator_prompt(
+    question: str,
+    verified_contributions: list[PanelContribution],
+) -> str:
+    # Deliberately a single source of truth: the per-agent contributions
+    # below already carry every citation the draft ledger would be merged
+    # from, so re-rendering the merged ledger and the full abstract on top
+    # would be redundant content burning the token budget on a call whose job
+    # is judgment (conflicts/gaps/instructions), not re-extraction.
+    contributions_block = "\n\n".join(render_contribution(c) for c in verified_contributions)
+    prompt = f"""You are the Supervisor moderating a panel that just reviewed a biomedical \
+abstract independently (each analyst could not see the others' answers). Your job is judgment, \
+not extraction: the facts below were already extracted and citation-checked by code — do not \
+restate them, and do not invent new claims or new sentence_ids.
+
+RESEARCH QUESTION:
+{question}
+
+VERIFIED PANEL CONTRIBUTIONS (already citation-checked; field names tell you which persona a \
+fact came from — e.g. `direction` is findings_auditor's, `conclusion_direction` is \
+conclusion_reconstructor's):
+{contributions_block}
+
+Produce:
+- conflicts: places where two contributions disagree (e.g. findings_auditor's direction vs \
+conclusion_reconstructor's direction) — for each, name the agent_ids involved, cite ONLY \
+sentence_ids that already appear above, and describe the disagreement. Empty list if there is no \
+real conflict.
+- open_questions: what a reader would still need to know that isn't in the contributions above. Empty list if none.
+- round_instructions: 1-3 short, concrete instructions for round 2, derived ONLY from the gaps/\
+open_questions/conflicts above — not generic advice like "be more careful".
+"""
+    return _with_schema(prompt.strip(), ModeratorSynthesis)
+
+
+# --- Round 2: cooperative debate on the ledger --------------------------------
+# No "attack the peers" framing (P1 fix): the instruction is to complete the
+# ledger, not defend a position.
+
+_R2_PREAMBLE = """You are the same analyst from round 1, now looking at the shared evidence \
+ledger the Supervisor assembled from the whole panel. Your goal is cooperative: use the ledger \
+to fill in what your own round-1 note missed, and now commit to an actual answer. This is not a \
+debate to win — if the ledger changes your mind, say so."""
+
+
+def build_round_two_prompt(
+    question: str,
+    sentences: dict[str, str],
+    ledger_rendering: str,
+    own_r1_contribution: PanelContribution,
+    round_instructions: list[str],
+) -> str:
+    instructions_block = (
+        "\n".join(f"- {instruction}" for instruction in round_instructions)
+        if round_instructions
+        else "(none)"
+    )
+    prompt = f"""{_R2_PREAMBLE}
+
+RESEARCH QUESTION:
+{question}
+
+YOUR OWN ROUND-1 NOTE:
+{render_contribution(own_r1_contribution)}
+
+EVIDENCE LEDGER (from the whole panel, Supervisor-verified):
+{ledger_rendering}
+
+SUPERVISOR INSTRUCTIONS FOR THIS ROUND:
+{instructions_block}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+Produce:
+- label: yes, no, or maybe — your actual answer to the research question
+- rationale: why, citing sentence_ids
+- citations: the sentence_ids your rationale relies on
+- complement: one fact from the ledger that your own round-1 note missed (omit/empty if none)
+- self_audit: one plausible way your own reading of the evidence could be wrong (omit/empty if none)
+"""
+    return _with_schema(prompt.strip(), RoundTwoOpinion)
+
+
+_R2_PEER_PREAMBLE = """You are the same analyst from round 1, now looking at your fellow \
+panelists' round-1 notes directly (no Supervisor synthesis this time). Your goal is cooperative: \
+use their notes to fill in what your own round-1 note missed, and now commit to an actual answer. \
+This is not a debate to win — if a peer's note changes your mind, say so."""
+
+
+def build_round_two_peer_prompt(
+    question: str,
+    sentences: dict[str, str],
+    peer_notes_rendering: str,
+    own_r1_contribution: PanelContribution,
+    round_instructions: list[str],
+) -> str:
+    """L4 ablation arm (design doc §7): round 2 without the verified ledger —
+    agents see raw, unverified peer notes instead, isolating the ledger's
+    marginal value at an identical round/call count."""
+    instructions_block = (
+        "\n".join(f"- {instruction}" for instruction in round_instructions)
+        if round_instructions
+        else "(none)"
+    )
+    prompt = f"""{_R2_PEER_PREAMBLE}
+
+RESEARCH QUESTION:
+{question}
+
+YOUR OWN ROUND-1 NOTE:
+{render_contribution(own_r1_contribution)}
+
+PEER ROUND-1 NOTES (unverified — cross-check citations yourself):
+{peer_notes_rendering}
+
+SUPERVISOR INSTRUCTIONS FOR THIS ROUND:
+{instructions_block}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+Produce:
+- label: yes, no, or maybe — your actual answer to the research question
+- rationale: why, citing sentence_ids
+- citations: the sentence_ids your rationale relies on
+- complement: one fact from a peer's note that your own round-1 note missed (omit/empty if none)
+- self_audit: one plausible way your own reading of the evidence could be wrong (omit/empty if none)
+"""
+    return _with_schema(prompt.strip(), RoundTwoOpinion)
+
+
+# --- Supervisor / Director ----------------------------------------------------
+
+
+def build_director_prompt(
+    question: str,
+    sentences: dict[str, str],
+    ledger_rendering: str,
+    round_two_opinions: list[RoundTwoOpinion],
+) -> str:
+    opinions_block = "\n\n".join(render_round_two_opinion(o) for o in round_two_opinions)
+    prompt = f"""You are the Director making the final structured verdict on a biomedical \
+research question. You receive the verified evidence ledger and the panel's round-2 labeled \
+opinions — not a full debate transcript. Base your verdict on the ledger; use the opinions as \
+supporting signal, not as a vote to rubber-stamp.
+
+RESEARCH QUESTION:
+{question}
+
+EVIDENCE LEDGER:
+{ledger_rendering}
+
+ROUND 2 OPINIONS:
+{opinions_block}
+
+ABSTRACT SENTENCES:
+{render_sentences(sentences)}
+
+Produce a verdict with:
+- question_answered_by_endpoint: does the measured endpoint actually answer the research question \
+(not a surrogate, not off-topic)?
+- direction_determinate: is there a single clear direction, or do findings point different ways?
+- findings_statistically_supported: are the findings backed by real statistical support (not just \
+an unqualified numeric difference)?
+- conclusion_would_be_hedged: would the authors likely have hedged their conclusion (e.g. "may", \
+"suggests", "further study needed")?
+- direction: positive, negative, or none
+- label: your own yes/no/maybe answer
+- rationale: why, citing sentence_ids
+- citations: the sentence_ids you relied on
+"""
+    return _with_schema(prompt.strip(), DirectorVerdict)
