@@ -65,7 +65,9 @@ from app.agents.aggregation import (
     aggregate_with_llm_director,
     build_consensus_decision,
     final_labels_by_agent,
+    lone_dissenter,
     majority_vote,
+    panel_conflict_kind,
 )
 from app.agents.backends import (
     BioLinkBERTHintProvider,
@@ -125,6 +127,12 @@ class DebateCaseResult:
     audit_detail: dict[str, Any] = field(default_factory=dict)
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
+    # Objective panel telemetry (independent of what the Director claims).
+    panel_vote_label: str | None = None
+    panel_conflict_kind: str | None = None
+    lone_dissent_role: str | None = None
+    lone_dissent_label: str | None = None
+    director_overrode_panel: bool = False
     consensus_mode: str | None = None
     consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
     consensus_required_next_steps: list[str] = field(default_factory=list)
@@ -742,12 +750,17 @@ async def _evaluate_debate(
                 supervisor=supervisor,
                 shared_report=debate.shared_report,
                 director_maybe_gate=director_maybe_gate,  # type: ignore[arg-type]
+                # Agents were fed the same classifier label, so panel/BERT agreement
+                # is one source counted twice — the Director must be told.
+                panel_saw_bert_hint=bool(inject_hint and hint is not None),
             )
             director_output = getattr(supervisor, "last_director_output", None)
             if director_output is not None:
                 llm_director_rationale = director_output.rationale
                 llm_director_consensus_type = director_output.consensus_type
-            share = {lab: (1.0 if lab == predicted else 0.0) for lab in ("yes", "no", "maybe")}
+            # Real panel distribution, not a one-hot of the Director's verdict:
+            # a one-hot made every director override look like unanimous consensus.
+            _, share = majority_vote([e.opinion for e in debate.final_opinions])
             rule = "llm_director"
         else:
             agent_opinions = [entry.opinion for entry in debate.final_opinions]
@@ -787,6 +800,21 @@ async def _evaluate_debate(
         label_values = [label for label in agent_labels.values() if label is not None]
         latency_ms = (perf_counter() - started) * 1000.0
         early_exit = len(debate.rounds) < orchestrator.rounds
+
+        # Objective panel telemetry: what the agents actually voted, and whether the
+        # aggregator's verdict departed from it. Recorded for every aggregate_mode.
+        panel_vote_label, _ = majority_vote(
+            [entry.opinion for entry in debate.final_opinions]
+        )
+        conflict_kind = panel_conflict_kind(debate.final_opinions)
+        dissent = lone_dissenter(debate.final_opinions)
+        lone_dissent_role = dissent[0] if dissent else None
+        lone_dissent_label = dissent[1] if dissent else None
+        director_overrode_panel = bool(
+            predicted is not None
+            and panel_vote_label is not None
+            and predicted != panel_vote_label
+        )
 
         agent_opinions_for_consensus = [entry.opinion for entry in debate.final_opinions]
         safety_blocked = bool(debate.safety_halted) or any(
@@ -834,6 +862,11 @@ async def _evaluate_debate(
             early_exit=early_exit,
             rounds_run=len(debate.rounds),
             aggregation_rule=rule,
+            panel_vote_label=panel_vote_label,
+            panel_conflict_kind=conflict_kind,
+            lone_dissent_role=lone_dissent_role,
+            lone_dissent_label=lone_dissent_label,
+            director_overrode_panel=director_overrode_panel,
             latency_ms=latency_ms,
             final_opinions=[entry.model_dump() for entry in debate.final_opinions],
             history=[
@@ -1324,6 +1357,48 @@ def _summarize(
             agent_correct.setdefault(agent_id, []).append(label == result.expected_label)
 
     bert_flags = [r.biolinkbert_pass for r in results if r.biolinkbert_pass is not None]
+
+    # Aggregator-vs-panel diagnostics: an override that is wrong more often than it
+    # is right means the aggregator is being talked out of a correct panel vote.
+    overrides = [r for r in results if r.director_overrode_panel]
+    override_helped = sum(
+        1 for r in overrides if r.label_pass and r.panel_vote_label != r.expected_label
+    )
+    override_hurt = sum(
+        1 for r in overrides if not r.label_pass and r.panel_vote_label == r.expected_label
+    )
+    lone_dissent_overrides = [
+        r
+        for r in overrides
+        if r.lone_dissent_role is not None and r.predicted_label == r.lone_dissent_label
+    ]
+    panel_vote_flags = [
+        r.panel_vote_label == r.expected_label
+        for r in results
+        if r.panel_vote_label is not None
+    ]
+
+    # Maybe-detection quality per voter. A persona that answers "maybe" on nearly every
+    # case has precision at the base rate and carries no information, however plausible
+    # its prose looks — that degeneracy is invisible in plain per-agent accuracy.
+    maybe_base_rate = sum(1 for r in results if r.expected_label == "maybe") / n
+    voters: set[str] = set()
+    for r in results:
+        voters.update(r.agent_labels.keys())
+    maybe_detection: dict[str, dict[str, float]] = {}
+    for voter in sorted(voters):
+        fired = [r for r in results if r.agent_labels.get(voter) == "maybe"]
+        true_maybe = [r for r in results if r.expected_label == "maybe"]
+        hits = sum(1 for r in fired if r.expected_label == "maybe")
+        maybe_detection[voter] = {
+            "fire_rate": len(fired) / n,
+            "precision": (hits / len(fired)) if fired else 0.0,
+            "recall": (hits / len(true_maybe)) if true_maybe else 0.0,
+            "lift_over_base_rate": (
+                (hits / len(fired)) - maybe_base_rate if fired else 0.0
+            ),
+        }
+
     return {
         "dataset": dataset,
         "backend": backend,
@@ -1335,6 +1410,23 @@ def _summarize(
         "round1_accuracy": sum(1 for r in results if r.round1_pass) / n,
         "biolinkbert_accuracy": (sum(1 for flag in bert_flags if flag) / len(bert_flags)) if bert_flags else None,
         "unanimous_rate": sum(1 for r in results if r.unanimous_final) / n,
+        "panel_vote_accuracy": (
+            sum(1 for flag in panel_vote_flags if flag) / len(panel_vote_flags)
+            if panel_vote_flags
+            else None
+        ),
+        "director_override_rate": len(overrides) / n,
+        "director_override_helped": override_helped,
+        "director_override_hurt": override_hurt,
+        "lone_dissent_override_rate": len(lone_dissent_overrides) / n,
+        "lone_dissent_override_roles": dict(
+            Counter(r.lone_dissent_role for r in lone_dissent_overrides)
+        ),
+        "panel_conflict_kind_counts": dict(
+            Counter(r.panel_conflict_kind or "unknown" for r in results)
+        ),
+        "maybe_base_rate": maybe_base_rate,
+        "maybe_detection": maybe_detection,
         "early_exit_rate": early_exit_rate,
         "exhausted_without_consensus_rate": exhausted_without_consensus_rate,
         "mean_latency_ms": mean([r.latency_ms for r in results]) if results else 0.0,
@@ -1383,6 +1475,18 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Early-exit rate: {summary['early_exit_rate']:.3f}",
         f"- Exhausted-without-consensus rate (telemetry only): {summary.get('exhausted_without_consensus_rate', 0.0):.3f}",
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
+        f"- Panel vote accuracy (majority of agents, pre-aggregation): {summary.get('panel_vote_accuracy')}",
+        (
+            f"- Aggregator overrode panel: {summary.get('director_override_rate', 0.0):.3f} "
+            f"(helped {summary.get('director_override_helped', 0)}, "
+            f"hurt {summary.get('director_override_hurt', 0)})"
+        ),
+        (
+            f"- Overrides following a lone dissenter: "
+            f"{summary.get('lone_dissent_override_rate', 0.0):.3f} "
+            f"{summary.get('lone_dissent_override_roles', {})}"
+        ),
+        f"- Panel conflict kinds: {summary.get('panel_conflict_kind_counts', {})}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
         f"- Frozen stance: {summary.get('frozen_stance', False)}",
@@ -1409,6 +1513,26 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
     )
     for agent_id, acc in summary["per_agent_accuracy"].items():
         lines.append(f"| {agent_id} | {acc:.3f} |")
+    maybe_detection = summary.get("maybe_detection") or {}
+    if maybe_detection:
+        lines.extend(
+            [
+                "",
+                "## Maybe detection per voter",
+                "",
+                f"Base rate of `maybe` in this split: "
+                f"{summary.get('maybe_base_rate', 0.0):.3f}. A voter whose precision sits "
+                "at the base rate carries no information, however often it fires.",
+                "",
+                "| Voter | Fire rate | Precision | Recall | Lift over base |",
+                "|---|---:|---:|---:|---:|",
+            ]
+        )
+        for voter, m in maybe_detection.items():
+            lines.append(
+                f"| {voter} | {m['fire_rate']:.3f} | {m['precision']:.3f} "
+                f"| {m['recall']:.3f} | {m['lift_over_base_rate']:+.3f} |"
+            )
     lines.extend(["", "## Predicted label counts", ""])
     for label, count in summary["predicted_label_counts"].items():
         lines.append(f"- `{label}`: {count}")

@@ -69,6 +69,8 @@ flowchart TB
 3. **`differential_expander`** — argumentuje hipotezę przeciwną
 4. **`uncertainty_advocate`** → *UncertaintyAuditor* — broni niepełnego pokrycia pytania / etykiety `maybe`
 
+> **Kalibracja `confidence_level` advocate'a:** dawna reguła kazała mu ustawiać confidence na 0.90–1.0 przy każdym `maybe`. Wartość przestawała cokolwiek mierzyć, a zależą od niej `check_early_exit_asymmetric_veto` i `apply_maybe_director_gate`. Teraz obowiązuje skala kalibrowana (0.85+ tylko gdy luka jest wprost w tekście; <0.5 gdy tekst raczej wspiera odpowiedź definitywną).
+
 Agenci dzielą jeden `InferenceBackend` (opcjonalnie osobny backend dla Supervisora). Każda wypowiedź to ustrukturyzowany `ClinicalOpinion`; przy błędzie parsowania — fallback z niską pewnością (`sources_used=["fallback"]`).
 
 ### 3.3 Blind critic
@@ -213,9 +215,17 @@ Supervisor ma **dwie role LLM** (ta sama klasa, różne prompti).
 **Wejście:**
 
 - `patient_case` (abstrakt = ground truth),
+- **`panel_vote_summary`** — mechanicznie policzony blok głosów (`build_panel_vote_summary`),
 - `shared_report` z ostatniej moderacji,
-- kompaktowy `debate_brief` (nie pełny transcript),
+- pełny `full_debate_transcript`,
 - hint BioLinkBERT (krytycznie, bez rubber-stamp).
+
+**`panel_vote_summary` — dlaczego istnieje:** Director widział wcześniej wyłącznie retorykę debaty, przez co pojedynczy uparty dysydent regularnie przegłosowywał zgodny panel (w runie `...froze_v1` 19 z 23 zmian etykiety względem rundy 1 to był samotny `uncertainty_advocate`). Blok podaje wprost:
+
+- **tally rundy 1** — głosy powstałe niezależnie, przed kontaminacją peerami (najbardziej wiarygodny sygnał panelu),
+- tally rundy finalnej, z adnotacją że przy `frozen_stance` powtórzona etykieta **nie jest** nowym głosem,
+- `PANEL AGREEMENT`: `unanimous` / `lone_dissent` / `fundamental` / `split`,
+- ostrzeżenie, gdy samotnym dysydentem jest rola z `STRUCTURALLY_MAYBE_BIASED_ROLES` (dziś: `uncertainty_advocate`) — jej `confidence_level` nie jest skalibrowany.
 
 **Wyjście (`SupervisorDirectorOutput`):**
 
@@ -225,6 +235,8 @@ Supervisor ma **dwie role LLM** (ta sama klasa, różne prompti).
 - `question_coverage`: full / partial / none  
 
 Po odpowiedzi LLM **domyślnie nie ma** post-hoc nadpisania etykiety (`--director-maybe-gate off`). Prompt Directora: **QUESTION COVERAGE FIRST** + ban na boilerplate `maybe`, z przywróconym `maybe` przy mixed/partial coverage i gdy pytanie ≠ primary endpoint. Ablacja: `--director-maybe-gate legacy`.
+
+**Reguła głosów (zastąpiła dawne „DO NOT TALLY VOTES”):** absolutny zakaz liczenia głosów sprawiał, że Director szedł za tym, kto argumentował najgłośniej. Teraz głosy są **skalibrowanym dowodem**: runda 1 jest sygnałem wiodącym, samotny dysydent wygrywa **tylko** gdy Director wskaże konkretne zdanie z abstraktu źle odczytane przez większość, a `maybe` od `uncertainty_advocate` jest hipotezą do weryfikacji, nie dowodem. Director wciąż może przegłosować cały panel — ale wyłącznie treścią abstraktu, cytowaną w `rationale`.
 
 **Fallback:** `final_label="maybe"`, `consensus_type="escalation"`.
 
@@ -285,6 +297,61 @@ Dodatkowo możliwe:
 | `off` | Legacy: panel `maybe` nie wetuje wysokoconfidence BERT yes/no |
 
 Override hard flip (jednogłośny panel yes↔no ≠ BERT) nadal działa niezależnie od weta `maybe`.
+
+---
+
+## 8a. Telemetria panelu (diagnostyka agregatora)
+
+Każdy case w raporcie JSON niesie **obiektywne** pola panelu, niezależne od tego, co twierdzi Director:
+
+| Pole (case) | Znaczenie |
+|---|---|
+| `vote_share` | **Faktyczny** rozkład głosów panelu. Wcześniej w trybie `llm_director` był to one-hot werdyktu Directora, przez co każdy override wyglądał na jednomyślny konsensus |
+| `panel_vote_label` | Większościowa etykieta panelu przed agregacją |
+| `panel_conflict_kind` | `unanimous` / `lone_dissent` / `fundamental` / `split` (`fundamental` używa reguły `fundamental_panel_conflict` z orkiestratora) |
+| `lone_dissent_role` / `lone_dissent_label` | Kto i jak zagłosował, gdy dysydent był jeden |
+| `director_overrode_panel` | Czy finalna etykieta ≠ głos panelu |
+
+W `summary` odpowiadają im metryki zbiorcze: `panel_vote_accuracy`, `director_override_rate`, `director_override_helped` / `director_override_hurt`, `lone_dissent_override_rate`, `lone_dissent_override_roles`, `panel_conflict_kind_counts`.
+
+**Jak czytać:** jeśli `director_override_hurt` > `director_override_helped`, agregator jest wygadywany z poprawnego głosu panelu — dokładnie ten regres (58.9% finalnie vs 64.4% w rundzie 1 vs 65.6% sam BioLinkBERT) wystąpił w `agent14b_director32b_balanced90_gpu02_hybrid_froze_v1`.
+
+---
+
+## 8b. Wyniki serii balanced90 (2026-08-23) i co z nich wynika
+
+Pięć runów na `balanced90` (90 case'ów: 60 yes/no, 30 maybe), agenci `qwen2.5:14b`, supervisor `qwen2.5:32b`:
+
+| run | agregacja | hint | accuracy | zgodność z BERT |
+|---|---|---|---|---|
+| v1 | llm_director | biolinkbert | 0.589 | 0.667 |
+| v2 | llm_director | biolinkbert | 0.600 | 0.722 |
+| v3 | llm_director | biolinkbert | 0.600 | 0.800 |
+| v4 | **majority** | biolinkbert | **0.656** | **0.956** |
+| v5 | majority | **none** | 0.544 | 0.700 |
+| — | sam BioLinkBERT | — | 0.656 | — |
+
+**1. Warstwa Directora nie zarabia na siebie.** Zwykłe głosowanie większościowe (v4) bije wszystkie warianty z Directorem o 5.5–6.7 p.p. Nadpisania Directora były błędne ok. dwa razy częściej niż trafne (v1: 8 trafnych / 15 błędnych, v2: 7/11, v3: 4/9).
+
+**2. Z hintem BERT architektura jest kopią klasyfikatora.** v4 daje identyczną predykcję co BioLinkBERT na **86 z 90** case'ów. Przyczyna jest konfiguracyjna: `--hint biolinkbert` wstrzykuje label do promptów trzech z czterech agentów, więc ich większość *jest* klasyfikatorem.
+
+**3. Bez hintu debata jest gorsza, ale niezależna.** v5 spada do 0.544, natomiast zgodność z BERT spada do 0.700 i debata wygrywa 6 case'ów, których BERT nie bierze. Sufit oracle'owego ensemble'u to 0.722 — **nieosiągalny**, bo nie istnieje sygnał routingu: `biolinkbert_confidence` wynosi 0.97–0.99 również wtedy, gdy klasyfikator się myli, a `panel_conflict_kind` rozkłada się równomiernie we wszystkich grupach.
+
+**4. Cały problem to klasa `maybe`.**
+
+| | yes/no (60) | maybe (30) | ogółem |
+|---|---|---|---|
+| BioLinkBERT | 0.917 | 0.133 | 0.656 |
+| debata + hint | 0.917 | 0.133 | 0.656 |
+| debata bez hintu | 0.733 | 0.167 | 0.544 |
+
+22 z 30 case'ów `maybe` jest chybianych przez obie metody jednocześnie. Gdyby `maybe` było rozwiązane, sufit to **0.944**.
+
+**5. Nic w systemie nie wykrywa `maybe`.** `uncertainty_advocate` odpowiadał `maybe` na **78 z 90** case'ów (87%) — precision 0.372 przy bazowym 0.333, czyli stała, nie detektor. Pozostali agenci są na poziomie losowania (najlepszy `evidence_skeptic`: precision 0.444 przy recall 0.133). Osiem prostych reguł „nadpisz BERT na `maybe`, gdy…" przetestowano — **wszystkie ujemne**, od −2 do −9 punktów.
+
+**Wniosek kierunkowy:** to nie jest problem agregacji, tylko reprezentacji. Skoro żaden komponent nie produkuje sygnału `maybe`, żadna agregacja go nie odzyska — dlatego zmiany w promptach Directora przesuwały wynik o ułamki punktu. Wszystkie predyktory odpowiadają na pytanie „w którą stronę wskazują wyniki?", podczas gdy `maybe` w PubMedQA pyta „czy badanie rozstrzyga postawione pytanie?" (surogatowy endpoint, wynik tylko w podgrupie, sprzeczność primary/secondary).
+
+Detektor `maybe` opłaca się dopiero od **precision ≈ 0.55**; przy 0.6 precision / 0.5 recall daje ok. 0.70, przy 0.7/0.7 — ok. 0.766. Dlatego eval raportuje teraz `maybe_detection` (fire rate, precision, recall, lift ponad base rate) dla każdego głosującego — stała udająca opinię jest w tej tabeli natychmiast widoczna, czego `per_agent_accuracy` nie pokazuje.
 
 ---
 

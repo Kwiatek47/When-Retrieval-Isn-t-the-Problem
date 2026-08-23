@@ -128,6 +128,7 @@ class SupervisorAgent:
         *,
         shared_report: str | None = None,
         debate_brief: str | None = None,
+        panel_vote_summary: str | None = None,
     ) -> SupervisorDirectorOutput:
         schema = SupervisorDirectorOutput.model_json_schema()
         # Full multi-round conflict transcript is the primary Director input.
@@ -136,6 +137,8 @@ class SupervisorAgent:
         prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case=patient_case,
             full_debate_transcript=transcript,
+            panel_vote_summary=(panel_vote_summary or "").strip()
+            or "(panel vote summary unavailable)",
             biolinkbert_hint=biolinkbert_hint,
         )
 
@@ -175,6 +178,13 @@ class SupervisorAgent:
             if coverage not in {"full", "partial", "none"}:
                 coverage = "full"
             data["question_coverage"] = coverage
+            # An off-vocabulary consensus_type used to fail validation and discard the
+            # whole output, silently forcing the fallback "maybe". A usable final_label
+            # must not be thrown away over a descriptive field.
+            consensus = str(data.get("consensus_type") or "").strip().lower()
+            if consensus not in {"consensus", "differential", "escalation"}:
+                consensus = "differential"
+            data["consensus_type"] = consensus
             output = SupervisorDirectorOutput.model_validate(data)
             self.last_director_output = output
             return output

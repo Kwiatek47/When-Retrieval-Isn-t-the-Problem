@@ -13,6 +13,7 @@ import app.agents.prompts as prompts_module
 # Named string / mapping constants that define agent + supervisor behavior.
 _PROMPT_ATTRS: tuple[str, ...] = (
     "CLINICAL_OPINION_SCHEMA",
+    "DEFENSE_OPINION_SCHEMA",
     "SAFETY_OPINION_SCHEMA",
     "SUPERVISOR_MODERATOR_PROMPT",
     "SUPERVISOR_DIRECTOR_PROMPT",

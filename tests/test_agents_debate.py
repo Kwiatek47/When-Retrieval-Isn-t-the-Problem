@@ -1065,7 +1065,12 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertNotIn("WARNING", advocate)
         self.assertIn("express genuine uncertainty", advocate)
         self.assertIn("WARNING", generalist)
-        self.assertIn("Uncertainty Advocate", advocate)
+        self.assertIn("Coverage Auditor", advocate)
+        # Measured at 87% "maybe" fire rate, the persona was a constant rather than a
+        # detector; the prompt must push it back toward discriminating.
+        self.assertIn("DEFAULT: most abstracts DO answer their own question", advocate)
+        self.assertIn("You are a DETECTOR, not an advocate", advocate)
+        self.assertIn("These do NOT justify 'maybe'", advocate)
 
     def test_frozen_stance_injects_adversarial_directive_in_round2(self) -> None:
         from app.agents.models import AgentRoundOpinion
@@ -1094,12 +1099,20 @@ class PromptAndParseTests(unittest.TestCase):
         )
         system = messages[0].content
         self.assertIn("[SYSTEM ARCHITECTURE OVERRIDE]", system)
-        self.assertIn("FROZEN your stance", system)
-        self.assertIn("top_1_diagnosis MUST remain 'no'", system)
         self.assertIn("defense attorney for the 'no' label", system)
-        self.assertIn("ALIGNMENT RULE", system)
-        self.assertIn("ANTI-LAZINESS RULE", system)
-        self.assertIn("NEVER use arguments that support the opposite label", system)
+        self.assertIn("internal_monologue", system)
+        self.assertIn("best_evidence_supporting_my_label", system)
+        self.assertIn("explicit_attack_on_opposing_peers", system)
+        # internal_monologue must precede top_1_diagnosis in the defense schema block.
+        self.assertLess(
+            system.index("- internal_monologue"),
+            system.index("- top_1_diagnosis (string, MUST BE EXACTLY"),
+        )
+        self.assertIn("MUST BE EXACTLY 'no'", system)
+        self.assertNotIn("ALIGNMENT RULE", system)
+        # Defense schema must not ask for generic pros/cons keys.
+        self.assertNotIn("- pros (array of strings)", system)
+        self.assertNotIn("- cons (array of strings)", system)
 
         round1_messages = build_messages(
             agent_id="evidence_skeptic",
@@ -1109,6 +1122,49 @@ class PromptAndParseTests(unittest.TestCase):
             frozen_label=None,
         )
         self.assertNotIn("[SYSTEM ARCHITECTURE OVERRIDE]", round1_messages[0].content)
+        self.assertNotIn("best_evidence_supporting_my_label", round1_messages[0].content)
+
+    def test_parse_maps_defense_semantic_keys_to_pros_cons(self) -> None:
+        raw = (
+            '{"internal_monologue":"My label is no; [generalist] overclaims significance.",'
+            '"top_1_diagnosis":"no","evidence_conclusiveness":"conclusive",'
+            '"top_3_differential_diagnoses":["no","yes","maybe"],'
+            '"best_evidence_supporting_my_label":["Null primary endpoint p=0.45"],'
+            '"explicit_attack_on_opposing_peers":["[generalist] Ignores non-significance"],'
+            '"confidence_level":0.8,"sources_used":["abstract"],'
+            '"red_flags":[],"missing_information":""}'
+        )
+        parsed = parse_clinical_opinion_json(raw)
+        self.assertEqual(parsed.top_1_diagnosis, "no")
+        self.assertEqual(parsed.pros, ["Null primary endpoint p=0.45"])
+        self.assertEqual(parsed.cons, ["[generalist] Ignores non-significance"])
+        dumped = parsed.model_dump()
+        self.assertNotIn("internal_monologue", dumped)
+
+    def test_clinical_opinion_alias_choices_accept_semantic_keys(self) -> None:
+        opinion = ClinicalOpinion.model_validate(
+            {
+                "top_1_diagnosis": "maybe",
+                "top_3_differential_diagnoses": ["maybe", "yes", "no"],
+                "best_evidence_supporting_my_label": ["Mixed endpoints"],
+                "explicit_attack_on_opposing_peers": ["[evidence_skeptic] Overclaims"],
+                "confidence_level": 0.7,
+            }
+        )
+        self.assertEqual(opinion.pros, ["Mixed endpoints"])
+        self.assertEqual(opinion.cons, ["[evidence_skeptic] Overclaims"])
+        # Field-name construction still works for history / aggregation.
+        via_name = ClinicalOpinion(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes", "no", "maybe"],
+            pros=["supports yes"],
+            cons=["caveat"],
+            confidence_level=0.6,
+        )
+        self.assertEqual(via_name.pros, ["supports yes"])
+        dumped = via_name.model_dump()
+        self.assertIn("pros", dumped)
+        self.assertNotIn("best_evidence_supporting_my_label", dumped)
 
     def test_moderator_instruction_prepended_inside_peer_opinions_block(self) -> None:
         from app.agents.models import AgentRoundOpinion, SupervisorModerationOutput
@@ -1160,15 +1216,20 @@ class PromptAndParseTests(unittest.TestCase):
         filled = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case="CASE_TEXT_XYZ",
             full_debate_transcript="TRANSCRIPT_TEXT_XYZ",
+            panel_vote_summary="VOTE_SUMMARY_XYZ",
         )
         self.assertIn("CASE_TEXT_XYZ", filled)
         self.assertIn("TRANSCRIPT_TEXT_XYZ", filled)
+        self.assertIn("VOTE_SUMMARY_XYZ", filled)
         self.assertIn("CRITICAL RULES FOR CHOOSING THE LABEL", filled)
         self.assertIn("forced stubbornness", filled)
         self.assertIn("Devil's Advocate", filled)
         self.assertIn("BOILERPLATE", filled)
-        self.assertIn("DO NOT TALLY VOTES", filled)
-        self.assertIn("base your final_label SOLELY on the logic", filled)
+        # Votes are calibrated evidence now; the old absolute ban made the Director
+        # follow whichever agent argued hardest, usually the lone maybe-hunter.
+        self.assertNotIn("DO NOT TALLY VOTES", filled)
+        self.assertIn("LONE DISSENT DOES NOT WIN BY DEFAULT", filled)
+        self.assertIn("ROUND 1 IS THE HONEST SIGNAL", filled)
         self.assertNotIn("MUST output \"yes\" or \"no\"", filled)
         self.assertIn("final_label", filled)
         self.assertNotIn("ClinicalOpinion JSON schema", filled)
@@ -1646,6 +1707,123 @@ class PromptAndParseTests(unittest.TestCase):
         self.assertIn("yes", parsed.top_3_differential_diagnoses)
 
 
+class PanelVoteSummaryTests(unittest.TestCase):
+    """Mechanical panel telemetry fed to the Director (and to the eval report)."""
+
+    @staticmethod
+    def _entry(agent_id: str, label: str, *, round_number: int = 1, confidence: float = 0.8):
+        from app.agents.models import AgentRoundOpinion
+
+        return AgentRoundOpinion(
+            agent_id=agent_id,
+            persona=agent_id,
+            round=round_number,
+            opinion=ClinicalOpinion(
+                top_1_diagnosis=label,
+                top_3_differential_diagnoses=["yes", "no", "maybe"],
+                confidence_level=confidence,
+            ),
+        )
+
+    def _panel(self, advocate_label: str, *, round_number: int = 1) -> list:
+        return [
+            self._entry("generalist", "yes", round_number=round_number),
+            self._entry("evidence_skeptic", "yes", round_number=round_number),
+            self._entry("differential_expander", "yes", round_number=round_number),
+            self._entry("uncertainty_advocate", advocate_label, round_number=round_number),
+        ]
+
+    def test_lone_dissenter_identifies_role_and_label(self) -> None:
+        from app.agents.aggregation import lone_dissenter
+
+        self.assertEqual(
+            lone_dissenter(self._panel("maybe")), ("uncertainty_advocate", "maybe")
+        )
+        self.assertIsNone(lone_dissenter(self._panel("yes")))
+
+    def test_panel_conflict_kind_separates_lone_dissent_from_even_split(self) -> None:
+        from app.agents.aggregation import panel_conflict_kind
+
+        self.assertEqual(panel_conflict_kind(self._panel("yes")), "unanimous")
+        self.assertEqual(panel_conflict_kind(self._panel("maybe")), "lone_dissent")
+
+        even_split = [
+            self._entry("generalist", "yes"),
+            self._entry("evidence_skeptic", "yes"),
+            self._entry("differential_expander", "no"),
+            self._entry("uncertainty_advocate", "no"),
+        ]
+        self.assertEqual(panel_conflict_kind(even_split), "fundamental")
+
+    def test_vote_summary_flags_structurally_biased_lone_dissenter(self) -> None:
+        from app.agents.aggregation import build_panel_vote_summary
+
+        summary = build_panel_vote_summary(
+            [self._panel("maybe"), self._panel("maybe", round_number=2)],
+            biolinkbert_label="yes",
+            panel_saw_bert_hint=True,
+        )
+        self.assertIn("ROUND 1", summary)
+        self.assertIn("yes=3", summary)
+        self.assertIn("all agents agree except one", summary)
+        self.assertIn("The single dissenter is uncertainty_advocate", summary)
+        self.assertIn("system-instructed to hunt for 'maybe'", summary)
+
+    def test_vote_summary_never_leaks_consensus_type_vocabulary(self) -> None:
+        """Enum-like tokens in the prompt get copied into the Director's
+        ``consensus_type``, which fails validation and forces a fallback maybe."""
+        from app.agents.aggregation import build_panel_vote_summary
+
+        panels = [self._panel("maybe"), self._panel("yes")]
+        panels.append(
+            [
+                self._entry("generalist", "yes"),
+                self._entry("evidence_skeptic", "yes"),
+                self._entry("differential_expander", "no"),
+                self._entry("uncertainty_advocate", "no"),
+            ]
+        )
+        for panel in panels:
+            summary = build_panel_vote_summary([panel], panel_saw_bert_hint=True)
+            for token in ("lone_dissent", "fundamental", "unanimous", "split"):
+                self.assertNotIn(token, summary)
+
+    def test_vote_summary_warns_bert_is_not_independent_of_panel(self) -> None:
+        """With --hint biolinkbert the agents saw the classifier label, so panel
+        agreement with it is the same source counted twice."""
+        from app.agents.aggregation import build_panel_vote_summary
+
+        seen = build_panel_vote_summary(
+            [self._panel("maybe")], biolinkbert_label="yes", panel_saw_bert_hint=True
+        )
+        self.assertIn("INDEPENDENCE WARNING", seen)
+        self.assertIn("same source counted twice", seen)
+
+        # --hint none: the panel really is independent, so no warning belongs here.
+        blind = build_panel_vote_summary(
+            [self._panel("maybe")], biolinkbert_label="yes", panel_saw_bert_hint=False
+        )
+        self.assertNotIn("INDEPENDENCE WARNING", blind)
+
+    def test_vote_summary_omits_bias_note_for_ordinary_dissenter(self) -> None:
+        from app.agents.aggregation import build_panel_vote_summary
+
+        panel = [
+            self._entry("generalist", "yes"),
+            self._entry("evidence_skeptic", "no"),
+            self._entry("differential_expander", "yes"),
+            self._entry("uncertainty_advocate", "yes"),
+        ]
+        summary = build_panel_vote_summary([panel])
+        self.assertIn("The single dissenter is evidence_skeptic", summary)
+        self.assertNotIn("system-instructed", summary)
+
+    def test_vote_summary_handles_empty_history(self) -> None:
+        from app.agents.aggregation import build_panel_vote_summary
+
+        self.assertIn("no debate rounds", build_panel_vote_summary([]))
+
+
 class AggregationTests(unittest.TestCase):
     def test_extract_label(self) -> None:
         self.assertEqual(extract_label("yes"), "yes")
@@ -1850,3 +2028,35 @@ class PubmedqaDebateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class DirectorOutputRobustnessTests(unittest.TestCase):
+    """An off-vocabulary descriptive field must not discard a usable final_label."""
+
+    def _director(self, payload: dict):
+        import asyncio, json as _json
+        from app.agents.supervisor_agent import SupervisorAgent
+
+        class _Backend:
+            async def complete(self, messages, **kwargs):
+                return _json.dumps(payload)
+
+        supervisor = SupervisorAgent(backend=_Backend())
+        return asyncio.run(
+            supervisor.synthesize_decision(
+                patient_case="CASE", debate_transcript="T", biolinkbert_hint="{}"
+            )
+        )
+
+    def test_unknown_consensus_type_is_coerced_not_fatal(self) -> None:
+        out = self._director(
+            {"final_label": "no", "consensus_type": "lone_dissent", "rationale": "r"}
+        )
+        self.assertEqual(out.final_label, "no")
+        self.assertEqual(out.consensus_type, "differential")
+
+    def test_valid_consensus_type_is_preserved(self) -> None:
+        out = self._director(
+            {"final_label": "yes", "consensus_type": "consensus", "rationale": "r"}
+        )
+        self.assertEqual(out.final_label, "yes")
+        self.assertEqual(out.consensus_type, "consensus")

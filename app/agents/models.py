@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class SharedDebateReport(BaseModel):
@@ -103,11 +103,20 @@ class SafetyOpinion(BaseModel):
 class ClinicalOpinion(BaseModel):
     """Structured clinical opinion returned by every debate agent."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     top_1_diagnosis: str = Field(..., min_length=1)
     evidence_conclusiveness: str = Field(default="")
     top_3_differential_diagnoses: list[str] = Field(..., min_length=1, max_length=3)
-    pros: list[str] = Field(default_factory=list)
-    cons: list[str] = Field(default_factory=list)
+    # Defense rounds (frozen stance) emit semantic keys; map them back to pros/cons.
+    pros: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("pros", "best_evidence_supporting_my_label"),
+    )
+    cons: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("cons", "explicit_attack_on_opposing_peers"),
+    )
     required_further_tests: list[str] = Field(default_factory=list)
     confidence_level: float = Field(..., ge=0.0, le=1.0)
     sources_used: list[str] = Field(default_factory=list)

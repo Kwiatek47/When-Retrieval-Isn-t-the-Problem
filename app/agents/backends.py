@@ -610,6 +610,15 @@ def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
         elif not isinstance(value, list):
             payload[key] = []
 
+    # Defense-round chain-of-thought key is prompt-only; strip before validation.
+    payload.pop("internal_monologue", None)
+
+    # Defense-round semantic keys → standard pros/cons before coercion.
+    if "best_evidence_supporting_my_label" in payload:
+        payload["pros"] = payload.pop("best_evidence_supporting_my_label")
+    if "explicit_attack_on_opposing_peers" in payload:
+        payload["cons"] = payload.pop("explicit_attack_on_opposing_peers")
+
     payload["pros"] = _coerce_string_list(payload.get("pros"), flatten_pro_con=True)
     payload["cons"] = _coerce_string_list(payload.get("cons"), flatten_pro_con=True)
 

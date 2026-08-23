@@ -24,6 +24,23 @@ Return ONLY a single JSON object with exactly these fields:
 No markdown fences, no commentary outside JSON.
 """.strip()
 
+DEFENSE_OPINION_SCHEMA = """
+Return ONLY a single JSON object with exactly these fields:
+- internal_monologue (string, briefly think step-by-step: what is my frozen label, who opposed me, and how can I logically defend my label using the abstract text?)
+- top_1_diagnosis (string, MUST BE EXACTLY '{frozen_label}')
+- evidence_conclusiveness (string; one of "conclusive", "inconclusive")
+- top_3_differential_diagnoses (array of strings)
+- best_evidence_supporting_my_label (array of strings, quote the abstract to prove why '{frozen_label}' is logically correct)
+- explicit_attack_on_opposing_peers (array of strings, name specific peers by their persona and destroy their arguments using data)
+- required_further_tests (array of strings)
+- confidence_level (number between 0.0 and 1.0)
+- sources_used (array of strings)
+- red_flags (array of strings)
+- missing_information (string)
+
+No markdown fences, no commentary outside JSON.
+""".strip()
+
 
 SAFETY_OPINION_SCHEMA = """
 Return ONLY a single JSON object with exactly these fields:
@@ -75,6 +92,8 @@ You are a Clinical Director synthesizing a multi-agent debate to answer a PubMed
 Inputs:
 - patient_case (original abstract and question — YOUR GROUND TRUTH):
 {patient_case}
+- panel_vote_summary (who voted what, computed mechanically — not agent claims):
+{panel_vote_summary}
 - full_debate_transcript (agent opinions across rounds):
 {full_debate_transcript}
 
@@ -93,7 +112,11 @@ CRITICAL RULES FOR CHOOSING THE LABEL:
 3. TRUE UNCERTAINTY ("maybe") & COVERAGE:
    - You MUST set `question_coverage` to "partial" and `final_label` to "maybe" if the primary findings are genuinely mixed/contradictory.
    - SPECULATIVE UTILITY: You MUST choose "maybe" if the question asks about a clinical/diagnostic role, and the authors only prove a correlation, concluding that the intervention "may", "could", or "has potential to" have a role in the future. Suggesting a hypothesis is not a definitive "yes".
-5. DO NOT TALLY VOTES: The agents are forced into an adversarial debate. A majority of agents voting "yes" or "no" means NOTHING. Do not count their votes. You must base your final_label SOLELY on the logic you write in your rationale.
+5. VOTES ARE CALIBRATED EVIDENCE, NOT A VERDICT: Use `panel_vote_summary` as evidence about the abstract, weighted by how much each vote is worth:
+   - ROUND 1 IS THE HONEST SIGNAL: round-1 labels were formed independently, before any peer contamination or forced defense. Later-round labels are FROZEN by the system and carry no new information — a label repeated in round 3 is not a second vote.
+   - LONE DISSENT DOES NOT WIN BY DEFAULT: when one agent dissents against an otherwise agreeing panel, you may only follow the dissenter if you can point to the specific sentence or number in the abstract that the majority misread. Name that sentence in your rationale. If you cannot, go with the majority reading.
+   - DISCOUNT THE STRUCTURAL MAYBE-HUNTER: [uncertainty_advocate] is instructed by the system to search for reasons to answer "maybe", and its stated confidence is not a reliable measure of how real the gap is. Treat its "maybe" as a hypothesis to verify against the abstract, never as evidence on its own.
+   - You may still overrule the entire panel — but only on the strength of the abstract text, which you must quote in your rationale.
 
 Discount opinions whose sources_used include "fallback". Weigh agent arguments carefully, but prioritize the abstract text. 
 
@@ -120,16 +143,34 @@ Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', '
 
 
 # Legacy single-role prompt (kept for backward-compatible tests / references).
-UNCERTAINTY_ADVOCATE_PROMPT = """You are the Uncertainty Advocate on a PubMedQA debate panel.
-Your ONLY job is to identify fundamental gaps that prevent a definitive 'yes' or 'no' conclusion.
+UNCERTAINTY_ADVOCATE_PROMPT = """You are the Coverage Auditor on a PubMedQA debate panel.
+You answer ONE question: does this abstract actually settle the question that was asked?
 
-You MUST champion the 'maybe' label if you detect:
-1. PARTIAL COVERAGE: The study investigates a related metric but doesn't fully answer the core question (e.g., using a surrogate endpoint).
-2. INTERNAL CONTRADICTIONS: Primary and secondary endpoints point in opposite directions.
-3. SPECULATIVE CLINICAL UTILITY: If the question asks whether X has a diagnostic/therapeutic role, and the authors only prove that X *correlates* with a disease, concluding that it "may/might" have a role. Proposing a future clinical application based on a correlation is a 'maybe', NOT a 'yes'.
-4. INSIGNIFICANT DATA: The main claim relies on statistically insignificant results (p > 0.05).
+You are a DETECTOR, not an advocate. A detector that fires on everything is worthless —
+it carries no information and the panel learns to ignore it. Measured on this benchmark,
+answering 'maybe' indiscriminately scores no better than guessing. Your value comes
+entirely from separating the abstracts that leave the question open from those that close it.
 
-CRITICAL CONFIDENCE RULE: When you choose 'maybe', you must set your `confidence_level` HIGH (e.g., 0.90 - 1.0). Do not use a low confidence score to reflect the paper's uncertainty; you must be highly confident IN your detection of that uncertainty.
+DEFAULT: most abstracts DO answer their own question. Start from 'yes' or 'no' following the
+authors' primary finding, and move to 'maybe' only when you can name a specific gap below and
+quote the text that shows it.
+
+Answer 'maybe' ONLY when one of these is concretely present, and say which one:
+1. PARTIAL COVERAGE: the question asks about X, the study measured a surrogate or proxy for X.
+2. SUBGROUP-ONLY: the effect holds in a subgroup but not in the population the question asks about.
+3. INTERNAL CONTRADICTION: primary and secondary endpoints point in opposite directions.
+4. SPECULATIVE UTILITY: the question asks whether X has a clinical role, the authors prove only
+   correlation and propose the role as future work ("may", "could", "has potential").
+5. INSIGNIFICANT DATA: the main claim rests on results that failed significance (p > 0.05).
+
+These do NOT justify 'maybe': small sample, retrospective design, short follow-up, single centre,
+a call for further research, or cautious academic phrasing around a clear primary finding.
+
+CONFIDENCE CALIBRATION RULE: `confidence_level` measures YOUR detection of the gap, not the paper's own uncertainty. Report it honestly — downstream consensus logic reads this number and is misled by inflated values:
+- 0.85-1.0: the gap is explicit in the text (authors state the question stays unresolved, the endpoint is openly a surrogate, primary and secondary results contradict each other).
+- 0.5-0.8: you are inferring the gap from what the abstract does not say.
+- below 0.5: you suspect a gap but the text mostly supports a definitive answer.
+Never inflate this score to make your 'maybe' harder to overrule.
 
 Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', 'no', or 'maybe'.
 """.strip()
@@ -139,20 +180,20 @@ PUBMEDQA_UNCERTAINTY_PERSONAS = frozenset(
 )
 
 ROUND2_STRUCTURED_CRITICISM_RULE = (
-    "In your 'cons' or 'pros', you MUST explicitly name an agent you disagree with "
+    "In your attack/critique fields, you MUST explicitly name an agent you disagree with "
     "using a JSON-safe tag like [uncertainty_advocate] or [evidence_skeptic], and refute "
     "their specific argument. Do not just restate your previous opinion."
 )
 
 ROUND2_NO_VERBATIM_QUOTE_RULE = (
-    "DO NOT copy or quote other agents' text verbatim in your pros/cons. "
+    "DO NOT copy or quote other agents' text verbatim in your arguments. "
     "Synthesize your own counter-arguments."
 )
 
 ROUND2_JSON_SAFETY_RULE = (
-    "Your output MUST be valid JSON. Use double-quoted strings in pros/cons. "
+    "Your output MUST be valid JSON. Use double-quoted strings for all argument arrays. "
     "Do NOT use @mentions or possessive apostrophes (write [evidence_skeptic] argument, "
-    "never evidence_skeptic's). Limit pros and cons to exactly one short sentence each "
+    "never evidence_skeptic's). Limit your evidence and attacks to exactly one short sentence each "
     "(max 25 words). Escape any internal double quotes as \\\"."
 )
 
@@ -192,8 +233,9 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     ),
     "uncertainty_advocate": (
         UNCERTAINTY_ADVOCATE_PROMPT +
-        "\n\nCRITICAL INSTRUCTION FOR DEBATE ROUNDS: You are the sole auditor of uncertainty. "
-        "Do NOT easily yield to the Generalist. "
+        "\n\nCRITICAL INSTRUCTION FOR DEBATE ROUNDS: You are the sole auditor of coverage, so "
+        "hold a gap you can still point to in the text — but holding 'maybe' on every case "
+        "makes your vote uninformative and it will be discounted. "
         "HOWEVER, if peer arguments logically resolve the apparent contradictions or prove the abstract fully addresses the question (e.g., via a valid surrogate endpoint), "
         "you MUST update your diagnosis to 'yes' or 'no'. Only maintain 'maybe' if the gaps are genuine and unresolved."
     ),
@@ -479,13 +521,12 @@ def build_messages(
     )
     adversarial_directive = ""
     if frozen_label and resolved_round > 1:
+        # Semantic steering: defense-round JSON keys replace generic pros/cons.
+        schema_block = DEFENSE_OPINION_SCHEMA.format(frozen_label=frozen_label)
         adversarial_directive = (
             f"\n\n[SYSTEM ARCHITECTURE OVERRIDE]\n"
-            f"In Round 1, you diagnosed the answer as '{frozen_label}'. "
-            f"The system has FROZEN your stance. You are now the defense attorney for the '{frozen_label}' label.\n"
-            f"1. Your top_1_diagnosis MUST remain '{frozen_label}'.\n"
-            f"2. ALIGNMENT RULE: Your 'pros' MUST logically support '{frozen_label}'. If your label is 'no' or 'maybe', your pros MUST explain what is wrong with the study or why it fails. NEVER use arguments that support the opposite label.\n"
-            f"3. ANTI-LAZINESS RULE: You MUST explicitly attack the PEERS who voted differently. Do not use generic phrases. Quote specific data points from the abstract to prove your peers are wrong.\n"
+            f"You are the defense attorney for the '{frozen_label}' label. "
+            f"Populate the JSON fields carefully to defend '{frozen_label}' and attack anyone who disagreed with it."
         )
 
     system = (

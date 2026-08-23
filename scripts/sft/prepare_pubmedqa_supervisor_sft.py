@@ -22,7 +22,11 @@ from scripts.classifier.prepare_pubmedqa_deberta_dataset import (
     _heldout_pmids,
     _load_examples,
 )
-from app.agents.aggregation import build_full_debate_transcript, opinion_label
+from app.agents.aggregation import (
+    build_full_debate_transcript,
+    build_panel_vote_summary,
+    opinion_label,
+)
 from app.agents.models import (
     AgentRoundOpinion,
     SupervisorDirectorOutput,
@@ -254,10 +258,15 @@ def build_director_sft_record(debate: dict) -> dict:
     )
     if not transcript_text:
         transcript_text = json.dumps(debate.get("debate_brief") or {}, ensure_ascii=False)
-    hint_text = json.dumps(debate.get("biolinkbert_hint") or {}, ensure_ascii=False)
+    hint_raw = debate.get("biolinkbert_hint") or {}
+    hint_text = json.dumps(hint_raw, ensure_ascii=False)
+    bert_label = hint_raw.get("label") if isinstance(hint_raw, dict) else None
     prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
         patient_case=str(debate.get("patient_case") or ""),
         full_debate_transcript=transcript_text,
+        panel_vote_summary=build_panel_vote_summary(
+            history_entries, biolinkbert_label=bert_label
+        ),
         biolinkbert_hint=hint_text,
     )
     prompt += (

@@ -321,6 +321,158 @@ def build_full_debate_transcript(
     return "\n".join(parts).strip()
 
 
+# Roles whose persona prompt structurally pushes them toward "maybe". Their lone
+# dissent is a hypothesis to verify, not independent evidence of uncertainty.
+STRUCTURALLY_MAYBE_BIASED_ROLES: frozenset[str] = frozenset({"uncertainty_advocate"})
+
+
+def _entry_role(entry: AgentRoundOpinion) -> str:
+    return (entry.agent_id or entry.persona or "").strip().lower()
+
+
+def panel_label_tally(entries: list[AgentRoundOpinion]) -> dict[str, int]:
+    """Count of yes/no/maybe over one round's opinions (unparseable labels dropped)."""
+    counts: Counter[str] = Counter()
+    for entry in entries:
+        label = opinion_label(entry.opinion)
+        if label is not None:
+            counts[label] += 1
+    return dict(counts)
+
+
+def lone_dissenter(entries: list[AgentRoundOpinion]) -> tuple[str, str] | None:
+    """Return ``(role, label)`` when exactly one agent dissents from an otherwise
+    unanimous panel, else ``None``."""
+    labelled = [
+        (_entry_role(entry), opinion_label(entry.opinion))
+        for entry in entries
+        if opinion_label(entry.opinion) is not None
+    ]
+    if len(labelled) < 3:
+        return None
+    counts = Counter(label for _, label in labelled)
+    if len(counts) != 2:
+        return None
+    minority = [label for label, n in counts.items() if n == 1]
+    if len(minority) != 1:
+        return None
+    dissent = minority[0]
+    return next((role, dissent) for role, label in labelled if label == dissent)
+
+
+def panel_conflict_kind(entries: list[AgentRoundOpinion]) -> str:
+    """Objective panel-agreement class, independent of what the Director claims.
+
+    ``unanimous`` | ``lone_dissent`` | ``fundamental`` | ``split`` | ``unknown``.
+    ``fundamental`` reuses the orchestrator's even-split / both-guardians rule.
+    """
+    from app.agents.orchestrator import fundamental_panel_conflict
+
+    labels = [
+        label
+        for label in (opinion_label(entry.opinion) for entry in entries)
+        if label is not None
+    ]
+    if not labels:
+        return "unknown"
+    if len(set(labels)) == 1:
+        return "unanimous"
+    if fundamental_panel_conflict(entries):
+        return "fundamental"
+    if lone_dissenter(entries) is not None:
+        return "lone_dissent"
+    return "split"
+
+
+# Prose renderings of ``panel_conflict_kind``; keeps enum tokens out of the prompt.
+_PANEL_SPLIT_PROSE: dict[str, str] = {
+    "unanimous": "every agent voted the same label.",
+    "lone_dissent": "all agents agree except one.",
+    "fundamental": "the panel is deeply divided — evenly opposed, or both guardians dissent.",
+    "split": "the panel is divided across more than two positions.",
+    "unknown": "no usable labels were produced.",
+}
+
+
+def build_panel_vote_summary(
+    debate_history: list[list[AgentRoundOpinion]],
+    *,
+    biolinkbert_label: str | None = None,
+    panel_saw_bert_hint: bool = False,
+) -> str:
+    """Mechanical vote block for the Director prompt.
+
+    The Director otherwise sees only debate rhetoric, which lets a single
+    persistent dissenter outweigh an agreeing panel. This states plainly who
+    voted what, separates the uncontaminated round-1 vote from frozen later
+    rounds, and flags dissent coming from a structurally maybe-biased role.
+    """
+    if not debate_history:
+        return "(no debate rounds recorded)"
+
+    lines: list[str] = []
+    first_round = debate_history[0]
+    first_tally = panel_label_tally(first_round)
+    lines.append(
+        "ROUND 1 (independent, formed before any peer contamination — "
+        "the most informative panel signal):"
+    )
+    for entry in first_round:
+        label = opinion_label(entry.opinion) or "unparseable"
+        lines.append(f"  {_entry_role(entry)} = {label}")
+    lines.append(
+        "  tally: "
+        + (", ".join(f"{lab}={n}" for lab, n in sorted(first_tally.items())) or "none")
+    )
+
+    final_round = debate_history[-1]
+    if len(debate_history) > 1:
+        final_tally = panel_label_tally(final_round)
+        lines.append("")
+        lines.append(
+            f"FINAL ROUND {len(debate_history)} (labels may be frozen by the system; "
+            "a repeated label is not a new vote):"
+        )
+        for entry in final_round:
+            label = opinion_label(entry.opinion) or "unparseable"
+            lines.append(f"  {_entry_role(entry)} = {label}")
+        lines.append(
+            "  tally: "
+            + (", ".join(f"{lab}={n}" for lab, n in sorted(final_tally.items())) or "none")
+        )
+
+    lines.append("")
+    # Prose, not enum-like tokens: the Director copies vocabulary it sees here into
+    # its own ``consensus_type`` field, which accepts only consensus/differential/
+    # escalation. Machine-readable classes stay in telemetry, out of the prompt.
+    lines.append(f"HOW THE PANEL DIVIDED: {_PANEL_SPLIT_PROSE[panel_conflict_kind(final_round)]}")
+    dissent = lone_dissenter(final_round)
+    if dissent is not None:
+        role, label = dissent
+        note = f"  The single dissenter is {role}, voting '{label}'."
+        if role in STRUCTURALLY_MAYBE_BIASED_ROLES:
+            note += (
+                f" NOTE: {role} is system-instructed to hunt for 'maybe' and its stated"
+                " confidence is not calibrated — verify its claim against the abstract"
+                " before following it."
+            )
+        lines.append(note)
+
+    bert = (biolinkbert_label or "").strip().lower()
+    if bert in _LABELS and panel_saw_bert_hint:
+        # Do NOT restate the label as a second opinion: the Director already receives
+        # it as ``biolinkbert_hint``, and most agents were shown it too, so panel
+        # agreement with it is an echo of one source, not independent corroboration.
+        lines.append(
+            "INDEPENDENCE WARNING: most agents were shown the BioLinkBERT label"
+            f" ('{bert}') before voting. Panel agreement with that label is NOT a"
+            " second opinion confirming it — it is the same source counted twice."
+            " Only the abstract is independent evidence."
+        )
+
+    return "\n".join(lines)
+
+
 def build_debate_brief(
     debate_history: list[list[AgentRoundOpinion]],
     *,
@@ -549,6 +701,7 @@ async def aggregate_with_llm_director(
     supervisor: SupervisorAgent,
     shared_report: SharedDebateReport | None = None,
     director_maybe_gate: Literal["off", "legacy"] = "off",
+    panel_saw_bert_hint: bool = False,
 ) -> str:
     """
     Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
@@ -578,6 +731,11 @@ async def aggregate_with_llm_director(
         debate_history, shared_report=shared_report
     )
     brief = build_debate_brief(debate_history, shared_report=shared_report)
+    vote_summary = build_panel_vote_summary(
+        debate_history,
+        biolinkbert_label=_parse_biolinkbert_label(biolinkbert_hint),
+        panel_saw_bert_hint=panel_saw_bert_hint,
+    )
     shared_report_text = json.dumps(
         shared_report.model_dump() if shared_report is not None else {},
         ensure_ascii=False,
@@ -585,6 +743,7 @@ async def aggregate_with_llm_director(
     # Telemetry only — never used to override final_label.
     setattr(supervisor, "last_debate_brief", brief)
     setattr(supervisor, "last_debate_transcript", transcript)
+    setattr(supervisor, "last_panel_vote_summary", vote_summary)
 
     director_output = await supervisor.synthesize_decision(
         patient_case=patient_case,
@@ -592,6 +751,7 @@ async def aggregate_with_llm_director(
         biolinkbert_hint=biolinkbert_hint,
         shared_report=shared_report_text,
         debate_brief=None,
+        panel_vote_summary=vote_summary,
     )
     if gate_mode == "legacy":
         final_opinions = debate_history[-1] if debate_history else []
