@@ -27,6 +27,7 @@ from app.agents.sld.ledger import (
 )
 from app.agents.sld.prompts import (
     SYSTEM_JSON_ONLY,
+    _TRUNCATED_FIELD_CHARS,
     build_conclusion_reconstructor_prompt,
     build_findings_auditor_prompt,
     build_gap_auditor_prompt,
@@ -259,7 +260,7 @@ async def run_round_two(
                 )
             else:
                 peer_notes = "\n\n".join(
-                    render_contribution(contribution)
+                    render_contribution(contribution, max_field_chars=_TRUNCATED_FIELD_CHARS)
                     for peer_id, contribution in own_contributions.items()
                     if peer_id != agent_id
                 )

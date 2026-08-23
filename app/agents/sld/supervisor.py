@@ -234,13 +234,12 @@ class LedgerSupervisor:
         self,
         *,
         question: str,
-        sentences: dict[str, str],
         ledger: EvidenceLedger,
         round_two_opinions: list[RoundTwoOpinion],
         samples: int = 3,
         temperature: float = 0.5,
     ) -> DirectorVerdict:
-        prompt = build_director_prompt(question, sentences, render_ledger(ledger), round_two_opinions)
+        prompt = build_director_prompt(question, render_ledger(ledger), round_two_opinions)
 
         async def _one(index: int) -> DirectorVerdict:
             return await call_structured_llm(

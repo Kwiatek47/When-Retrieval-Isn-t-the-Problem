@@ -195,7 +195,6 @@ class SLDPipeline:
         else:
             verdict = await supervisor.direct(
                 question=case.question,
-                sentences=sentences,
                 ledger=ledger,
                 round_two_opinions=verified_r2,
                 samples=self.director_samples,

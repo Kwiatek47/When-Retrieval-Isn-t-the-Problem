@@ -35,8 +35,19 @@ SYSTEM_JSON_ONLY = "Return only valid JSON matching the requested schema. No mar
 # deliberately coarse (real tokenization is the provider's job); the point is
 # to fail loudly on a runaway prompt, not to silently truncate it the way the
 # legacy Director prompt does today (design doc P4).
+#
+# R1/R2 prompts run once per persona per round (x4) so they keep the tight
+# budget; Moderator/Director each run once per round but aggregate up to 4
+# contributions/opinions, so they get more headroom — enforced in two layers,
+# not one: render_contribution/render_round_two_opinion truncate individual
+# free-text fields deterministically (real 7B models routinely ignore "be
+# concise" instructions, so this can't be prompt-only), AND the aggregate
+# call still gets a hard budget on top, so a pathological case fails loudly
+# instead of being silently truncated by the provider.
 MAX_PROMPT_TOKENS = 1600
+AGGREGATE_MAX_PROMPT_TOKENS = 2800
 CHARS_PER_TOKEN_ESTIMATE = 4
+_TRUNCATED_FIELD_CHARS = 220
 
 
 class PromptBudgetExceeded(ValueError):
@@ -113,43 +124,59 @@ def render_stats_profile(profile: StatsProfile) -> str:
     return "\n".join(rows) if rows else "(none found)"
 
 
-def _with_schema(prompt: str, model_cls: type[BaseModel]) -> str:
+def _with_schema(
+    prompt: str, model_cls: type[BaseModel], *, max_tokens: int = MAX_PROMPT_TOKENS
+) -> str:
     schema = model_cls.model_json_schema()
     full = f"{prompt}\n\nJSON schema:\n{json.dumps(schema, ensure_ascii=False)}"
-    assert_token_budget(full, label=model_cls.__name__)
+    assert_token_budget(full, label=model_cls.__name__, max_tokens=max_tokens)
     return full
 
 
-def render_contribution(contribution: PanelContribution) -> str:
-    """Compact human-readable rendering of one R1 contribution for the
-    Supervisor/Moderator and for a Round 2 agent's own R1 note."""
+def _truncate(text: str, max_chars: int | None) -> str:
+    if max_chars is None or len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rstrip() + "…"
+
+
+def render_contribution(contribution: PanelContribution, *, max_field_chars: int | None = None) -> str:
+    """Compact human-readable rendering of one R1 contribution, for the
+    Supervisor/Moderator, a Round 2 agent's own R1 note, or R1 peer notes.
+
+    ``max_field_chars`` caps each free-text field's rendered length —
+    callers that aggregate multiple contributions into one prompt (Moderator:
+    up to 4; L4 peer notes: up to 3) pass this so the aggregate call can't
+    blow its budget on a single verbose field; a single-contribution caller
+    (a Round 2 agent's own note) leaves it uncapped.
+    """
+    t = lambda s: _truncate(s, max_field_chars)  # noqa: E731
     parts = [f"[{contribution.persona} / {contribution.agent_id}]"]
     persona = contribution.persona
     if persona == "question_framer":
         parts.append(f"question_type: {contribution.question_type}")
         if contribution.target_population:
-            parts.append(f"target_population: {contribution.target_population.text}")
+            parts.append(f"target_population: {t(contribution.target_population.text)}")
         if contribution.target_exposure:
-            parts.append(f"target_exposure: {contribution.target_exposure.text}")
+            parts.append(f"target_exposure: {t(contribution.target_exposure.text)}")
         if contribution.target_outcome:
-            parts.append(f"target_outcome: {contribution.target_outcome.text}")
-        parts.append(f"yes_requires: {contribution.yes_requires}")
-        parts.append(f"no_requires: {contribution.no_requires}")
+            parts.append(f"target_outcome: {t(contribution.target_outcome.text)}")
+        parts.append(f"yes_requires: {t(contribution.yes_requires)}")
+        parts.append(f"no_requires: {t(contribution.no_requires)}")
     elif persona == "findings_auditor":
         parts.append(f"direction: {contribution.direction}")
         if contribution.primary_endpoint:
             parts.append(
-                f"primary_endpoint: {contribution.primary_endpoint.text} "
+                f"primary_endpoint: {t(contribution.primary_endpoint.text)} "
                 f"({', '.join(contribution.primary_endpoint.sentence_ids)})"
             )
         if contribution.significance:
             parts.append(
-                f"significance: {contribution.significance.text} "
+                f"significance: {t(contribution.significance.text)} "
                 f"({', '.join(contribution.significance.sentence_ids)})"
             )
         if contribution.effect_magnitude:
             parts.append(
-                f"effect_magnitude: {contribution.effect_magnitude.text} "
+                f"effect_magnitude: {t(contribution.effect_magnitude.text)} "
                 f"({', '.join(contribution.effect_magnitude.sentence_ids)})"
             )
     elif persona == "gap_auditor":
@@ -157,18 +184,23 @@ def render_contribution(contribution: PanelContribution) -> str:
             parts.append("gaps: (none found)")
         for gap in contribution.gaps:
             cites = f" ({', '.join(gap.sentence_ids)})" if gap.sentence_ids else ""
-            parts.append(f"gap[{gap.gap_type}]: {gap.description}{cites}")
+            parts.append(f"gap[{gap.gap_type}]: {t(gap.description)}{cites}")
     elif persona == "conclusion_reconstructor":
         parts.append(f"direction: {contribution.direction}, strength: {contribution.strength}")
         if contribution.reconstructed_conclusion:
             parts.append(
-                f"reconstructed_conclusion: {contribution.reconstructed_conclusion.text} "
+                f"reconstructed_conclusion: {t(contribution.reconstructed_conclusion.text)} "
                 f"({', '.join(contribution.reconstructed_conclusion.sentence_ids)})"
             )
     return "\n".join(parts)
 
 
 def render_ledger(ledger: EvidenceLedger) -> str:
+    """Always truncates its free-text fields (unlike render_contribution's
+    optional cap): the ledger is rendered into every R2 prompt (x4, tight
+    1600-token budget) and the Director prompt, so it can't be allowed to
+    grow unbounded from a verbose Moderator conflict/open_question/instruction."""
+    t = lambda s: _truncate(s, _TRUNCATED_FIELD_CHARS)  # noqa: E731
     lines: list[str] = []
     if ledger.question_type:
         lines.append(f"question_type: {ledger.question_type}")
@@ -182,7 +214,7 @@ def render_ledger(ledger: EvidenceLedger) -> str:
         ("reconstructed_conclusion", ledger.reconstructed_conclusion),
     ):
         if claim is not None:
-            lines.append(f"{field_name}: {claim.text} ({', '.join(claim.sentence_ids)})")
+            lines.append(f"{field_name}: {t(claim.text)} ({', '.join(claim.sentence_ids)})")
     if ledger.direction:
         lines.append(f"direction (findings): {ledger.direction}")
     if ledger.conclusion_direction:
@@ -193,28 +225,29 @@ def render_ledger(ledger: EvidenceLedger) -> str:
     if ledger.gaps:
         for gap in ledger.gaps:
             cites = f" ({', '.join(gap.sentence_ids)})" if gap.sentence_ids else ""
-            lines.append(f"gap[{gap.gap_type}]: {gap.description}{cites}")
+            lines.append(f"gap[{gap.gap_type}]: {t(gap.description)}{cites}")
     if ledger.conflicts:
         for conflict in ledger.conflicts:
             lines.append(
-                f"conflict: {conflict.description} "
+                f"conflict: {t(conflict.description)} "
                 f"[{', '.join(conflict.agent_ids)}] ({', '.join(conflict.sentence_ids)})"
             )
     if ledger.open_questions:
-        lines.append("open_questions: " + "; ".join(ledger.open_questions))
+        lines.append("open_questions: " + "; ".join(t(q) for q in ledger.open_questions))
     if ledger.round_instructions:
-        lines.append("round_instructions: " + "; ".join(ledger.round_instructions))
+        lines.append("round_instructions: " + "; ".join(t(i) for i in ledger.round_instructions))
     return "\n".join(lines) if lines else "(empty ledger)"
 
 
-def render_round_two_opinion(opinion: RoundTwoOpinion) -> str:
-    parts = [f"[{opinion.agent_id}] label={opinion.label}: {opinion.rationale}"]
+def render_round_two_opinion(opinion: RoundTwoOpinion, *, max_field_chars: int | None = None) -> str:
+    t = lambda s: _truncate(s, max_field_chars)  # noqa: E731
+    parts = [f"[{opinion.agent_id}] label={opinion.label}: {t(opinion.rationale)}"]
     if opinion.citations:
         parts.append(f"citations: {', '.join(opinion.citations)}")
     if opinion.complement:
-        parts.append(f"complement: {opinion.complement}")
+        parts.append(f"complement: {t(opinion.complement)}")
     if opinion.self_audit:
-        parts.append(f"self_audit: {opinion.self_audit}")
+        parts.append(f"self_audit: {t(opinion.self_audit)}")
     return "\n".join(parts)
 
 
@@ -355,7 +388,9 @@ def build_moderator_prompt(
     # from, so re-rendering the merged ledger and the full abstract on top
     # would be redundant content burning the token budget on a call whose job
     # is judgment (conflicts/gaps/instructions), not re-extraction.
-    contributions_block = "\n\n".join(render_contribution(c) for c in verified_contributions)
+    contributions_block = "\n\n".join(
+        render_contribution(c, max_field_chars=_TRUNCATED_FIELD_CHARS) for c in verified_contributions
+    )
     prompt = f"""You are the Supervisor moderating a panel that just reviewed a biomedical \
 abstract independently (each analyst could not see the others' answers). Your job is judgment, \
 not extraction: the facts below were already extracted and citation-checked by code — do not \
@@ -378,7 +413,7 @@ real conflict.
 - round_instructions: 1-3 short, concrete instructions for round 2, derived ONLY from the gaps/\
 open_questions/conflicts above — not generic advice like "be more careful".
 """
-    return _with_schema(prompt.strip(), ModeratorSynthesis)
+    return _with_schema(prompt.strip(), ModeratorSynthesis, max_tokens=AGGREGATE_MAX_PROMPT_TOKENS)
 
 
 # --- Round 2: cooperative debate on the ledger --------------------------------
@@ -483,15 +518,23 @@ Produce:
 
 def build_director_prompt(
     question: str,
-    sentences: dict[str, str],
     ledger_rendering: str,
     round_two_opinions: list[RoundTwoOpinion],
 ) -> str:
-    opinions_block = "\n\n".join(render_round_two_opinion(o) for o in round_two_opinions)
+    # Deliberately no raw abstract block here (same fix as build_moderator_prompt):
+    # the ledger and the R2 opinions already carry every citation the Director
+    # needs, each traceable to a sentence_id. Re-rendering the full abstract on
+    # top of both burned the token budget on real R2 output (rationale/
+    # complement/self_audit are longer in practice than short test fixtures) —
+    # this is what PromptBudgetExceeded caught on the first real dev-90 run.
+    opinions_block = "\n\n".join(
+        render_round_two_opinion(o, max_field_chars=_TRUNCATED_FIELD_CHARS) for o in round_two_opinions
+    )
     prompt = f"""You are the Director making the final structured verdict on a biomedical \
 research question. You receive the verified evidence ledger and the panel's round-2 labeled \
 opinions — not a full debate transcript. Base your verdict on the ledger; use the opinions as \
-supporting signal, not as a vote to rubber-stamp.
+supporting signal, not as a vote to rubber-stamp. Every citation below already resolves to a \
+real sentence_id; do not invent new ones.
 
 RESEARCH QUESTION:
 {question}
@@ -501,9 +544,6 @@ EVIDENCE LEDGER:
 
 ROUND 2 OPINIONS:
 {opinions_block}
-
-ABSTRACT SENTENCES:
-{render_sentences(sentences)}
 
 Produce a verdict with:
 - question_answered_by_endpoint: does the measured endpoint actually answer the research question \
@@ -518,4 +558,4 @@ an unqualified numeric difference)?
 - rationale: why, citing sentence_ids
 - citations: the sentence_ids you relied on
 """
-    return _with_schema(prompt.strip(), DirectorVerdict)
+    return _with_schema(prompt.strip(), DirectorVerdict, max_tokens=AGGREGATE_MAX_PROMPT_TOKENS)
