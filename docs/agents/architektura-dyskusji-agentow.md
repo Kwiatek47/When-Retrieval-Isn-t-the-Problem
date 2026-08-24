@@ -434,6 +434,49 @@ Pewność BioLinkBERT nie separuje trafnych nadpisań od fałszywych: **0.918 vs
 
 ---
 
+## 8e. Debata na pełnym PQA-L — remis z klasyfikatorem
+
+`debate7b_sup14b_majority_pqal500_v1`: agenci `qwen2.5:7b`, supervisor `qwen2.5:14b`, hybrid, 3 rundy, frozen stance, majority + hint, 500 case'ów `eval.json`.
+
+**To pierwszy i jedyny pomiar debaty na rozkładzie naturalnym.** Wszystkie wcześniejsze wnioski (§8b) pochodzą z `balanced90`.
+
+| klasa | n | debata | BioLinkBERT |
+|---|---|---|---|
+| yes | 276 | 0.732 | **0.768** |
+| no | 169 | **0.899** | 0.870 |
+| maybe | 55 | 0.055 (3/55) | 0.073 (4/55) |
+| **razem** | **500** | **0.714** | **0.726** |
+
+**Remis, nie porażka.** McNemar: debata wygrywa 10 case'ów, przegrywa 16, χ²=0.96, **p ≈ 0.33** — różnica nieodróżnialna od szumu. Ale koszt to **112 s/case wobec ~0.03 s** dla samego klasyfikatora, czyli ok. 3700×.
+
+**Zgodność z BioLinkBERT: 0.936** (na balanced90 było 0.956). Mimo zejścia na agentów 7B architektura nadal odtwarza klasyfikator.
+
+**Komplementarność jest znikoma.** Tylko debata trafna: 10 case'ów. Tylko BERT: 16. Sufit oracle'owego ensemble'u to **0.746**, czyli zaledwie +0.020 nad samym klasyfikatorem — na balanced90 ta przestrzeń wynosiła +0.066. Na rozkładzie naturalnym nawet idealny router prawie nic nie daje.
+
+**Klasa `maybe` potwierdza wszystko z §8b:** 3/55 wobec 4/55. Obie metody zawodzą niezależnie.
+
+### Rundy 2–3 nie zmieniają nic — ale to prawie tautologia
+
+| | |
+|---|---|
+| etykieta identyczna jak po rundzie 1 | **492/500 (98.4%)** |
+| zmieniona | 8 |
+| z tego naprawione / zepsute | **4 / 4** |
+| `round1_accuracy` vs `label_accuracy` | **0.714 = 0.714** |
+
+Dwie trzecie obliczeń (~10 h GPU na tym zbiorze) idzie na rundy, które dają zerowy zysk netto.
+
+**Zastrzeżenie, bez którego ta liczba wprowadza w błąd:** run używał `--frozen-stance`, który **z definicji blokuje etykiety agentów po rundzie 1**. Rundy 2–3 mogą więc produkować wyłącznie argumentację, a nie zmieniać głosy; te 8 zmian bierze się z przeważania pewnością i z nieparsowalnych etykiet. Wynik „rundy nic nie dają" jest zatem w tej konfiguracji bliski tautologii i **nie jest dowodem, że debata jako taka nie działa**.
+
+Otwarte pytanie, którego nie zmierzyliśmy: debata **bez** frozen stance. Wszystkie runy w tej serii (v1–v6 i ten) miały go włączonego.
+
+### Czego ten run nie rozstrzyga
+
+- Agenci to **7B**, seria v1–v6 miała **14B** — porównanie z tamtymi runami nie jest czyste. Czyste jest tylko zestawienie z BioLinkBERT na tym samym zbiorze.
+- 12 błędów parsowania moderacji supervisora (2.4%); te rundy przeszły jako peer critique bez moderatora. Poniżej progu istotności, ale przy 32B tego nie było.
+
+---
+
 ## 9. Konfiguracja (istotne knoby)
 
 ### Orchestrator
