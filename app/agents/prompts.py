@@ -78,9 +78,23 @@ Task:
    - Identify who is in the minority and what label they hold.
    - State their single strongest claim, grounded in the abstract — the best version
      of their argument, not a weak paraphrase.
-   - Judge honestly whether the majority ACTUALLY ANSWERED that claim. Restating
-     their own position, asserting the minority is wrong, or citing generic study
-     limitations is NOT an answer. Set majority_has_addressed_it=false in that case.
+   - Judge whether the majority ACTUALLY ANSWERED that claim. Each opinion shows
+     "Objection they faced" and "Their answer to it" — read those, they are the
+     evidence for this judgement.
+     Set majority_has_addressed_it=TRUE when any of these holds:
+       * someone engaged the specific claim with abstract content — a number, an
+         endpoint, a stated result — even briefly, and even if the minority is
+         unconvinced;
+       * the minority's claim turns out to rest on something the abstract settles,
+         and an agent pointed at it;
+       * the minority itself changed position, or narrowed its claim to something
+         the majority already accepts.
+     Set it to FALSE only when the answers are genuinely empty: restating their own
+     label, asserting the minority is simply wrong, or citing generic limitations
+     (small sample, retrospective design) with nothing specific to the claim.
+     "Addressed" does NOT mean "resolved to everyone's satisfaction". A panel can
+     answer an objection well and still disagree. Do not withhold TRUE merely
+     because disagreement persists — that would keep every debate open forever.
    - Write one directed question the MAJORITY must answer next round, and one the
      MINORITY must answer. Make them specific and answerable from the abstract.
    If the panel is unanimous, leave the dissent fields empty and set
@@ -377,6 +391,18 @@ def format_opinion_nl(
         lines.append(f"  Pro: {_clip_text(pros[0])}")
     if cons:
         lines.append(f"  Con: {_clip_text(cons[0])}")
+    # Dissent-protocol engagement. The supervisor is asked whether the majority
+    # answered the minority's claim; without these lines it cannot see the answer
+    # at all and defaults to "not addressed" on nearly every case.
+    opposing = str(getattr(opinion, "strongest_opposing_argument", "") or "").strip()
+    answer = str(getattr(opinion, "my_answer_to_it", "") or "").strip()
+    if opposing:
+        lines.append(f"  Objection they faced: {_clip_text(opposing, max_chars=200)}")
+    if answer:
+        lines.append(f"  Their answer to it: {_clip_text(answer, max_chars=200)}")
+    if getattr(opinion, "position_changed", False):
+        why = str(getattr(opinion, "what_changed_my_mind", "") or "").strip()
+        lines.append(f"  CHANGED POSITION because: {_clip_text(why, max_chars=160) or '(unstated)'}")
     safety = getattr(opinion, "safety_opinion", None)
     if safety is not None:
         lines.append(

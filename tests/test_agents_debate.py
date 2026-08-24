@@ -2322,3 +2322,63 @@ class DissentProtocolTests(unittest.TestCase):
         )
         self.assertEqual(out.agreements, ["a"])
         self.assertIsNone(out.dissent)
+
+
+class SupervisorSeesEngagementTests(unittest.TestCase):
+    """The supervisor judges whether the majority answered the objection.
+
+    It can only do that if the rendering actually shows the answers — otherwise
+    it defaults to "not addressed" and every debate runs to max_rounds.
+    """
+
+    def _entry(self, **over):
+        from app.agents.models import AgentRoundOpinion
+
+        fields = dict(
+            top_1_diagnosis="yes",
+            top_3_differential_diagnoses=["yes", "no", "maybe"],
+            confidence_level=0.8,
+            pros=["a pro"],
+            cons=["a con"],
+        )
+        fields.update(over)
+        return AgentRoundOpinion(
+            agent_id="generalist", persona="generalist", round=2,
+            opinion=ClinicalOpinion(**fields),
+        )
+
+    def test_engagement_fields_reach_the_supervisor(self) -> None:
+        from app.agents.prompts import format_opinions_for_supervisor
+
+        rendered = format_opinions_for_supervisor(
+            [self._entry(
+                strongest_opposing_argument="the endpoint is a surrogate",
+                my_answer_to_it="the abstract reports the hard endpoint at p=0.01",
+            )]
+        )
+        self.assertIn("Objection they faced", rendered)
+        self.assertIn("surrogate", rendered)
+        self.assertIn("Their answer to it", rendered)
+        self.assertIn("p=0.01", rendered)
+
+    def test_position_change_is_visible_with_its_reason(self) -> None:
+        from app.agents.prompts import format_opinions_for_supervisor
+
+        rendered = format_opinions_for_supervisor(
+            [self._entry(position_changed=True, what_changed_my_mind="the subgroup figure")]
+        )
+        self.assertIn("CHANGED POSITION", rendered)
+        self.assertIn("subgroup figure", rendered)
+
+    def test_plain_opinions_render_unchanged(self) -> None:
+        from app.agents.prompts import format_opinions_for_supervisor
+
+        rendered = format_opinions_for_supervisor([self._entry()])
+        self.assertNotIn("Objection they faced", rendered)
+        self.assertNotIn("CHANGED POSITION", rendered)
+
+    def test_rubric_gives_criteria_for_addressed_not_only_for_unaddressed(self) -> None:
+        from app.agents.prompts import SUPERVISOR_MODERATOR_PROMPT
+
+        self.assertIn("majority_has_addressed_it=TRUE when any of these holds", SUPERVISOR_MODERATOR_PROMPT)
+        self.assertIn('does NOT mean "resolved to everyone\'s satisfaction"', SUPERVISOR_MODERATOR_PROMPT)
