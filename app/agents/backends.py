@@ -613,6 +613,13 @@ def _normalize_clinical_opinion_payload(data: dict[str, Any]) -> dict[str, Any]:
     # Defense-round chain-of-thought key is prompt-only; strip before validation.
     payload.pop("internal_monologue", None)
 
+    # Dissent-protocol engagement fields: keep as plain strings/bool.
+    for key in ("strongest_opposing_argument", "my_answer_to_it", "what_changed_my_mind"):
+        if key in payload and not isinstance(payload[key], str):
+            payload[key] = "" if payload[key] is None else str(payload[key])
+    if "position_changed" in payload:
+        payload["position_changed"] = bool(payload["position_changed"])
+
     # Defense-round semantic keys → standard pros/cons before coercion.
     if "best_evidence_supporting_my_label" in payload:
         payload["pros"] = payload.pop("best_evidence_supporting_my_label")

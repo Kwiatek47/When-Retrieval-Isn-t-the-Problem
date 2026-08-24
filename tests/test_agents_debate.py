@@ -56,6 +56,11 @@ class ClinicalOpinionSchemaTests(unittest.TestCase):
                 "red_flags",
                 "missing_information",
                 "safety_opinion",
+                # Dissent-protocol engagement fields (empty unless the protocol runs).
+                "strongest_opposing_argument",
+                "my_answer_to_it",
+                "position_changed",
+                "what_changed_my_mind",
             },
         )
 
@@ -372,6 +377,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 num_predict: int | None = None,
                 moderator_instruction: str | None = None,
                 round_number: int | None = None,
+                **kwargs,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
@@ -431,6 +437,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 num_predict: int | None = None,
                 moderator_instruction: str | None = None,
                 round_number: int | None = None,
+                **kwargs,
             ):
                 flags.setdefault(self.agent_id, []).append(include_evidence_hint)
                 return await super().generate_opinion(
@@ -488,6 +495,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 num_predict: int | None = None,
                 moderator_instruction: str | None = None,
                 round_number: int | None = None,
+                **kwargs,
             ):
                 frozen_seen.setdefault(self.agent_id, []).append(frozen_label)
                 return await super().generate_opinion(
@@ -551,6 +559,7 @@ class DebateOrchestratorTests(unittest.TestCase):
                 num_predict: int | None = None,
                 moderator_instruction: str | None = None,
                 round_number: int | None = None,
+                **kwargs,
             ):
                 predict_seen.append(num_predict)
                 return await super().generate_opinion(
@@ -2179,3 +2188,137 @@ class MaybeDetectorTests(unittest.TestCase):
             confidence=1.0,
         )
         self.assertEqual(apply_split_detector("no", verdict), ("maybe", True))
+
+
+class DissentProtocolTests(unittest.TestCase):
+    """Minority positions must be engaged with, not silently outvoted."""
+
+    def test_engagement_schema_replaces_default_in_later_rounds(self) -> None:
+        from app.agents.prompts import build_messages
+
+        msgs = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case="Question: X?\nEvidence: ...",
+            task_mode="pubmedqa",
+            round_number=2,
+            moderator_instruction="moderator says something",
+            dissent_protocol=True,
+        )
+        system = msgs[0].content
+        self.assertIn("strongest_opposing_argument", system)
+        self.assertIn("what_changed_my_mind", system)
+        user = msgs[1].content
+        self.assertIn("Being outnumbered is NOT evidence", user)
+
+    def test_round1_is_untouched_by_the_protocol(self) -> None:
+        """Round 1 must stay an independent opinion — nothing to answer yet."""
+        from app.agents.prompts import build_messages
+
+        msgs = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case="Question: X?\nEvidence: ...",
+            task_mode="pubmedqa",
+            round_number=1,
+            dissent_protocol=True,
+        )
+        self.assertNotIn("strongest_opposing_argument", msgs[0].content)
+        self.assertNotIn("Being outnumbered", msgs[1].content)
+
+    def test_frozen_stance_takes_precedence(self) -> None:
+        """Frozen stance locks the label, so the engagement schema must not apply."""
+        from app.agents.prompts import build_messages
+
+        msgs = build_messages(
+            agent_id="generalist",
+            persona="generalist",
+            patient_case="Q",
+            task_mode="pubmedqa",
+            round_number=2,
+            frozen_label="yes",
+            moderator_instruction="m",
+            dissent_protocol=True,
+        )
+        self.assertIn("defense attorney", msgs[0].content)
+        self.assertNotIn("strongest_opposing_argument", msgs[0].content)
+
+    def test_open_dissent_extends_the_debate(self) -> None:
+        from app.agents.models import (
+            AgentRoundOpinion,
+            DissentAssessment,
+            SupervisorModerationOutput,
+        )
+        from app.agents.orchestrator import should_continue_debate
+
+        def entry(agent_id, label):
+            return AgentRoundOpinion(
+                agent_id=agent_id,
+                persona=agent_id,
+                round=2,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis=label,
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.9,
+                ),
+            )
+
+        unanimous = [entry("a", "yes"), entry("b", "yes"), entry("c", "yes")]
+        settled = SupervisorModerationOutput(
+            dissent=DissentAssessment(
+                minority_agents=["c"], majority_has_addressed_it=True
+            )
+        )
+        self.assertFalse(should_continue_debate(unanimous, moderation=settled))
+
+        # Same unanimous panel, but the objection was never answered.
+        unanswered = SupervisorModerationOutput(
+            dissent=DissentAssessment(
+                minority_agents=["c"],
+                minority_core_claim="the endpoint is a surrogate",
+                majority_has_addressed_it=False,
+            )
+        )
+        self.assertTrue(should_continue_debate(unanimous, moderation=unanswered))
+
+    def test_moderator_block_surfaces_the_unanswered_objection(self) -> None:
+        from app.agents.models import DissentAssessment, SupervisorModerationOutput
+        from app.agents.prompts import format_moderator_instruction_block
+
+        block = format_moderator_instruction_block(
+            SupervisorModerationOutput(
+                dissent=DissentAssessment(
+                    minority_agents=["evidence_skeptic"],
+                    minority_label="maybe",
+                    minority_core_claim="primary endpoint is a surrogate",
+                    majority_has_addressed_it=False,
+                    directed_challenge_to_majority="Which sentence shows the endpoint is valid?",
+                    directed_challenge_to_minority="Does the subgroup result settle it?",
+                )
+            )
+        )
+        self.assertIn("OPEN DISAGREEMENT", block)
+        self.assertIn("still stands unanswered", block)
+        self.assertIn("MAJORITY must answer", block)
+        self.assertIn("MINORITY must answer", block)
+
+    def test_malformed_dissent_block_does_not_sink_moderation(self) -> None:
+        import asyncio, json as _json
+        from app.agents.supervisor_agent import SupervisorAgent
+
+        class _Backend:
+            async def complete(self, messages, **kwargs):
+                return _json.dumps(
+                    {
+                        "agreements": ["a"],
+                        "contradictions": [],
+                        "round_instructions": ["go on"],
+                        "dissent": "not an object",
+                    }
+                )
+
+        out = asyncio.run(
+            SupervisorAgent(backend=_Backend()).moderate_round("case", [])
+        )
+        self.assertEqual(out.agreements, ["a"])
+        self.assertIsNone(out.dissent)

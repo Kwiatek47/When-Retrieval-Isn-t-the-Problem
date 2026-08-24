@@ -216,6 +216,7 @@ def main() -> None:
             "debate_mode": args.debate_mode,
             "blind_critic": args.blind_critic,
             "frozen_stance": args.frozen_stance,
+            "dissent_protocol": args.dissent_protocol,
             "director_maybe_gate": getattr(args, "director_maybe_gate", "off"),
         },
     )
@@ -378,6 +379,7 @@ def main() -> None:
                 supervisor_fail=args.supervisor_fail,
                 supervisor_backend=supervisor_backend,
                 frozen_stance=args.frozen_stance,
+                dissent_protocol=args.dissent_protocol == "on",
                 agent_num_predict_round3=args.num_predict_round3,
             )
 
@@ -1198,6 +1200,16 @@ def _parse_args() -> argparse.Namespace:
             "When supervisor moderation JSON fails after retry: peer-round "
             "(default) runs that round as peer debate; peer-rest keeps peer for "
             "the rest of the case; empty-defer injects legacy empty moderation"
+        ),
+    )
+    parser.add_argument(
+        "--dissent-protocol",
+        choices=["on", "off"],
+        default="off",
+        help=(
+            "Supervisor adjudicates the minority position and agents must answer "
+            "the strongest opposing argument before voting; debate continues while "
+            "an objection stands unanswered."
         ),
     )
     parser.add_argument(

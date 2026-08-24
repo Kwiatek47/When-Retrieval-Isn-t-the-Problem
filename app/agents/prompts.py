@@ -72,6 +72,20 @@ Task:
 4. Record the primary endpoint/result, the authors' current yes/no/maybe conclusion,
    and any residual uncertainty that the next round must resolve.
 
+5. ADJUDICATE THE DISSENT. This is your most important job. When agents split, a
+   majority vote would silently discard the minority and the panel would learn
+   nothing. Instead:
+   - Identify who is in the minority and what label they hold.
+   - State their single strongest claim, grounded in the abstract — the best version
+     of their argument, not a weak paraphrase.
+   - Judge honestly whether the majority ACTUALLY ANSWERED that claim. Restating
+     their own position, asserting the minority is wrong, or citing generic study
+     limitations is NOT an answer. Set majority_has_addressed_it=false in that case.
+   - Write one directed question the MAJORITY must answer next round, and one the
+     MINORITY must answer. Make them specific and answerable from the abstract.
+   If the panel is unanimous, leave the dissent fields empty and set
+   majority_has_addressed_it to true.
+
 Output:
 Return ONLY a JSON object matching SupervisorModerationOutput:
 {{
@@ -80,7 +94,15 @@ Return ONLY a JSON object matching SupervisorModerationOutput:
   "round_instructions": ["..."],
   "primary_endpoint_result": "...",
   "author_conclusion": "yes" | "no" | "maybe" | "unclear",
-  "residual_uncertainty": ["..."]
+  "residual_uncertainty": ["..."],
+  "dissent": {{
+    "minority_agents": ["..."],
+    "minority_label": "yes" | "no" | "maybe" | "",
+    "minority_core_claim": "...",
+    "majority_has_addressed_it": true | false,
+    "directed_challenge_to_majority": "...",
+    "directed_challenge_to_minority": "..."
+  }}
 }}
 
 No markdown fences, no commentary outside JSON.
@@ -177,6 +199,48 @@ Respond with ClinicalOpinion JSON only. top_1_diagnosis must be exactly 'yes', '
 
 PUBMEDQA_UNCERTAINTY_PERSONAS = frozenset(
     {"uncertainty_advocate"}
+)
+
+ENGAGEMENT_OPINION_SCHEMA = """
+Return ONLY a single JSON object with exactly these fields:
+- strongest_opposing_argument (string; state the BEST argument against your current
+  label, in its strongest form. If a peer disagrees with you, this is their argument,
+  put as well as they could put it. Never write "none" while a peer disagrees.)
+- my_answer_to_it (string; answer that argument using the abstract. "I disagree" or
+  restating your own position is not an answer.)
+- position_changed (boolean; true if you are changing your label this round)
+- what_changed_my_mind (string; if position_changed is true, name the specific
+  argument or sentence that moved you. "The majority disagreed with me" is NOT a
+  valid reason — changing because you are outnumbered is the one thing you must
+  never do. If position_changed is false, leave this empty.)
+- top_1_diagnosis (string; "yes", "no" or "maybe")
+- evidence_conclusiveness (string; one of "conclusive", "inconclusive")
+- top_3_differential_diagnoses (array of strings)
+- pros (array of strings)
+- cons (array of strings)
+- required_further_tests (array of strings)
+- confidence_level (number between 0.0 and 1.0)
+- sources_used (array of strings)
+- red_flags (array of strings)
+- missing_information (string)
+
+No markdown fences, no commentary outside JSON.
+""".strip()
+
+DISSENT_ENGAGEMENT_RULE = (
+    "HOW A REAL PANEL ARGUES — follow this before you write your label:\n"
+    "1. A disagreement is information. If a peer reached a different conclusion from "
+    "the same abstract, they saw something you did not, or you saw something they did "
+    "not. Find out which before you decide.\n"
+    "2. You MUST fill strongest_opposing_argument with the best case against your own "
+    "label, and answer it in my_answer_to_it using the abstract text.\n"
+    "3. Being outnumbered is NOT evidence. Do not move to the majority label because it "
+    "is the majority. Move only if a specific argument defeats your reading, and then "
+    "name that argument in what_changed_my_mind.\n"
+    "4. Equally, do not dig in out of stubbornness. If the objection is answered, say so "
+    "and update.\n"
+    "5. If you hold your position, your answer must explain why the opposing argument "
+    "fails — not merely that you still believe your own."
 )
 
 ROUND2_STRUCTURED_CRITICISM_RULE = (
@@ -377,6 +441,28 @@ def format_moderation_nl(moderation_output: Any) -> str:
         lines.append(f"- {label}:")
         for item in items[:6]:
             lines.append(f"  • {_clip_text(item, max_chars=200)}")
+
+    dissent = data.get("dissent") or {}
+    if isinstance(dissent, dict) and dissent.get("minority_agents"):
+        addressed = bool(dissent.get("majority_has_addressed_it"))
+        lines.append("- OPEN DISAGREEMENT ON THE PANEL:")
+        lines.append(
+            f"  • minority: {', '.join(str(a) for a in dissent['minority_agents'])} "
+            f"holding '{dissent.get('minority_label', '')}'"
+        )
+        lines.append(
+            f"  • their strongest claim: {_clip_text(dissent.get('minority_core_claim', ''), max_chars=260)}"
+        )
+        lines.append(
+            "  • has the majority answered it? "
+            + ("yes" if addressed else "NO — it still stands unanswered")
+        )
+        maj = str(dissent.get("directed_challenge_to_majority") or "").strip()
+        mino = str(dissent.get("directed_challenge_to_minority") or "").strip()
+        if maj:
+            lines.append(f"  • MAJORITY must answer: {_clip_text(maj, max_chars=240)}")
+        if mino:
+            lines.append(f"  • MINORITY must answer: {_clip_text(mino, max_chars=240)}")
     return "\n".join(lines)
 
 
@@ -469,6 +555,7 @@ def build_messages(
     frozen_label: str | None = None,
     moderator_instruction: str | None = None,
     round_number: int | None = None,
+    dissent_protocol: bool = False,
 ) -> list[ChatMessage]:
     """Build chat messages for independent (round 1) or critique (round 2+) opinion generation.
 
@@ -520,6 +607,14 @@ def build_messages(
         else (max((entry.round for entry in context), default=1) if context else 1)
     )
     adversarial_directive = ""
+    if dissent_protocol and resolved_round > 1 and not frozen_label and not is_safety_officer:
+        # Engagement schema: the agent must answer the opposing case before voting.
+        # safety_officer keeps its own schema — it audits, it does not take a side.
+        schema_block = (
+            f"{ENGAGEMENT_OPINION_SCHEMA}\n\n{active_label_rule}"
+            if mode == "pubmedqa"
+            else ENGAGEMENT_OPINION_SCHEMA
+        )
     if frozen_label and resolved_round > 1:
         # Semantic steering: defense-round JSON keys replace generic pros/cons.
         schema_block = DEFENSE_OPINION_SCHEMA.format(frozen_label=frozen_label)
@@ -579,6 +674,8 @@ def build_messages(
             "Produce an UPDATED ClinicalOpinion that reflects what you accept, "
             "reject, or still find uncertain after reviewing peers."
         )
+        if dissent_protocol and not frozen_label:
+            parts.append(DISSENT_ENGAGEMENT_RULE)
         parts.append(ROUND2_STRUCTURED_CRITICISM_RULE)
         parts.append(ROUND2_NO_VERBATIM_QUOTE_RULE)
         parts.append(ROUND2_JSON_SAFETY_RULE)

@@ -51,6 +51,7 @@ class ClinicalAgent:
         num_predict: int | None = None,
         moderator_instruction: str | None = None,
         round_number: int | None = None,
+        dissent_protocol: bool = False,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
@@ -84,6 +85,7 @@ class ClinicalAgent:
             frozen_label=frozen_label,
             moderator_instruction=moderator_instruction,
             round_number=round_number,
+            dissent_protocol=dissent_protocol,
         )
         raw = await self._complete_or_none(messages, self.temperature, num_predict=num_predict)
         opinion = self._try_parse(raw)
@@ -105,6 +107,7 @@ class ClinicalAgent:
             frozen_label=frozen_label,
             moderator_instruction=moderator_instruction,
             round_number=round_number,
+            dissent_protocol=dissent_protocol,
         )
         raw_retry = await self._complete_or_none(repair_messages, 0.0, num_predict=num_predict)
         opinion = self._try_parse(raw_retry, retry=True)

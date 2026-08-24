@@ -100,6 +100,29 @@ class SupervisorAgent:
             if not isinstance(data.get("residual_uncertainty"), list):
                 data["residual_uncertainty"] = []
             data.setdefault("primary_endpoint_result", "")
+            # Dissent adjudication is optional; a malformed block must not sink
+            # the whole moderation, so drop it rather than fail validation.
+            dissent = data.get("dissent")
+            if not isinstance(dissent, dict) or not dissent:
+                data["dissent"] = None
+            else:
+                agents = dissent.get("minority_agents")
+                dissent["minority_agents"] = (
+                    [str(a) for a in agents if str(a).strip()]
+                    if isinstance(agents, list)
+                    else []
+                )
+                for key in (
+                    "minority_label",
+                    "minority_core_claim",
+                    "directed_challenge_to_majority",
+                    "directed_challenge_to_minority",
+                ):
+                    dissent[key] = str(dissent.get(key) or "").strip()
+                dissent["majority_has_addressed_it"] = bool(
+                    dissent.get("majority_has_addressed_it")
+                )
+                data["dissent"] = dissent
             output = SupervisorModerationOutput.model_validate(data)
             self.last_moderation_output = output
             self.last_moderation_failed = False

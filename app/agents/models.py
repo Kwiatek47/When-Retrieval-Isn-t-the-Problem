@@ -21,12 +21,36 @@ class SharedDebateReport(BaseModel):
     round_instructions: list[str] = Field(default_factory=list)
 
 
+class DissentAssessment(BaseModel):
+    """Supervisor's adjudication of the minority position in a round.
+
+    A bare majority vote silently discards a dissenter, so the panel learns nothing
+    from disagreement. This makes the objection explicit, asks whether the majority
+    actually answered it, and turns it into directed questions for the next round.
+    """
+
+    minority_agents: list[str] = Field(default_factory=list)
+    minority_label: str = ""
+    # The single strongest claim behind the dissent, grounded in the abstract.
+    minority_core_claim: str = ""
+    # False when the majority merely restated its position instead of rebutting.
+    majority_has_addressed_it: bool = False
+    # What the majority must answer next round, and what the minority must answer.
+    directed_challenge_to_majority: str = ""
+    directed_challenge_to_minority: str = ""
+
+    @property
+    def has_open_dissent(self) -> bool:
+        return bool(self.minority_agents) and not self.majority_has_addressed_it
+
+
 class SupervisorModerationOutput(BaseModel):
     """Supervisor output for moderating peer opinions into next-round instructions."""
 
     agreements: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     round_instructions: list[str] = Field(default_factory=list)
+    dissent: DissentAssessment | None = None
     # Optional MedAgents-style shared report fields (filled when available).
     primary_endpoint_result: str = Field(default="")
     author_conclusion: Literal["yes", "no", "maybe", "unclear"] = "unclear"
@@ -124,6 +148,13 @@ class ClinicalOpinion(BaseModel):
     missing_information: str = Field(default="")
     # Optional structured safety assessment; primarily expected from safety_officer.
     safety_opinion: SafetyOpinion | None = None
+    # Dissent-protocol engagement (rounds >= 2). Empty when the protocol is off.
+    # These exist so a position change is attributable to an argument rather than
+    # to peer pressure, and so holding a position requires answering the objection.
+    strongest_opposing_argument: str = Field(default="")
+    my_answer_to_it: str = Field(default="")
+    position_changed: bool = False
+    what_changed_my_mind: str = Field(default="")
 
 
 class AgentRoundOpinion(BaseModel):

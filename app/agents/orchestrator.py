@@ -125,6 +125,7 @@ class DebateOrchestrator:
         agent_concurrency: int = 4,
         supervisor_backend: Any | None = None,
         frozen_stance: bool = False,
+        dissent_protocol: bool = False,
         agent_num_predict_round3: int = DEFAULT_AGENT_NUM_PREDICT_ROUND3,
     ) -> None:
         if len(agents) < 2:
@@ -174,6 +175,7 @@ class DebateOrchestrator:
         self.safety_halts = 0
         self.supervisor_failovers = 0
         self.frozen_stance = frozen_stance
+        self.dissent_protocol = dissent_protocol
         self.agent_num_predict_round3 = max(1, int(agent_num_predict_round3))
         self.ARCHITECTURE = _ARCHITECTURE_BY_MODE[debate_mode]
         for agent in self.agents:
@@ -424,6 +426,7 @@ class DebateOrchestrator:
             num_predict=num_predict,
             moderator_instruction=moderator_instruction,
             round_number=round_number,
+            dissent_protocol=self.dissent_protocol,
         )
         return AgentRoundOpinion(
             agent_id=agent.agent_id,
@@ -588,6 +591,10 @@ def should_continue_debate(
     - supervisor reported unresolved contradictions / residual uncertainty, or
     - shared report author_conclusion is maybe/unclear while panel is binary.
     """
+    # A real panel does not adjourn while an objection stands unanswered.
+    dissent = getattr(moderation, "dissent", None) if moderation is not None else None
+    if dissent is not None and getattr(dissent, "has_open_dissent", False):
+        return True
     if moderation is not None and moderation.contradictions:
         return True
     if moderation is not None and moderation.residual_uncertainty and len(moderation.residual_uncertainty) >= 2:
