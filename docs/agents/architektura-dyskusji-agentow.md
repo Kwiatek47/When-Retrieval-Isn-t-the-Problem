@@ -477,6 +477,53 @@ Otwarte pytanie, którego nie zmierzyliśmy: debata **bez** frozen stance. Wszys
 
 ---
 
+## 8f. Protokół sporu bez frozen stance — najlepszy zmierzony wariant debaty
+
+`debate7b_dissent_pqal500_v1`: agenci `qwen2.5:7b`, supervisor `qwen2.5:14b`, hybrid, `--dissent-protocol on`, **bez** frozen stance, rundy adaptacyjne 2–4, majority + hint, 500 case'ów `eval.json`.
+
+| | razem | yes (276) | no (169) | maybe (55) |
+|---|---|---|---|---|
+| **protokół sporu** | **0.740** | **0.801** | 0.840 | **0.127** |
+| jego runda 1 | 0.714 | 0.725 | **0.905** | 0.073 |
+| baseline frozen stance (§8e) | 0.714 | 0.732 | 0.899 | 0.055 |
+| BioLinkBERT | 0.726 | 0.768 | 0.870 | 0.073 |
+
+**Pierwszy wariant, w którym rundy debaty cokolwiek wnoszą.** Przy frozen stance runda 1 i wynik końcowy były identyczne (0.714 = 0.714); tutaj rundy dokładają **+2.6 p.p.** ponad rundę pierwszą.
+
+**Mechanizm działa mierzalnie:**
+
+| | frozen stance | protokół sporu |
+|---|---|---|
+| etykieta finalna ≠ runda 1 | 1.6% | **15%** |
+| wypowiedzi z kontrargumentem | — | **100%** |
+| zgodność z BioLinkBERT | 0.936 | **0.872** |
+
+Spadek zgodności z klasyfikatorem oznacza, że panel przestał być jego kopią — pierwszy raz w całej serii.
+
+**Ale przewaga nie jest istotna statystycznie.** McNemar wobec BioLinkBERT: wygrywa 30, przegrywa 23, **p ≈ 0.41**. Wobec baseline'u z frozen stance: 34 do 21, **p ≈ 0.11**. Kierunek jest spójny, wielkość efektu nie jest potwierdzona.
+
+### Główna wada: asymetria yes/no
+
+Bilans zmian etykiety rozkłada się przeciwstawnie:
+
+| klasa | zmian | naprawionych | zepsutych |
+|---|---|---|---|
+| yes | 46 | **30** | 9 |
+| **no** | 20 | 3 | **14** |
+| maybe | 7 | 4 | 1 |
+
+Względem rundy 1: **+7.6 p.p. na `yes`, −6.5 p.p. na `no`, +5.4 p.p. na `maybe`**. Na klasie `no` runda 1 (0.905) pozostaje lepsza niż wynik końcowy (0.840) — debata tam szkodzi.
+
+Analiza kierunku przesunięć agentów tłumaczy dlaczego: dominują ruchy `yes → maybe` (38%) i **`no → yes` (34%)**. To jest **przesunięcie kierunkowe, nie lepsze rozumowanie** — wychodzi na plus tylko dlatego, że `yes` stanowi 55% zbioru. Naprawienie tego biasu jest najważniejszym kolejnym krokiem: gdyby klasa `no` zachowała poziom rundy 1, wynik ogólny wyniósłby ok. 0.762.
+
+### Rundy adaptacyjne działają jak stała czwórka
+
+`rounds_run`: **478 z 500 case'ów dobija do maksimum 4** (średnia 3.94). Supervisor niemal zawsze orzeka spór jako nierozstrzygnięty, więc mechanizm „nie kończ, dopóki zarzut stoi" w praktyce nie różnicuje przypadków. Albo kryterium `majority_has_addressed_it` jest zbyt surowe, albo spory faktycznie się nie domykają — do rozstrzygnięcia osobnym pomiarem.
+
+Koszt: **182 s/case**, wobec 112 s przy frozen stance i ~0.03 s dla samego klasyfikatora.
+
+---
+
 ## 9. Konfiguracja (istotne knoby)
 
 ### Orchestrator
