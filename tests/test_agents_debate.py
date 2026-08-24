@@ -2382,3 +2382,71 @@ class SupervisorSeesEngagementTests(unittest.TestCase):
 
         self.assertIn("majority_has_addressed_it=TRUE when any of these holds", SUPERVISOR_MODERATOR_PROMPT)
         self.assertIn('does NOT mean "resolved to everyone\'s satisfaction"', SUPERVISOR_MODERATOR_PROMPT)
+
+
+class AdjudicationOverridesHeuristicsTests(unittest.TestCase):
+    """When the supervisor has judged the dissent, crude gates must not override it."""
+
+    def _panel(self, *labels):
+        from app.agents.models import AgentRoundOpinion
+
+        return [
+            AgentRoundOpinion(
+                agent_id=f"a{i}", persona=f"a{i}", round=2,
+                opinion=ClinicalOpinion(
+                    top_1_diagnosis=lab,
+                    top_3_differential_diagnoses=["yes", "no", "maybe"],
+                    confidence_level=0.8,
+                ),
+            )
+            for i, lab in enumerate(labels)
+        ]
+
+    def _mod(self, addressed, **over):
+        from app.agents.models import DissentAssessment, SupervisorModerationOutput
+
+        fields = dict(
+            contradictions=["they disagree about the endpoint"],
+            residual_uncertainty=["a", "b"],
+            dissent=DissentAssessment(
+                minority_agents=["a2"],
+                minority_core_claim="the endpoint is a surrogate",
+                majority_has_addressed_it=addressed,
+            ),
+        )
+        fields.update(over)
+        return SupervisorModerationOutput(**fields)
+
+    def test_addressed_dissent_stops_despite_contradictions_and_split(self) -> None:
+        from app.agents.orchestrator import should_continue_debate
+
+        # Panel is split and the supervisor listed contradictions — both of which
+        # used to force another round on their own.
+        split = self._panel("yes", "yes", "maybe")
+        self.assertFalse(should_continue_debate(split, moderation=self._mod(True)))
+
+    def test_open_dissent_still_continues(self) -> None:
+        from app.agents.orchestrator import should_continue_debate
+
+        split = self._panel("yes", "yes", "maybe")
+        self.assertTrue(should_continue_debate(split, moderation=self._mod(False)))
+
+    def test_legacy_heuristics_apply_when_no_adjudication(self) -> None:
+        """Without a dissent assessment the old behaviour must be unchanged."""
+        from app.agents.models import SupervisorModerationOutput
+        from app.agents.orchestrator import should_continue_debate
+
+        split = self._panel("yes", "yes", "maybe")
+        self.assertTrue(should_continue_debate(split, moderation=None))
+        self.assertTrue(
+            should_continue_debate(
+                split, moderation=SupervisorModerationOutput(contradictions=["x"])
+            )
+        )
+        # Unanimous panel, nothing flagged -> stop, as before.
+        self.assertFalse(
+            should_continue_debate(
+                self._panel("yes", "yes", "yes"),
+                moderation=SupervisorModerationOutput(),
+            )
+        )

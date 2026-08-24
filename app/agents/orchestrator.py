@@ -591,10 +591,20 @@ def should_continue_debate(
     - supervisor reported unresolved contradictions / residual uncertainty, or
     - shared report author_conclusion is maybe/unclear while panel is binary.
     """
-    # A real panel does not adjourn while an objection stands unanswered.
+    labels_present = [opinion_label(e.opinion) for e in round_opinions]
+    labels_present = [lab for lab in labels_present if lab is not None]
+
+    # When the supervisor has adjudicated the dissent, that judgement decides.
+    # The heuristics below are deliberately trigger-happy — "any contradiction
+    # listed" and "panel not unanimous" are true on almost every case — so
+    # leaving them in play would override the adjudication and keep every debate
+    # open to max_rounds, which is exactly what happened on PQA-L 500 (478/500).
     dissent = getattr(moderation, "dissent", None) if moderation is not None else None
-    if dissent is not None and getattr(dissent, "has_open_dissent", False):
-        return True
+    if dissent is not None and dissent.minority_agents:
+        if not labels_present:
+            return True
+        return bool(getattr(dissent, "has_open_dissent", False))
+
     if moderation is not None and moderation.contradictions:
         return True
     if moderation is not None and moderation.residual_uncertainty and len(moderation.residual_uncertainty) >= 2:
