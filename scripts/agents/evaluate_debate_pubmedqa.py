@@ -1527,9 +1527,44 @@ def _summarize(
             ),
         }
 
+    # Selective prediction: a clinically usable system must know when to defer.
+    # Accuracy at full coverage hides that; report the operating points instead.
+    # Confidence tiers are built from agreement signals, since neither the
+    # classifier's confidence nor the agents' stated confidence is calibrated
+    # on its own (measured: BERT sits at 0.97-0.99 even when wrong).
+    def _tier(r: DebateCaseResult) -> int:
+        agrees_bert = r.biolinkbert_label is not None and r.predicted_label == r.biolinkbert_label
+        agrees_r1 = r.predicted_label == r.round1_vote_label
+        bert_conf = r.biolinkbert_confidence or 0.0
+        if r.unanimous_final and agrees_bert and agrees_r1 and bert_conf > 0.99:
+            return 3
+        if r.unanimous_final and agrees_bert and agrees_r1:
+            return 2
+        if r.unanimous_final or agrees_bert:
+            return 1
+        return 0
+
+    selective: list[dict[str, Any]] = []
+    for floor in (0, 1, 2, 3):
+        answered = [r for r in results if _tier(r) >= floor]
+        if not answered:
+            continue
+        hidden_maybe = sum(1 for r in answered if r.expected_label == "maybe")
+        selective.append(
+            {
+                "min_tier": floor,
+                "coverage": len(answered) / n,
+                "selective_accuracy": sum(1 for r in answered if r.label_pass) / len(answered),
+                # Unsettled questions answered with a confident yes/no: the
+                # clinically dangerous failure, not merely an accuracy loss.
+                "unsettled_answered": hidden_maybe,
+            }
+        )
+
     return {
         "dataset": dataset,
         "backend": backend,
+        "selective_prediction": selective,
         "hint": hint,
         "rounds": rounds,
         "fast": fast,
@@ -1660,6 +1695,26 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
             lines.append(
                 f"| {voter} | {m['fire_rate']:.3f} | {m['precision']:.3f} "
                 f"| {m['recall']:.3f} | {m['lift_over_base_rate']:+.3f} |"
+            )
+    sel = summary.get("selective_prediction") or []
+    if sel:
+        lines.extend(
+            [
+                "",
+                "## Selective prediction (accuracy at coverage)",
+                "",
+                "Accuracy at full coverage hides whether the system knows when to "
+                "defer. `unsettled answered` counts genuine `maybe` cases given a "
+                "confident yes/no — a safety failure, not an accuracy loss.",
+                "",
+                "| Min tier | Coverage | Selective accuracy | Unsettled answered |",
+                "|---:|---:|---:|---:|",
+            ]
+        )
+        for row in sel:
+            lines.append(
+                f"| {row['min_tier']} | {row['coverage']:.3f} | "
+                f"{row['selective_accuracy']:.3f} | {row['unsettled_answered']} |"
             )
     lines.extend(["", "## Predicted label counts", ""])
     for label, count in summary["predicted_label_counts"].items():

@@ -292,8 +292,16 @@ PUBMEDQA_PERSONA_INSTRUCTIONS: dict[str, str] = {
     ),
     "evidence_skeptic": EVIDENCE_SKEPTIC_PROMPT,
     "differential_expander": (
-        "You stress alternative readings. Could the data actually imply the opposite conclusion? "
-        "Argue for the counter-hypothesis (if generalist says 'yes', you argue for 'no')."
+        "You stress alternative readings of the data — readings the others may have "
+        "underweighted, in WHICHEVER direction they point.\n"
+        "DIRECTION NEUTRALITY: you are not the 'no' agent. Measured on this benchmark, "
+        "instructing this role to argue the opposite of the generalist made it answer "
+        "'no' on 57% of abstracts where the true rate is 34%, and it became the least "
+        "accurate agent on the panel. Ask what the data could mean OTHER than the "
+        "obvious reading — that alternative is as often a stronger 'yes', or a genuine "
+        "'maybe', as it is a 'no'.\n"
+        "Choose the label the alternative reading actually supports, not the one that "
+        "happens to contradict your peers."
     ),
     "uncertainty_advocate": (
         UNCERTAINTY_ADVOCATE_PROMPT +
