@@ -84,13 +84,24 @@ Kolekcja Qdrant: `MedicalChunk_pubmed_reviews_v1_medcpt_20260518`, wektor `medcp
 
 ---
 
-## 4. Model zdefiniowany, ale nieaktywny
+## 4. Model odrzucony na podstawie pomiaru — i najważniejszy wynik w repo
 
-**`cross-encoder/nli-deberta-v3-base`** — `app/agents/evidence_audit_nli.py`
+**`cross-encoder/nli-deberta-v3-base`** — `app/agents/evidence_audit_nli.py`, sonda: `scripts/agents/probe_evidence_audit_nli.py`
 
-Pomysł: zamiast pytać model generatywny „czy to jest niepewne", zapytać dedykowany model NLI, czy abstrakt **pociąga** hipotezę. Docstring modułu podaje uzasadnienie: LLM jako audytor dawał AUROC 0.50–0.56, czyli poziom losowy.
+Pomysł: zamiast pytać model generatywny „czy to jest niepewne", zapytać dedykowany model NLI, czy abstrakt **pociąga** hipotezę. Nie jest wpięty w `evaluate_debate_pubmedqa.py` — i słusznie, bo został zmierzony i **nie działa**.
 
-**Nie jest wpięty w `evaluate_debate_pubmedqa.py`.** Zważywszy, że klasa `maybe` pozostaje głównym problemem (0.127 na rozkładzie naturalnym), warto sprawdzić, czy ten moduł działa — to jedyne dostępne podejście do `maybe`, którego jeszcze nie zmierzyliśmy.
+Wyniki w `reports/debate/signals/` (balanced90, n=90, ścieżka macOS w metadanych — run z wcześniejszego etapu projektu):
+
+| wejście | AUROC `maybe` vs reszta |
+|---|---|
+| abstrakt | **0.497** — dokładnie losowo |
+| **gold `LONG_ANSWER` autorów (oracle)** | **0.554** |
+
+Druga linia jest kluczowa i warto ją czytać uważnie. To był celowy **eksperyment z górną granicą**: abstrakt zastąpiono *własnymi wnioskami autorów* z `ori_pqal.json`. Nawet mając gold conclusions, model entailmentu ledwo odróżnia `maybe` od reszty.
+
+Docstring modułu formułuje wniosek wprost: jeśli nawet gold conclusions nie czynią `maybe` separowalnym, to **`maybe` nie jest własnością „konkluzywności dowodów", którą audytor może odczytać z tekstu**.
+
+To spina się z całą serią pomiarów z 23–25 sierpnia: BioLinkBERT 0.073 na `maybe`, debata 0.055–0.127, detektor splitów precision 0.258 na rozkładzie naturalnym, osiem reguł nadpisania wszystkie ujemne, żadna persona nieprzekraczająca base rate. Cztery niezależne podejścia i jedno wcześniejsze — wszystkie zawodzą na tej samej klasie.
 
 Konfiguracja wspomina też ścieżkę `artifacts/classifier/pubmedqa_deberta/best`, ale **tego artefaktu nie ma na dysku** — jest tylko `pubmedqa_biolinkbert_seed47`.
 
