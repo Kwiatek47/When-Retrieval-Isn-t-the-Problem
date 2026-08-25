@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from app.agents.models import (
     AgentRoundOpinion,
@@ -92,6 +92,32 @@ def weighted_vote(
     return best, share, scored
 
 
+PanelMaybeVeto = Literal["unanimous", "majority", "off"]
+
+
+def _panel_maybe_share(agent_labels: list[str]) -> float:
+    if not agent_labels:
+        return 0.0
+    return sum(1 for label in agent_labels if label == "maybe") / len(agent_labels)
+
+
+def _panel_maybe_veto_triggered(
+    agent_labels: list[str],
+    *,
+    panel_maybe_veto: PanelMaybeVeto,
+) -> bool:
+    """Return True when the panel's maybe vote should override BioLinkBERT."""
+    mode = (panel_maybe_veto or "unanimous").strip().lower()
+    if mode == "off" or not agent_labels:
+        return False
+    maybe_share = _panel_maybe_share(agent_labels)
+    if mode == "unanimous":
+        return maybe_share >= 1.0
+    if mode == "majority":
+        return maybe_share > 0.5
+    raise ValueError(f"Unsupported panel_maybe_veto: {panel_maybe_veto}")
+
+
 def aggregate_pubmedqa_decision(
     agent_opinions: list[ClinicalOpinion],
     *,
@@ -99,6 +125,7 @@ def aggregate_pubmedqa_decision(
     mode: str = "majority",
     bert_gate_confidence: float = 0.90,
     bert_vote_weight: float = 3.0,
+    panel_maybe_veto: PanelMaybeVeto = "unanimous",
 ) -> tuple[str | None, dict[str, float], str]:
     """
     Aggregate panel (+ optional BioLinkBERT) into a final yes/no/maybe.
@@ -106,10 +133,22 @@ def aggregate_pubmedqa_decision(
     Modes:
       - majority: equal votes (confidence-weighted)
       - bert_weighted: BioLinkBERT vote amplified by bert_vote_weight
-      - bert_gate: trust high-confidence BioLinkBERT yes/no unless the full panel
-        unanimously disagrees; for maybe/low-confidence BERT, use weighted debate
+      - bert_gate: trust high-confidence BioLinkBERT yes/no unless the panel
+        triggers a maybe veto (``panel_maybe_veto``) or unanimously hard-flips
+        yes↔no; for maybe/low-confidence BERT, use weighted debate
+
+    ``panel_maybe_veto`` (bert_gate only):
+      - unanimous (default): all valid panel votes are maybe → final maybe
+      - majority: maybe share > 0.5 → final maybe
+      - off: legacy behavior (panel maybe does not override high-conf BERT)
     """
     mode = (mode or "majority").strip().lower()
+    veto_mode: PanelMaybeVeto
+    raw_veto = (panel_maybe_veto or "unanimous").strip().lower()
+    if raw_veto not in {"unanimous", "majority", "off"}:
+        raise ValueError(f"Unsupported panel_maybe_veto: {panel_maybe_veto}")
+    veto_mode = raw_veto  # type: ignore[assignment]
+
     if bert_opinion is None or mode == "majority":
         opinions = [*agent_opinions, bert_opinion] if bert_opinion is not None else agent_opinions
         label, share = majority_vote([o for o in opinions if o is not None])
@@ -121,11 +160,15 @@ def aggregate_pubmedqa_decision(
     unanimous = bool(agent_labels) and len(set(agent_labels)) == 1
 
     if mode == "bert_gate":
+        # Panel maybe is clinically absolute when enabled: overrides BERT on any path.
+        if _panel_maybe_veto_triggered(agent_labels, panel_maybe_veto=veto_mode):
+            share = {label: 0.0 for label in _LABELS}
+            share["maybe"] = 1.0
+            return "maybe", share, "panel_maybe_veto"
+
         high_conf = float(bert_opinion.confidence_level) >= bert_gate_confidence
         if high_conf and bert_label in {"yes", "no"}:
-            # Only allow a unanimous panel override when it is a hard yes↔no flip.
-            # Unanimous "maybe" must NOT veto a confident BioLinkBERT yes/no
-            # (this previously hurt accuracy on balanced90).
+            # Unanimous hard yes↔no flip still overrides confident BioLinkBERT.
             if (
                 unanimous
                 and agent_labels[0] in {"yes", "no"}
@@ -138,10 +181,15 @@ def aggregate_pubmedqa_decision(
                 share[bert_label] = 1.0
             return bert_label, share, "bert_gate"
 
-        # Uncertain / maybe / lower confidence:
-        # if the panel collapses to maybe-only, keep BioLinkBERT rather than
-        # diluting a stronger classifier signal.
-        if agent_labels and set(agent_labels) == {"maybe"} and bert_label in {"yes", "no"}:
+        # Uncertain / maybe / lower-confidence BERT → weighted panel+BERT vote.
+        # Legacy bert_keep_vs_panel_maybe is retired when veto != off (handled above);
+        # with veto=off, preserve old "keep BERT vs panel-maybe-only" behavior.
+        if (
+            veto_mode == "off"
+            and agent_labels
+            and set(agent_labels) == {"maybe"}
+            and bert_label in {"yes", "no"}
+        ):
             share = {label: 0.0 for label in _LABELS}
             share[bert_label] = 1.0
             return bert_label, share, "bert_keep_vs_panel_maybe"
@@ -190,12 +238,247 @@ def confidence_aware_vote(
     return weighted_vote(opinions, weights=weights)
 
 
+def _format_opinion_for_transcript(entry: AgentRoundOpinion) -> str:
+    """Full per-agent opinion block (all pros/cons) for Director contamination."""
+    opinion = entry.opinion
+    conf = float(opinion.confidence_level)
+    conclusiveness = (opinion.evidence_conclusiveness or "").strip() or "unspecified"
+    lines = [
+        f"[{entry.agent_id}|{entry.persona}] "
+        f"(conf={conf:.2f}, {conclusiveness}): {opinion.top_1_diagnosis}"
+    ]
+    for pro in opinion.pros or []:
+        text = str(pro).strip()
+        if text:
+            lines.append(f"  Pro: {text}")
+    for con in opinion.cons or []:
+        text = str(con).strip()
+        if text:
+            lines.append(f"  Con: {text}")
+    for flag in opinion.red_flags or []:
+        text = str(flag).strip()
+        if text:
+            lines.append(f"  RedFlag: {text}")
+    missing = str(opinion.missing_information or "").strip()
+    if missing:
+        lines.append(f"  Missing: {missing}")
+    return "\n".join(lines)
+
+
+def build_full_debate_transcript(
+    debate_history: list[list[AgentRoundOpinion]],
+    *,
+    shared_report: SharedDebateReport | None = None,
+) -> str:
+    """Multi-round transcript with unresolved conflicts kept visible for the Director.
+
+    Unlike ``build_debate_brief``, this keeps every round and every pro/con so the
+    Director sees the full contaminated discussion, not a sanitized final-round summary.
+    """
+    parts: list[str] = []
+    for round_idx, round_entries in enumerate(debate_history, start=1):
+        parts.append(f"=== ROUND {round_idx} ===")
+        if not round_entries:
+            parts.append("(no opinions)")
+            continue
+        for entry in round_entries:
+            parts.append(_format_opinion_for_transcript(entry))
+        labels = [
+            lab
+            for lab in (opinion_label(e.opinion) for e in round_entries)
+            if lab is not None
+        ]
+        if labels:
+            counts = Counter(labels)
+            tally = ", ".join(f"{lab}={n}" for lab, n in sorted(counts.items()))
+            parts.append(f"Round {round_idx} label tally: {tally}")
+            if len(counts) > 1:
+                split = "; ".join(
+                    f"{e.agent_id}={opinion_label(e.opinion)}" for e in round_entries
+                )
+                parts.append(f"Round {round_idx} CONFLICT: {split}")
+
+    if debate_history:
+        final = debate_history[-1]
+        final_labels = {
+            e.agent_id: opinion_label(e.opinion)
+            for e in final
+            if opinion_label(e.opinion) is not None
+        }
+        unique = {lab for lab in final_labels.values() if lab}
+        if len(unique) > 1:
+            parts.append("=== FINAL PANEL CONFLICT (unresolved) ===")
+            parts.append(
+                "; ".join(f"{aid}={lab}" for aid, lab in sorted(final_labels.items()))
+            )
+
+    if shared_report is not None:
+        parts.append("=== SUPERVISOR SHARED REPORT (conflict-preserving) ===")
+        from app.agents.prompts import format_moderation_nl
+
+        parts.append(format_moderation_nl(shared_report))
+
+    return "\n".join(parts).strip()
+
+
+# Roles whose persona prompt structurally pushes them toward "maybe". Their lone
+# dissent is a hypothesis to verify, not independent evidence of uncertainty.
+STRUCTURALLY_MAYBE_BIASED_ROLES: frozenset[str] = frozenset({"uncertainty_advocate"})
+
+
+def _entry_role(entry: AgentRoundOpinion) -> str:
+    return (entry.agent_id or entry.persona or "").strip().lower()
+
+
+def panel_label_tally(entries: list[AgentRoundOpinion]) -> dict[str, int]:
+    """Count of yes/no/maybe over one round's opinions (unparseable labels dropped)."""
+    counts: Counter[str] = Counter()
+    for entry in entries:
+        label = opinion_label(entry.opinion)
+        if label is not None:
+            counts[label] += 1
+    return dict(counts)
+
+
+def lone_dissenter(entries: list[AgentRoundOpinion]) -> tuple[str, str] | None:
+    """Return ``(role, label)`` when exactly one agent dissents from an otherwise
+    unanimous panel, else ``None``."""
+    labelled = [
+        (_entry_role(entry), opinion_label(entry.opinion))
+        for entry in entries
+        if opinion_label(entry.opinion) is not None
+    ]
+    if len(labelled) < 3:
+        return None
+    counts = Counter(label for _, label in labelled)
+    if len(counts) != 2:
+        return None
+    minority = [label for label, n in counts.items() if n == 1]
+    if len(minority) != 1:
+        return None
+    dissent = minority[0]
+    return next((role, dissent) for role, label in labelled if label == dissent)
+
+
+def panel_conflict_kind(entries: list[AgentRoundOpinion]) -> str:
+    """Objective panel-agreement class, independent of what the Director claims.
+
+    ``unanimous`` | ``lone_dissent`` | ``fundamental`` | ``split`` | ``unknown``.
+    ``fundamental`` reuses the orchestrator's even-split / both-guardians rule.
+    """
+    from app.agents.orchestrator import fundamental_panel_conflict
+
+    labels = [
+        label
+        for label in (opinion_label(entry.opinion) for entry in entries)
+        if label is not None
+    ]
+    if not labels:
+        return "unknown"
+    if len(set(labels)) == 1:
+        return "unanimous"
+    if fundamental_panel_conflict(entries):
+        return "fundamental"
+    if lone_dissenter(entries) is not None:
+        return "lone_dissent"
+    return "split"
+
+
+# Prose renderings of ``panel_conflict_kind``; keeps enum tokens out of the prompt.
+_PANEL_SPLIT_PROSE: dict[str, str] = {
+    "unanimous": "every agent voted the same label.",
+    "lone_dissent": "all agents agree except one.",
+    "fundamental": "the panel is deeply divided — evenly opposed, or both guardians dissent.",
+    "split": "the panel is divided across more than two positions.",
+    "unknown": "no usable labels were produced.",
+}
+
+
+def build_panel_vote_summary(
+    debate_history: list[list[AgentRoundOpinion]],
+    *,
+    biolinkbert_label: str | None = None,
+    panel_saw_bert_hint: bool = False,
+) -> str:
+    """Mechanical vote block for the Director prompt.
+
+    The Director otherwise sees only debate rhetoric, which lets a single
+    persistent dissenter outweigh an agreeing panel. This states plainly who
+    voted what, separates the uncontaminated round-1 vote from frozen later
+    rounds, and flags dissent coming from a structurally maybe-biased role.
+    """
+    if not debate_history:
+        return "(no debate rounds recorded)"
+
+    lines: list[str] = []
+    first_round = debate_history[0]
+    first_tally = panel_label_tally(first_round)
+    lines.append(
+        "ROUND 1 (independent, formed before any peer contamination — "
+        "the most informative panel signal):"
+    )
+    for entry in first_round:
+        label = opinion_label(entry.opinion) or "unparseable"
+        lines.append(f"  {_entry_role(entry)} = {label}")
+    lines.append(
+        "  tally: "
+        + (", ".join(f"{lab}={n}" for lab, n in sorted(first_tally.items())) or "none")
+    )
+
+    final_round = debate_history[-1]
+    if len(debate_history) > 1:
+        final_tally = panel_label_tally(final_round)
+        lines.append("")
+        lines.append(
+            f"FINAL ROUND {len(debate_history)} (labels may be frozen by the system; "
+            "a repeated label is not a new vote):"
+        )
+        for entry in final_round:
+            label = opinion_label(entry.opinion) or "unparseable"
+            lines.append(f"  {_entry_role(entry)} = {label}")
+        lines.append(
+            "  tally: "
+            + (", ".join(f"{lab}={n}" for lab, n in sorted(final_tally.items())) or "none")
+        )
+
+    lines.append("")
+    # Prose, not enum-like tokens: the Director copies vocabulary it sees here into
+    # its own ``consensus_type`` field, which accepts only consensus/differential/
+    # escalation. Machine-readable classes stay in telemetry, out of the prompt.
+    lines.append(f"HOW THE PANEL DIVIDED: {_PANEL_SPLIT_PROSE[panel_conflict_kind(final_round)]}")
+    dissent = lone_dissenter(final_round)
+    if dissent is not None:
+        role, label = dissent
+        note = f"  The single dissenter is {role}, voting '{label}'."
+        if role in STRUCTURALLY_MAYBE_BIASED_ROLES:
+            note += (
+                f" NOTE: {role} is system-instructed to hunt for 'maybe' and its stated"
+                " confidence is not calibrated — verify its claim against the abstract"
+                " before following it."
+            )
+        lines.append(note)
+
+    bert = (biolinkbert_label or "").strip().lower()
+    if bert in _LABELS and panel_saw_bert_hint:
+        # Do NOT restate the label as a second opinion: the Director already receives
+        # it as ``biolinkbert_hint``, and most agents were shown it too, so panel
+        # agreement with it is an echo of one source, not independent corroboration.
+        lines.append(
+            "INDEPENDENCE WARNING: most agents were shown the BioLinkBERT label"
+            f" ('{bert}') before voting. Panel agreement with that label is NOT a"
+            " second opinion confirming it — it is the same source counted twice."
+            " Only the abstract is independent evidence."
+        )
+
+    return "\n".join(lines)
+
+
 def build_debate_brief(
     debate_history: list[list[AgentRoundOpinion]],
     *,
     shared_report: SharedDebateReport | None = None,
 ) -> dict[str, Any]:
-    """Compact MedARC-style brief for the director (not a full transcript dump)."""
+    """Compact MedARC-style brief (telemetry / SFT meta; not the Director primary input)."""
     final = debate_history[-1] if debate_history else []
     panel = []
     for entry in final:
@@ -209,7 +492,7 @@ def build_debate_brief(
                     "author_conclusion_reader"
                     if entry.agent_id == "generalist"
                     else (
-                        "uncertainty_auditor"
+                        "uncertainty_advocate"
                         if entry.agent_id == "uncertainty_advocate"
                         else entry.persona
                     )
@@ -235,11 +518,25 @@ def build_debate_brief(
         "confidence_aware_scores": conf_scores,
         "dual_read": {
             "author_conclusion_reader": generalist,
-            "uncertainty_auditor": advocate,
+            "uncertainty_advocate": advocate,
         },
         "panel": panel,
         "shared_report": shared_report.model_dump() if shared_report is not None else None,
     }
+
+
+def _parse_biolinkbert_label(biolinkbert_hint: str | None) -> str | None:
+    """Extract yes/no/maybe from director hint JSON or raw text."""
+    raw = (biolinkbert_hint or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return extract_label(str(data.get("label") or ""))
+    except Exception:
+        pass
+    return extract_label(raw)
 
 
 def apply_maybe_director_gate(
@@ -249,14 +546,16 @@ def apply_maybe_director_gate(
     final_opinions: list[AgentRoundOpinion],
     shared_report: SharedDebateReport | None = None,
     advocate_maybe_confidence: float = 0.75,
+    bert_label: str | None = None,
+    rounds_completed: int = 1,
 ) -> SupervisorDirectorOutput:
     """
     Selective maybe gate on top of LLM director output.
 
     Goals:
-    - Recover PubMedQA ``maybe`` when question coverage is partial/none or the
-      director already signals differential + non-decisive findings.
-    - Avoid v1 false-maybe: do not flip unanimous high-confidence binary panels.
+    - Recover PubMedQA ``maybe`` when question coverage is none / strong uncertainty.
+    - Avoid false maybe (v4): do not downgrade on ``partial`` alone when the panel
+      confidence-aware vote and BioLinkBERT already agree with the director yes/no.
     """
     from app.agents.heuristics import abstract_suggests_inconclusive
 
@@ -275,9 +574,13 @@ def apply_maybe_director_gate(
     mean_conf = (
         sum(float(e.opinion.confidence_level) for e in usable) / len(usable) if usable else 0.0
     )
+    bert_norm = (bert_label or "").strip().lower() or None
+    if bert_norm not in {"yes", "no", "maybe"}:
+        bert_norm = None
 
-    # Hard protect: unanimous high-conf panel matching director yes/no.
-    if panel_agrees_with_director and mean_conf >= 0.85:
+    # Hard protect: unanimous high-conf panel matching director yes/no (+ BERT if present).
+    bert_ok = bert_norm is None or bert_norm == output.final_label
+    if panel_agrees_with_director and mean_conf >= 0.8 and bert_ok:
         return output
 
     coverage = (getattr(output, "question_coverage", None) or "full").strip().lower()
@@ -308,44 +611,71 @@ def apply_maybe_director_gate(
     ):
         reasons.append("differential + non-decisive findings")
 
-    # Path C: strong dual checklist (unchanged conservative path).
+    # Path C: strong dual checklist.
     if checklist_hits >= 2:
         reasons.append(f"checklist_hits={checklist_hits}")
 
-    # Path D: auditor maybe + residual + specific abstract cue (tight).
-    advocate = next(
-        (
-            e
-            for e in usable
-            if e.agent_id == "uncertainty_advocate" or e.persona == "uncertainty_advocate"
-        ),
-        None,
-    )
-    if advocate is not None:
-        adv_label = opinion_label(advocate.opinion)
+    # Path D: uncertainty expert maybe + residual + specific abstract cue (tight).
+    from app.agents.prompts import PUBMEDQA_UNCERTAINTY_PERSONAS
+
+    uncertainty_experts = [
+        e
+        for e in usable
+        if e.agent_id in PUBMEDQA_UNCERTAINTY_PERSONAS
+        or e.persona in PUBMEDQA_UNCERTAINTY_PERSONAS
+    ]
+    for expert in uncertainty_experts:
+        expert_label = opinion_label(expert.opinion)
         if (
-            adv_label == "maybe"
-            and float(advocate.opinion.confidence_level) >= advocate_maybe_confidence
+            expert_label == "maybe"
+            and float(expert.opinion.confidence_level) >= advocate_maybe_confidence
         ):
             residual = list(shared_report.residual_uncertainty) if shared_report else []
             if residual and abstract_suggests_inconclusive(patient_case):
-                reasons.append("uncertainty auditor maybe + residual + abstract cue")
+                role = expert.agent_id or expert.persona or "uncertainty_expert"
+                reasons.append(f"{role} maybe + residual + abstract cue")
+                break
+
+    # Path E: after 3+ rounds, uncertainty_advocate holding high-confidence
+    # maybe has survived multiple debate challenges — treat as a validated gap.
+    if rounds_completed >= 3:
+        for expert in uncertainty_experts:
+            role = (expert.agent_id or expert.persona or "").strip().lower()
+            expert_label = opinion_label(expert.opinion)
+            if (
+                expert_label == "maybe"
+                and float(expert.opinion.confidence_level) >= advocate_maybe_confidence
+            ):
+                reasons.append(
+                    f"{role} persistent maybe after {rounds_completed} rounds"
+                )
 
     if not reasons:
         return output
 
-    # Soft protect: confidence-aware panel agrees with director binary and
-    # coverage was claimed full — keep director (avoid v1 over-maybe).
-    conf_label, _, _ = confidence_aware_vote(
+    conf_label, conf_share, _ = confidence_aware_vote(
         [e.opinion for e in usable] or [e.opinion for e in final_opinions]
     )
-    if (
-        coverage == "full"
+    panel_bert_agree_binary = (
+        output.final_label in {"yes", "no"}
         and conf_label == output.final_label
-        and conf_label in {"yes", "no"}
-        and "question_coverage" not in " ".join(reasons)
-    ):
-        return output
+        and float(conf_share.get(output.final_label, 0.0)) >= 0.5
+        and (bert_norm is None or bert_norm == output.final_label)
+    )
+
+    # v5 safeguard: if panel vote + BERT already back the director binary, only allow
+    # the strongest maybe paths (coverage=none / auditor+abstract cue).
+    # Blocks false maybe from partial / soft differential / flaky checklist alone.
+    if panel_bert_agree_binary:
+        reasons = [
+            r
+            for r in reasons
+            if r.startswith("question_coverage=none")
+            or "abstract cue" in r
+            or "persistent maybe" in r
+        ]
+        if not reasons:
+            return output
 
     return SupervisorDirectorOutput(
         final_label="maybe",
@@ -353,6 +683,9 @@ def apply_maybe_director_gate(
         if output.consensus_type == "consensus"
         else output.consensus_type,
         rationale=(output.rationale + " | maybe_gate: " + "; ".join(reasons)).strip(),
+        debate_conflict_level=output.debate_conflict_level,
+        conclusiveness_score=output.conclusiveness_score,
+        unresolved_contradictions=list(output.unresolved_contradictions),
         primary_endpoint_answers_question=output.primary_endpoint_answers_question,
         findings_decisive_for_question=output.findings_decisive_for_question,
         authors_state_uncertainty=output.authors_state_uncertainty,
@@ -367,45 +700,71 @@ async def aggregate_with_llm_director(
     *,
     supervisor: SupervisorAgent,
     shared_report: SharedDebateReport | None = None,
+    director_maybe_gate: Literal["off", "legacy"] = "off",
+    panel_saw_bert_hint: bool = False,
 ) -> str:
     """
     Aggregate a full debate by asking the LLM Director via `SupervisorAgent`.
 
-    Uses a compact debate brief + shared report (MedAgents/MedARC style) instead of
-    dumping the entire transcript. Applies a deterministic maybe-aware gate after
-    the LLM response.
+    Passes the **full multi-round conflict transcript** (every agent turn + shared
+    report contradictions). Compact ``build_debate_brief`` is kept only as unused
+    telemetry metadata on the supervisor for debugging.
+
+    By default (``director_maybe_gate="off"``) the Director's ``final_label`` and
+    ``rationale`` are taken as-is — Python does not rewrite the verdict. Pass
+    ``director_maybe_gate="legacy"`` to re-enable the post-hoc
+    ``apply_maybe_director_gate`` override (ablation only).
 
     Returns the Director's `final_label` ("yes" | "no" | "maybe").
     """
+    gate_mode = (director_maybe_gate or "off").strip().lower()
+    if gate_mode not in {"off", "legacy"}:
+        raise ValueError(f"Unsupported director_maybe_gate: {director_maybe_gate}")
+
     # Prefer latest moderator shared report if caller did not pass one.
     if shared_report is None:
         last_mod = getattr(supervisor, "last_moderation_output", None)
         if last_mod is not None and hasattr(last_mod, "as_shared_report"):
             shared_report = last_mod.as_shared_report()
 
+    transcript = build_full_debate_transcript(
+        debate_history, shared_report=shared_report
+    )
     brief = build_debate_brief(debate_history, shared_report=shared_report)
-    debate_brief = json.dumps(brief, ensure_ascii=False)
+    vote_summary = build_panel_vote_summary(
+        debate_history,
+        biolinkbert_label=_parse_biolinkbert_label(biolinkbert_hint),
+        panel_saw_bert_hint=panel_saw_bert_hint,
+    )
     shared_report_text = json.dumps(
         shared_report.model_dump() if shared_report is not None else {},
         ensure_ascii=False,
     )
+    # Telemetry only — never used to override final_label.
+    setattr(supervisor, "last_debate_brief", brief)
+    setattr(supervisor, "last_debate_transcript", transcript)
+    setattr(supervisor, "last_panel_vote_summary", vote_summary)
 
     director_output = await supervisor.synthesize_decision(
         patient_case=patient_case,
-        debate_transcript=debate_brief,
+        debate_transcript=transcript,
         biolinkbert_hint=biolinkbert_hint,
         shared_report=shared_report_text,
-        debate_brief=debate_brief,
+        debate_brief=None,
+        panel_vote_summary=vote_summary,
     )
-    final_opinions = debate_history[-1] if debate_history else []
-    gated = apply_maybe_director_gate(
-        director_output,
-        patient_case=patient_case,
-        final_opinions=final_opinions,
-        shared_report=shared_report,
-    )
-    setattr(supervisor, "last_director_output", gated)
-    return gated.final_label
+    if gate_mode == "legacy":
+        final_opinions = debate_history[-1] if debate_history else []
+        director_output = apply_maybe_director_gate(
+            director_output,
+            patient_case=patient_case,
+            final_opinions=final_opinions,
+            shared_report=shared_report,
+            bert_label=_parse_biolinkbert_label(biolinkbert_hint),
+            rounds_completed=len(debate_history),
+        )
+    setattr(supervisor, "last_director_output", director_output)
+    return director_output.final_label
 
 
 def build_consensus_decision(

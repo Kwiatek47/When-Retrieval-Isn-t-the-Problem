@@ -13,6 +13,7 @@ from app.agents.backends import (
 )
 from app.agents.models import AgentRoundOpinion, ClinicalOpinion
 from app.agents.prompts import build_messages
+from app.agents.prompts import PeerContextMode  # re-export type for callers
 from app.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class ClinicalAgent:
         temperature: float = 0.3,
         task_mode: str = "clinical",
         compact: bool = False,
+        peer_context: PeerContextMode = "nl",
     ) -> None:
         self.agent_id = agent_id
         self.persona = persona
@@ -37,6 +39,7 @@ class ClinicalAgent:
         self.temperature = temperature
         self.task_mode = task_mode
         self.compact = compact
+        self.peer_context: PeerContextMode = (peer_context or "nl")  # type: ignore[assignment]
 
     async def generate_opinion(
         self,
@@ -44,17 +47,21 @@ class ClinicalAgent:
         context: list[AgentRoundOpinion] | None = None,
         *,
         include_evidence_hint: bool = True,
+        frozen_label: str | None = None,
+        num_predict: int | None = None,
+        moderator_instruction: str | None = None,
+        round_number: int | None = None,
+        dissent_protocol: bool = False,
     ) -> ClinicalOpinion:
         """
         Generate a structured clinical opinion.
 
         Round 1: pass empty/None context for an independent opinion.
-        Later rounds: pass peer AgentRoundOpinion entries (previous round's
-        finals plus anyone who has already spoken this round) to critique
-        and revise.
+        Later rounds: pass peer AgentRoundOpinion entries from the previous
+        round only (agents revise in isolation from same-round peers).
 
         Set ``include_evidence_hint=False`` to hide BioLinkBERT (e.g. blind
-        ``uncertainty_advocate`` in round 1).
+        ``uncertainty_advocate`` when ``blind_critic`` is enabled).
 
         Never raises: backend failures (timeout, connection error, invalid
         JSON after one repair attempt) degrade to a low-confidence fallback
@@ -65,6 +72,7 @@ class ClinicalAgent:
             if include_evidence_hint
             else None
         )
+        use_compact = self.compact or (self.task_mode or "").strip().lower() == "pubmedqa"
         messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -72,15 +80,20 @@ class ClinicalAgent:
             context=context,
             evidence_hint=hint,
             task_mode=self.task_mode,
-            compact=self.compact,
+            compact=use_compact,
+            peer_context=self.peer_context,
+            frozen_label=frozen_label,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
+            dissent_protocol=dissent_protocol,
         )
-        raw = await self._complete_or_none(messages, self.temperature)
+        raw = await self._complete_or_none(messages, self.temperature, num_predict=num_predict)
         opinion = self._try_parse(raw)
         if opinion is not None:
             return opinion
 
         # Repair: force compact PubMedQA schema to reduce empty/truncated JSON under load.
-        repair_compact = self.compact or (self.task_mode or "").strip().lower() == "pubmedqa"
+        repair_compact = use_compact
         repair_messages = build_messages(
             agent_id=self.agent_id,
             persona=self.persona,
@@ -90,8 +103,13 @@ class ClinicalAgent:
             repair=True,
             task_mode=self.task_mode,
             compact=repair_compact,
+            peer_context=self.peer_context,
+            frozen_label=frozen_label,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
+            dissent_protocol=dissent_protocol,
         )
-        raw_retry = await self._complete_or_none(repair_messages, 0.0)
+        raw_retry = await self._complete_or_none(repair_messages, 0.0, num_predict=num_predict)
         opinion = self._try_parse(raw_retry, retry=True)
         if opinion is not None:
             return opinion
@@ -124,16 +142,24 @@ class ClinicalAgent:
                 self.agent_id,
                 "; retry failed, using fallback" if retry else "; retrying once",
                 preview,
-                exc_info=True,
+                exc_info=retry,
             )
             return None
 
     async def _complete_or_none(
-        self, messages: list[ChatMessage], temperature: float
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        *,
+        num_predict: int | None = None,
     ) -> str | None:
         """Run the backend, swallowing any exception (timeout, connection error, ...)."""
         try:
-            content = await self.backend.complete(messages, temperature=temperature)
+            content = await self.backend.complete(
+                messages,
+                temperature=temperature,
+                num_predict=num_predict,
+            )
             return (content or "").strip() or None
         except Exception:
             logger.warning(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-import json
 from typing import Any, Literal
 
 from app.agents.agent import ClinicalAgent
@@ -15,12 +14,15 @@ from app.agents.heuristics import (
 )
 from app.agents.models import (
     AgentRoundOpinion,
-    ClinicalOpinion,
     DebateResult,
     SupervisorModerationOutput,
 )
 from app.agents.supervisor_agent import SupervisorAgent
 from app.agents.uncertainty import _label_entropy
+from app.agents.prompts import (
+    PeerContextMode,
+    format_moderator_instruction_block,
+)
 
 DEFAULT_PERSONAS: tuple[tuple[str, str], ...] = (
     ("generalist", "generalist"),
@@ -36,15 +38,23 @@ PUBMEDQA_PERSONAS: tuple[tuple[str, str], ...] = (
     ("uncertainty_advocate", "uncertainty_advocate"),
 )
 
+DEFAULT_AGENT_NUM_PREDICT_ROUND3 = 1500
+
 DebateMode = Literal["moderated", "peer", "hybrid"]
+BlindCriticMode = Literal["all-rounds", "r1-only", "off"]
+SafetyRedFlagMode = Literal["halt", "escalate-label", "defer"]
+SupervisorFailMode = Literal["peer-round", "peer-rest", "empty-defer"]
 EarlyExitFn = Callable[[int, list[AgentRoundOpinion], str], bool]
 
-# Blind-critic personas: no BioLinkBERT hint in round 1.
-_BLIND_HINT_PERSONAS_R1: frozenset[str] = frozenset({"uncertainty_advocate"})
+# Personas that can be kept blind to BioLinkBERT (see ``blind_critic``).
+_BLIND_HINT_PERSONAS: frozenset[str] = frozenset({"uncertainty_advocate"})
+_UNCERTAINTY_EXPERT_ROLES: frozenset[str] = frozenset({"uncertainty_advocate"})
+# Backward-compatible alias.
+_BLIND_HINT_PERSONAS_R1 = _BLIND_HINT_PERSONAS
 
 _ARCHITECTURE_BY_MODE: dict[DebateMode, str] = {
     "moderated": "supervised_moderation",
-    "peer": "peer_round_robin",
+    "peer": "peer_parallel",
     "hybrid": "hybrid_supervised_peer",
 }
 
@@ -54,19 +64,26 @@ class DebateOrchestrator:
     Runs multi-round peer debate among ClinicalAgent instances.
 
     Round 1 ("independent opinion"): every agent answers in parallel with no
-    peer context, so nobody anchors on somebody else's first take. In PubMedQA
-    mode, ``uncertainty_advocate`` is a round-1 "blind critic": BioLinkBERT
-    hints are suppressed for that agent only (restored from round 2).
+    peer context, so nobody anchors on somebody else's first take.
 
-    Round 2+ depends on ``debate_mode``:
+    Blind critic (``blind_critic``): by default never see BioLinkBERT hints
+    (``all-rounds``), to avoid authority bias after an independent round-1
+    ``maybe``. Legacy ``r1-only`` restores hint from round 2; ``off`` exposes
+    the hint from round 1.
+
+    Round 2+ depends on ``debate_mode`` (always concurrent like round 1 —
+    agents never see same-round peer drafts):
 
     - ``moderated`` (default): supervisor moderates, then all agents revise
       concurrently using supervisor instructions only (legacy behavior).
-    - ``peer``: round-robin peer debate; each agent sees prior-round opinions
-      plus peers who already spoke this round. No supervisor moderation.
-    - ``hybrid``: supervisor moderates, then round-robin peer debate where each
-      agent also sees supervisor agreements/contradictions/instructions plus
-      peer opinions from the previous round.
+    - ``peer``: all agents revise concurrently; each sees only the previous
+      round's peer opinions (excluding self). No supervisor moderation.
+    - ``hybrid``: supervisor moderates, then all agents revise concurrently
+      with moderator instructions plus previous-round peer opinions only.
+
+    Frozen stance (``frozen_stance=True``): after round 1, each agent's label is
+    locked and R2+ prompts instruct them to defend that label adversarially.
+    Disable with ``frozen_stance=False`` for legacy free revision in later rounds.
 
     With ``adaptive_rounds=True``, the debate runs at least ``min_rounds`` and
     continues up to ``max_rounds`` while conflict remains unresolved
@@ -74,7 +91,18 @@ class DebateOrchestrator:
 
     Optional early-exit skips later rounds when the panel already agrees
     (typically via ``check_early_exit_asymmetric_veto``: binary unanimity plus
-    uncertainty_advocate veto on ``maybe`` / low confidence).
+    ``uncertainty_advocate`` veto on ``maybe`` / low confidence).
+
+    Safety red flags (``safety_red_flag``): when ``safety_officer`` sets
+    ``safety_passed=False`` and ``immediate_intervention_required=True``:
+    - ``halt`` (default): stop the debate immediately (no further rounds)
+    - ``escalate-label``: same halt; eval may force ``maybe`` + escalation
+    - ``defer``: legacy — inject ``RED FLAG DETECTED`` into the next round only
+
+    Supervisor parse failure (``supervisor_fail``): after retry at temperature 0,
+    - ``peer-round`` (default): run this round as concurrent peer critique (no empty moderation)
+    - ``peer-rest``: same, then keep peer for remaining rounds of the case
+    - ``empty-defer``: legacy empty moderation fallback injected into moderated/hybrid
     """
 
     ARCHITECTURE: str = "supervised_moderation"
@@ -89,9 +117,16 @@ class DebateOrchestrator:
         adaptive_rounds: bool = False,
         conflict_entropy_threshold: float = 0.35,
         debate_mode: DebateMode = "moderated",
+        blind_critic: BlindCriticMode = "all-rounds",
+        safety_red_flag: SafetyRedFlagMode = "halt",
+        peer_context: PeerContextMode = "nl",
+        supervisor_fail: SupervisorFailMode = "peer-round",
         early_exit: EarlyExitFn | None = None,
         agent_concurrency: int = 4,
         supervisor_backend: Any | None = None,
+        frozen_stance: bool = False,
+        dissent_protocol: bool = False,
+        agent_num_predict_round3: int = DEFAULT_AGENT_NUM_PREDICT_ROUND3,
     ) -> None:
         if len(agents) < 2:
             raise ValueError("DebateOrchestrator requires at least 2 agents.")
@@ -99,6 +134,18 @@ class DebateOrchestrator:
             raise ValueError("agent_concurrency must be >= 1.")
         if debate_mode not in _ARCHITECTURE_BY_MODE:
             raise ValueError(f"Unsupported debate_mode: {debate_mode}")
+        blind_mode = (blind_critic or "all-rounds").strip().lower()
+        if blind_mode not in {"all-rounds", "r1-only", "off"}:
+            raise ValueError(f"Unsupported blind_critic: {blind_critic}")
+        safety_mode = (safety_red_flag or "halt").strip().lower()
+        if safety_mode not in {"halt", "escalate-label", "defer"}:
+            raise ValueError(f"Unsupported safety_red_flag: {safety_red_flag}")
+        peer_mode = (peer_context or "nl").strip().lower()
+        if peer_mode not in {"nl", "compact-json", "full-json"}:
+            raise ValueError(f"Unsupported peer_context: {peer_context}")
+        fail_mode = (supervisor_fail or "peer-round").strip().lower()
+        if fail_mode not in {"peer-round", "peer-rest", "empty-defer"}:
+            raise ValueError(f"Unsupported supervisor_fail: {supervisor_fail}")
 
         resolved_max = max_rounds if max_rounds is not None else rounds
         resolved_min = min_rounds if min_rounds is not None else (2 if adaptive_rounds else resolved_max)
@@ -117,59 +164,113 @@ class DebateOrchestrator:
         self.adaptive_rounds = adaptive_rounds
         self.conflict_entropy_threshold = conflict_entropy_threshold
         self.debate_mode = debate_mode
+        self.blind_critic: BlindCriticMode = blind_mode  # type: ignore[assignment]
+        self.safety_red_flag: SafetyRedFlagMode = safety_mode  # type: ignore[assignment]
+        self.peer_context: PeerContextMode = peer_mode  # type: ignore[assignment]
+        self.supervisor_fail: SupervisorFailMode = fail_mode  # type: ignore[assignment]
         self.early_exit = early_exit
         self.agent_concurrency = agent_concurrency
         self.early_exits = 0
         self.adaptive_stops = 0
+        self.safety_halts = 0
+        self.supervisor_failovers = 0
+        self.frozen_stance = frozen_stance
+        self.dissent_protocol = dissent_protocol
+        self.agent_num_predict_round3 = max(1, int(agent_num_predict_round3))
         self.ARCHITECTURE = _ARCHITECTURE_BY_MODE[debate_mode]
+        for agent in self.agents:
+            setattr(agent, "peer_context", self.peer_context)
         self.supervisor = SupervisorAgent(
-            backend=supervisor_backend if supervisor_backend is not None else agents[0].backend
+            backend=supervisor_backend if supervisor_backend is not None else agents[0].backend,
+            peer_context=self.peer_context,
         )
 
     async def run(self, patient_case: str) -> DebateResult:
         history: list[list[AgentRoundOpinion]] = []
         supervisor_moderation: list[SupervisorModerationOutput] = []
         pending_red_flag_instruction: str | None = None
+        safety_halted = False
+        safety_red_flag_reason: str | None = None
+        force_peer_rest = False
+        frozen_labels: dict[str, str | None] | None = None
 
         for round_number in range(1, self.max_rounds + 1):
             if round_number == 1:
                 round_opinions = await self._run_independent_round(patient_case)
             else:
                 previous_round = history[-1]
-                supervisor_prefix: list[AgentRoundOpinion] = []
+                moderator_instruction: str | None = None
+                failover_to_peer = False
+                skip_supervisor = force_peer_rest or self.debate_mode == "peer"
 
-                if self.debate_mode in ("moderated", "hybrid"):
-                    agents_opinions = {
-                        entry.agent_id: entry.opinion.model_dump() for entry in previous_round
-                    }
+                if not skip_supervisor and self.debate_mode in ("moderated", "hybrid"):
                     moderation = await self.supervisor.moderate_round(
                         patient_case=patient_case,
-                        agents_opinions=agents_opinions,
+                        agents_opinions=previous_round,
                     )
-                    if pending_red_flag_instruction:
-                        moderation.round_instructions.insert(0, pending_red_flag_instruction)
-                    supervisor_moderation.append(moderation)
-                    supervisor_prefix = _moderation_as_supervisor_context(
-                        moderation_output=moderation,
-                        round_number=round_number,
-                    )
+                    if (
+                        self.supervisor.last_moderation_failed
+                        and self.supervisor_fail != "empty-defer"
+                    ):
+                        failover_to_peer = True
+                        self.supervisor_failovers += 1
+                        if self.supervisor_fail == "peer-rest":
+                            force_peer_rest = True
+                    else:
+                        if pending_red_flag_instruction:
+                            moderation.round_instructions.insert(
+                                0, pending_red_flag_instruction
+                            )
+                        supervisor_moderation.append(moderation)
+                        moderator_instruction = format_moderator_instruction_block(
+                            moderation,
+                            peer_context=self.peer_context,
+                        )
 
-                if self.debate_mode == "moderated":
-                    round_opinions = await self._run_moderated_round(
-                        patient_case=patient_case,
-                        round_number=round_number,
-                        supervisor_context=supervisor_prefix,
-                    )
-                else:
-                    round_opinions = await self._run_round_robin_round(
+                if failover_to_peer or force_peer_rest or self.debate_mode == "peer":
+                    round_opinions = await self._run_parallel_peer_round(
                         patient_case,
                         round_number=round_number,
                         previous_round=previous_round,
-                        context_prefix=supervisor_prefix if self.debate_mode == "hybrid" else None,
+                        moderator_instruction=None,
+                        frozen_labels=frozen_labels,
+                    )
+                elif self.debate_mode == "moderated":
+                    round_opinions = await self._run_moderated_round(
+                        patient_case=patient_case,
+                        round_number=round_number,
+                        moderator_instruction=moderator_instruction,
+                        frozen_labels=frozen_labels,
+                    )
+                else:
+                    # hybrid: parallel previous-round peers + moderator block
+                    round_opinions = await self._run_parallel_peer_round(
+                        patient_case,
+                        round_number=round_number,
+                        previous_round=previous_round,
+                        moderator_instruction=moderator_instruction,
+                        frozen_labels=frozen_labels,
                     )
             history.append(round_opinions)
 
-            pending_red_flag_instruction = _pending_red_flag_instruction(round_opinions)
+            if round_number == 1 and self.frozen_stance:
+                frozen_labels = {
+                    entry.agent_id: opinion_label(entry.opinion)
+                    for entry in round_opinions
+                }
+
+            critical_flag = _pending_red_flag_instruction(round_opinions)
+            if critical_flag:
+                if self.safety_red_flag == "defer":
+                    pending_red_flag_instruction = critical_flag
+                else:
+                    # halt / escalate-label: hard stop — do not continue debating.
+                    safety_halted = True
+                    safety_red_flag_reason = critical_flag
+                    self.safety_halts += 1
+                    break
+            else:
+                pending_red_flag_instruction = None
 
             if round_number >= self.max_rounds:
                 break
@@ -191,95 +292,115 @@ class DebateOrchestrator:
                     self.adaptive_stops += 1
                     break
 
+        final_opinions = history[-1] if history else []
+        # Telemetry only: never used to override Director / aggregator labels.
+        exhausted = (
+            not safety_halted
+            and len(history) >= self.max_rounds
+            and fundamental_panel_conflict(final_opinions)
+        )
         return DebateResult(
             patient_case=patient_case,
             rounds=history,
-            final_opinions=history[-1],
+            final_opinions=final_opinions,
             supervisor_moderation=supervisor_moderation,
             shared_report=(
                 supervisor_moderation[-1].as_shared_report()
                 if supervisor_moderation
                 else None
             ),
+            safety_halted=safety_halted,
+            safety_red_flag_reason=safety_red_flag_reason,
+            exhausted_without_consensus=exhausted,
         )
 
     async def _run_independent_round(self, patient_case: str) -> list[AgentRoundOpinion]:
-        """Round 1: every agent answers concurrently with no peer context.
-
-        Blind Critic: ``uncertainty_advocate`` gets ``include_evidence_hint=False``
-        so BioLinkBERT never reaches ``build_messages`` for that agent in R1
-        (equivalent to ``agent_hint = None if persona == uncertainty_advocate``).
-        """
+        """Round 1: every agent answers concurrently with no peer context."""
         semaphore = asyncio.Semaphore(self.agent_concurrency)
 
         async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
-            # Hide BioLinkBERT from the advocate; all other personas keep the hint.
-            # Equivalent: agent_hint = None if persona == "uncertainty_advocate" else evidence_hint
-            agent_hint_enabled = (
-                agent.persona not in _BLIND_HINT_PERSONAS_R1
-                and agent.agent_id not in _BLIND_HINT_PERSONAS_R1
-            )
             async with semaphore:
                 return await self._speak(
                     agent,
                     patient_case,
                     round_number=1,
                     context=None,
-                    include_evidence_hint=agent_hint_enabled,
                 )
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
-    async def _run_round_robin_round(
+    async def _run_parallel_peer_round(
         self,
         patient_case: str,
         *,
         round_number: int,
         previous_round: list[AgentRoundOpinion],
-        context_prefix: list[AgentRoundOpinion] | None = None,
+        moderator_instruction: str | None = None,
+        frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
-        """Round 2+: sequential turns; each agent sees prefix + peer opinions."""
-        spoken_so_far: list[AgentRoundOpinion] = []
-        round_opinions: list[AgentRoundOpinion] = []
-        prefix = list(context_prefix or [])
+        """Round 2+: concurrent turns; each agent sees only the previous round.
 
-        for agent in self.agents:
-            peer_context = _round_robin_context(
-                agent.agent_id,
-                previous_round,
-                spoken_so_far,
-            )
-            context = prefix + peer_context
-            entry = await self._speak(
-                agent,
-                patient_case,
-                round_number=round_number,
-                context=context or None,
-            )
-            spoken_so_far.append(entry)
-            round_opinions.append(entry)
-        return round_opinions
+        Agents never observe same-round peer drafts (no round-robin leakage).
+        """
+        semaphore = asyncio.Semaphore(self.agent_concurrency)
+
+        async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
+            async with semaphore:
+                peer_context = _previous_round_context(agent.agent_id, previous_round)
+                agent_frozen_label = (
+                    frozen_labels.get(agent.agent_id) if frozen_labels else None
+                )
+                return await self._speak(
+                    agent,
+                    patient_case,
+                    round_number=round_number,
+                    context=peer_context or None,
+                    frozen_label=agent_frozen_label,
+                    moderator_instruction=moderator_instruction,
+                )
+
+        return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
 
     async def _run_moderated_round(
         self,
         *,
         patient_case: str,
         round_number: int,
-        supervisor_context: list[AgentRoundOpinion],
+        moderator_instruction: str | None = None,
+        frozen_labels: dict[str, str | None] | None = None,
     ) -> list[AgentRoundOpinion]:
         """Round 2+ moderated mode: concurrent revision using supervisor instructions."""
         semaphore = asyncio.Semaphore(self.agent_concurrency)
 
         async def _one(agent: ClinicalAgent) -> AgentRoundOpinion:
             async with semaphore:
+                agent_frozen_label = (
+                    frozen_labels.get(agent.agent_id) if frozen_labels else None
+                )
                 return await self._speak(
                     agent,
                     patient_case,
                     round_number=round_number,
-                    context=supervisor_context,
+                    context=None,
+                    frozen_label=agent_frozen_label,
+                    moderator_instruction=moderator_instruction,
                 )
 
         return list(await asyncio.gather(*[_one(agent) for agent in self.agents]))
+
+    def _should_include_evidence_hint(self, agent: ClinicalAgent, round_number: int) -> bool:
+        """Whether BioLinkBERT hint is shown to this agent this round."""
+        if self.blind_critic == "off":
+            return True
+        is_blind_persona = (
+            agent.persona in _BLIND_HINT_PERSONAS or agent.agent_id in _BLIND_HINT_PERSONAS
+        )
+        if not is_blind_persona:
+            return True
+        if self.blind_critic == "all-rounds":
+            return False
+        # r1-only: hide hint in round 1, restore from round 2.
+        return round_number != 1
 
     async def _speak(
         self,
@@ -289,14 +410,23 @@ class DebateOrchestrator:
         round_number: int,
         context: list[AgentRoundOpinion] | None,
         include_evidence_hint: bool | None = None,
+        frozen_label: str | None = None,
+        moderator_instruction: str | None = None,
     ) -> AgentRoundOpinion:
-        # Default: always include hint except R1 blind-critic override from caller.
         if include_evidence_hint is None:
-            include_evidence_hint = True
+            include_evidence_hint = self._should_include_evidence_hint(agent, round_number)
+        num_predict = (
+            self.agent_num_predict_round3 if round_number >= 3 else None
+        )
         opinion = await agent.generate_opinion(
             patient_case,
             context=context,
             include_evidence_hint=include_evidence_hint,
+            frozen_label=frozen_label,
+            num_predict=num_predict,
+            moderator_instruction=moderator_instruction,
+            round_number=round_number,
+            dissent_protocol=self.dissent_protocol,
         )
         return AgentRoundOpinion(
             agent_id=agent.agent_id,
@@ -310,6 +440,70 @@ def labels_unanimous(round_opinions: list[AgentRoundOpinion]) -> bool:
     labels = [opinion_label(entry.opinion) for entry in round_opinions]
     labels = [label for label in labels if label is not None]
     return bool(labels) and len(set(labels)) == 1
+
+
+_CONVICTION_ROLES = frozenset({"generalist", "differential_expander"})
+_GUARDIAN_ROLES = frozenset({"evidence_skeptic", "uncertainty_advocate"})
+
+
+def _entry_role(entry: AgentRoundOpinion) -> str:
+    return (entry.agent_id or entry.persona or "").strip().lower()
+
+
+def fundamental_panel_conflict(round_opinions: list[AgentRoundOpinion]) -> bool:
+    """True only for a *fundamental* end-of-debate split.
+
+    Activate when:
+    - even 2-2 label split, or
+    - evidence_skeptic and uncertainty_advocate both vote maybe, or
+    - conviction bloc (generalist + expander) shares a binary yes/no while both
+      guardians dissent (no or maybe).
+
+    A split where only one guardian votes maybe is *not* fundamental: the
+    director may still assign yes/no.
+    """
+    labels_by_role: dict[str, str] = {}
+    labels: list[str] = []
+    for entry in round_opinions:
+        lab = opinion_label(entry.opinion)
+        if lab is None:
+            continue
+        labels.append(lab)
+        labels_by_role[_entry_role(entry)] = lab
+    if len(labels) < 2:
+        return False
+
+    skeptic = labels_by_role.get("evidence_skeptic")
+    advocate = labels_by_role.get("uncertainty_advocate")
+    if skeptic == "maybe" and advocate == "maybe":
+        return True
+
+    counts: dict[str, int] = {}
+    for lab in labels:
+        counts[lab] = counts.get(lab, 0) + 1
+    ranked = sorted(counts.values(), reverse=True)
+    if len(ranked) >= 2 and ranked[0] == 2 and ranked[1] == 2:
+        return True
+
+    conviction = [
+        labels_by_role[role]
+        for role in _CONVICTION_ROLES
+        if role in labels_by_role
+    ]
+    guardians = [
+        labels_by_role[role]
+        for role in _GUARDIAN_ROLES
+        if role in labels_by_role
+    ]
+    if len(conviction) == 2 and len(guardians) >= 2:
+        conviction_label = conviction[0]
+        if (
+            conviction_label in {"yes", "no"}
+            and conviction[1] == conviction_label
+            and all(label != conviction_label for label in guardians)
+        ):
+            return True
+    return False
 
 
 DEFAULT_ADVOCATE_VETO_CONFIDENCE = 0.65
@@ -336,8 +530,8 @@ def check_early_exit_asymmetric_veto(
     Early-exit with asymmetric veto for the ``maybe`` class.
 
     Returns True only when the panel is unanimously ``yes`` or ``no`` *and*
-    ``uncertainty_advocate`` does not veto. The advocate vetoes when they label
-    ``maybe`` or their confidence is below ``advocate_confidence_threshold``.
+    no uncertainty expert vetoes. Each expert vetoes when they label ``maybe``
+    or their confidence is below ``advocate_confidence_threshold``.
 
     Also blocked when ``patient_case`` matches light inconclusiveness heuristics
     (e.g. ``further research is needed``), or when a majority of agents mark
@@ -360,18 +554,12 @@ def check_early_exit_asymmetric_veto(
     if inconclusive_marks >= max(3, len(round_opinions) - 1):
         return False
 
-    advocate = next(
-        (
-            entry
-            for entry in round_opinions
-            if entry.agent_id == "uncertainty_advocate"
-            or entry.persona == "uncertainty_advocate"
-        ),
-        None,
-    )
-    if advocate is not None:
-        confidence = _safe_confidence(advocate.opinion.confidence_level, default=1.0)
-        label = (opinion_label(advocate.opinion) or "").strip().lower()
+    for entry in round_opinions:
+        role = _entry_role(entry)
+        if role not in _UNCERTAINTY_EXPERT_ROLES:
+            continue
+        confidence = _safe_confidence(entry.opinion.confidence_level, default=1.0)
+        label = (opinion_label(entry.opinion) or "").strip().lower()
         if label == "maybe" or confidence < advocate_confidence_threshold:
             return False
 
@@ -403,6 +591,20 @@ def should_continue_debate(
     - supervisor reported unresolved contradictions / residual uncertainty, or
     - shared report author_conclusion is maybe/unclear while panel is binary.
     """
+    labels_present = [opinion_label(e.opinion) for e in round_opinions]
+    labels_present = [lab for lab in labels_present if lab is not None]
+
+    # When the supervisor has adjudicated the dissent, that judgement decides.
+    # The heuristics below are deliberately trigger-happy — "any contradiction
+    # listed" and "panel not unanimous" are true on almost every case — so
+    # leaving them in play would override the adjudication and keep every debate
+    # open to max_rounds, which is exactly what happened on PQA-L 500 (478/500).
+    dissent = getattr(moderation, "dissent", None) if moderation is not None else None
+    if dissent is not None and dissent.minority_agents:
+        if not labels_present:
+            return True
+        return bool(getattr(dissent, "has_open_dissent", False))
+
     if moderation is not None and moderation.contradictions:
         return True
     if moderation is not None and moderation.residual_uncertainty and len(moderation.residual_uncertainty) >= 2:
@@ -416,15 +618,12 @@ def should_continue_debate(
     return _label_entropy(labels) > entropy_threshold
 
 
-def _round_robin_context(
+def _previous_round_context(
     agent_id: str,
     previous_round: list[AgentRoundOpinion],
-    spoken_so_far: list[AgentRoundOpinion],
 ) -> list[AgentRoundOpinion]:
-    """Previous round's peers (excluding self) followed by this round's turns so far."""
-    previous_peers = [entry for entry in previous_round if entry.agent_id != agent_id]
-    current_peers = [entry for entry in spoken_so_far if entry.agent_id != agent_id]
-    return previous_peers + current_peers
+    """Previous round's peer opinions only (excluding self); no same-round drafts."""
+    return [entry for entry in previous_round if entry.agent_id != agent_id]
 
 
 def _pending_red_flag_instruction(round_opinions: list[AgentRoundOpinion]) -> str | None:
@@ -446,41 +645,3 @@ def _pending_red_flag_instruction(round_opinions: list[AgentRoundOpinion]) -> st
                 f"Safety officer reasoning: {safety.reasoning}".strip()
             )
     return None
-
-
-def _moderation_as_supervisor_context(
-    moderation_output: Any,
-    round_number: int,
-) -> list[AgentRoundOpinion]:
-    moderation_payload = (
-        moderation_output.model_dump()
-        if hasattr(moderation_output, "model_dump")
-        else moderation_output
-    )
-    moderation_json = json.dumps(moderation_payload, ensure_ascii=False)
-
-    instruction = (
-        "Oto wnioski i instrukcje od Supervisora z poprzedniej rundy: "
-        + moderation_json
-        + ". Odpowiedz na nie"
-    )
-
-    supervisor_opinion = ClinicalOpinion(
-        top_1_diagnosis="maybe",
-        evidence_conclusiveness="inconclusive",
-        top_3_differential_diagnoses=["yes", "no", "maybe"],
-        pros=[instruction],
-        cons=[],
-        required_further_tests=[],
-        confidence_level=0.0,
-        sources_used=[],
-        red_flags=[],
-        missing_information="",
-    )
-    supervisor_entry = AgentRoundOpinion(
-        agent_id="supervisor",
-        persona="supervisor",
-        round=round_number,
-        opinion=supervisor_opinion,
-    )
-    return [supervisor_entry]

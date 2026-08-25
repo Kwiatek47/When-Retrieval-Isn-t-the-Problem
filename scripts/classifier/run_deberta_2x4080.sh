@@ -14,10 +14,13 @@ fi
 
 export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
+# Single A40 (default GPU 1; GPU 2 is often occupied by other users on this host).
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
 
 "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone \
-  --nproc_per_node="${NPROC_PER_NODE:-2}" \
+  --nproc_per_node="${NPROC_PER_NODE}" \
   scripts/classifier/train_deberta_pubmedqa.py \
   --train-jsonl "${TRAIN_JSONL:-data/interim/classifier/pubmedqa_deberta/train.jsonl}" \
   --dev-jsonl "${DEV_JSONL:-data/interim/classifier/pubmedqa_deberta/dev.jsonl}" \

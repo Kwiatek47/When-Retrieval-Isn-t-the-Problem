@@ -5,11 +5,18 @@ Modes:
   --backend mock|ollama     4-agent debate + majority vote
   --backend biolinkbert     BioLinkBERT-large classifier only (seed47 from .env)
   --hint biolinkbert        inject classifier label into each agent prompt
+  --director-hint biolinkbert|none
+                            llm_director: pass classifier to Director (default) or withhold
+                            (none = debate/abstract only; BERT still recorded in metrics)
   --aggregate-with-biolinkbert
                             include BioLinkBERT vote in the final majority
   --fast                    compact prompts + lower num_predict (does NOT enable early-exit)
-  --aggregate-mode bert_gate|bert_weighted|majority
+  --aggregate-mode bert_gate|bert_weighted|majority|llm_director
                             how to combine panel + BioLinkBERT (default: bert_gate)
+  --panel-maybe-veto unanimous|majority|off
+                            panel maybe overrides BioLinkBERT under bert_gate (default: unanimous)
+  --director-maybe-gate off|legacy
+                            llm_director: prompt-only maybe rules (default off) vs legacy post-hoc gate
 
 Examples:
   # Quality run on balanced90 (no early-exit; BERT-gate aggregation)
@@ -19,12 +26,12 @@ Examples:
     --num-predict 400 --agent-concurrency 1 \\
     --label debate_balanced90_ollama_r2_bertgate
 
-  # Agents on OLLAMA_MODEL (e.g. 7b), supervisor-only on 14b
+  # FT Director without classifier label (debate-first ablation)
   python scripts/agents/evaluate_debate_pubmedqa.py \\
     --backend ollama --aggregate-mode llm_director --hint none \\
-    --rounds 3 --limit 50 --resume --num-predict 1200 \\
-    --supervisor-model qwen2.5:14b \\
-    --label llm_director_r3_no_hint_sup14b
+    --director-hint none --rounds 2 --no-supervisor-moderation \\
+    --supervisor-model qwen2.5-supervisor-14b-stage1 \\
+    --label stage1_director_no_bert_label
 """
 
 from __future__ import annotations
@@ -58,7 +65,14 @@ from app.agents.aggregation import (
     aggregate_with_llm_director,
     build_consensus_decision,
     final_labels_by_agent,
+    lone_dissenter,
     majority_vote,
+    panel_conflict_kind,
+)
+from app.agents.maybe_detector import (
+    AnswerSplitVerdict,
+    apply_split_detector,
+    detect_answer_split,
 )
 from app.agents.backends import (
     BioLinkBERTHintProvider,
@@ -118,9 +132,23 @@ class DebateCaseResult:
     audit_detail: dict[str, Any] = field(default_factory=dict)
     llm_director_rationale: str | None = None
     llm_director_consensus_type: str | None = None
+    # Answer-split detector composed on top of whatever produced predicted_label.
+    base_label_before_detector: str | None = None
+    maybe_detector_fired: bool = False
+    maybe_detector_split_kind: str | None = None
+    maybe_detector_changed_label: bool = False
+    # Objective panel telemetry (independent of what the Director claims).
+    panel_vote_label: str | None = None
+    panel_conflict_kind: str | None = None
+    lone_dissent_role: str | None = None
+    lone_dissent_label: str | None = None
+    director_overrode_panel: bool = False
     consensus_mode: str | None = None
     consensus_ranked_hypotheses: list[dict[str, Any]] = field(default_factory=list)
     consensus_required_next_steps: list[str] = field(default_factory=list)
+    safety_halted: bool = False
+    safety_red_flag_reason: str | None = None
+    exhausted_without_consensus: bool = False  # telemetry/log only; never overrides predicted_label
 
 
 class _StaticHintProvider:
@@ -162,6 +190,8 @@ def main() -> None:
         if not hint_provider.available:
             raise SystemExit(f"BioLinkBERT classifier unavailable: {hint_provider.load_error}")
         print(f"Loaded BioLinkBERT classifier: {hint_provider.model_path}")
+    if args.aggregate_mode == "llm_director":
+        print(f"Director hint={args.director_hint}")
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -169,6 +199,32 @@ def main() -> None:
     json_path = report_dir / f"{label}.json"
     md_path = report_dir / f"{label}.md"
     checkpoint_path = report_dir / f"{label}.checkpoint.jsonl"
+
+    from app.agents.prompt_versioning import snapshot_prompts_for_run
+
+    prompt_snapshot = snapshot_prompts_for_run(
+        report_dir,
+        run_label=label,
+        script="scripts/agents/evaluate_debate_pubmedqa.py",
+        extra_meta={
+            "dataset": str(args.dataset),
+            "backend": args.backend,
+            "aggregate_mode": args.aggregate_mode,
+            "supervisor_model": args.supervisor_model,
+            "hint": args.hint,
+            "rounds": args.rounds,
+            "debate_mode": args.debate_mode,
+            "blind_critic": args.blind_critic,
+            "frozen_stance": args.frozen_stance,
+            "dissent_protocol": args.dissent_protocol,
+            "director_maybe_gate": getattr(args, "director_maybe_gate", "off"),
+        },
+    )
+    print(
+        f"Prompt version={prompt_snapshot['prompt_version']} "
+        f"sha256={prompt_snapshot['prompt_sha256'][:16]}… "
+        f"snapshot={prompt_snapshot['snapshot_path']}"
+    )
 
     prior_results = _load_checkpoint(checkpoint_path) if args.resume else {}
     if prior_results:
@@ -182,10 +238,52 @@ def main() -> None:
             prior_results=prior_results,
             checkpoint_path=checkpoint_path if args.resume else None,
         )
+        if args.maybe_detector == "on":
+            from app.core.config import get_settings as _gs
+
+            _settings = _gs()
+            # There is no --model flag; the agent model comes from OLLAMA_MODEL.
+            detector_model = args.maybe_detector_model or _settings.default_model
+            # _cached_backend lives in the debate branch; build directly here.
+            detector_backend = _build_backend(
+                "ollama",
+                fast=False,
+                num_predict=600,
+                model=detector_model,
+                base_url=parse_ollama_base_urls(
+                    args.ollama_base_urls, default=_settings.ollama_base_url
+                )[0],
+                quiet=False,
+            )
+            print(f"Answer-split detector enabled: {detector_model}")
+            by_id = {c["id"]: c for c in cases}
+
+            async def _detect_all() -> list[DebateCaseResult]:
+                # Bounded: an unbounded gather would fire one request per case at
+                # Ollama simultaneously.
+                semaphore = asyncio.Semaphore(max(1, int(args.case_concurrency)))
+
+                async def _one(r: DebateCaseResult) -> DebateCaseResult:
+                    async with semaphore:
+                        return await _apply_maybe_detector(
+                            r,
+                            case=by_id[r.id],
+                            corpus=corpus,
+                            backend=detector_backend,
+                        )
+
+                return list(await asyncio.gather(*[_one(r) for r in results]))
+
+            results = asyncio.run(_detect_all())
         rounds = 0
-        aggregation = "biolinkbert_only"
+        aggregation = (
+            "biolinkbert_only+split_detector"
+            if args.maybe_detector == "on"
+            else "biolinkbert_only"
+        )
         architecture = "biolinkbert_only"
         early_exit_rate = 0.0
+        exhausted_without_consensus_rate = 0.0
     else:
         from app.core.config import get_settings
 
@@ -226,8 +324,12 @@ def main() -> None:
 
         if args.supervisor_model and args.backend != "ollama":
             raise SystemExit("--supervisor-model requires --backend ollama")
+        if args.supervisor_base_url and args.backend != "ollama":
+            raise SystemExit("--supervisor-base-url requires --backend ollama")
         if args.supervisor_model:
             print(f"Supervisor model={args.supervisor_model}")
+        if args.supervisor_base_url:
+            print(f"Supervisor url={args.supervisor_base_url}")
 
         def _build_orchestrator(
             case_hint_provider: Any,
@@ -238,7 +340,7 @@ def main() -> None:
             supervisor_backend = None
             if args.supervisor_model:
                 supervisor_backend = _cached_backend(
-                    base_url=base_url,
+                    base_url=(args.supervisor_base_url or base_url).rstrip("/"),
                     model=args.supervisor_model,
                 )
             agents = build_default_agents(
@@ -271,7 +373,14 @@ def main() -> None:
                 debate_mode=args.debate_mode,
                 early_exit=_should_early_exit if args.early_exit else None,
                 agent_concurrency=args.agent_concurrency,
+                blind_critic=args.blind_critic,
+                safety_red_flag=args.safety_red_flag,
+                peer_context=args.peer_context,
+                supervisor_fail=args.supervisor_fail,
                 supervisor_backend=supervisor_backend,
+                frozen_stance=args.frozen_stance,
+                dissent_protocol=args.dissent_protocol == "on",
+                agent_num_predict_round3=args.num_predict_round3,
             )
 
         audit_backend = None
@@ -284,11 +393,29 @@ def main() -> None:
             )
             print(f"Evidence-audit backend enabled: {args.audit_model}")
         print(f"Debate mode={args.debate_mode}")
+        print(f"Blind critic={args.blind_critic}")
+        print(f"Safety red flag={args.safety_red_flag}")
+        print(f"Peer context={args.peer_context}")
+        print(f"Supervisor fail={args.supervisor_fail}")
+        print(f"Frozen stance={args.frozen_stance}")
+        print(f"Round-3 num_predict={args.num_predict_round3}")
         if args.adaptive_rounds:
             print(
                 f"Adaptive rounds enabled: min={args.min_rounds} "
                 f"max={args.max_rounds} entropy_threshold={args.conflict_entropy_threshold}"
             )
+        maybe_detector_backend = None
+        if args.maybe_detector == "on":
+            # There is no --model flag; agents take settings.default_model (OLLAMA_MODEL).
+            detector_model = args.maybe_detector_model or settings.default_model
+            maybe_detector_backend = _cached_backend(
+                base_url=ollama_urls[0],
+                model=detector_model,
+                num_predict=600,
+                quiet=False,
+            )
+            print(f"Answer-split detector enabled: {detector_model}")
+
         results = asyncio.run(
             _evaluate_debate(
                 cases,
@@ -296,14 +423,19 @@ def main() -> None:
                 orchestrator_factory=_build_orchestrator,
                 hint_provider=hint_provider if isinstance(hint_provider, BioLinkBERTHintProvider) else None,
                 inject_hint=args.hint == "biolinkbert",
+                director_hint=args.director_hint,
                 aggregate_with_biolinkbert=args.aggregate_with_biolinkbert,
                 aggregate_mode=args.aggregate_mode,
                 bert_gate_confidence=args.bert_gate_confidence,
                 bert_vote_weight=args.bert_vote_weight,
+                panel_maybe_veto=args.panel_maybe_veto,
+                director_maybe_gate=args.director_maybe_gate,
+                safety_red_flag=args.safety_red_flag,
                 case_concurrency=args.case_concurrency,
                 prior_results=prior_results,
                 checkpoint_path=checkpoint_path if args.resume else None,
                 audit_backend=audit_backend,
+                maybe_detector_backend=maybe_detector_backend,
             )
         )
         rounds = args.rounds
@@ -318,6 +450,11 @@ def main() -> None:
         architecture = DebateOrchestrator.ARCHITECTURE
         early_exit_rate = (
             sum(1 for item in results if item.early_exit) / len(results) if results else 0.0
+        )
+        exhausted_without_consensus_rate = (
+            sum(1 for item in results if item.exhausted_without_consensus) / len(results)
+            if results
+            else 0.0
         )
 
     if args.uncertainty_route and args.backend != "biolinkbert":
@@ -339,16 +476,37 @@ def main() -> None:
         architecture=architecture,
         fast=args.fast,
         early_exit_rate=early_exit_rate,
+        exhausted_without_consensus_rate=exhausted_without_consensus_rate,
     )
-    payload = {"summary": summary, "cases": [asdict(item) for item in results]}
+    summary["prompt_version"] = prompt_snapshot["prompt_version"]
+    summary["prompt_sha256"] = prompt_snapshot["prompt_sha256"]
+    summary["prompts_py_sha256"] = prompt_snapshot.get("prompts_py_sha256")
+    summary["prompt_snapshot"] = prompt_snapshot.get("snapshot_path")
+    summary["frozen_stance"] = getattr(args, "frozen_stance", False)
+    payload = {
+        "summary": summary,
+        "prompt_versioning": {
+            "prompt_version": prompt_snapshot["prompt_version"],
+            "prompt_sha256": prompt_snapshot["prompt_sha256"],
+            "prompts_py_sha256": prompt_snapshot.get("prompts_py_sha256"),
+            "captured_at": prompt_snapshot.get("captured_at"),
+            "snapshot_path": prompt_snapshot.get("snapshot_path"),
+            "prompts_py_copy": prompt_snapshot.get("prompts_py_copy"),
+            "registry_path": prompt_snapshot.get("registry_path"),
+        },
+        "cases": [asdict(item) for item in results],
+    }
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_markdown_report(summary, results), encoding="utf-8")
     print(f"\nWrote {json_path}")
     print(f"Wrote {md_path}")
+    print(f"Wrote {prompt_snapshot['snapshot_path']}")
     print(
         f"label_accuracy={summary['label_accuracy']:.3f} "
         f"biolinkbert_accuracy={summary.get('biolinkbert_accuracy')} "
         f"early_exit_rate={summary.get('early_exit_rate')} "
+        f"exhausted_without_consensus_rate={summary.get('exhausted_without_consensus_rate')} "
+        f"prompt_version={summary.get('prompt_version')} "
         f"mean_latency_ms={summary['mean_latency_ms']:.1f}"
     )
 
@@ -474,8 +632,24 @@ def _default_label(args: argparse.Namespace) -> str:
         parts.append(args.aggregate_mode)
     if args.aggregate_mode == "llm_director":
         parts.append("llm_director")
+        if getattr(args, "director_hint", "biolinkbert") == "none":
+            parts.append("nodirhint")
     if args.supervisor_model:
         parts.append(f"sup_{args.supervisor_model.replace(':', '').replace('.', '')}")
+    if getattr(args, "director_maybe_gate", "off") == "legacy":
+        parts.append("dir_gate_legacy")
+    blind = getattr(args, "blind_critic", "all-rounds")
+    if blind and blind != "all-rounds":
+        parts.append(f"blind_{blind.replace('-', '')}")
+    safety_rf = getattr(args, "safety_red_flag", "halt")
+    if safety_rf and safety_rf != "halt":
+        parts.append(f"safety_{safety_rf.replace('-', '_')}")
+    peer_ctx = getattr(args, "peer_context", "nl")
+    if peer_ctx and peer_ctx != "nl":
+        parts.append(f"peer_{peer_ctx.replace('-', '_')}")
+    sup_fail = getattr(args, "supervisor_fail", "peer-round")
+    if sup_fail and sup_fail != "peer-round":
+        parts.append(f"supfail_{sup_fail.replace('-', '_')}")
     if args.fast:
         parts.append("fast")
     return "_".join(parts)
@@ -559,18 +733,24 @@ async def _evaluate_debate(
     orchestrator_factory: Callable[[Any, int], DebateOrchestrator],
     hint_provider: BioLinkBERTHintProvider | None,
     inject_hint: bool,
+    director_hint: str,
     aggregate_with_biolinkbert: bool,
     aggregate_mode: str,
     bert_gate_confidence: float,
     bert_vote_weight: float,
+    panel_maybe_veto: str,
+    director_maybe_gate: str,
+    safety_red_flag: str,
     case_concurrency: int,
     prior_results: dict[str, DebateCaseResult],
     checkpoint_path: Path | None,
     audit_backend: Any = None,
+    maybe_detector_backend: Any = None,
 ) -> list[DebateCaseResult]:
     case_concurrency = max(1, int(case_concurrency))
     checkpoint_lock = asyncio.Lock()
     classifier_lock = asyncio.Lock()
+    director_hint_mode = (director_hint or "biolinkbert").strip().lower()
 
     async def _run_case(index: int, case: dict[str, Any]) -> DebateCaseResult:
         if case["id"] in prior_results:
@@ -590,8 +770,15 @@ async def _evaluate_debate(
         if inject_hint and hint is None and hint_provider is not None:
             raise SystemExit("BioLinkBERT hint is required but classifier returned no prediction.")
 
-        if aggregate_mode == "llm_director" and hint is None:
-            raise SystemExit("--aggregate-mode llm_director requires BioLinkBERT hint")
+        if (
+            aggregate_mode == "llm_director"
+            and director_hint_mode == "biolinkbert"
+            and hint is None
+        ):
+            raise SystemExit(
+                "--aggregate-mode llm_director with --director-hint biolinkbert "
+                "requires a BioLinkBERT prediction"
+            )
 
         case_hint_provider = (
             _StaticHintProvider(hint) if inject_hint else NullEvidenceHint()
@@ -603,9 +790,22 @@ async def _evaluate_debate(
         llm_director_rationale: str | None = None
         llm_director_consensus_type: str | None = None
 
-        if aggregate_mode == "llm_director":
-            assert hint is not None
-            biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+        if debate.safety_halted and safety_red_flag == "escalate-label":
+            predicted = "maybe"
+            share = {lab: (1.0 if lab == "maybe" else 0.0) for lab in ("yes", "no", "maybe")}
+            rule = "safety_escalation"
+            llm_director_consensus_type = "escalation"
+            llm_director_rationale = debate.safety_red_flag_reason
+        elif aggregate_mode == "llm_director":
+            if director_hint_mode == "biolinkbert":
+                assert hint is not None
+                biolinkbert_hint_text = json.dumps(asdict(hint), ensure_ascii=False)
+            else:
+                biolinkbert_hint_text = (
+                    "No classifier label provided. Decide only from the abstract "
+                    "(patient_case) and the debate transcript. Do not invent a "
+                    "BioLinkBERT prediction."
+                )
             supervisor = getattr(orchestrator, "supervisor", None)
             if supervisor is None:
                 raise SystemExit("SupervisorAgent missing from DebateOrchestrator instance")
@@ -616,12 +816,18 @@ async def _evaluate_debate(
                 biolinkbert_hint=biolinkbert_hint_text,
                 supervisor=supervisor,
                 shared_report=debate.shared_report,
+                director_maybe_gate=director_maybe_gate,  # type: ignore[arg-type]
+                # Agents were fed the same classifier label, so panel/BERT agreement
+                # is one source counted twice — the Director must be told.
+                panel_saw_bert_hint=bool(inject_hint and hint is not None),
             )
             director_output = getattr(supervisor, "last_director_output", None)
             if director_output is not None:
                 llm_director_rationale = director_output.rationale
                 llm_director_consensus_type = director_output.consensus_type
-            share = {lab: (1.0 if lab == predicted else 0.0) for lab in ("yes", "no", "maybe")}
+            # Real panel distribution, not a one-hot of the Director's verdict:
+            # a one-hot made every director override look like unanimous consensus.
+            _, share = majority_vote([e.opinion for e in debate.final_opinions])
             rule = "llm_director"
         else:
             agent_opinions = [entry.opinion for entry in debate.final_opinions]
@@ -636,6 +842,7 @@ async def _evaluate_debate(
                 mode=aggregate_mode if aggregate_with_biolinkbert else "majority",
                 bert_gate_confidence=bert_gate_confidence,
                 bert_vote_weight=bert_vote_weight,
+                panel_maybe_veto=panel_maybe_veto,  # type: ignore[arg-type]
             )
 
         audit_result = None
@@ -661,17 +868,38 @@ async def _evaluate_debate(
         latency_ms = (perf_counter() - started) * 1000.0
         early_exit = len(debate.rounds) < orchestrator.rounds
 
+        # Objective panel telemetry: what the agents actually voted, and whether the
+        # aggregator's verdict departed from it. Recorded for every aggregate_mode.
+        panel_vote_label, _ = majority_vote(
+            [entry.opinion for entry in debate.final_opinions]
+        )
+        conflict_kind = panel_conflict_kind(debate.final_opinions)
+        dissent = lone_dissenter(debate.final_opinions)
+        lone_dissent_role = dissent[0] if dissent else None
+        lone_dissent_label = dissent[1] if dissent else None
+        director_overrode_panel = bool(
+            predicted is not None
+            and panel_vote_label is not None
+            and predicted != panel_vote_label
+        )
+
         agent_opinions_for_consensus = [entry.opinion for entry in debate.final_opinions]
-        safety_blocked = any(
+        safety_blocked = bool(debate.safety_halted) or any(
             entry.opinion.safety_opinion is not None
             and not entry.opinion.safety_opinion.safety_passed
             and entry.opinion.safety_opinion.immediate_intervention_required
             for entry in debate.final_opinions
         )
-        if aggregate_mode == "llm_director" and llm_director_consensus_type:
-            consensus_mode = llm_director_consensus_type
+        if rule == "safety_escalation" or (
+            aggregate_mode == "llm_director" and llm_director_consensus_type
+        ):
+            consensus_mode = llm_director_consensus_type or "escalation"
             consensus_ranked_hypotheses: list[dict[str, Any]] = []
-            consensus_required_next_steps: list[str] = []
+            consensus_required_next_steps: list[str] = (
+                [debate.safety_red_flag_reason]
+                if debate.safety_red_flag_reason
+                else []
+            )
         else:
             consensus = build_consensus_decision(
                 agent_opinions_for_consensus,
@@ -701,6 +929,11 @@ async def _evaluate_debate(
             early_exit=early_exit,
             rounds_run=len(debate.rounds),
             aggregation_rule=rule,
+            panel_vote_label=panel_vote_label,
+            panel_conflict_kind=conflict_kind,
+            lone_dissent_role=lone_dissent_role,
+            lone_dissent_label=lone_dissent_label,
+            director_overrode_panel=director_overrode_panel,
             latency_ms=latency_ms,
             final_opinions=[entry.model_dump() for entry in debate.final_opinions],
             history=[
@@ -717,6 +950,12 @@ async def _evaluate_debate(
             consensus_mode=consensus_mode,
             consensus_ranked_hypotheses=consensus_ranked_hypotheses,
             consensus_required_next_steps=consensus_required_next_steps,
+            safety_halted=bool(debate.safety_halted),
+            safety_red_flag_reason=debate.safety_red_flag_reason,
+            exhausted_without_consensus=bool(debate.exhausted_without_consensus),
+        )
+        result = await _apply_maybe_detector(
+            result, case=case, corpus=corpus, backend=maybe_detector_backend
         )
         if checkpoint_path is not None:
             async with checkpoint_lock:
@@ -769,6 +1008,15 @@ def _parse_args() -> argparse.Namespace:
         help="Inject BioLinkBERT yes/no/maybe hint into agent prompts",
     )
     parser.add_argument(
+        "--director-hint",
+        choices=("biolinkbert", "none"),
+        default="biolinkbert",
+        help=(
+            "llm_director only: pass BioLinkBERT label/confidence to the Director "
+            "(biolinkbert, default) or withhold it (none). Classifier is still run for report metrics."
+        ),
+    )
+    parser.add_argument(
         "--aggregate-with-biolinkbert",
         action="store_true",
         help="Include BioLinkBERT in the final aggregation",
@@ -784,6 +1032,25 @@ def _parse_args() -> argparse.Namespace:
         type=float,
         default=0.90,
         help="Min BioLinkBERT confidence to trust yes/no under bert_gate",
+    )
+    parser.add_argument(
+        "--panel-maybe-veto",
+        choices=("unanimous", "majority", "off"),
+        default="unanimous",
+        help=(
+            "Under bert_gate: panel maybe overrides BioLinkBERT when unanimous "
+            "(default), majority (>50%%), or off (legacy keep-BERT behavior)"
+        ),
+    )
+    parser.add_argument(
+        "--director-maybe-gate",
+        choices=("off", "legacy"),
+        default="off",
+        help=(
+            "Under llm_director: off (default) uses prompt-only maybe rules so "
+            "label and rationale stay consistent; legacy re-enables post-hoc "
+            "apply_maybe_director_gate override (ablation)"
+        ),
     )
     parser.add_argument(
         "--bert-vote-weight",
@@ -829,6 +1096,20 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N cases")
     parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
+    parser.add_argument(
+        "--maybe-detector",
+        choices=["on", "off"],
+        default="off",
+        help=(
+            "Compose the answer-split detector over the final label "
+            "(turns yes/no into maybe on subgroup / compound-question splits)."
+        ),
+    )
+    parser.add_argument(
+        "--maybe-detector-model",
+        default=None,
+        help="Model for the split detector (default: the agent model).",
+    )
     parser.add_argument("--label", type=str, default=None)
     parser.add_argument(
         "--fast",
@@ -857,9 +1138,9 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help=(
-            "Max concurrent Ollama agent calls in round 1 (the independent-opinion "
-            "round). Round 2+ are round-robin turns and always run sequentially, "
-            "since each turn depends on the previous one's output."
+            "Max concurrent Ollama agent calls per debate round. "
+            "All rounds (including R2+) run in parallel; each agent only sees "
+            "the previous round's final opinions (no same-round peer drafts)."
         ),
     )
     parser.add_argument(
@@ -877,8 +1158,67 @@ def _parse_args() -> argparse.Namespace:
         default="moderated",
         help=(
             "Round 2+ debate style: moderated=supervisor-only (default), "
-            "peer=round-robin peer critique without supervisor, "
-            "hybrid=supervisor instructions plus round-robin peer context"
+            "peer=concurrent previous-round peer critique without supervisor, "
+            "hybrid=supervisor instructions plus concurrent previous-round peer context"
+        ),
+    )
+    parser.add_argument(
+        "--blind-critic",
+        choices=("all-rounds", "r1-only", "off"),
+        default="all-rounds",
+        help=(
+            "BioLinkBERT hint policy for uncertainty_advocate: "
+            "all-rounds (default) never shows hint; r1-only hides in round 1 only; "
+            "off shows hint from round 1"
+        ),
+    )
+    parser.add_argument(
+        "--safety-red-flag",
+        choices=("halt", "escalate-label", "defer"),
+        default="halt",
+        help=(
+            "On safety_officer critical red flag: halt debate immediately (default), "
+            "escalate-label also forces predicted=maybe, or defer injects RED FLAG "
+            "into the next round only (legacy)"
+        ),
+    )
+    parser.add_argument(
+        "--peer-context",
+        choices=("nl", "compact-json", "full-json"),
+        default="nl",
+        help=(
+            "How peer/supervisor opinions are injected into prompts: "
+            "nl (default) natural-language summaries, compact-json short JSON, "
+            "full-json full opinion dumps"
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-fail",
+        choices=("peer-round", "peer-rest", "empty-defer"),
+        default="peer-round",
+        help=(
+            "When supervisor moderation JSON fails after retry: peer-round "
+            "(default) runs that round as peer debate; peer-rest keeps peer for "
+            "the rest of the case; empty-defer injects legacy empty moderation"
+        ),
+    )
+    parser.add_argument(
+        "--dissent-protocol",
+        choices=["on", "off"],
+        default="off",
+        help=(
+            "Supervisor adjudicates the minority position and agents must answer "
+            "the strongest opposing argument before voting; debate continues while "
+            "an objection stands unanswered."
+        ),
+    )
+    parser.add_argument(
+        "--frozen-stance",
+        action="store_true",
+        help=(
+            "After round 1, lock each agent's label and inject adversarial "
+            "defense instructions in R2+ to reduce sycophantic consensus. "
+            "Default: off (agents may freely revise labels in later rounds)."
         ),
     )
     parser.add_argument(
@@ -890,7 +1230,16 @@ def _parse_args() -> argparse.Namespace:
         "--num-predict",
         type=int,
         default=None,
-        help="Override Ollama num_predict (default: 220 with --fast, else settings)",
+        help="Override Ollama num_predict for rounds 1-2 (default: 220 with --fast, else settings)",
+    )
+    parser.add_argument(
+        "--num-predict-round3",
+        type=int,
+        default=1500,
+        help=(
+            "Ollama num_predict for debate agents in round 3+ when the peer "
+            "transcript is longest (default: 1500)"
+        ),
     )
     parser.add_argument(
         "--supervisor-model",
@@ -899,6 +1248,16 @@ def _parse_args() -> argparse.Namespace:
         help=(
             "Ollama model for the supervisor only (moderation + llm_director). "
             "Debate agents keep OLLAMA_MODEL / default backend model."
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-base-url",
+        type=str,
+        default=None,
+        help=(
+            "Optional dedicated Ollama endpoint for the supervisor only, e.g. "
+            "'http://127.0.0.1:11437'. Use this to pin the 14b supervisor/director "
+            "to a separate GPU from the 7b agent pool."
         ),
     )
     parser.add_argument(
@@ -984,7 +1343,7 @@ def _build_backend(
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
-        num_ctx=min(max(settings.ollama_num_ctx, 4096), 8192),
+        num_ctx=max(settings.ollama_num_ctx, 8192),
     )
     model_name = model or settings.default_model
     if not quiet:
@@ -1057,6 +1416,40 @@ def _build_patient_case(case: dict[str, Any], corpus: dict[str, dict[str, Any]])
     )
 
 
+async def _apply_maybe_detector(
+    result: DebateCaseResult,
+    *,
+    case: dict[str, Any],
+    corpus: dict[str, Any],
+    backend: Any,
+) -> DebateCaseResult:
+    """Compose the answer-split detector on top of any base label.
+
+    Runs after aggregation so it layers over BioLinkBERT, majority vote or the
+    Director alike. It can only turn yes/no into maybe (see maybe_detector).
+    """
+    if backend is None or result.predicted_label not in {"yes", "no"}:
+        return result
+    docs = _case_documents(case, corpus)
+    abstract = "\n\n".join(
+        f"{d.title}\n{d.content}".strip() for d in docs
+    ).split("Abstract context:", 1)[-1].strip()
+    verdict: AnswerSplitVerdict = await detect_answer_split(
+        backend, question=case["question"], abstract=abstract
+    )
+    base = result.predicted_label
+    label, overridden = apply_split_detector(base, verdict)
+    result.base_label_before_detector = base
+    result.maybe_detector_fired = verdict.is_usable
+    result.maybe_detector_split_kind = verdict.split_kind
+    result.maybe_detector_changed_label = overridden
+    if overridden:
+        result.predicted_label = label
+        result.label_pass = label == result.expected_label
+        result.aggregation_rule = f"{result.aggregation_rule}+split_detector"
+    return result
+
+
 def _summarize(
     results: list[DebateCaseResult],
     *,
@@ -1068,6 +1461,7 @@ def _summarize(
     architecture: str,
     fast: bool,
     early_exit_rate: float,
+    exhausted_without_consensus_rate: float = 0.0,
 ) -> dict[str, Any]:
     # When uncertainty routing is active, report metrics on the held-out split
     # only (the calibration split is excluded to keep the numbers leakage-free).
@@ -1091,9 +1485,86 @@ def _summarize(
             agent_correct.setdefault(agent_id, []).append(label == result.expected_label)
 
     bert_flags = [r.biolinkbert_pass for r in results if r.biolinkbert_pass is not None]
+
+    # Aggregator-vs-panel diagnostics: an override that is wrong more often than it
+    # is right means the aggregator is being talked out of a correct panel vote.
+    overrides = [r for r in results if r.director_overrode_panel]
+    override_helped = sum(
+        1 for r in overrides if r.label_pass and r.panel_vote_label != r.expected_label
+    )
+    override_hurt = sum(
+        1 for r in overrides if not r.label_pass and r.panel_vote_label == r.expected_label
+    )
+    lone_dissent_overrides = [
+        r
+        for r in overrides
+        if r.lone_dissent_role is not None and r.predicted_label == r.lone_dissent_label
+    ]
+    panel_vote_flags = [
+        r.panel_vote_label == r.expected_label
+        for r in results
+        if r.panel_vote_label is not None
+    ]
+
+    # Maybe-detection quality per voter. A persona that answers "maybe" on nearly every
+    # case has precision at the base rate and carries no information, however plausible
+    # its prose looks — that degeneracy is invisible in plain per-agent accuracy.
+    maybe_base_rate = sum(1 for r in results if r.expected_label == "maybe") / n
+    voters: set[str] = set()
+    for r in results:
+        voters.update(r.agent_labels.keys())
+    maybe_detection: dict[str, dict[str, float]] = {}
+    for voter in sorted(voters):
+        fired = [r for r in results if r.agent_labels.get(voter) == "maybe"]
+        true_maybe = [r for r in results if r.expected_label == "maybe"]
+        hits = sum(1 for r in fired if r.expected_label == "maybe")
+        maybe_detection[voter] = {
+            "fire_rate": len(fired) / n,
+            "precision": (hits / len(fired)) if fired else 0.0,
+            "recall": (hits / len(true_maybe)) if true_maybe else 0.0,
+            "lift_over_base_rate": (
+                (hits / len(fired)) - maybe_base_rate if fired else 0.0
+            ),
+        }
+
+    # Selective prediction: a clinically usable system must know when to defer.
+    # Accuracy at full coverage hides that; report the operating points instead.
+    # Confidence tiers are built from agreement signals, since neither the
+    # classifier's confidence nor the agents' stated confidence is calibrated
+    # on its own (measured: BERT sits at 0.97-0.99 even when wrong).
+    def _tier(r: DebateCaseResult) -> int:
+        agrees_bert = r.biolinkbert_label is not None and r.predicted_label == r.biolinkbert_label
+        agrees_r1 = r.predicted_label == r.round1_vote_label
+        bert_conf = r.biolinkbert_confidence or 0.0
+        if r.unanimous_final and agrees_bert and agrees_r1 and bert_conf > 0.99:
+            return 3
+        if r.unanimous_final and agrees_bert and agrees_r1:
+            return 2
+        if r.unanimous_final or agrees_bert:
+            return 1
+        return 0
+
+    selective: list[dict[str, Any]] = []
+    for floor in (0, 1, 2, 3):
+        answered = [r for r in results if _tier(r) >= floor]
+        if not answered:
+            continue
+        hidden_maybe = sum(1 for r in answered if r.expected_label == "maybe")
+        selective.append(
+            {
+                "min_tier": floor,
+                "coverage": len(answered) / n,
+                "selective_accuracy": sum(1 for r in answered if r.label_pass) / len(answered),
+                # Unsettled questions answered with a confident yes/no: the
+                # clinically dangerous failure, not merely an accuracy loss.
+                "unsettled_answered": hidden_maybe,
+            }
+        )
+
     return {
         "dataset": dataset,
         "backend": backend,
+        "selective_prediction": selective,
         "hint": hint,
         "rounds": rounds,
         "fast": fast,
@@ -1102,7 +1573,25 @@ def _summarize(
         "round1_accuracy": sum(1 for r in results if r.round1_pass) / n,
         "biolinkbert_accuracy": (sum(1 for flag in bert_flags if flag) / len(bert_flags)) if bert_flags else None,
         "unanimous_rate": sum(1 for r in results if r.unanimous_final) / n,
+        "panel_vote_accuracy": (
+            sum(1 for flag in panel_vote_flags if flag) / len(panel_vote_flags)
+            if panel_vote_flags
+            else None
+        ),
+        "director_override_rate": len(overrides) / n,
+        "director_override_helped": override_helped,
+        "director_override_hurt": override_hurt,
+        "lone_dissent_override_rate": len(lone_dissent_overrides) / n,
+        "lone_dissent_override_roles": dict(
+            Counter(r.lone_dissent_role for r in lone_dissent_overrides)
+        ),
+        "panel_conflict_kind_counts": dict(
+            Counter(r.panel_conflict_kind or "unknown" for r in results)
+        ),
+        "maybe_base_rate": maybe_base_rate,
+        "maybe_detection": maybe_detection,
         "early_exit_rate": early_exit_rate,
+        "exhausted_without_consensus_rate": exhausted_without_consensus_rate,
         "mean_latency_ms": mean([r.latency_ms for r in results]) if results else 0.0,
         "predicted_label_counts": dict(pred_counts),
         "per_label_accuracy": {
@@ -1115,7 +1604,7 @@ def _summarize(
         },
         "aggregation": aggregation,
         "architecture": architecture,
-        "supervisor": architecture not in {"peer_round_robin", "biolinkbert_only"},
+        "supervisor": architecture not in {"peer_parallel", "peer_round_robin", "biolinkbert_only"},
         "uncertainty_routing": (
             {
                 **routing_meta,
@@ -1147,10 +1636,27 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
         f"- Round-1 accuracy: {summary['round1_accuracy']:.3f}",
         f"- BioLinkBERT accuracy: {summary['biolinkbert_accuracy']}",
         f"- Early-exit rate: {summary['early_exit_rate']:.3f}",
+        f"- Exhausted-without-consensus rate (telemetry only): {summary.get('exhausted_without_consensus_rate', 0.0):.3f}",
         f"- Unanimous final rate: {summary['unanimous_rate']:.3f}",
+        f"- Panel vote accuracy (majority of agents, pre-aggregation): {summary.get('panel_vote_accuracy')}",
+        (
+            f"- Aggregator overrode panel: {summary.get('director_override_rate', 0.0):.3f} "
+            f"(helped {summary.get('director_override_helped', 0)}, "
+            f"hurt {summary.get('director_override_hurt', 0)})"
+        ),
+        (
+            f"- Overrides following a lone dissenter: "
+            f"{summary.get('lone_dissent_override_rate', 0.0):.3f} "
+            f"{summary.get('lone_dissent_override_roles', {})}"
+        ),
+        f"- Panel conflict kinds: {summary.get('panel_conflict_kind_counts', {})}",
         f"- Mean latency: {summary['mean_latency_ms']:.1f} ms",
         f"- Architecture: `{summary['architecture']}` (supervisor: {summary['supervisor']})",
+        f"- Frozen stance: {summary.get('frozen_stance', False)}",
         f"- Aggregation: `{summary['aggregation']}`",
+        f"- Prompt version: `{summary.get('prompt_version')}`",
+        f"- Prompt sha256: `{summary.get('prompt_sha256')}`",
+        f"- Prompt snapshot: `{summary.get('prompt_snapshot')}`",
         "",
         "## Per-label accuracy",
         "",
@@ -1170,6 +1676,46 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
     )
     for agent_id, acc in summary["per_agent_accuracy"].items():
         lines.append(f"| {agent_id} | {acc:.3f} |")
+    maybe_detection = summary.get("maybe_detection") or {}
+    if maybe_detection:
+        lines.extend(
+            [
+                "",
+                "## Maybe detection per voter",
+                "",
+                f"Base rate of `maybe` in this split: "
+                f"{summary.get('maybe_base_rate', 0.0):.3f}. A voter whose precision sits "
+                "at the base rate carries no information, however often it fires.",
+                "",
+                "| Voter | Fire rate | Precision | Recall | Lift over base |",
+                "|---|---:|---:|---:|---:|",
+            ]
+        )
+        for voter, m in maybe_detection.items():
+            lines.append(
+                f"| {voter} | {m['fire_rate']:.3f} | {m['precision']:.3f} "
+                f"| {m['recall']:.3f} | {m['lift_over_base_rate']:+.3f} |"
+            )
+    sel = summary.get("selective_prediction") or []
+    if sel:
+        lines.extend(
+            [
+                "",
+                "## Selective prediction (accuracy at coverage)",
+                "",
+                "Accuracy at full coverage hides whether the system knows when to "
+                "defer. `unsettled answered` counts genuine `maybe` cases given a "
+                "confident yes/no — a safety failure, not an accuracy loss.",
+                "",
+                "| Min tier | Coverage | Selective accuracy | Unsettled answered |",
+                "|---:|---:|---:|---:|",
+            ]
+        )
+        for row in sel:
+            lines.append(
+                f"| {row['min_tier']} | {row['coverage']:.3f} | "
+                f"{row['selective_accuracy']:.3f} | {row['unsettled_answered']} |"
+            )
     lines.extend(["", "## Predicted label counts", ""])
     for label, count in summary["predicted_label_counts"].items():
         lines.append(f"- `{label}`: {count}")
@@ -1177,6 +1723,8 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
     for result in results:
         mark = "ok" if result.label_pass else "FAIL"
         extra = " early_exit" if result.early_exit else ""
+        if result.exhausted_without_consensus:
+            extra += " exhausted_conflict"
         lines.append(
             f"- `{result.id}` [{mark}] expected={result.expected_label} "
             f"pred={result.predicted_label} bert={result.biolinkbert_label} "

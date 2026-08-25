@@ -11,6 +11,10 @@ __pycache__/
 reports/*
 eval/reports/*
 
+# Runtime logs (Ollama, SFT, eval pipelines). Never commit these.
+logs/
+*.log
+
 # RAG datasets and generated indexes. Keep curated samples in data/ tracked.
 data/processed/
 data/embeddings/
@@ -24,15 +28,20 @@ data/bm25_stats*.json
 *.parquet
 *.sqlite
 *.sqlite-*
+*.gguf
+*.safetensors
+*.tar.gz
 
 # Local Qdrant/Docker volumes and runtime state.
 qdrant/storage/
 qdrant/snapshots/
 storage/
 
-# Local training/eval runtime artifacts.
+# Local training/eval runtime artifacts (US + UK spelling).
 artifacts/
+artefacts/
 unsloth_compiled_cache/
+.unsloth/
 data/sft/
 data/telemetry/events.jsonl
 data/sft/pubmedqa/ori_pqau.json
