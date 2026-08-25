@@ -37,18 +37,30 @@ SYSTEM_JSON_ONLY = "Return only valid JSON matching the requested schema. No mar
 # to fail loudly on a runaway prompt, not to silently truncate it the way the
 # legacy Director prompt does today (design doc P4).
 #
-# R1/R2 prompts run once per persona per round (x4) so they keep the tight
-# budget; Moderator/Director each run once per round but aggregate up to 4
-# contributions/opinions, so they get more headroom — enforced in two layers,
-# not one: render_contribution/render_round_two_opinion truncate individual
-# free-text fields deterministically (real 7B models routinely ignore "be
-# concise" instructions, so this can't be prompt-only), AND the aggregate
-# call still gets a hard budget on top, so a pathological case fails loudly
-# instead of being silently truncated by the provider.
+# R1 prompts run once per persona per round (x4) so they keep the tight
+# budget. Moderator/Director each run once per round but aggregate up to 4
+# contributions/opinions, so they get much more headroom. R2 sits in between:
+# still x4/round like R1, but — unlike a fresh R1 extraction — it also carries
+# the full ledger plus the agent's own R1 note, so it gets a modest bump
+# instead of the tight R1 ceiling. Enforced in two layers, not one:
+# render_contribution/render_round_two_opinion/render_ledger truncate
+# individual free-text fields deterministically (real 7B models routinely
+# ignore "be concise" instructions, so this can't be prompt-only — a real R2
+# run on dev-90 hit PromptBudgetExceeded on the ledger+own-note combination
+# even after the first round of truncation fixes, which is why the cap below
+# was tightened from 220), AND every call still gets a hard budget on top, so
+# a pathological case fails loudly instead of being silently truncated by
+# the provider.
 MAX_PROMPT_TOKENS = 1600
+# Measured true worst case (every ledger field + 3 round_instructions + own
+# note all populated, longest real PQA-L abstract, every free-text field at
+# the _TRUNCATED_FIELD_CHARS cap): ~2087 tokens. 2200 leaves real headroom
+# above that without reaching all the way to the aggregate tier (R2 still
+# runs x4/round, unlike Moderator/Director's x1/round).
+ROUND_TWO_MAX_PROMPT_TOKENS = 2200
 AGGREGATE_MAX_PROMPT_TOKENS = 2800
 CHARS_PER_TOKEN_ESTIMATE = 4
-_TRUNCATED_FIELD_CHARS = 220
+_TRUNCATED_FIELD_CHARS = 180
 
 
 class PromptBudgetExceeded(ValueError):
@@ -144,11 +156,10 @@ def render_contribution(contribution: PanelContribution, *, max_field_chars: int
     """Compact human-readable rendering of one R1 contribution, for the
     Supervisor/Moderator, a Round 2 agent's own R1 note, or R1 peer notes.
 
-    ``max_field_chars`` caps each free-text field's rendered length —
-    callers that aggregate multiple contributions into one prompt (Moderator:
-    up to 4; L4 peer notes: up to 3) pass this so the aggregate call can't
-    blow its budget on a single verbose field; a single-contribution caller
-    (a Round 2 agent's own note) leaves it uncapped.
+    ``max_field_chars`` caps each free-text field's rendered length. Every
+    call site passes this now — even a single-contribution render (a Round 2
+    agent's own note) hit PromptBudgetExceeded on real model output once
+    left uncapped, so there's no "small enough to skip" case in practice.
     """
     t = lambda s: _truncate(s, max_field_chars)  # noqa: E731
     parts = [f"[{contribution.persona} / {contribution.agent_id}]"]
@@ -544,7 +555,7 @@ def build_round_two_prompt(
     round_instructions: list[str],
 ) -> str:
     instructions_block = (
-        "\n".join(f"- {instruction}" for instruction in round_instructions)
+        "\n".join(f"- {_truncate(instruction, _TRUNCATED_FIELD_CHARS)}" for instruction in round_instructions)
         if round_instructions
         else "(none)"
     )
@@ -554,7 +565,7 @@ RESEARCH QUESTION:
 {question}
 
 YOUR OWN ROUND-1 NOTE:
-{render_contribution(own_r1_contribution)}
+{render_contribution(own_r1_contribution, max_field_chars=_TRUNCATED_FIELD_CHARS)}
 
 EVIDENCE LEDGER (from the whole panel, Supervisor-verified):
 {ledger_rendering}
@@ -572,7 +583,7 @@ Produce:
 - complement: one fact from the ledger that your own round-1 note missed (omit/empty if none)
 - self_audit: one plausible way your own reading of the evidence could be wrong (omit/empty if none)
 """
-    return _with_schema(prompt.strip(), RoundTwoOpinion)
+    return _with_schema(prompt.strip(), RoundTwoOpinion, max_tokens=ROUND_TWO_MAX_PROMPT_TOKENS)
 
 
 _R2_PEER_PREAMBLE = """You are the same analyst from round 1, now looking at your fellow \
@@ -592,7 +603,7 @@ def build_round_two_peer_prompt(
     agents see raw, unverified peer notes instead, isolating the ledger's
     marginal value at an identical round/call count."""
     instructions_block = (
-        "\n".join(f"- {instruction}" for instruction in round_instructions)
+        "\n".join(f"- {_truncate(instruction, _TRUNCATED_FIELD_CHARS)}" for instruction in round_instructions)
         if round_instructions
         else "(none)"
     )
@@ -602,7 +613,7 @@ RESEARCH QUESTION:
 {question}
 
 YOUR OWN ROUND-1 NOTE:
-{render_contribution(own_r1_contribution)}
+{render_contribution(own_r1_contribution, max_field_chars=_TRUNCATED_FIELD_CHARS)}
 
 PEER ROUND-1 NOTES (unverified — cross-check citations yourself):
 {peer_notes_rendering}
@@ -620,7 +631,7 @@ Produce:
 - complement: one fact from a peer's note that your own round-1 note missed (omit/empty if none)
 - self_audit: one plausible way your own reading of the evidence could be wrong (omit/empty if none)
 """
-    return _with_schema(prompt.strip(), RoundTwoOpinion)
+    return _with_schema(prompt.strip(), RoundTwoOpinion, max_tokens=ROUND_TWO_MAX_PROMPT_TOKENS)
 
 
 # --- Supervisor / Director ----------------------------------------------------

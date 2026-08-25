@@ -104,6 +104,79 @@ class DirectorPromptBudgetTests(unittest.TestCase):
             )
 
 
+class RoundTwoPromptBudgetTests(unittest.TestCase):
+    """This is the exact case that broke on the first real cluster run of
+    dev-90: a real R2 call hit PromptBudgetExceeded at ~1610 tokens because
+    the "YOUR OWN ROUND-1 NOTE" render (a single contribution, not an
+    aggregate of several) was the one render_contribution call site left
+    uncapped — every *aggregating* call site had already been capped by the
+    Director/Moderator fix, but a single-item render looked "obviously safe"
+    and wasn't. It wasn't: a fully-populated ledger + own note + 3 round
+    instructions + the longest real abstract can still exceed even the
+    tightened budget, which is why R2 gets its own ROUND_TWO_MAX_PROMPT_TOKENS
+    instead of reusing the R1 constant."""
+
+    def _full_ledger_and_own_note(self, ids: list[str]) -> tuple[EvidenceLedger, FindingsAuditorContribution]:
+        ledger = EvidenceLedger(
+            target_population=Claim(text=_VERBOSE, sentence_ids=[ids[0]]),
+            target_exposure=Claim(text=_VERBOSE, sentence_ids=[ids[0]]),
+            target_outcome=Claim(text=_VERBOSE, sentence_ids=[ids[0]]),
+            question_type="utility",
+            primary_endpoint=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+            direction="positive",
+            significance=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+            effect_magnitude=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+            reconstructed_conclusion=Claim(text=_VERBOSE, sentence_ids=[ids[2]]),
+            conclusion_direction="positive",
+            conclusion_strength="qualified",
+            gaps=[Gap(gap_type="underpowered", description=_VERBOSE, sentence_ids=[ids[0]])],
+            conflicts=[
+                LedgerConflict(
+                    description=_VERBOSE, agent_ids=["a", "b"], sentence_ids=[ids[0], ids[1]]
+                )
+            ],
+            open_questions=[_VERBOSE],
+            round_instructions=[_VERBOSE, _VERBOSE, _VERBOSE],
+        )
+        own_note = FindingsAuditorContribution(
+            agent_id="findings_auditor",
+            primary_endpoint=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+            direction="positive",
+            significance=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+            effect_magnitude=Claim(text=_VERBOSE, sentence_ids=[ids[1]]),
+        )
+        return ledger, own_note
+
+    def test_full_ledger_and_own_note_stay_within_budget(self) -> None:
+        for sentences in _sample_sentence_maps():
+            ids = list(sentences)[:3]
+            ledger, own_note = self._full_ledger_and_own_note(ids)
+            # Must not raise PromptBudgetExceeded.
+            prompts.build_round_two_prompt(
+                "Is X valuable in Y?",
+                sentences,
+                prompts.render_ledger(ledger),
+                own_note,
+                ledger.round_instructions,
+            )
+
+    def test_peer_notes_variant_stays_within_budget(self) -> None:
+        for sentences in _sample_sentence_maps():
+            ids = list(sentences)[:3]
+            ledger, own_note = self._full_ledger_and_own_note(ids)
+            peer_notes = "\n\n".join(
+                prompts.render_contribution(own_note, max_field_chars=180) for _ in range(3)
+            )
+            # Must not raise PromptBudgetExceeded.
+            prompts.build_round_two_peer_prompt(
+                "Is X valuable in Y?",
+                sentences,
+                peer_notes,
+                own_note,
+                ledger.round_instructions,
+            )
+
+
 class ModeratorPromptBudgetTests(unittest.TestCase):
     def test_four_verbose_r1_contributions_stay_within_budget(self) -> None:
         for sentences in _sample_sentence_maps():
