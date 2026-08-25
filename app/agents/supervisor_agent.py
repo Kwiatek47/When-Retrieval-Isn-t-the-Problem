@@ -91,7 +91,11 @@ class SupervisorAgent:
             ChatMessage(role="user", content=prompt),
         ]
 
-        raw = await self._complete_with_repair(messages, self.temperature)
+        raw = await self._complete_with_repair(
+            messages,
+            self.temperature,
+            response_format=SupervisorModerationOutput.model_json_schema(),
+        )
         try:
             data = _safe_json_loads(raw)
             data["author_conclusion"] = _normalize_author_conclusion(
@@ -177,7 +181,11 @@ class SupervisorAgent:
             ChatMessage(role="user", content=prompt),
         ]
 
-        raw = await self._complete_with_repair(messages, self.temperature)
+        raw = await self._complete_with_repair(
+            messages,
+            self.temperature,
+            response_format=schema,
+        )
         try:
             data = _safe_json_loads(raw)
             # Defaults for models that omit optional / newer schema fields.
@@ -227,9 +235,35 @@ class SupervisorAgent:
             self.last_director_output = output
             return output
 
-    async def _complete_with_repair(self, messages: list[ChatMessage], temperature: float) -> str:
+    async def _call(
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        response_format: dict[str, Any] | None,
+    ) -> str:
+        """Call the backend, passing a JSON schema when the backend accepts one.
+
+        Mock and test backends do not take ``response_format``; fall back silently
+        so constraining the output stays an optimisation, never a requirement.
+        """
+        if response_format is not None:
+            try:
+                return await self.backend.complete(
+                    messages, temperature=temperature, response_format=response_format
+                )
+            except TypeError:
+                pass
+        return await self.backend.complete(messages, temperature=temperature)
+
+    async def _complete_with_repair(
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        *,
+        response_format: dict[str, Any] | None = None,
+    ) -> str:
         try:
-            raw = await self.backend.complete(messages, temperature=temperature)
+            raw = await self._call(messages, temperature, response_format)
             if (raw or "").strip():
                 return raw
             logger.warning("Supervisor returned empty response; retrying with repair.")
@@ -244,4 +278,4 @@ class SupervisorAgent:
                 + "\n\nYour previous reply was empty or invalid. Return ONLY valid JSON, no markdown, no commentary.",
             ),
         ]
-        return await self.backend.complete(repair, temperature=0.0)
+        return await self._call(repair, 0.0, response_format)

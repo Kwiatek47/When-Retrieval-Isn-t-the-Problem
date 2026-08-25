@@ -250,12 +250,16 @@ class OllamaInferenceBackend:
         model: str,
         temperature: float = 0.3,
         max_retries: int = 2,
+        think: bool | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> None:
         self._provider = provider
         self._model = model
         self._temperature = temperature
         self._max_retries = max(0, int(max_retries))
         self.base_url = str(getattr(provider, "base_url", "") or "")
+        self._think = think
+        self._response_format = response_format
 
     async def complete(
         self,
@@ -263,10 +267,12 @@ class OllamaInferenceBackend:
         *,
         temperature: float | None = None,
         num_predict: int | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> str:
         temp = self._temperature if temperature is None else temperature
         last_error: Exception | None = None
         attempts = self._max_retries + 1
+        fmt = response_format if response_format is not None else self._response_format
         for attempt in range(attempts):
             try:
                 response = await self._provider.chat(
@@ -274,6 +280,8 @@ class OllamaInferenceBackend:
                     messages=messages,
                     temperature=temp if attempt == 0 else 0.0,
                     num_predict=num_predict,
+                    think=self._think,
+                    response_format=fmt,
                 )
                 content = (response.message.content or "").strip()
                 if content:

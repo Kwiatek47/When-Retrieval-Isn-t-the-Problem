@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 
 from app.providers.base import ProviderError, ProviderUnavailableError
@@ -47,8 +49,10 @@ class OllamaProvider:
         temperature: float,
         num_predict: int | None = None,
         num_ctx: int | None = None,
+        think: bool | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> ChatResponse:
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [{"role": message.role, "content": message.content} for message in messages],
             "stream": False,
@@ -59,6 +63,16 @@ class OllamaProvider:
                 "num_ctx": num_ctx if num_ctx is not None else self.num_ctx,
             },
         }
+        # Reasoning models (qwen3) emit their chain into a separate `thinking`
+        # field that still consumes the num_predict budget. Left unconstrained on
+        # the supervisor prompt, qwen3:30b spends 4.8k-27k characters thinking and
+        # returns empty content, which surfaces here as "empty response".
+        if think is not None:
+            payload["think"] = bool(think)
+        # Ollama constrains generation to a JSON schema when given one, which
+        # removes the prose-instead-of-JSON failure mode entirely.
+        if response_format is not None:
+            payload["format"] = response_format
 
         try:
             async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
