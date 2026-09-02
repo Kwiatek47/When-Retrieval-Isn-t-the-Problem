@@ -1,0 +1,39 @@
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\paragraph{Data.}
+Official PubMedQA PQA-L~\citep{jin2019pubmedqa}. Full-scale metrics use PQA-L
+$500$ ($276$~\yes{}, $169$~\no{}, $55$~\maybe{}). Signal AUROC uses
+\texttt{balanced90} ($30$ each) so \maybe{}-vs-rest has $30$ positives.
+
+\paragraph{Pinned models.}
+Debate and generative audit: \texttt{qwen2.5:7b} (primary),
+\texttt{qwen2.5:14b}, \texttt{deepseek-r1:14b}. Flagship control:
+\texttt{gpt-5} (OpenAI API). Decision classifier: BioLinkBERT-large, pinned
+checkpoint \texttt{pubmedqa\_biolinkbert\_seed47} (training seed $47$). External auditor:
+\texttt{cross-encoder/nli-deberta-v3-base}. Retrieval: MedCPT (dense) $+$ BM25
+$+$ MedCPT cross-encoder reranker. Debate uses $T{=}0.3$; SC uses $T{=}0.7$
+because sample diversity \emph{is} the SC mechanism. Frozen abstract for
+both generative arms. LLM calls (debate, audit, SC) are part of the
+method; authors take responsibility for the numbers they produce.
+
+\paragraph{Metrics.}
+AUROC (\maybe{} vs rest) with $95\%$ bootstrap CIs ($5000$ resamples, seed
+$47$). Human comparison: \maybe{} recall, bootstrap difference CI, permutation
+$p$. Selective prediction: risk--coverage, AURC, expected cost with
+$\ge 0.5$ coverage. Routing stability: seven calibration seeds.
+
+\paragraph{Controls.}
+C1: swap the generative auditor for DeBERTa-NLI. C2: feed the authors'
+\texttt{long\_answer} instead of the abstract. C3: official PubMedQA
+single-annotator labels on \texttt{balanced90} (a proxy; no new
+human-subjects study).
+
+\paragraph{Self-consistency.}
+The compute-matched control is $N{=}8$ independent \texttt{generalist}
+samples, majority vote, frozen abstract, \texttt{qwen2.5:7b}. $N$ equals
+\texttt{mean\_llm\_calls\_per\_case}${}=8.0$ from the instrumented debate
+run on the same $90$ IDs (both arms: $720$ calls, $0$ failures). Primary
+debate metric is ungated \texttt{bert\_gate} on all $90$, not the routed
+held-out $n{=}45$ summary. Debate does not beat BioLinkBERT; SC is worse
+on the point estimate and is not a significant difference.

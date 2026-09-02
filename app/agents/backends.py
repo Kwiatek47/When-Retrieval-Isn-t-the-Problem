@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 from app.agents.models import ClinicalOpinion
+from app.core.usage import record_llm_usage
 from app.rag.models import RetrievedDocument
 from app.schemas import ChatMessage
 
@@ -115,16 +117,26 @@ class BioLinkBERTHintProvider:
         return self.predict_current()
 
 
-def build_biolinkbert_hint_from_settings() -> BioLinkBERTHintProvider:
-    """Construct hint provider from RAG_EVIDENCE_CLASSIFIER_* settings (seed47 path in .env)."""
+def build_biolinkbert_hint_from_settings(
+    *,
+    model_path: str | Path | None = None,
+    temperature_path: str | Path | None = None,
+) -> BioLinkBERTHintProvider:
+    """Construct hint provider from RAG_EVIDENCE_CLASSIFIER_* settings.
+
+    Optional ``model_path`` / ``temperature_path`` override ``.env`` so ML4H
+    arms can pin BioLinkBERT seed47 without rewriting secrets.
+    """
     from app.core.config import get_settings
     from app.rag.evidence_classifier import EvidenceClassifier
 
     settings = get_settings()
     classifier = EvidenceClassifier(
         enabled=True,
-        model_path=settings.rag_evidence_classifier_model_path,
-        temperature_path=settings.rag_evidence_classifier_temperature_path,
+        model_path=Path(model_path) if model_path else settings.rag_evidence_classifier_model_path,
+        temperature_path=(
+            Path(temperature_path) if temperature_path else settings.rag_evidence_classifier_temperature_path
+        ),
         max_length=settings.rag_evidence_classifier_max_length,
         max_sources=settings.rag_evidence_judge_max_sources,
         device=settings.rag_evidence_classifier_device,
@@ -223,6 +235,7 @@ class MockInferenceBackend:
             )
         else:
             opinion = _mock_opinion(agent_id=agent_id, revised=has_context)
+        record_llm_usage(model="mock")
         return opinion.model_dump_json()
 
 
@@ -247,6 +260,52 @@ class OllamaInferenceBackend:
             temperature=self._temperature if temperature is None else temperature,
         )
         return response.message.content
+
+
+class OpenAIInferenceBackend:
+    """LLM backend for OpenAI flagship models (GPT-class), used as a scale control.
+
+    Kept deliberately minimal: it mirrors ``OllamaInferenceBackend.complete`` so the
+    existing debate / evidence-audit probes work unchanged with ``--backend openai``.
+    Requires ``OPENAI_API_KEY`` in the environment.
+    """
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        temperature: float = 0.1,
+        max_tokens: int = 800,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        from openai import AsyncOpenAI
+
+        self._model = model
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        # Newer reasoning models (o*, gpt-5*) reject temperature!=1 and use
+        # max_completion_tokens instead of max_tokens; detect and adapt.
+        lowered = model.lower()
+        self._is_reasoning = lowered.startswith(("o1", "o3", "o4", "gpt-5"))
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+    async def complete(self, messages: list[ChatMessage], *, temperature: float | None = None) -> str:
+        payload = [{"role": m.role, "content": m.content} for m in messages]
+        kwargs: dict[str, Any] = {"model": self._model, "messages": payload}
+        if self._is_reasoning:
+            kwargs["max_completion_tokens"] = self._max_tokens
+        else:
+            kwargs["temperature"] = self._temperature if temperature is None else temperature
+            kwargs["max_tokens"] = self._max_tokens
+        response = await self._client.chat.completions.create(**kwargs)
+        usage = getattr(response, "usage", None)
+        record_llm_usage(
+            model=self._model,
+            prompt_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
+            completion_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
+        )
+        return response.choices[0].message.content or ""
 
 
 def _extract_between(text: str, start: str, end: str) -> str:

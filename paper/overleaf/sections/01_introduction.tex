@@ -1,0 +1,51 @@
+\section{Introduction}
+\label{sec:intro}
+
+A system that answers a question the evidence cannot support is worse
+than one that declines. PubMedQA~\citep{jin2019pubmedqa} operationalises
+that requirement: given a research question and the abstract that
+motivated it, the label is \yes{}, \no{}, or \maybe{} --- and \maybe{}
+means \emph{inconclusiveness}, not a third topic.
+
+Headline accuracies of $\sim$78--84\% are driven by \yes{}/\no{}.
+Replacing an LLM judge with calibrated
+BioLinkBERT~\citep{yasunaga2022linkbert} raised label accuracy from
+$0.536$ to $0.726$ $[0.688,0.764]$ on the same PQA-L $500$ run; hit@1
+stayed $0.980$. That near-ceiling is expected: gold is the source
+abstract in a $500$-abstract corpus, so retrieval contributes nothing;
+the gap is that the abstract does not decide the label. \maybe{} recall
+is still only $0.073$ ($4/55$; Figure~\ref{fig:stages}).
+
+We measure nine uncertainty signals, a compute-matched debate, and a
+fixed DeBERTa-NLI auditor~\citep{abdaljalil2026knowing}. The findings
+are consistently negative, and that is the result. Across judges and
+signals, \maybe{} is statistically indistinguishable from chance in the
+abstract (Figure~\ref{fig:forest}). Three controls localise the cause:
+(C1)~the NLI auditor is at chance (AUROC $0.497$); (C2)~giving the
+authors' gold conclusion lifts \texttt{gpt-5} only to $0.592$ (CI still
+includes $0.5$); (C3)~the official PubMedQA single annotator reaches
+$0.60$ \maybe{} recall versus $\approx 0$ for every model ($p{=}0.0002$)
+yet still errs on $40\%$. Relative to \citet{lionetti2025clinical}
+(ML4H 2025 Findings: uncertain labels) and \citet{tramontini2026rag}
+(ML4H 2025 Proceedings: abstention in trial matching), this is a
+complementary PubMedQA regime: inconclusiveness is often not in the
+text, so the practice question is when to refuse.
+
+We therefore treat the deliverable as \emph{selective prediction}, not
+recovered \maybe{} accuracy. On the same $90$ IDs, ungated debate is
+identical to the classifier ($0.656$ $[0.556,0.744]$, $0$ discordant,
+McNemar $p{=}1$) --- a collapse control, not a second system --- and
+compute-matched SC is $0.522$ $[0.422,0.622]$ at $8$ LLM calls each
+(Section~\ref{sec:experiments}).
+
+\noindent\textbf{Contributions.}
+(1)~A complementary PubMedQA regime vs.\ Lionetti and Tramontini:
+inconclusiveness often is not in the text; the practice question is
+when to refuse.
+(2)~A negative result: nine headline signals, four judges including
+\texttt{gpt-5}, bootstrap CIs, official single-annotator control C3, and
+seven-seed routing instability --- \maybe{} is not recoverable from the
+abstract.
+(3)~Coverage-constrained abstention: a $16.4\%$ expected-cost cut
+versus always-answer $0.356$ at $\ge 50\%$ coverage on $n{=}90$ (AURC
+$0.311$ is unanchored vs.\ a ranker), with all artefacts released.

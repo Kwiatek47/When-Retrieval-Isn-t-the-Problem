@@ -1,0 +1,388 @@
+{
+  "source": {
+    "debate": "reports/debate/debate_balanced90_ml4h_v1.json",
+    "sc": "reports/debate/sc_balanced90_ml4h_v1.json"
+  },
+  "id_audit": {
+    "debate_n_cases": 90,
+    "sc_n_cases": 90,
+    "common_n": 90,
+    "missing_in_sc": [],
+    "missing_in_debate": [],
+    "held_out_n": 45,
+    "calib_n": 45,
+    "held_out_in_common": 45,
+    "unknown_split": 0
+  },
+  "json_summaries_as_written": {
+    "debate": {
+      "summary.cases": 45,
+      "summary.label_accuracy": 0.6222222222222222,
+      "summary.round1_accuracy": 0.6222222222222222,
+      "summary.biolinkbert_accuracy": 0.6444444444444445,
+      "summary.per_label_accuracy": {
+        "maybe": 0.5333333333333333,
+        "no": 0.7333333333333333,
+        "yes": 0.6
+      },
+      "routing.reported_on": "held_out_split",
+      "routing.base_label_accuracy": 0.6444444444444445,
+      "routing.routed_to_maybe_count": 15,
+      "routing.threshold": 0.64,
+      "cost.measured_cases": 90,
+      "cost.mean_llm_calls_per_case": 8.0
+    },
+    "sc": {
+      "summary.cases": 90,
+      "summary.label_accuracy": 0.5222222222222223,
+      "summary.per_label_accuracy": {
+        "maybe": 0.5666666666666667,
+        "no": 0.4666666666666667,
+        "yes": 0.5333333333333333
+      },
+      "summary.samples": 8,
+      "cost.measured_cases": 90,
+      "cost.mean_llm_calls_per_case": 8.0
+    },
+    "how_insert_sc_row_chose_numbers": "insert_sc_row.py reads sc summary.label_accuracy and summary.cases verbatim (0.522, n=90). Debate 0.622 is summary.label_accuracy of the debate JSON, which _summarize() restricts to held-out report_ids (n=45, routed)."
+  },
+  "full_n90": {
+    "n": 90,
+    "debate_ungated": {
+      "n": 90,
+      "correct": 59,
+      "accuracy": 0.6555555555555556,
+      "per_label_recall": {
+        "yes": {
+          "support": 30,
+          "correct": 27,
+          "recall": 0.9
+        },
+        "no": {
+          "support": 30,
+          "correct": 28,
+          "recall": 0.9333333333333333
+        },
+        "maybe": {
+          "support": 30,
+          "correct": 4,
+          "recall": 0.13333333333333333
+        }
+      },
+      "pred_counts": {
+        "no": 47,
+        "yes": 39,
+        "maybe": 4
+      }
+    },
+    "debate_routed": {
+      "n": 90,
+      "correct": 58,
+      "accuracy": 0.6444444444444445,
+      "per_label_recall": {
+        "yes": {
+          "support": 30,
+          "correct": 24,
+          "recall": 0.8
+        },
+        "no": {
+          "support": 30,
+          "correct": 26,
+          "recall": 0.8666666666666667
+        },
+        "maybe": {
+          "support": 30,
+          "correct": 8,
+          "recall": 0.26666666666666666
+        }
+      },
+      "pred_counts": {
+        "no": 42,
+        "yes": 33,
+        "maybe": 15
+      }
+    },
+    "bert": {
+      "n": 90,
+      "correct": 59,
+      "accuracy": 0.6555555555555556,
+      "per_label_recall": {
+        "yes": {
+          "support": 30,
+          "correct": 27,
+          "recall": 0.9
+        },
+        "no": {
+          "support": 30,
+          "correct": 28,
+          "recall": 0.9333333333333333
+        },
+        "maybe": {
+          "support": 30,
+          "correct": 4,
+          "recall": 0.13333333333333333
+        }
+      },
+      "pred_counts": {
+        "no": 47,
+        "yes": 39,
+        "maybe": 4
+      }
+    },
+    "sc": {
+      "n": 90,
+      "correct": 47,
+      "accuracy": 0.5222222222222223,
+      "per_label_recall": {
+        "yes": {
+          "support": 30,
+          "correct": 16,
+          "recall": 0.5333333333333333
+        },
+        "no": {
+          "support": 30,
+          "correct": 14,
+          "recall": 0.4666666666666667
+        },
+        "maybe": {
+          "support": 30,
+          "correct": 17,
+          "recall": 0.5666666666666667
+        }
+      },
+      "pred_counts": {
+        "maybe": 45,
+        "yes": 22,
+        "no": 23
+      }
+    },
+    "mcnemar": {
+      "debate_ungated_vs_bert": {
+        "n": 90,
+        "both_correct": 59,
+        "a_only": 0,
+        "b_only": 0,
+        "neither": 31,
+        "discordant": 0,
+        "exact_p": 1.0
+      },
+      "debate_ungated_vs_sc": {
+        "n": 90,
+        "both_correct": 32,
+        "a_only": 27,
+        "b_only": 15,
+        "neither": 16,
+        "discordant": 42,
+        "exact_p": 0.08842954698775513
+      },
+      "sc_vs_bert": {
+        "n": 90,
+        "both_correct": 32,
+        "a_only": 15,
+        "b_only": 27,
+        "neither": 16,
+        "discordant": 42,
+        "exact_p": 0.08842954698775513
+      },
+      "debate_routed_vs_ungated": {
+        "n": 90,
+        "both_correct": 54,
+        "a_only": 4,
+        "b_only": 5,
+        "neither": 27,
+        "discordant": 9,
+        "exact_p": 0.9999999999999981
+      }
+    },
+    "mean_llm_calls": {
+      "debate": 8.0,
+      "sc": 8.0
+    },
+    "routed_to_maybe_count": 15
+  },
+  "held_out_n45": {
+    "n": 45,
+    "debate_ungated": {
+      "n": 45,
+      "correct": 29,
+      "accuracy": 0.6444444444444445,
+      "per_label_recall": {
+        "yes": {
+          "support": 15,
+          "correct": 12,
+          "recall": 0.8
+        },
+        "no": {
+          "support": 15,
+          "correct": 13,
+          "recall": 0.8666666666666667
+        },
+        "maybe": {
+          "support": 15,
+          "correct": 4,
+          "recall": 0.26666666666666666
+        }
+      },
+      "pred_counts": {
+        "no": 21,
+        "maybe": 4,
+        "yes": 20
+      }
+    },
+    "debate_routed": {
+      "n": 45,
+      "correct": 28,
+      "accuracy": 0.6222222222222222,
+      "per_label_recall": {
+        "yes": {
+          "support": 15,
+          "correct": 9,
+          "recall": 0.6
+        },
+        "no": {
+          "support": 15,
+          "correct": 11,
+          "recall": 0.7333333333333333
+        },
+        "maybe": {
+          "support": 15,
+          "correct": 8,
+          "recall": 0.5333333333333333
+        }
+      },
+      "pred_counts": {
+        "no": 16,
+        "maybe": 15,
+        "yes": 14
+      }
+    },
+    "bert": {
+      "n": 45,
+      "correct": 29,
+      "accuracy": 0.6444444444444445,
+      "per_label_recall": {
+        "yes": {
+          "support": 15,
+          "correct": 12,
+          "recall": 0.8
+        },
+        "no": {
+          "support": 15,
+          "correct": 13,
+          "recall": 0.8666666666666667
+        },
+        "maybe": {
+          "support": 15,
+          "correct": 4,
+          "recall": 0.26666666666666666
+        }
+      },
+      "pred_counts": {
+        "no": 21,
+        "maybe": 4,
+        "yes": 20
+      }
+    },
+    "sc": {
+      "n": 45,
+      "correct": 24,
+      "accuracy": 0.5333333333333333,
+      "per_label_recall": {
+        "yes": {
+          "support": 15,
+          "correct": 8,
+          "recall": 0.5333333333333333
+        },
+        "no": {
+          "support": 15,
+          "correct": 7,
+          "recall": 0.4666666666666667
+        },
+        "maybe": {
+          "support": 15,
+          "correct": 9,
+          "recall": 0.6
+        }
+      },
+      "pred_counts": {
+        "maybe": 23,
+        "no": 9,
+        "yes": 13
+      }
+    },
+    "mcnemar": {
+      "debate_ungated_vs_bert": {
+        "n": 45,
+        "both_correct": 29,
+        "a_only": 0,
+        "b_only": 0,
+        "neither": 16,
+        "discordant": 0,
+        "exact_p": 1.0
+      },
+      "debate_ungated_vs_sc": {
+        "n": 45,
+        "both_correct": 17,
+        "a_only": 12,
+        "b_only": 7,
+        "neither": 9,
+        "discordant": 19,
+        "exact_p": 0.3592834472656256
+      },
+      "sc_vs_bert": {
+        "n": 45,
+        "both_correct": 17,
+        "a_only": 7,
+        "b_only": 12,
+        "neither": 9,
+        "discordant": 19,
+        "exact_p": 0.3592834472656256
+      },
+      "debate_routed_vs_ungated": {
+        "n": 45,
+        "both_correct": 24,
+        "a_only": 4,
+        "b_only": 5,
+        "neither": 12,
+        "discordant": 9,
+        "exact_p": 0.9999999999999981
+      }
+    },
+    "mean_llm_calls": {
+      "debate": 8.0,
+      "sc": 8.0
+    },
+    "routed_to_maybe_count": 15
+  },
+  "primary_choice": {
+    "metric": "ungated_bert_gate debate vs SC vs BioLinkBERT on the same 90 IDs",
+    "why": "Both reports contain all 90 cases. Routed 0.622 is held-out n=45 only (threshold fit on the other 45). Applying the routed labels to all 90 mixes calib (ungated) + held-out (routed). SC has no router. Routing on held-out drops ungated 0.644 -> routed 0.622, so ungated is the honest debate arm for a compute-matched comparison."
+  },
+  "bootstrap_acc_ci_n90": {
+    "method": "case-level nonparametric bootstrap, 5000 resamples, seed 47",
+    "source": "per-case labels in reports/debate/{debate,sc}_balanced90_ml4h_v1.json",
+    "bert_and_debate_ungated": {
+      "correct": 59,
+      "n": 90,
+      "accuracy": 0.6555555555555556,
+      "ci_low": 0.5555555555555556,
+      "ci_high": 0.7444444444444445,
+      "note": "identical labels; 0 discordant"
+    },
+    "panel_majority_round1_no_bert": {
+      "field": "round1_vote_label",
+      "correct": 51,
+      "n": 90,
+      "accuracy": 0.5666666666666667,
+      "ci_low": 0.4666666666666667,
+      "ci_high": 0.6666666666666666
+    },
+    "sc": {
+      "correct": 47,
+      "n": 90,
+      "accuracy": 0.5222222222222223,
+      "ci_low": 0.4222222222222222,
+      "ci_high": 0.6222222222222222
+    }
+  }
+}

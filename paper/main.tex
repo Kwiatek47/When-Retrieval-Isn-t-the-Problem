@@ -1,0 +1,85 @@
+%% ML4H 2026 Findings (4 pages excl. refs). Content is Findings-density.
+%% Official style: https://www.overleaf.com/latex/templates/machine-learning-for-health-ml4h-2026-template/sqgwhtyswgcy
+%% This local preamble compiles without the Overleaf-only sty; paste into the
+%% official template before submission.
+\documentclass[twocolumn,10pt]{article}
+\usepackage[letterpaper,margin=0.75in,columnsep=0.22in]{geometry}
+\usepackage{times}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{natbib}
+\bibliographystyle{abbrvnat}
+\setcitestyle{authoryear,round,aysep={}}
+
+\pagestyle{plain}
+\setlength{\parskip}{0pt}
+\setlength{\parindent}{1em}
+
+\newcommand{\yes}{\textsf{yes}}
+\newcommand{\no}{\textsf{no}}
+\newcommand{\maybe}{\textsf{maybe}}
+\newcommand{\uscore}{$u$-score}
+
+\title{When the Signal Isn't in the Text:\\
+Nine Signals and Debate Fail to Recover PubMedQA maybe}
+\author{Anonymous Author(s)\\
+\textit{Affiliation withheld for review}}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-0.4em}
+
+\begin{abstract}
+Nine uncertainty signals and compute-matched debate fail to recover
+PubMedQA \maybe{}; the deliverable is coverage-constrained abstention,
+not retrieval or multi-agent accuracy. On PQA-L $500$, hit@1 is $0.980$
+$[0.968,0.992]$ (citation-support $1.000$) because gold is the source
+abstract; BioLinkBERT reaches only $0.726$ $[0.688,0.764]$. Eight of
+nine headline AUROC CIs include $0.5$ (\texttt{gpt-5} $0.554$). On the
+same $90$ IDs, ungated debate is identical to BioLinkBERT ($0.656$
+$[0.556,0.744]$, $0$ discordant pairs) and compute-matched
+self-consistency ($N{=}8$, $8.0$ LLM calls/case) is $0.522$
+$[0.422,0.622]$. Selective prediction cuts expected cost $-16.4\%$
+versus always-answer $0.356$ at $\ge 50\%$ coverage (AURC $0.311$,
+unanchored vs.\ a ranker).
+\end{abstract}
+
+\noindent{\small \textbf{Keywords:} abstention, selective prediction, uncertainty,
+PubMedQA, negative result}
+
+\vspace{0.25em}
+\noindent{\small \textbf{Data and Code Availability.}
+Official PubMedQA PQA-L~\citep{jin2019pubmedqa} (public). Per-case signals,
+bootstrap statistics (\texttt{statistics.json}), and figure scripts ship as
+anonymized supplemental material. No deanonymizing repository URL at review.
+Upon acceptance we will release evaluation scripts and reports.
+\textbf{IRB.} Public research abstracts and official labels only; no
+patient-identifiable records collected. No live human-subjects study was
+run. Control C3 uses the official PubMedQA single-annotator labels as a
+proxy, not a new annotation. No IRB approval is required.
+\textbf{Publication Ethics / LLM use.} Debate, audit, and self-consistency
+calls are part of the method; the authors take responsibility for all
+reported numbers and the bibliography. The manuscript and evaluation
+scripts were drafted with AI writing/coding assistance; every claim was
+checked against the released JSON.}
+
+\vspace{0.35em}
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_method}
+\input{sections/04_experiments}
+\input{sections/05_results}
+\input{sections/06_discussion}
+
+{\small
+\bibliography{references}
+}
+
+\end{document}

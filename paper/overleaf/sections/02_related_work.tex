@@ -1,0 +1,19 @@
+\section{Related Work}
+\label{sec:related}
+
+Multi-agent debate was introduced to improve
+factuality~\citep{du2023debate} and adopted in medicine
+\citep{tang2024medagents,kim2024mdagents,chen2024reconcile}, yet
+compute-matched controls and MedAgentBoard find it rarely beats a
+strong single model~\citep{wang2023selfconsistency,smit2024mad,choi2025debate,zhang2025stop,zhu2025medagentboard}.
+We measure the same collapse on PubMedQA \maybe{} (unanimous on $93\%$
+of true-\maybe{} cases). Selective prediction~\citep{elyaniv2010foundations}
+lets a model abstain; MedQAbstain~\citep{cocchieri2026llms} shows LLMs
+almost never do on medical MCQA, and a fixed NLI
+auditor~\citep{abdaljalil2026knowing} is AUROC $0.497$ here (C1).
+\citet{lionetti2025clinical} (ML4H 2025 Findings) treat clinical labels
+as uncertain; \citet{tramontini2026rag} (Proceedings 2025) study
+abstention in trial matching; SCARE~\citep{lee2026scare} classifies
+SQL/EHR answerability --- complementary PubMedQA work asks whether the
+abstract is conclusive. Semantic entropy~\citep{kuhn2023semantic}
+assumes recoverability from the input; \maybe{} tests the opposite.

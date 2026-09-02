@@ -23,6 +23,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Ensure .env (e.g. OPENAI_API_KEY) is loaded even for non-ollama backends.
+try:  # pragma: no cover - best effort
+    from dotenv import load_dotenv
+
+    load_dotenv(PROJECT_ROOT / ".env", override=False)
+except ImportError:
+    pass
+
 from app.agents.evidence_audit import audit_evidence
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "agents"))
@@ -82,7 +90,8 @@ def _auroc(pos: list[float], neg: list[float]) -> float:
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATA)
-    parser.add_argument("--model", type=str, default=None, help="Override OLLAMA_MODEL for this probe")
+    parser.add_argument("--backend", type=str, default="ollama", choices=("ollama", "openai", "mock"))
+    parser.add_argument("--model", type=str, default=None, help="Override model for this probe")
     parser.add_argument("--label", type=str, default=None)
     parser.add_argument("--num-predict", type=int, default=400)
     parser.add_argument("--limit", type=int, default=None)
@@ -96,8 +105,8 @@ async def main() -> None:
 
     from app.core.config import get_settings
 
-    model_name = args.model or get_settings().default_model
-    backend = _build_backend("ollama", num_predict=args.num_predict, model=model_name)
+    model_name = args.model or (get_settings().default_model if args.backend == "ollama" else "gpt-4o")
+    backend = _build_backend(args.backend, num_predict=args.num_predict, model=model_name)
 
     label = args.label or f"audit_{model_name.replace(':', '_').replace('/', '_')}"
     REPORT_DIR.mkdir(parents=True, exist_ok=True)

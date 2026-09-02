@@ -1,0 +1,31 @@
+\section{Discussion}
+\label{sec:discussion}
+
+The deciding information for many PubMedQA \maybe{} items is not in the
+abstract the model reads. The failure is invariant to the answering
+procedure (nine headline signals, four judges, a dedicated NLI auditor).
+It is not retrieval (hit@1 $0.98$ on a source-abstract gold; CIs do not
+overlap decision accuracy). Injecting the gold conclusion moves the best
+oracle only to $0.62$, and the official single annotator (C3) still errs
+on $40\%$. Others improve \emph{how} a model
+answers~\citep{abdaljalil2026knowing,cocchieri2026llms,wynn2025talk};
+here the problem is upstream.
+
+We do not claim SOTA or that debate improves anything. Ungated debate is
+identical to BioLinkBERT ($0.656$ $[0.556,0.744]$, $0$ discordant,
+McNemar $p{=}1$). SC is lower at matched compute ($0.522$
+$[0.422,0.622]$); McNemar $p{=}0.088$ is not a significance claim.
+Routed debate ($0.622$ on held-out $45$) is not primary. NLI AUROC
+$0.497$ is a control failure. Limits: debate/SC were not run on PQA-L
+$500$; one benchmark; contamination is possible; \texttt{bert\_gate} is
+a BERT copy and the panel-only majority is $0.567$; C3 is the official
+single annotator, not a new multi-rater study; $\ge 70$B open models
+were not run.
+
+The $-16.4\%$ figure is a coverage-constrained cost cut versus
+always-answer on $n{=}90$, not a ranker-anchored AURC win and not a
+bedside claim. SCARE~\citep{lee2026scare} and
+FHIR-AgentBench~\citep{lee2026fhir} ask SQL/EHR answerability; we ask
+whether the abstract is conclusive. The symposium argument is label
+versus abstain, not a new architecture. Per-case signals and statistics
+ship as anonymized supplemental material.

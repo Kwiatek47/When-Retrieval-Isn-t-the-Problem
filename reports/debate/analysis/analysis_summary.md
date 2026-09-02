@@ -4,6 +4,8 @@
 
 | method | n | maybe | maybe frac |
 |---|---|---|---|
+| audit_gpt5_balanced90 | 90 | 30 | 0.33 |
+| audit_gpt5_oracle_balanced90 | 90 | 30 | 0.33 |
 | audit_qwen14b_balanced90 | 90 | 30 | 0.33 |
 | audit_qwen14b_oracle_balanced90 | 90 | 30 | 0.33 |
 | audit_qwen7b_balanced90 | 90 | 30 | 0.33 |
@@ -18,6 +20,8 @@
 
 | method | audit_score | bert_is_maybe | flip_rate | inconclusive_fraction | label_entropy | maybe_fraction | mean_disagreement_with_mode | panel_uncertainty_conf | refuted | silent | supported | uncertainty_score |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
+| audit_gpt5_balanced90 | 0.554 | nan | nan | nan | nan | nan | nan | nan | 0.511 | 0.502 | 0.494 | nan |
+| audit_gpt5_oracle_balanced90 | 0.592 | nan | nan | nan | nan | nan | nan | nan | 0.369 | 0.644 | 0.412 | nan |
 | audit_qwen14b_balanced90 | 0.518 | nan | nan | nan | nan | nan | nan | nan | 0.486 | 0.517 | 0.556 | nan |
 | audit_qwen14b_oracle_balanced90 | 0.623 | nan | nan | nan | nan | nan | nan | nan | 0.413 | 0.659 | 0.505 | nan |
 | audit_qwen7b_balanced90 | 0.501 | nan | nan | nan | nan | nan | nan | nan | 0.474 | 0.519 | 0.543 | nan |

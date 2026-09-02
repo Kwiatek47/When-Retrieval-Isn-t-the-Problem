@@ -95,6 +95,7 @@ directly from the on-disk artifacts by `scripts/agents/build_maybe_analysis.py`
 | `qwen2.5:7b`   | 0.093 | 0.069 | **0.501** | collapses to "supported" (silent≈0) |
 | `qwen2.5:14b`  | 0.284 | 0.259 | **0.518** | richer verdicts, still uncorrelated |
 | `deepseek-r1:14b` (reasoning) | 0.281 | 0.254 | **0.559** | explicit CoT, ~26 s/case, still chance |
+| **`gpt-5` (flagship)** | 0.192 | 0.184 | **0.554** | closed flagship, still chance (CI brackets 0.5) |
 
 The evidence condition-audit (decompose question → per-condition
 supported/refuted/silent, following arXiv 2602.14189) produced *richer* verdicts
@@ -102,14 +103,15 @@ on 14b (silent/refuted appear, unlike 7b) but the resulting inconclusiveness
 score is **uncorrelated with the gold `maybe` label (AUROC ≈ random)**. Crucially,
 a dedicated **reasoning model** (`deepseek-r1:14b`, explicit chain-of-thought,
 ~26 s and up to 1200 tokens per case) does **not** close the gap either
-(AUROC 0.559). Every signal, across three backbones (incl. a reasoning model) and
-two prompt families, sits in the 0.46–0.56 band — statistically
-indistinguishable from chance on n=90 (30 maybe).
+(AUROC 0.559), and neither does flagship **`gpt-5`** (AUROC 0.554, 95% CI
+[0.429, 0.678]). Every signal, across open backbones, a reasoning model, a
+flagship, and two prompt families, sits near chance — statistically
+indistinguishable from random on n=90 (30 maybe).
 
 **Interpretation.** On PubMedQA, `maybe` is largely the *authors'* judgment that
 a whole study line is inconclusive; it is frequently not recoverable from a
 single abstract by an LLM's uncertainty — regardless of prompt (debate,
-self-report, or NLI-audit), model size (7b → 14b), or even explicit
+self-report, or NLI-audit), model size (7b → 14b → gpt-5), or even explicit
 chain-of-thought reasoning (`deepseek-r1:14b`). This is consistent with:
 BioLinkBERT maybe-F1 = 0.20 even with gold context; "raw accuracy varies only
 modestly across architectures, abstention controls risk" (arXiv 2602.14189);
@@ -126,6 +128,7 @@ that exact design as a control (`app/agents/evidence_audit_nli.py`,
 | Auditor | evidence | AUROC (maybe vs rest) |
 |---|---|---|
 | generative `qwen2.5:14b` | abstract | 0.518 |
+| generative `gpt-5` | abstract | 0.554 |
 | **external `deberta-v3` NLI** | abstract | **0.497** |
 
 The dedicated NLI model — the same tool the SOTA paper trusts — is **also at
@@ -146,12 +149,15 @@ long_answer`).
 | external `deberta-v3` NLI | **gold conclusion** | 0.554 |
 | generative `qwen2.5:14b` | abstract | 0.518 |
 | generative `qwen2.5:14b` | **gold conclusion** | **0.622** |
+| generative `gpt-5` | abstract | 0.554 |
+| generative `gpt-5` | **gold conclusion** | 0.592 |
 
-Feeding the *gold conclusion* lifts the generative auditor from 0.518 → **0.622**
-— a real but small gain. So the `maybe` signal is **not pure noise** (it exists a
-little in the authors' own wording), yet it is **almost absent from the abstract
-alone** (≈0.50), which is the only input a PubMedQA system actually gets. Even
-with the oracle text, 0.62 is far from usable.
+Feeding the *gold conclusion* lifts qwen-14b from 0.518 → **0.622** and gpt-5 from
+0.554 → 0.592 — real but small gains; gpt-5 oracle CI still brackets 0.5. So the
+`maybe` signal is **not pure noise** (it exists a little in the authors' own
+wording), yet it is **almost absent from the abstract alone** (≈0.50–0.55), which
+is the only input a PubMedQA system actually gets. Even with the oracle text,
+~0.59–0.62 is far from usable.
 
 ### 5e. Human reproducibility — can a person even do it? (Experiment #3)
 
@@ -230,14 +236,12 @@ calibrated abstention policy still reduces the cost of confident errors.*
 
 ### 7a. Limitations / threats to validity (pre-empt the reviewer)
 
-- **Model scale.** All auditors are small/medium open models (qwen 7b/14b,
-  deepseek-r1:14b). We have *not* run flagship closed models (GPT-5, Claude) or
-  very large open models (70B+). However, the trend across scale and reasoning is
-  *flat* (7b 0.50 → 14b 0.52 → reasoning-r1 0.56; external NLI 0.50), and even the
-  gold-conclusion oracle only reaches 0.62 — so the evidence points to a property
-  of the *input text*, not model capacity. A single flagship run on balanced90
-  (90 cases, same probe + aggregator) would close this gap cheaply; the probe
-  already accepts any model and an oracle evidence source.
+- **Model scale.** Besides open auditors (qwen 7b/14b, deepseek-r1:14b) we ran
+  flagship **gpt-5** on balanced90 (abstract + oracle `long_answer`). AUROC 0.554 /
+  0.592; both 95% CIs bracket 0.5. The scale trend stays *flat* (7b 0.50 → 14b 0.52
+  → reasoning-r1 0.56 → gpt-5 0.55; external NLI 0.50; oracles ≤0.62) — evidence
+  points to a property of the *input text*, not model capacity. Claude / 70B+ were
+  not tested; contamination still limits how one would read a high flagship score.
 - **Benchmark contamination.** PubMedQA is old and public; a flagship model that
   *did* score high on `maybe` could be recalling training data rather than
   reasoning from the abstract, so any positive large-model result must be read
@@ -302,6 +306,10 @@ All under `reports/debate/`:
   gold author conclusions (Exp #2).
 - `signals/audit_qwen14b_oracle_balanced90.{jsonl,summary.json}` — generative
   qwen-14b auditor on gold conclusions (Exp #2 oracle upper-bound).
+- `signals/audit_gpt5_balanced90.{jsonl,summary.json}` — gpt-5 flagship auditor
+  on abstracts (n=90, errors=0).
+- `signals/audit_gpt5_oracle_balanced90.{jsonl,summary.json}` — gpt-5 on gold
+  conclusions (n=90, errors=2).
 - `human/human_baseline_official.json` — official single-annotator agreement
   (Exp #3): overall acc, κ, per-class recall/precision/F1.
 - `human/annotation_sheet.{csv,md}` + `human/answer_key.json` — blind sheet for a

@@ -1,0 +1,54 @@
+\section{Method}
+\label{sec:method}
+
+Three layers share one LLM backend. Debate is a collapse control
+(identical to BioLinkBERT, $0$ discordant, $n{=}90$), not an
+architectural contribution; the panel score \uscore{} and a calibrated
+router remain. An NLI auditor and a gold-conclusion oracle are
+controls, not accuracy boosters.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/stage_separated.pdf}
+  \caption{Stage-separated metrics on PQA-L $500$ ($95\%$ CI). Retrieval
+  (hit@1 $0.980$, citation $1.000$) and BioLinkBERT decision ($0.726$) do not
+  overlap; \maybe{} recall is $0.073$. Source: supplemental
+  \texttt{statistics.json}.}
+  \label{fig:stages}
+\end{figure}
+
+\paragraph{Debate.}
+Debate is a collapse control, not an architectural contribution: on
+$n{=}90$ ungated debate is identical to BioLinkBERT ($0.656$
+$[0.556,0.744]$, $59/90$, $0$ discordant pairs). We run supervisor-free
+round-robin (\texttt{round\_robin\_no\_supervisor}): round~1 independent;
+rounds~2--3 sequential with peer context; four personas including an
+\emph{uncertainty advocate}. Each opinion emits a label,
+\texttt{evidence\_conclusiveness}, and a confidence; a two-step rule
+assigns \maybe{} when Step~1 is inconclusive.
+
+\paragraph{BioLinkBERT gate.}
+A calibrated BioLinkBERT-large classifier is the decision baseline
+($0.726$ on PQA-L $500$). A confident ($\ge 0.90$) hard \yes{}/\no{} is
+trusted unless the panel is unanimous on the opposite hard label.
+Among errors on gold \maybe{}, $21/26$ mispredictions on
+\texttt{balanced90} had confidence $\ge 0.90$, so threshold gating
+cannot recover abstention. Panel majority without the gate (round-1
+vote) is $0.567$ $[0.467,0.667]$ on the same IDs.
+
+\paragraph{\uscore{} and routing.}
+$u=\mathrm{clip}_{[0,1]}(\sum_k w_k f_k)$ over label entropy, \maybe{} and
+inconclusive fractions, disagreement, flip rate, semantic
+entropy~\citep{kuhn2023semantic}, a BioLinkBERT-is-\maybe{} bit, and an optional
+audit score. \texttt{calibrate\_threshold} sweeps $t$ on a held-out split
+(default macro-$F_1$) and routes to \maybe{} iff $u\ge t$. On this run
+routing is not the primary accuracy: held-out $n{=}45$ drops ungated
+$0.644$ to $0.622$. We report the risk--coverage curve, AURC, and a
+cost-sensitive analysis (wrong${=}1.0$, abstain${=}0.25$) with a
+$\ge 0.5$ coverage constraint.
+
+\paragraph{Auditors.}
+The generative auditor decomposes the question into 2--4 checkable conditions
+(\texttt{supported}/\texttt{refuted}/\texttt{silent}). The external auditor is
+fixed \texttt{cross-encoder/nli-deberta-v3-base}: high score when the abstract
+is neutral to both polarities~\citep{abdaljalil2026knowing}.

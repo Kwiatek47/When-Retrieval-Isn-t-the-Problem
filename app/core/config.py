@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from functools import lru_cache
 import os
@@ -20,6 +22,28 @@ def _load_dotenv() -> None:
 
 
 _load_dotenv()
+
+
+def resolve_ollama_base_url(
+    *,
+    base_url: str | None = None,
+    host: str | None = None,
+    default: str = "http://localhost:11434",
+) -> str:
+    """Resolve the Ollama HTTP endpoint from env-style values.
+
+    Accepts either ``OLLAMA_BASE_URL`` (full URL) or the official Ollama
+    ``OLLAMA_HOST`` (``host:port`` or a URL). Does not print or log secrets.
+    """
+    raw = (base_url if base_url is not None else os.getenv("OLLAMA_BASE_URL")) or (
+        host if host is not None else os.getenv("OLLAMA_HOST")
+    )
+    if raw is None or not str(raw).strip():
+        raw = default
+    raw = str(raw).strip().rstrip("/")
+    if raw.startswith(("http://", "https://")):
+        return raw
+    return f"http://{raw}"
 
 
 @dataclass(frozen=True)
@@ -95,7 +119,7 @@ def get_settings() -> Settings:
         app_title="MedChat",
         app_version="0.1.0",
         default_model=os.getenv("OLLAMA_MODEL", "qwen2.5:7b"),
-        ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        ollama_base_url=resolve_ollama_base_url(),
         ollama_timeout=float(os.getenv("OLLAMA_TIMEOUT", "300")),
         ollama_keep_alive=os.getenv("OLLAMA_KEEP_ALIVE", "30m"),
         ollama_num_predict=int(os.getenv("OLLAMA_NUM_PREDICT", "400")),

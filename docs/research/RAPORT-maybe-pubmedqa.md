@@ -95,9 +95,10 @@ Moduły audytu dowodów:
 | qwen2.5:7b | 7B | główny (debata, audyt) | dobry stosunek jakość/koszt, otwarty, lokalny (Ollama) |
 | qwen2.5:14b | 14B | ablacja skali | test czy większy model pomaga |
 | deepseek-r1:14b | 14B | ablacja rozumowania | test czy jawne rozumowanie (CoT) pomaga |
+| gpt-5 | flagowiec (API) | ablacja skali zamkniętej | zamyka zarzut „za mały model” |
 
-Cel doboru: pokryć oś **mały → większy → rozumujący**, by wykazać, że wynik `maybe` nie
-zależy od skali ani od trybu rozumowania (wszystkie ~0.5 AUROC).
+Cel doboru: pokryć oś **mały → większy → rozumujący → flagowiec**, by wykazać, że wynik
+`maybe` nie zależy od skali ani od trybu rozumowania (wszystkie ~0.5 AUROC).
 
 ### Wybór klasyfikatora decyzyjnego (wspólny grunt: PQA-L 500)
 
@@ -168,12 +169,14 @@ zbiorze dev (albo w ogóle raportować tylko PQA-L 500), żeby usunąć rozjazd
 | qwen2.5:7b | streszczenie | **0.501** |
 | qwen2.5:14b | streszczenie | **0.518** |
 | deepseek-r1:14b (rozumujący) | streszczenie | **0.559** |
+| **gpt-5 (flagowiec)** | streszczenie | **0.554** |
 | external DeBERTa-NLI (Eksp. #1) | streszczenie | **0.497** |
 | external DeBERTa-NLI (Eksp. #2 oracle) | gold wniosek | **0.554** |
 | qwen2.5:14b (Eksp. #2 oracle) | gold wniosek | **0.622** |
+| **gpt-5 (flagowiec, oracle)** | gold wniosek | **0.592** |
 
-Wszystko w paśmie 0.50–0.62 — od rzutu monetą do słabego sygnału. Skala i rozumowanie
-nie pomagają; gold wnioski autorów pomagają tylko trochę.
+Wszystko w paśmie 0.50–0.62 — od rzutu monetą do słabego sygnału. Skala, rozumowanie
+i flagowiec (gpt-5) nie pomagają; gold wnioski autorów pomagają tylko trochę.
 
 ### 4c. Człowiek vs model (Eksp. #3, official single-annotator, balanced90)
 
@@ -209,15 +212,18 @@ Policzone skryptem `scripts/agents/compute_statistics.py`
 
 | Metoda / sygnał | AUROC | 95% CI | wniosek |
 |---|---|---|---|
-| qwen7b audit | 0.501 | [0.398, 0.604] | losowe |
-| qwen14b audit | 0.518 | [0.387, 0.645] | losowe |
-| deepseek-r1 audit | 0.559 | [0.441, 0.679] | losowe |
-| external NLI (streszczenie) | 0.497 | [0.365, 0.632] | losowe |
-| external NLI (oracle) | 0.554 | [0.426, 0.683] | losowe |
-| debata `uncertainty_score` | 0.550 | [0.421, 0.681] | losowe |
-| qwen14b audit (oracle) | 0.623 | [0.502, 0.737] | ledwo separuje |
+| qwen7b audit | 0.501 | [0.399, 0.608] | losowe |
+| qwen14b audit | 0.518 | [0.394, 0.639] | losowe |
+| deepseek-r1 audit | 0.559 | [0.437, 0.678] | losowe |
+| **gpt-5 audit** | **0.554** | **[0.429, 0.678]** | **losowe** |
+| external NLI (streszczenie) | 0.497 | [0.363, 0.632] | losowe |
+| external NLI (oracle) | 0.554 | [0.424, 0.682] | losowe |
+| debata `uncertainty_score` | 0.550 | [0.422, 0.681] | losowe |
+| qwen14b audit (oracle) | 0.623 | [0.501, 0.737] | ledwo separuje |
+| **gpt-5 audit (oracle)** | **0.592** | **[0.463, 0.714]** | **losowe** |
 
-6 z 7 sygnałów ma CI obejmujące 0.5 → statystycznie nieodróżnialne od rzutu monetą.
+8 z 9 sygnałów ma CI obejmujące 0.5 → statystycznie nieodróżnialne od rzutu monetą
+(w tym flagowiec gpt-5 na abstrakcie i w oraclu).
 Jedyny, który mija 0.5, to oracle z gold wnioskiem (i to ledwo) — spójne z całą historią.
 
 **Istotność człowiek vs model (maybe recall):** różnica = **0.60**, 95% CI
@@ -294,12 +300,13 @@ Chain-of-Thought" (arXiv 2602.20130).
 
 ## 6. Ograniczenia (uczciwe, pod recenzenta)
 
-- **Skala modeli.** Wszyscy sędziowie to małe/średnie modele otwarte (qwen 7b/14b,
-  deepseek-r1:14b). Nie odpalaliśmy flagowców (GPT-5, Claude) ani dużych open (70B+).
-  Ale trend przez skalę jest *płaski* (7b 0.50 → 14b 0.52 → reasoning 0.56; NLI 0.50),
-  a nawet oracle z gold wnioskiem to tylko 0.62 → dowód wskazuje na własność *tekstu*,
-  nie moc modelu. Jeden przebieg flagowca na balanced90 domknąłby to tanio (probe już
-  przyjmuje dowolny model i tryb oracle).
+- **Skala modeli.** Obok otwartych sędziów (qwen 7b/14b, deepseek-r1:14b) odpaliliśmy
+  też flagowca **gpt-5** (balanced90, abstrakt + oracle `long_answer`). AUROC 0.554 /
+  0.592, oba CI obejmują 0.5 — wciąż losowo. Trend przez skalę pozostaje *płaski*
+  (7b 0.50 → 14b 0.52 → reasoning 0.56 → gpt-5 0.55; NLI 0.50; oracle gpt-5 0.59 vs
+  qwen14b 0.62) → bottleneck to własność *tekstu*, nie pojemność modelu. Claude / 70B+
+  nie były testowane; kontaminacja benchmarku i tak ogranicza interpretację dużych
+  modeli zamkniętych.
 - **Kontaminacja.** PubMedQA jest stary i publiczny; wysoki wynik dużego modelu na
   `maybe` może być pamięcią z treningu, nie rozumowaniem.
 - **Jeden zbiór.** Wyniki na PubMedQA-L (balanced90). Uogólnienie na inne etykiety
@@ -374,7 +381,8 @@ Kod (nowy/zmieniony):
 Wyniki (`reports/debate/`):
 - `debate_pqal500_biolinkbert.*`, `debate_balanced90_ollama_r2_uncertainty.*`
 - `signals/audit_qwen7b_balanced90.*`, `audit_qwen14b_balanced90.*`,
-  `audit_r1_14b_balanced90.*`, `audit_qwen14b_oracle_balanced90.*`
+  `audit_r1_14b_balanced90.*`, `audit_qwen14b_oracle_balanced90.*`,
+  `audit_gpt5_balanced90.*`, `audit_gpt5_oracle_balanced90.*`
 - `signals/nli_abstract_balanced90.*`, `nli_oracle_balanced90.*`
 - `human/human_baseline_official.json`, `human/annotation_sheet.{csv,md}`,
   `human/answer_key.json`

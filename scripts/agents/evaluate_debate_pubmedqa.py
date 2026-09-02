@@ -51,13 +51,17 @@ from app.agents.backends import (
     BioLinkBERTHintProvider,
     NullEvidenceHint,
     OllamaInferenceBackend,
+    OpenAIInferenceBackend,
     build_biolinkbert_hint_from_settings,
     hint_as_clinical_opinion,
 )
 from app.agents.models import AgentRoundOpinion
 from app.agents.evidence_audit import audit_evidence
 from app.agents.uncertainty import calibrate_threshold, compute_uncertainty, risk_coverage_curve
+from app.core.usage import start_usage_scope
+from app.core.config import resolve_ollama_base_url
 from app.rag.models import RetrievedDocument
+from app.providers.base import ProviderUnavailableError, ProviderError
 
 DEFAULT_DATASET = (
     PROJECT_ROOT
@@ -100,6 +104,12 @@ class DebateCaseResult:
     routed_to_maybe: bool = False
     audit_score: float | None = None
     audit_detail: dict[str, Any] = field(default_factory=dict)
+    cost_measured: bool = False
+    llm_calls: int = 0
+    failed_llm_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 def main() -> None:
@@ -118,7 +128,10 @@ def main() -> None:
         or args.aggregate_with_biolinkbert
     )
     if need_classifier:
-        hint_provider = build_biolinkbert_hint_from_settings()
+        hint_provider = build_biolinkbert_hint_from_settings(
+            model_path=args.classifier_path,
+            temperature_path=args.classifier_temperature_path,
+        )
         if not hint_provider.available:
             raise SystemExit(f"BioLinkBERT classifier unavailable: {hint_provider.load_error}")
         print(f"Loaded BioLinkBERT classifier: {hint_provider.model_path}")
@@ -232,6 +245,7 @@ def main() -> None:
         fast=args.fast,
         early_exit_rate=early_exit_rate,
     )
+    summary["cost"] = _summarize_cost(results)
     payload = {"summary": summary, "cases": [asdict(item) for item in results]}
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_markdown_report(summary, results), encoding="utf-8")
@@ -243,6 +257,12 @@ def main() -> None:
         f"early_exit_rate={summary.get('early_exit_rate')} "
         f"mean_latency_ms={summary['mean_latency_ms']:.1f}"
     )
+    cost = summary.get("cost") or {}
+    if cost.get("measured_cases"):
+        print(
+            f"mean_llm_calls_per_case={cost['mean_llm_calls_per_case']:.2f} "
+            f"measured_on={cost['measured_cases']}/{summary['cases']}"
+        )
 
 
 def _apply_uncertainty_routing(
@@ -451,6 +471,7 @@ async def _evaluate_debate(
             results.append(prior_results[case["id"]])
             print(f"[{index}/{len(cases)}] SKIP id={case['id']} (checkpoint)")
             continue
+        usage = start_usage_scope()
         started = perf_counter()
         docs = _case_documents(case, corpus)
         if hint_provider is not None:
@@ -520,6 +541,12 @@ async def _evaluate_debate(
             base_label=predicted,
             audit_score=audit_result.audit_score if audit_result is not None else None,
             audit_detail=audit_result.as_dict() if audit_result is not None else {},
+            cost_measured=True,
+            llm_calls=usage.llm_calls,
+            failed_llm_calls=usage.failed_llm_calls,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
         )
         results.append(result)
         if checkpoint_path is not None:
@@ -530,7 +557,7 @@ async def _evaluate_debate(
             f"exp={result.expected_label} pred={result.predicted_label} "
             f"bert={result.biolinkbert_label} rule={rule} "
             f"r1={result.round1_vote_label} rounds={result.rounds_run} "
-            f"({latency_ms:.0f} ms)"
+            f"calls={result.llm_calls} ({latency_ms:.0f} ms)"
         )
         if hint_provider is not None:
             hint_provider.clear_case()
@@ -655,6 +682,18 @@ def _parse_args() -> argparse.Namespace:
         help="If set, run the NLI evidence condition-audit per case with this Ollama model "
         "and feed audit_score into the uncertainty signals (e.g. qwen2.5:14b, deepseek-r1:14b)",
     )
+    parser.add_argument(
+        "--classifier-path",
+        type=Path,
+        default=None,
+        help="Override RAG_EVIDENCE_CLASSIFIER_MODEL_PATH (pin BioLinkBERT seed47 for ML4H)",
+    )
+    parser.add_argument(
+        "--classifier-temperature-path",
+        type=Path,
+        default=None,
+        help="Override RAG_EVIDENCE_CLASSIFIER_TEMPERATURE_PATH",
+    )
     return parser.parse_args()
 
 
@@ -664,10 +703,20 @@ def _build_backend(
     fast: bool = False,
     num_predict: int | None = None,
     model: str | None = None,
-) -> MockInferenceBackend | OllamaInferenceBackend:
+) -> MockInferenceBackend | OllamaInferenceBackend | OpenAIInferenceBackend:
     if name == "mock":
         return MockInferenceBackend()
     from app.core.config import get_settings
+
+    if name == "openai":
+        import os
+
+        settings = get_settings()
+        model_name = model or os.getenv("OPENAI_MODEL") or "gpt-4o"
+        max_tokens = num_predict if num_predict is not None else 800
+        print(f"OpenAI model={model_name} max_tokens={max_tokens}")
+        return OpenAIInferenceBackend(model=model_name, temperature=0.1, max_tokens=max_tokens)
+
     from app.providers.ollama import OllamaProvider
 
     settings = get_settings()
@@ -678,16 +727,90 @@ def _build_backend(
     else:
         # Do NOT inflate above .env — previous max(..., 800) made runs much slower.
         predict = settings.ollama_num_predict
+    base_url = resolve_ollama_base_url()
     provider = OllamaProvider(
-        base_url=settings.ollama_base_url,
+        base_url=base_url,
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=predict,
         num_ctx=min(max(settings.ollama_num_ctx, 2048), 4096),
     )
     model_name = model or settings.default_model
-    print(f"Ollama model={model_name} num_predict={predict}")
+    _preflight_ollama(provider, model=model_name)
+    print(f"Ollama host={base_url} model={model_name} num_predict={predict}")
     return OllamaInferenceBackend(provider, model=model_name, temperature=0.1)
+
+
+def _preflight_ollama(provider: Any, *, model: str) -> None:
+    """Fail fast with a one-shot recipe if Ollama is down or the model is missing."""
+    try:
+        ping = asyncio.run(provider.ping())
+    except RuntimeError:
+        ping = _ping_ollama_sync(provider)
+    except (ProviderUnavailableError, ProviderError) as exc:
+        raise SystemExit(_ollama_down_message(provider.base_url, exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — surface any connect failure as a recipe
+        raise SystemExit(_ollama_down_message(provider.base_url, exc)) from exc
+
+    names = list(ping.get("models") or [])
+    if not _model_is_available(model, names):
+        raise SystemExit(
+            f"Ollama at {provider.base_url} is up, but model {model!r} is not pulled.\n"
+            f"  Available: {', '.join(names) or '(none)'}\n"
+            f"  Next: ollama pull {model}\n"
+            f"  Then: scripts/agents/run_ml4h_v1_arms.sh debate"
+        )
+    print(f"Ollama preflight ok: {provider.base_url} has {model}")
+
+
+def _ping_ollama_sync(provider: Any) -> dict[str, Any]:
+    """Ping when an event loop is already running (should not happen at startup)."""
+    import httpx
+
+    try:
+        with httpx.Client(base_url=provider.base_url, timeout=5.0) as client:
+            response = client.get("/api/tags")
+            response.raise_for_status()
+            data = response.json()
+    except Exception as exc:  # noqa: BLE001
+        raise SystemExit(_ollama_down_message(provider.base_url, exc)) from exc
+    models = [item.get("name") for item in data.get("models", []) if isinstance(item, dict)]
+    return {"base_url": provider.base_url, "models": [m for m in models if m]}
+
+
+def _model_is_available(wanted: str, names: list[str]) -> bool:
+    wanted_l = wanted.lower()
+    for name in names:
+        lowered = name.lower()
+        if lowered == wanted_l or lowered.startswith(wanted_l):
+            return True
+    return False
+
+
+def _ollama_down_message(base_url: str, exc: BaseException) -> str:
+    return (
+        f"Ollama is not reachable at {base_url} ({exc}).\n"
+        "This arm needs a running Ollama with qwen2.5:7b. One-shot:\n"
+        "  ollama serve          # local; leave this terminal open\n"
+        "  ollama pull qwen2.5:7b\n"
+        "  ollama list           # confirm the model\n"
+        "  scripts/agents/run_ml4h_v1_arms.sh debate\n"
+        "Remote GPU box (no secrets printed):\n"
+        "  export OLLAMA_BASE_URL=http://<host>:11434   # or OLLAMA_HOST=http://<host>:11434\n"
+        "  scripts/agents/run_ml4h_v1_arms.sh debate\n"
+        "Do not start n=500 from this wrapper."
+    )
+
+
+def report_has_measured_cost(report: dict[str, Any]) -> bool:
+    """True when a debate JSON can drive ``--match-cost-report`` (calls > 0)."""
+    cost = (report.get("summary") or {}).get("cost") or {}
+    try:
+        mean_calls = float(cost.get("mean_llm_calls_per_case") or 0.0)
+        measured = int(cost.get("measured_cases") or 0)
+    except (TypeError, ValueError):
+        return False
+    return measured > 0 and mean_calls > 0.0
 
 
 def _load_cases(path: Path) -> list[dict[str, Any]]:
@@ -827,6 +950,32 @@ def _summarize(
             if routing_meta
             else None
         ),
+        "cost": _summarize_cost(all_results),
+    }
+
+
+def _summarize_cost(results: list[DebateCaseResult]) -> dict[str, Any]:
+    """Aggregate per-case LLM usage. Old reports without cost_measured are ignored."""
+    measured = [r for r in results if r.cost_measured]
+    n = len(measured)
+    if n == 0:
+        return {
+            "measured_cases": 0,
+            "llm_calls_total": 0,
+            "failed_llm_calls_total": 0,
+            "mean_llm_calls_per_case": 0.0,
+            "mean_prompt_tokens_per_case": 0.0,
+            "mean_completion_tokens_per_case": 0.0,
+            "mean_total_tokens_per_case": 0.0,
+        }
+    return {
+        "measured_cases": n,
+        "llm_calls_total": sum(r.llm_calls for r in measured),
+        "failed_llm_calls_total": sum(r.failed_llm_calls for r in measured),
+        "mean_llm_calls_per_case": sum(r.llm_calls for r in measured) / n,
+        "mean_prompt_tokens_per_case": sum(r.prompt_tokens for r in measured) / n,
+        "mean_completion_tokens_per_case": sum(r.completion_tokens for r in measured) / n,
+        "mean_total_tokens_per_case": sum(r.total_tokens for r in measured) / n,
     }
 
 
@@ -872,6 +1021,19 @@ def _markdown_report(summary: dict[str, Any], results: list[DebateCaseResult]) -
     lines.extend(["", "## Predicted label counts", ""])
     for label, count in summary["predicted_label_counts"].items():
         lines.append(f"- `{label}`: {count}")
+    cost = summary.get("cost") or {}
+    if cost:
+        lines.extend(
+            [
+                "",
+                "## Cost (LLM usage)",
+                "",
+                f"- Measured cases: {cost.get('measured_cases', 0)}",
+                f"- mean_llm_calls_per_case: {cost.get('mean_llm_calls_per_case', 0)}",
+                f"- mean_total_tokens_per_case: {cost.get('mean_total_tokens_per_case', 0)}",
+                f"- failed_llm_calls_total: {cost.get('failed_llm_calls_total', 0)}",
+            ]
+        )
     lines.extend(["", "## Cases", ""])
     for result in results:
         mark = "ok" if result.label_pass else "FAIL"

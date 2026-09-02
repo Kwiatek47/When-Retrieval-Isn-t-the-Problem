@@ -1,0 +1,47 @@
+{
+  "summary": {
+    "dataset": "balanced90.json",
+    "backend": "ollama",
+    "hint": "none",
+    "rounds": 1,
+    "fast": false,
+    "cases": 90,
+    "label_accuracy": 0.5222222222222223,
+    "round1_accuracy": 0.5,
+    "biolinkbert_accuracy": null,
+    "unanimous_rate": 0.7111111111111111,
+    "early_exit_rate": 0.0,
+    "mean_latency_ms": 26069.653592556846,
+    "predicted_label_counts": {
+      "yes": 22,
+      "maybe": 45,
+      "no": 23
+    },
+    "per_label_accuracy": {
+      "maybe": 0.5666666666666667,
+      "no": 0.4666666666666667,
+      "yes": 0.5333333333333333
+    },
+    "aggregation": "self_consistency_majority_n8",
+    "architecture": "self_consistency",
+    "supervisor": true,
+    "uncertainty_routing": null,
+    "cost": {
+      "measured_cases": 90,
+      "llm_calls_total": 720,
+      "failed_llm_calls_total": 0,
+      "mean_llm_calls_per_case": 8.0,
+      "mean_prompt_tokens_per_case": 6963.822222222222,
+      "mean_completion_tokens_per_case": 1066.7666666666667,
+      "mean_total_tokens_per_case": 8030.5888888888885
+    },
+    "arm": "self_consistency",
+    "samples": 8,
+    "temperature": 0.7,
+    "sampling_persona": "generalist",
+    "single_sample_accuracy": 0.5,
+    "cost_matched_from": "debate_balanced90_ml4h_v1.json"
+  },
+  "id_count": 90,
+  "note": "Full per-case traces omitted from this pack. Pointer: reports/debate/sc_balanced90_ml4h_v1.json"
+}

@@ -1,0 +1,300 @@
+{
+  "summary": {
+    "dataset": "balanced90.json",
+    "backend": "ollama",
+    "hint": "biolinkbert",
+    "rounds": 2,
+    "fast": false,
+    "cases": 45,
+    "label_accuracy": 0.6222222222222222,
+    "round1_accuracy": 0.6222222222222222,
+    "biolinkbert_accuracy": 0.6444444444444445,
+    "unanimous_rate": 0.5111111111111111,
+    "early_exit_rate": 0.0,
+    "mean_latency_ms": 48892.461607354606,
+    "predicted_label_counts": {
+      "yes": 14,
+      "no": 16,
+      "maybe": 15
+    },
+    "per_label_accuracy": {
+      "maybe": 0.5333333333333333,
+      "no": 0.7333333333333333,
+      "yes": 0.6
+    },
+    "aggregation": "bert_gate+biolinkbert",
+    "architecture": "round_robin_no_supervisor",
+    "supervisor": false,
+    "uncertainty_routing": {
+      "threshold": 0.64,
+      "objective": "macro_f1",
+      "split": 0.5,
+      "seed": 47,
+      "calibration_metrics": {
+        "threshold": 0.64,
+        "accuracy": 0.5777777777777777,
+        "macro_f1": 0.5796068097858379,
+        "maybe_f1": 0.42424242424242425,
+        "balanced_acc": 0.5777777777777778,
+        "maybe_precision": 0.3888888888888889,
+        "maybe_recall": 0.4666666666666667,
+        "source": "calibrated",
+        "calib_n": 45,
+        "report_n": 45
+      },
+      "report_ids": [
+        "pubmedqa-official-10781708",
+        "pubmedqa-official-11146778",
+        "pubmedqa-official-11458136",
+        "pubmedqa-official-11867487",
+        "pubmedqa-official-11955750",
+        "pubmedqa-official-12377809",
+        "pubmedqa-official-12630042",
+        "pubmedqa-official-12805495",
+        "pubmedqa-official-14627582",
+        "pubmedqa-official-14631523",
+        "pubmedqa-official-16538201",
+        "pubmedqa-official-16816043",
+        "pubmedqa-official-16968876",
+        "pubmedqa-official-18041059",
+        "pubmedqa-official-18378554",
+        "pubmedqa-official-18537964",
+        "pubmedqa-official-18568290",
+        "pubmedqa-official-18667100",
+        "pubmedqa-official-18802997",
+        "pubmedqa-official-19100463",
+        "pubmedqa-official-19103915",
+        "pubmedqa-official-19106867",
+        "pubmedqa-official-19142546",
+        "pubmedqa-official-19578820",
+        "pubmedqa-official-20629769",
+        "pubmedqa-official-21726930",
+        "pubmedqa-official-21823940",
+        "pubmedqa-official-22522271",
+        "pubmedqa-official-22540518",
+        "pubmedqa-official-22680064",
+        "pubmedqa-official-22902073",
+        "pubmedqa-official-24336869",
+        "pubmedqa-official-24476003",
+        "pubmedqa-official-24666444",
+        "pubmedqa-official-24669960",
+        "pubmedqa-official-25103647",
+        "pubmedqa-official-25371231",
+        "pubmedqa-official-25394614",
+        "pubmedqa-official-26163474",
+        "pubmedqa-official-26209118",
+        "pubmedqa-official-26370095",
+        "pubmedqa-official-28359277",
+        "pubmedqa-official-8165771",
+        "pubmedqa-official-8921484",
+        "pubmedqa-official-9427037"
+      ],
+      "calib_ids": [
+        "pubmedqa-official-11138995",
+        "pubmedqa-official-11411430",
+        "pubmedqa-official-11570976",
+        "pubmedqa-official-12040336",
+        "pubmedqa-official-12765819",
+        "pubmedqa-official-12790890",
+        "pubmedqa-official-12913878",
+        "pubmedqa-official-12970636",
+        "pubmedqa-official-15041506",
+        "pubmedqa-official-15388567",
+        "pubmedqa-official-15502995",
+        "pubmedqa-official-15995461",
+        "pubmedqa-official-17621202",
+        "pubmedqa-official-17971187",
+        "pubmedqa-official-18019905",
+        "pubmedqa-official-18243752",
+        "pubmedqa-official-18284441",
+        "pubmedqa-official-18496363",
+        "pubmedqa-official-18714572",
+        "pubmedqa-official-19130332",
+        "pubmedqa-official-19468282",
+        "pubmedqa-official-20197761",
+        "pubmedqa-official-20971618",
+        "pubmedqa-official-21214884",
+        "pubmedqa-official-21342862",
+        "pubmedqa-official-21481154",
+        "pubmedqa-official-21645374",
+        "pubmedqa-official-21850494",
+        "pubmedqa-official-22668852",
+        "pubmedqa-official-22758782",
+        "pubmedqa-official-24073931",
+        "pubmedqa-official-24352924",
+        "pubmedqa-official-24481006",
+        "pubmedqa-official-24577079",
+        "pubmedqa-official-25079920",
+        "pubmedqa-official-25475395",
+        "pubmedqa-official-25571931",
+        "pubmedqa-official-25793749",
+        "pubmedqa-official-25887165",
+        "pubmedqa-official-26708803",
+        "pubmedqa-official-26778755",
+        "pubmedqa-official-27281318",
+        "pubmedqa-official-27642458",
+        "pubmedqa-official-7547656",
+        "pubmedqa-official-9465206"
+      ],
+      "risk_coverage": {
+        "points": [
+          {
+            "threshold": 0.0,
+            "coverage": 0.0,
+            "selective_accuracy": 1.0,
+            "risk": 0.0
+          },
+          {
+            "threshold": 0.02,
+            "coverage": 0.044444444444444446,
+            "selective_accuracy": 0.5,
+            "risk": 0.5
+          },
+          {
+            "threshold": 0.02163408331891021,
+            "coverage": 0.08888888888888889,
+            "selective_accuracy": 0.5,
+            "risk": 0.5
+          },
+          {
+            "threshold": 0.034495051818655906,
+            "coverage": 0.15555555555555556,
+            "selective_accuracy": 0.42857142857142855,
+            "risk": 0.5714285714285714
+          },
+          {
+            "threshold": 0.0546345317518773,
+            "coverage": 0.2,
+            "selective_accuracy": 0.4444444444444444,
+            "risk": 0.5555555555555556
+          },
+          {
+            "threshold": 0.26579814085714976,
+            "coverage": 0.24444444444444444,
+            "selective_accuracy": 0.45454545454545453,
+            "risk": 0.5454545454545454
+          },
+          {
+            "threshold": 0.35023277875469666,
+            "coverage": 0.28888888888888886,
+            "selective_accuracy": 0.46153846153846156,
+            "risk": 0.5384615384615384
+          },
+          {
+            "threshold": 0.3944950518186559,
+            "coverage": 0.3333333333333333,
+            "selective_accuracy": 0.5333333333333333,
+            "risk": 0.4666666666666667
+          },
+          {
+            "threshold": 0.42130119841854397,
+            "coverage": 0.4,
+            "selective_accuracy": 0.5555555555555556,
+            "risk": 0.4444444444444444
+          },
+          {
+            "threshold": 0.4283007499855769,
+            "coverage": 0.4444444444444444,
+            "selective_accuracy": 0.6,
+            "risk": 0.4
+          },
+          {
+            "threshold": 0.45276232041415176,
+            "coverage": 0.4888888888888889,
+            "selective_accuracy": 0.6363636363636364,
+            "risk": 0.36363636363636365
+          },
+          {
+            "threshold": 0.4679706537474851,
+            "coverage": 0.5333333333333333,
+            "selective_accuracy": 0.625,
+            "risk": 0.375
+          },
+          {
+            "threshold": 0.5615988908427266,
+            "coverage": 0.5555555555555556,
+            "selective_accuracy": 0.64,
+            "risk": 0.36
+          },
+          {
+            "threshold": 0.62,
+            "coverage": 0.6444444444444445,
+            "selective_accuracy": 0.6551724137931034,
+            "risk": 0.3448275862068966
+          },
+          {
+            "threshold": 0.6483007499855769,
+            "coverage": 0.6888888888888889,
+            "selective_accuracy": 0.6451612903225806,
+            "risk": 0.3548387096774194
+          },
+          {
+            "threshold": 0.66,
+            "coverage": 0.7333333333333333,
+            "selective_accuracy": 0.6060606060606061,
+            "risk": 0.3939393939393939
+          },
+          {
+            "threshold": 0.6666666666666666,
+            "coverage": 0.7777777777777778,
+            "selective_accuracy": 0.6285714285714286,
+            "risk": 0.37142857142857144
+          },
+          {
+            "threshold": 0.67,
+            "coverage": 0.8222222222222222,
+            "selective_accuracy": 0.6216216216216216,
+            "risk": 0.3783783783783784
+          },
+          {
+            "threshold": 0.6946345317518773,
+            "coverage": 0.8666666666666667,
+            "selective_accuracy": 0.6410256410256411,
+            "risk": 0.3589743589743589
+          },
+          {
+            "threshold": 0.7083007499855769,
+            "coverage": 0.8888888888888888,
+            "selective_accuracy": 0.625,
+            "risk": 0.375
+          },
+          {
+            "threshold": 0.7183007499855769,
+            "coverage": 0.9111111111111111,
+            "selective_accuracy": 0.6097560975609756,
+            "risk": 0.3902439024390244
+          },
+          {
+            "threshold": 1.0,
+            "coverage": 0.9111111111111111,
+            "selective_accuracy": 0.6097560975609756,
+            "risk": 0.3902439024390244
+          }
+        ],
+        "aurc": 0.385895590393655
+      },
+      "reported_on": "held_out_split",
+      "routed_to_maybe_count": 15,
+      "base_label_accuracy": 0.6444444444444445
+    },
+    "cost": {
+      "measured_cases": 90,
+      "llm_calls_total": 720,
+      "failed_llm_calls_total": 0,
+      "mean_llm_calls_per_case": 8.0,
+      "mean_prompt_tokens_per_case": 9464.566666666668,
+      "mean_completion_tokens_per_case": 1168.6,
+      "mean_total_tokens_per_case": 10633.166666666666
+    }
+  },
+  "id_count": 90,
+  "note": "Full per-case traces omitted from this pack. Pointer: reports/debate/debate_balanced90_ml4h_v1.json",
+  "warning": "summary.label_accuracy 0.622 is routed held-out n=45, NOT primary. Primary apples-to-apples is in apples_to_apples_ml4h_v1.json: ungated debate = BERT = 0.656 on n=90, 8.0 LLM calls.",
+  "primary": {
+    "metric": "ungated bert_gate on all 90 IDs",
+    "accuracy": 0.6555555555555556,
+    "correct": 59,
+    "n": 90,
+    "source": "apples_to_apples_ml4h_v1.json"
+  }
+}

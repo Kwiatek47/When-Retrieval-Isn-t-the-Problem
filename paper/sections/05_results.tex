@@ -1,0 +1,140 @@
+\section{Results}
+\label{sec:results}
+
+\paragraph{Retrieval $\neq$ decision.}
+Figure~\ref{fig:stages} separates the stages on
+PQA-L $500$. Hit@1 is $1$ iff the gold source PMID --- the PubMedQA
+source abstract the question was written from --- is the top-1 hit in
+the official $500$-abstract corpus; citation-support passes iff every
+inline $[S\#]$ cites a retrieved document in canonical form (structural
+validation, not claim-level entailment). Hit@1 $=$ hit@3 $=0.980$
+$[0.968,0.992]$; citation-support is $1.000$. That near-ceiling is
+expected on this construction; the decision is the gap. Headline
+BioLinkBERT accuracy is $0.726$ $[0.688,0.764]$ on $n{=}500$ (LLM judge
+on the same run: $0.536$; hit@1 unchanged), not the diagnostic-split
+$0.656$ $[0.556,0.744]$ on \texttt{balanced90}. The intervals do not
+overlap retrieval. \maybe{} recall is $0.073$ $[0.018,0.145]$: only
+$23/500$ predicted \maybe{} against $55$ gold ($26$ collapsed to
+\yes{}, $25$ to \no{}). On \texttt{balanced90} the same checkpoint has
+\maybe{} recall $0.133$ ($4/30$). The evidence is found; it does not
+decide the question.
+
+\paragraph{Compute-matched debate vs.\ SC, same $90$ IDs.}
+Table~\ref{tab:stages} is the inviolable comparison. Ungated debate
+(\texttt{bert\_gate}, \texttt{qwen2.5:7b}, frozen abstract) is
+identical to BioLinkBERT: $0.656$ $[0.556,0.744]$ ($59/90$),
+$0$ discordant pairs, McNemar $p{=}1$, \maybe{} recall $0.133$. We
+report that collapse, not a second competing system. The panel without
+the gate --- round-1 majority vote, no BioLinkBERT --- is $0.567$
+$[0.467,0.667]$ ($51/90$) on the same IDs. Compute-matched SC ($N{=}8$,
+$8.0$ LLM calls/case, $T{=}0.7$ vs.\ debate $T{=}0.3$) is $0.522$
+$[0.422,0.622]$ ($47/90$); its higher \maybe{} recall $0.567$ ($17/30$)
+comes from over-predicting \maybe{} ($45/90$). Matched $8$ calls,
+debate still spends ${\sim}10.6$k tokens/case versus SC ${\sim}8.0$k
+--- no accuracy win over BERT on the same $90$ IDs. McNemar exact
+$p{=}0.088$ (debate vs.\ SC; $27$ vs.\ $15$ discordant) is a
+point-estimate gap only. Routing is not primary: on the held-out $45$ it drops ungated
+$0.644$ to $0.622$ (SC on those IDs is $0.533$). $95\%$ CIs on
+$n{=}90$ are case-level bootstrap ($5000$ resamples, seed $47$) from
+the per-case labels in the two JSON reports.
+
+\begin{table}[t]
+\centering
+\caption{Decision accuracy. Headline BioLinkBERT is $0.726$ on PQA-L $500$.
+Apples-to-apples rows share the same $90$ IDs, frozen abstract,
+\texttt{qwen2.5:7b}. Debate ungated is \texttt{bert\_gate} --- identical
+to BERT, not a second system. Panel maj.\ is round-1 majority without
+BERT. $n{=}90$ CIs: case bootstrap, $5000$ resamples, seed $47$.
+Routed held-out $n{=}45$ accuracy $0.622$ is \emph{not} primary.$^\dagger$}
+\label{tab:stages}
+{\scriptsize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+System & Acc. & $95\%$ CI & $n$ & Calls \\
+\midrule
+BERT (PQA-L $500$) & $0.726$ & $[0.688,0.764]$ & $500$ & --- \\
+BERT (bal.\ $90$) & $0.656$ & $[0.556,0.744]$ & $90$ & --- \\
+Debate ungated & $0.656$ & $[0.556,0.744]$ & $90$ & $8.0$ \\
+Panel maj.\ (no BERT) & $0.567$ & $[0.467,0.667]$ & $90$ & $8.0$ \\
+SC ($N{=}8$) & $0.522$ & $[0.422,0.622]$ & $90$ & $8.0$ \\
+\bottomrule
+\end{tabular}}
+\\[0.25em]
+{\scriptsize $^\dagger$Routed debate on held-out $45$: $0.622$ (drop from
+ungated $0.644$ on those IDs; SC $0.533$). McNemar debate vs.\ BERT: $0$
+discordant, $p{=}1$. Debate vs.\ SC: $p{=}0.088$ --- point estimate only.}
+\end{table}
+
+\paragraph{No uncertainty signal beats chance.}
+Figure~\ref{fig:forest} collects \maybe{}-vs-rest AUROC on
+\texttt{balanced90}. Point estimates sit in $0.46$--$0.62$. Nine
+headline signals are reported ($u$-score, four generative audits,
+DeBERTa-NLI, two gold-conclusion oracles, plus the NLI oracle). Eight of
+nine $95\%$ CIs include $0.5$, including \texttt{gpt-5} ($0.554$
+$[0.429,0.678]$) and DeBERTa-NLI ($0.497$ $[0.363,0.632]$). The only
+interval that clears $0.5$ is the \texttt{qwen2.5:14b} gold-conclusion
+oracle ($0.622$ $[0.501,0.737]$), and it barely does. The
+\texttt{gpt-5} oracle is $0.592$ $[0.463,0.714]$ --- still chance.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/auroc_forest.pdf}
+  \caption{\maybe{}-vs-rest AUROC, \texttt{balanced90}, $5000$ bootstrap
+  resamples (seed $47$). Grey: CI includes $0.5$. Navy: sole interval
+  that excludes chance (\texttt{qwen2.5:14b} gold-conclusion oracle).
+  Eight of nine headline CIs include $0.5$. Source: supplemental
+  \texttt{statistics.json}.}
+  \label{fig:forest}
+\end{figure}
+
+\paragraph{Official annotator beats models; the residual is partly irreducible.}
+Official single-annotator predictions (C3) on \texttt{balanced90}:
+\maybe{} recall $0.60$ (accuracy $0.800$, $\kappa{=}0.70$) versus
+$\approx 0.00$ for every model signal. Difference $0.60$, $95\%$ CI
+$[0.43,0.77]$, permutation $p{=}0.0002$. Giving C3 the gold
+\texttt{long\_answer} lowers overall accuracy $0.800{\to}0.711$ while
+\maybe{} recall only moves $0.60{\to}0.63$.
+
+\paragraph{Routing is unstable; selective prediction still pays.}
+Seven-seed routing (macro-$F_1$) yields accuracy $0.587\pm 0.075$ and
+\maybe{} recall $0.257\pm 0.144$ (range $[0.067,0.467]$). The spread is
+evidence that the signal is too weak to tune. Nonetheless the
+risk--coverage AURC is $0.311$ (Figure~\ref{fig:risk}). No random or
+BERT-confidence AURC is in the released analysis files, so $0.311$ is
+unanchored as a ranker comparison; we treat always-answer expected cost
+$0.356$ ($n{=}90$) as the operating-point anchor. Unconstrained cost
+optimisation degenerates to abstain-on-everything. The constrained
+point --- answer at least half of cases --- cuts expected cost from
+$0.356$ to $0.297$ ($-16.4\%$) at $52\%$ coverage
+(Table~\ref{tab:cost}). Always-answer $0.356$ is not
+$1-0.656{=}0.344$: a predicted \maybe{} is charged as abstention
+($0.25$), so $31$ errors and $4$ correct \maybe{}s give
+$(31{+}1)/90{=}0.356$.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/risk_coverage.pdf}
+  \caption{Risk--coverage for the routed \uscore{} on \texttt{balanced90}
+  ($n{=}90$). AURC $0.311$ (no ranker baseline in the released files).
+  The usable operating point is constrained $\ge 50\%$ coverage
+  (Table~\ref{tab:cost}), not unconstrained abstain-all.}
+  \label{fig:risk}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Cost-sensitive selective prediction on $n{=}90$
+(wrong${=}1.0$, abstain${=}0.25$). A predicted \maybe{} costs $0.25$,
+so always-answer is $0.356$, not the $0$-$1$ error rate $0.344$.}
+\label{tab:cost}
+{\scriptsize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Point & Cost & Abstain & $n$ & vs always \\
+\midrule
+Always answer & $0.356$ & $0\%$ & $90$ & --- \\
+Unconst.\ opt. & $0.250$ & $100\%$ & $90$ & $-29.7\%$ (deg.) \\
+$\ge 50\%$ cov. & $0.297$ & $48\%$ & $90$ & $\mathbf{-16.4\%}$ \\
+\bottomrule
+\end{tabular}}
+\end{table}

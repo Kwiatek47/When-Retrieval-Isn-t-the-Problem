@@ -1,4 +1,16 @@
 {
+  "audit_gpt5_balanced90": {
+    "audit_score": 0.5544,
+    "supported": 0.4944,
+    "refuted": 0.5108,
+    "silent": 0.5017
+  },
+  "audit_gpt5_oracle_balanced90": {
+    "audit_score": 0.5917,
+    "supported": 0.4117,
+    "refuted": 0.3692,
+    "silent": 0.6439
+  },
   "audit_qwen14b_balanced90": {
     "audit_score": 0.5178,
     "supported": 0.5556,
