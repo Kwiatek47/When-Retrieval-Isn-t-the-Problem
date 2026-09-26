@@ -1,0 +1,1371 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "runs_without_conclusiveness": {
+    "debate_balanced90_mock_r3": "no per-agent evidence_conclusiveness",
+    "demo_mock_r3": "no per-agent evidence_conclusiveness"
+  },
+  "arms": {
+    "arm_anchor_only": {
+      "aggregation_rules": [
+        "majority"
+      ],
+      "rounds_run": [
+        2
+      ],
+      "overall_accuracy": {
+        "mean": 0.6556,
+        "ci_low": 0.5556,
+        "ci_high": 0.7444,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          4
+        ],
+        "agents_returning_a_verdict_per_case": [
+          4
+        ],
+        "n_any_inconclusive": 82,
+        "n_all_inconclusive": 1,
+        "n_committed_confidently_despite_flag": 78,
+        "share_of_flagged_that_still_commit": 0.9512,
+        "n_unanimous_flag_but_confident": 0,
+        "n_gold_maybe_flagged_but_committed": 23,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 39,
+          "no": 47,
+          "maybe": 4
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "no": 4,
+            "yes": 4
+          },
+          "some_inconclusive": {
+            "yes": 35,
+            "no": 43,
+            "maybe": 3
+          },
+          "all_inconclusive": {
+            "maybe": 1
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "differential_expander": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0444,
+              "ci_low": 0.0111,
+              "ci_high": 0.0889,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5667,
+              "ci_low": 0.5167,
+              "ci_high": 0.6333,
+              "brackets_chance": false
+            }
+          },
+          "evidence_skeptic": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0222,
+              "ci_low": 0.0,
+              "ci_high": 0.0556,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5083,
+              "ci_low": 0.475,
+              "ci_high": 0.55,
+              "brackets_chance": true
+            }
+          },
+          "generalist": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0444,
+              "ci_low": 0.0111,
+              "ci_high": 0.0889,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5667,
+              "ci_low": 0.5167,
+              "ci_high": 0.6333,
+              "brackets_chance": false
+            }
+          },
+          "uncertainty_advocate": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.9111,
+              "ci_low": 0.8444,
+              "ci_high": 0.9667,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.4917,
+              "ci_low": 0.425,
+              "ci_high": 0.55,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.8889,
+        "max_rate_agent": "uncertainty_advocate"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.625,
+          "ci_low": 0.25,
+          "ci_high": 0.875,
+          "n": 8
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.6585,
+          "ci_low": 0.5488,
+          "ci_high": 0.7561,
+          "n": 82
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": 0.0335,
+          "ci_low": -0.2927,
+          "ci_high": 0.3963,
+          "brackets_zero": true
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.5464,
+            "ci_low": 0.4539,
+            "ci_high": 0.6367,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.5464,
+            "ci_low": 0.4539,
+            "ci_high": 0.6367,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5667,
+            "ci_low": 0.5167,
+            "ci_high": 0.6333,
+            "brackets_chance": false
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.6761,
+            "ci_low": 0.5508,
+            "ci_high": 0.7894,
+            "brackets_chance": false
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": -0.0203,
+          "ci_low": -0.0856,
+          "ci_high": 0.0386,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0203,
+            "ci_low": -0.0844,
+            "ci_high": 0.0361,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0203,
+            "ci_low": -0.0856,
+            "ci_high": 0.0383,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.1094,
+            "ci_low": -0.0047,
+            "ci_high": 0.2194,
+            "brackets_zero": true
+          }
+        }
+      }
+    },
+    "arm_bertgate": {
+      "aggregation_rules": [
+        "bert_gate",
+        "bert_weighted_uncertain",
+        "panel_maybe_veto"
+      ],
+      "rounds_run": [
+        2
+      ],
+      "overall_accuracy": {
+        "mean": 0.6556,
+        "ci_low": 0.5556,
+        "ci_high": 0.7556,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          4
+        ],
+        "agents_returning_a_verdict_per_case": [
+          4
+        ],
+        "n_any_inconclusive": 80,
+        "n_all_inconclusive": 2,
+        "n_committed_confidently_despite_flag": 76,
+        "share_of_flagged_that_still_commit": 0.95,
+        "n_unanimous_flag_but_confident": 0,
+        "n_gold_maybe_flagged_but_committed": 22,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 39,
+          "no": 47,
+          "maybe": 4
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "no": 6,
+            "yes": 4
+          },
+          "some_inconclusive": {
+            "yes": 35,
+            "no": 41,
+            "maybe": 2
+          },
+          "all_inconclusive": {
+            "maybe": 2
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "differential_expander": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0333,
+              "ci_low": 0.0,
+              "ci_high": 0.0778,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.55,
+              "ci_low": 0.5,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          },
+          "evidence_skeptic": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0556,
+              "ci_low": 0.0111,
+              "ci_high": 0.1111,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5583,
+              "ci_low": 0.5,
+              "ci_high": 0.625,
+              "brackets_chance": true
+            }
+          },
+          "generalist": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0556,
+              "ci_low": 0.0111,
+              "ci_high": 0.1111,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5833,
+              "ci_low": 0.5167,
+              "ci_high": 0.65,
+              "brackets_chance": false
+            }
+          },
+          "uncertainty_advocate": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.8889,
+              "ci_low": 0.8222,
+              "ci_high": 0.9444,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.4833,
+              "ci_low": 0.4083,
+              "ci_high": 0.55,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.8556,
+        "max_rate_agent": "uncertainty_advocate"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.6,
+          "ci_low": 0.3,
+          "ci_high": 0.9,
+          "n": 10
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.6625,
+          "ci_low": 0.5625,
+          "ci_high": 0.7625,
+          "n": 80
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": 0.0625,
+          "ci_low": -0.2625,
+          "ci_high": 0.4,
+          "brackets_zero": true
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.5672,
+            "ci_low": 0.4655,
+            "ci_high": 0.6683,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.5522,
+            "ci_low": 0.4528,
+            "ci_high": 0.6506,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5667,
+            "ci_low": 0.5167,
+            "ci_high": 0.6333,
+            "brackets_chance": false
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.6836,
+            "ci_low": 0.5572,
+            "ci_high": 0.8047,
+            "brackets_chance": false
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": 0.0006,
+          "ci_low": -0.0819,
+          "ci_high": 0.0822,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0006,
+            "ci_low": -0.0839,
+            "ci_high": 0.0781,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0144,
+            "ci_low": -0.0917,
+            "ci_high": 0.0583,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.1169,
+            "ci_low": -0.0086,
+            "ci_high": 0.2403,
+            "brackets_zero": true
+          }
+        }
+      }
+    },
+    "arm_clean": {
+      "aggregation_rules": [
+        "majority"
+      ],
+      "rounds_run": [
+        2
+      ],
+      "overall_accuracy": {
+        "mean": 0.5556,
+        "ci_low": 0.4556,
+        "ci_high": 0.6556,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          4
+        ],
+        "agents_returning_a_verdict_per_case": [
+          4
+        ],
+        "n_any_inconclusive": 82,
+        "n_all_inconclusive": 18,
+        "n_committed_confidently_despite_flag": 59,
+        "share_of_flagged_that_still_commit": 0.7195,
+        "n_unanimous_flag_but_confident": 2,
+        "n_gold_maybe_flagged_but_committed": 17,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 34,
+          "no": 33,
+          "maybe": 23
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "no": 5,
+            "yes": 3
+          },
+          "some_inconclusive": {
+            "yes": 31,
+            "no": 26,
+            "maybe": 7
+          },
+          "all_inconclusive": {
+            "no": 2,
+            "maybe": 16
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "differential_expander": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3556,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.55,
+              "ci_low": 0.45,
+              "ci_high": 0.65,
+              "brackets_chance": true
+            }
+          },
+          "evidence_skeptic": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2333,
+              "ci_low": 0.1444,
+              "ci_high": 0.3222,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.55,
+              "ci_low": 0.4583,
+              "ci_high": 0.6417,
+              "brackets_chance": true
+            }
+          },
+          "generalist": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.3,
+              "ci_low": 0.2111,
+              "ci_high": 0.4,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.525,
+              "ci_low": 0.425,
+              "ci_high": 0.625,
+              "brackets_chance": true
+            }
+          },
+          "uncertainty_advocate": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.9111,
+              "ci_low": 0.8444,
+              "ci_high": 0.9667,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.4917,
+              "ci_low": 0.425,
+              "ci_high": 0.55,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.6778,
+        "max_rate_agent": "uncertainty_advocate"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.5,
+          "ci_low": 0.125,
+          "ci_high": 0.875,
+          "n": 8
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.561,
+          "ci_low": 0.4512,
+          "ci_high": 0.6707,
+          "n": 82
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": 0.061,
+          "ci_low": -0.3018,
+          "ci_high": 0.4116,
+          "brackets_zero": true
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.54,
+            "ci_low": 0.4233,
+            "ci_high": 0.655,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.5425,
+            "ci_low": 0.4281,
+            "ci_high": 0.6575,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5583,
+            "ci_low": 0.4583,
+            "ci_high": 0.6583,
+            "brackets_chance": true
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.5689,
+            "ci_low": 0.4467,
+            "ci_high": 0.6878,
+            "brackets_chance": true
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": -0.0183,
+          "ci_low": -0.0828,
+          "ci_high": 0.0472,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0183,
+            "ci_low": -0.0842,
+            "ci_high": 0.0458,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0158,
+            "ci_low": -0.0731,
+            "ci_high": 0.0395,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.0106,
+            "ci_low": -0.0714,
+            "ci_high": 0.0942,
+            "brackets_zero": true
+          }
+        }
+      }
+    },
+    "arm_sc": {
+      "aggregation_rules": [
+        "self_consistency_majority_n9"
+      ],
+      "rounds_run": [
+        1
+      ],
+      "overall_accuracy": {
+        "mean": 0.5,
+        "ci_low": 0.4,
+        "ci_high": 0.6111,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          9
+        ],
+        "agents_returning_a_verdict_per_case": [
+          9
+        ],
+        "n_any_inconclusive": 34,
+        "n_all_inconclusive": 11,
+        "n_committed_confidently_despite_flag": 13,
+        "share_of_flagged_that_still_commit": 0.3824,
+        "n_unanimous_flag_but_confident": 0,
+        "n_gold_maybe_flagged_but_committed": 6,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 39,
+          "maybe": 21,
+          "no": 30
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "yes": 36,
+            "no": 20
+          },
+          "some_inconclusive": {
+            "maybe": 10,
+            "no": 10,
+            "yes": 3
+          },
+          "all_inconclusive": {
+            "maybe": 11
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "sample_01": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2889,
+              "ci_low": 0.2,
+              "ci_high": 0.3781,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5083,
+              "ci_low": 0.4083,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_02": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2444,
+              "ci_low": 0.1556,
+              "ci_high": 0.3333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5167,
+              "ci_low": 0.425,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          },
+          "sample_03": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2444,
+              "ci_low": 0.1556,
+              "ci_high": 0.3333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5167,
+              "ci_low": 0.425,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_04": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3556,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.475,
+              "ci_low": 0.375,
+              "ci_high": 0.575,
+              "brackets_chance": true
+            }
+          },
+          "sample_05": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3556,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.525,
+              "ci_low": 0.425,
+              "ci_high": 0.625,
+              "brackets_chance": true
+            }
+          },
+          "sample_06": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2333,
+              "ci_low": 0.1444,
+              "ci_high": 0.3222,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.475,
+              "ci_low": 0.3833,
+              "ci_high": 0.5667,
+              "brackets_chance": true
+            }
+          },
+          "sample_07": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2444,
+              "ci_low": 0.1556,
+              "ci_high": 0.3333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5167,
+              "ci_low": 0.425,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_08": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2556,
+              "ci_low": 0.1667,
+              "ci_high": 0.3444,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5083,
+              "ci_low": 0.4083,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_09": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2778,
+              "ci_low": 0.1889,
+              "ci_high": 0.3667,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5167,
+              "ci_low": 0.4167,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.0556,
+        "max_rate_agent": "sample_01"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.625,
+          "ci_low": 0.5,
+          "ci_high": 0.75,
+          "n": 56
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.2941,
+          "ci_low": 0.1471,
+          "ci_high": 0.4412,
+          "n": 34
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": -0.3309,
+          "ci_low": -0.5263,
+          "ci_high": -0.1291,
+          "brackets_zero": false
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.5336,
+            "ci_low": 0.4233,
+            "ci_high": 0.6458,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.5433,
+            "ci_low": 0.4308,
+            "ci_high": 0.6561,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5,
+            "ci_low": 0.4083,
+            "ci_high": 0.6,
+            "brackets_chance": true
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.5581,
+            "ci_low": 0.4353,
+            "ci_high": 0.6845,
+            "brackets_chance": true
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": 0.0336,
+          "ci_low": -0.027,
+          "ci_high": 0.1003,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0336,
+            "ci_low": -0.0294,
+            "ci_high": 0.0986,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0433,
+            "ci_low": -0.0144,
+            "ci_high": 0.1072,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.0581,
+            "ci_low": -0.0278,
+            "ci_high": 0.1419,
+            "brackets_zero": true
+          }
+        }
+      }
+    },
+    "arm_sc_temp03": {
+      "aggregation_rules": [
+        "self_consistency_majority_n9"
+      ],
+      "rounds_run": [
+        1
+      ],
+      "overall_accuracy": {
+        "mean": 0.5111,
+        "ci_low": 0.4111,
+        "ci_high": 0.6111,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          9
+        ],
+        "agents_returning_a_verdict_per_case": [
+          9
+        ],
+        "n_any_inconclusive": 30,
+        "n_all_inconclusive": 18,
+        "n_committed_confidently_despite_flag": 8,
+        "share_of_flagged_that_still_commit": 0.2667,
+        "n_unanimous_flag_but_confident": 1,
+        "n_gold_maybe_flagged_but_committed": 3,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 40,
+          "maybe": 22,
+          "no": 28
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "yes": 38,
+            "no": 22
+          },
+          "some_inconclusive": {
+            "maybe": 5,
+            "no": 5,
+            "yes": 2
+          },
+          "all_inconclusive": {
+            "maybe": 17,
+            "no": 1
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "sample_01": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2889,
+              "ci_low": 0.2,
+              "ci_high": 0.3778,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5083,
+              "ci_low": 0.4083,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_02": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3667,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5,
+              "ci_low": 0.4083,
+              "ci_high": 0.5917,
+              "brackets_chance": true
+            }
+          },
+          "sample_03": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2778,
+              "ci_low": 0.1889,
+              "ci_high": 0.3778,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5167,
+              "ci_low": 0.4167,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          },
+          "sample_04": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2556,
+              "ci_low": 0.1667,
+              "ci_high": 0.3444,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5083,
+              "ci_low": 0.4167,
+              "ci_high": 0.6083,
+              "brackets_chance": true
+            }
+          },
+          "sample_05": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2333,
+              "ci_low": 0.1444,
+              "ci_high": 0.3222,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5,
+              "ci_low": 0.4083,
+              "ci_high": 0.6,
+              "brackets_chance": true
+            }
+          },
+          "sample_06": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2333,
+              "ci_low": 0.1444,
+              "ci_high": 0.3222,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5,
+              "ci_low": 0.4083,
+              "ci_high": 0.5917,
+              "brackets_chance": true
+            }
+          },
+          "sample_07": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3556,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5,
+              "ci_low": 0.4,
+              "ci_high": 0.6,
+              "brackets_chance": true
+            }
+          },
+          "sample_08": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2444,
+              "ci_low": 0.1556,
+              "ci_high": 0.3333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.4917,
+              "ci_low": 0.4,
+              "ci_high": 0.5833,
+              "brackets_chance": true
+            }
+          },
+          "sample_09": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.2667,
+              "ci_low": 0.1778,
+              "ci_high": 0.3667,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.525,
+              "ci_low": 0.425,
+              "ci_high": 0.625,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.0556,
+        "max_rate_agent": "sample_01"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.5833,
+          "ci_low": 0.45,
+          "ci_high": 0.7,
+          "n": 60
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.3667,
+          "ci_low": 0.2,
+          "ci_high": 0.5333,
+          "n": 30
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": -0.2167,
+          "ci_low": -0.4333,
+          "ci_high": 0.0,
+          "brackets_zero": true
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.5181,
+            "ci_low": 0.415,
+            "ci_high": 0.6236,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.5278,
+            "ci_low": 0.4242,
+            "ci_high": 0.6328,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5167,
+            "ci_low": 0.425,
+            "ci_high": 0.6083,
+            "brackets_chance": true
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.5747,
+            "ci_low": 0.4533,
+            "ci_high": 0.6945,
+            "brackets_chance": true
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": 0.0014,
+          "ci_low": -0.0461,
+          "ci_high": 0.0536,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0014,
+            "ci_low": -0.0464,
+            "ci_high": 0.0561,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0111,
+            "ci_low": -0.0333,
+            "ci_high": 0.0608,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.0581,
+            "ci_low": -0.022,
+            "ci_high": 0.1411,
+            "brackets_zero": true
+          }
+        }
+      }
+    },
+    "debate_balanced90_ollama_r2_bertgate_2gpu": {
+      "aggregation_rules": [
+        "bert_gate",
+        "bert_weighted_uncertain"
+      ],
+      "rounds_run": [
+        2
+      ],
+      "overall_accuracy": {
+        "mean": 0.6556,
+        "ci_low": 0.5556,
+        "ci_high": 0.7556,
+        "n": 90
+      },
+      "contradiction": {
+        "n_cases": 90,
+        "agents_per_case": [
+          4
+        ],
+        "agents_returning_a_verdict_per_case": [
+          4
+        ],
+        "n_any_inconclusive": 50,
+        "n_all_inconclusive": 3,
+        "n_committed_confidently_despite_flag": 46,
+        "share_of_flagged_that_still_commit": 0.92,
+        "n_unanimous_flag_but_confident": 0,
+        "n_gold_maybe_flagged_but_committed": 15,
+        "n_gold_maybe": 30,
+        "emitted_label_distribution": {
+          "yes": 39,
+          "no": 47,
+          "maybe": 4
+        },
+        "emitted_by_flag": {
+          "all_conclusive": {
+            "yes": 20,
+            "no": 20
+          },
+          "some_inconclusive": {
+            "no": 27,
+            "yes": 19,
+            "maybe": 1
+          },
+          "all_inconclusive": {
+            "maybe": 3
+          }
+        }
+      },
+      "per_agent_flag": {
+        "per_agent": {
+          "differential_expander": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0778,
+              "ci_low": 0.0333,
+              "ci_high": 0.1333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.5417,
+              "ci_low": 0.4833,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          },
+          "evidence_skeptic": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0778,
+              "ci_low": 0.0222,
+              "ci_high": 0.1333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.6167,
+              "ci_low": 0.55,
+              "ci_high": 0.7,
+              "brackets_chance": false
+            }
+          },
+          "generalist": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.0667,
+              "ci_low": 0.0222,
+              "ci_high": 0.1222,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.55,
+              "ci_low": 0.4917,
+              "ci_high": 0.6167,
+              "brackets_chance": true
+            }
+          },
+          "uncertainty_advocate": {
+            "n_rated": 90,
+            "inconclusive_rate": {
+              "mean": 0.5333,
+              "ci_low": 0.4333,
+              "ci_high": 0.6333,
+              "n": 90
+            },
+            "auroc_vs_gold_maybe": {
+              "auroc": 0.55,
+              "ci_low": 0.4417,
+              "ci_high": 0.6583,
+              "brackets_chance": true
+            }
+          }
+        },
+        "rate_spread": 0.4666,
+        "max_rate_agent": "uncertainty_advocate"
+      },
+      "discarded_error_detector": {
+        "accuracy_when_all_agents_conclusive": {
+          "mean": 0.675,
+          "ci_low": 0.525,
+          "ci_high": 0.825,
+          "n": 40
+        },
+        "accuracy_when_any_agent_inconclusive": {
+          "mean": 0.64,
+          "ci_low": 0.5,
+          "ci_high": 0.78,
+          "n": 50
+        },
+        "accuracy_delta_flagged_minus_clean": {
+          "value": -0.035,
+          "ci_low": -0.225,
+          "ci_high": 0.16,
+          "brackets_zero": true
+        }
+      },
+      "discarded_maybe_detector": {
+        "n_pos": 30,
+        "n_neg": 60,
+        "n_boot": 5000,
+        "per_predictor": {
+          "inconclusive_fraction": {
+            "auroc": 0.5944,
+            "ci_low": 0.478,
+            "ci_high": 0.7145,
+            "brackets_chance": true
+          },
+          "agent_maybe_fraction": {
+            "auroc": 0.56,
+            "ci_low": 0.4397,
+            "ci_high": 0.6795,
+            "brackets_chance": true
+          },
+          "emitted_maybe": {
+            "auroc": 0.5667,
+            "ci_low": 0.5167,
+            "ci_high": 0.6333,
+            "brackets_chance": false
+          },
+          "one_minus_mean_confidence": {
+            "auroc": 0.65,
+            "ci_low": 0.5305,
+            "ci_high": 0.765,
+            "brackets_chance": false
+          }
+        },
+        "delta": {
+          "reference": "inconclusive_fraction",
+          "comparison": "emitted_maybe",
+          "value": 0.0278,
+          "ci_low": -0.0761,
+          "ci_high": 0.1328,
+          "brackets_zero": true
+        },
+        "deltas_vs_emitted": {
+          "inconclusive_fraction": {
+            "reference": "inconclusive_fraction",
+            "comparison": "emitted_maybe",
+            "value": 0.0278,
+            "ci_low": -0.0758,
+            "ci_high": 0.1267,
+            "brackets_zero": true
+          },
+          "agent_maybe_fraction": {
+            "reference": "agent_maybe_fraction",
+            "comparison": "emitted_maybe",
+            "value": -0.0067,
+            "ci_low": -0.1111,
+            "ci_high": 0.1003,
+            "brackets_zero": true
+          },
+          "one_minus_mean_confidence": {
+            "reference": "one_minus_mean_confidence",
+            "comparison": "emitted_maybe",
+            "value": 0.0833,
+            "ci_low": -0.0439,
+            "ci_high": 0.2045,
+            "brackets_zero": true
+          }
+        }
+      }
+    }
+  },
+  "qualitative_sample": {
+    "n_rows": 30,
+    "path": "reports/debate/analysis/rq3_qualitative_sample.csv",
+    "selection": "gold `maybe`, at least one agent flagged inconclusive, system answered yes/no",
+    "note": null
+  }
+}
