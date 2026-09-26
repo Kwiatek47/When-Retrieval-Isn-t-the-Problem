@@ -27,7 +27,7 @@ CORPORA_REGISTRY ?= scripts/data/corpora/registry.json
 CORPORA ?=
 CORPORA_ARG := $(if $(CORPORA),--corpora $(CORPORA),)
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 pqal-fetch pqal-label-table pqal-audit clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -215,6 +215,18 @@ classifier-train-biolinkbert-h100:
 
 classifier-train-biolinkbert-h100-v3:
 	PYTHON_BIN=$(PY) scripts/classifier/run_pubmedqa_biolinkbert_h100_v3.sh
+
+# PQA-L protocol audit — no LLM, no GPU. `pqal-audit` runs the whole chain in order.
+pqal-fetch:
+	$(PY) scripts/agents/pqal_official.py
+
+pqal-label-table: pqal-fetch
+	$(PY) scripts/agents/build_pqal_label_table.py
+
+pqal-audit: pqal-label-table
+	$(PY) scripts/agents/analyze_h1_hedging.py
+	$(PY) scripts/agents/audit_pqal_labels.py
+	$(PY) scripts/agents/human_maybe_study.py human-baseline
 
 clean-local:
 	rm -rf reports/* data/processed data/embeddings data/indexes data/telemetry .ruff_cache

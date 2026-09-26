@@ -1,0 +1,440 @@
+{
+  "split": "all",
+  "n_boot": 5000,
+  "seed": 47,
+  "protocol": {
+    "n_items": 1000,
+    "n_disputes": 299,
+    "dispute_rate": 0.299,
+    "dispute_resolution": {
+      "dispute_final_follows_conclusion_annotator": 215,
+      "dispute_final_follows_neither": 4,
+      "dispute_final_follows_context_only_annotator": 80
+    },
+    "share_of_disputes_following_conclusion_annotator": {
+      "mean": 0.7191,
+      "ci_low": 0.6689,
+      "ci_high": 0.7692,
+      "n": 299
+    },
+    "n_gold_maybe": 110,
+    "gold_maybe_source": {
+      "neither_annotator": 2,
+      "conclusion_annotator_only": 56,
+      "context_only_annotator_only": 29,
+      "both_annotators": 23
+    },
+    "gold_maybe_unanimous": 23,
+    "gold_maybe_disputed": 87,
+    "share_of_disputes_ending_as_maybe": {
+      "mean": 0.291,
+      "ci_low": 0.2441,
+      "ci_high": 0.3411,
+      "n": 299
+    }
+  },
+  "ceilings": {
+    "context_only_annotator": {
+      "saw": "question + CONTEXTS — the model's information set",
+      "is_ceiling_for_models": true,
+      "overall_accuracy": {
+        "mean": 0.781,
+        "ci_low": 0.755,
+        "ci_high": 0.806,
+        "n": 1000
+      },
+      "per_class": {
+        "yes": {
+          "support": 552,
+          "n_predicted": 614,
+          "recall": {
+            "mean": 0.8822,
+            "ci_low": 0.8551,
+            "ci_high": 0.9076,
+            "n": 552
+          },
+          "precision": 0.7932
+        },
+        "no": {
+          "support": 338,
+          "n_predicted": 302,
+          "recall": {
+            "mean": 0.716,
+            "ci_low": 0.6686,
+            "ci_high": 0.7633,
+            "n": 338
+          },
+          "precision": 0.8013
+        },
+        "maybe": {
+          "support": 110,
+          "n_predicted": 84,
+          "recall": {
+            "mean": 0.4727,
+            "ci_low": 0.3818,
+            "ci_high": 0.5636,
+            "n": 110
+          },
+          "precision": 0.619
+        }
+      }
+    },
+    "sees_conclusion_annotator": {
+      "saw": "question + CONTEXTS + author conclusion",
+      "is_ceiling_for_models": false,
+      "caveat": "Reported by PubMedQA as single-human performance. Inflated twice over: this annotator read the conclusion, and in disputes the gold label usually adopted this annotator's vote.",
+      "overall_accuracy": {
+        "mean": 0.916,
+        "ci_low": 0.898,
+        "ci_high": 0.932,
+        "n": 1000
+      },
+      "per_class": {
+        "yes": {
+          "support": 552,
+          "n_predicted": 550,
+          "recall": {
+            "mean": 0.9402,
+            "ci_low": 0.9202,
+            "ci_high": 0.9601,
+            "n": 552
+          },
+          "precision": 0.9436
+        },
+        "no": {
+          "support": 338,
+          "n_predicted": 340,
+          "recall": {
+            "mean": 0.9408,
+            "ci_low": 0.9142,
+            "ci_high": 0.9645,
+            "n": 338
+          },
+          "precision": 0.9353
+        },
+        "maybe": {
+          "support": 110,
+          "n_predicted": 110,
+          "recall": {
+            "mean": 0.7182,
+            "ci_low": 0.6273,
+            "ci_high": 0.8,
+            "n": 110
+          },
+          "precision": 0.7182
+        }
+      }
+    }
+  },
+  "rq8b_systems_vs_context_only_label": {
+    "debate_balanced90_ollama_r2_bertgate": {
+      "n_cases": 90,
+      "vs_final_decision": {
+        "overall_accuracy": {
+          "mean": 0.6444,
+          "ci_low": 0.5444,
+          "ci_high": 0.7444,
+          "n": 90
+        },
+        "per_class": {
+          "yes": {
+            "support": 30,
+            "n_predicted": 38,
+            "recall": {
+              "mean": 0.8667,
+              "ci_low": 0.7333,
+              "ci_high": 0.9667,
+              "n": 30
+            },
+            "precision": 0.6842
+          },
+          "no": {
+            "support": 30,
+            "n_predicted": 48,
+            "recall": {
+              "mean": 0.9333,
+              "ci_low": 0.8333,
+              "ci_high": 1.0,
+              "n": 30
+            },
+            "precision": 0.5833
+          },
+          "maybe": {
+            "support": 30,
+            "n_predicted": 4,
+            "recall": {
+              "mean": 0.1333,
+              "ci_low": 0.0333,
+              "ci_high": 0.2667,
+              "n": 30
+            },
+            "precision": 1.0
+          }
+        }
+      },
+      "vs_context_only_annotator": {
+        "overall_accuracy": {
+          "mean": 0.5556,
+          "ci_low": 0.4556,
+          "ci_high": 0.6556,
+          "n": 90
+        },
+        "per_class": {
+          "yes": {
+            "support": 44,
+            "n_predicted": 38,
+            "recall": {
+              "mean": 0.5682,
+              "ci_low": 0.4091,
+              "ci_high": 0.7045,
+              "n": 44
+            },
+            "precision": 0.6579
+          },
+          "no": {
+            "support": 24,
+            "n_predicted": 48,
+            "recall": {
+              "mean": 0.9167,
+              "ci_low": 0.7917,
+              "ci_high": 1.0,
+              "n": 24
+            },
+            "precision": 0.4583
+          },
+          "maybe": {
+            "support": 22,
+            "n_predicted": 4,
+            "recall": {
+              "mean": 0.1364,
+              "ci_low": 0.0,
+              "ci_high": 0.2727,
+              "n": 22
+            },
+            "precision": 0.75
+          }
+        }
+      },
+      "accuracy_delta_context_only_minus_final": {
+        "value": -0.0889,
+        "ci_low": -0.1889,
+        "ci_high": 0.0111,
+        "brackets_zero": true
+      },
+      "context_only_human_ceiling_on_these_items": {
+        "mean": 0.7111,
+        "ci_low": 0.6111,
+        "ci_high": 0.8,
+        "n": 90
+      },
+      "gap_to_ceiling": -0.0667,
+      "cases_where_the_two_golds_differ": 26
+    },
+    "debate_balanced90_ollama_r2_uncertainty": {
+      "n_cases": 90,
+      "vs_final_decision": {
+        "overall_accuracy": {
+          "mean": 0.5,
+          "ci_low": 0.4,
+          "ci_high": 0.6,
+          "n": 90
+        },
+        "per_class": {
+          "yes": {
+            "support": 30,
+            "n_predicted": 28,
+            "recall": {
+              "mean": 0.6667,
+              "ci_low": 0.5,
+              "ci_high": 0.8333,
+              "n": 30
+            },
+            "precision": 0.7143
+          },
+          "no": {
+            "support": 30,
+            "n_predicted": 31,
+            "recall": {
+              "mean": 0.5333,
+              "ci_low": 0.3667,
+              "ci_high": 0.7,
+              "n": 30
+            },
+            "precision": 0.5161
+          },
+          "maybe": {
+            "support": 30,
+            "n_predicted": 31,
+            "recall": {
+              "mean": 0.3,
+              "ci_low": 0.1333,
+              "ci_high": 0.4667,
+              "n": 30
+            },
+            "precision": 0.2903
+          }
+        }
+      },
+      "vs_context_only_annotator": {
+        "overall_accuracy": {
+          "mean": 0.4778,
+          "ci_low": 0.3778,
+          "ci_high": 0.5778,
+          "n": 90
+        },
+        "per_class": {
+          "yes": {
+            "support": 44,
+            "n_predicted": 28,
+            "recall": {
+              "mean": 0.4545,
+              "ci_low": 0.3182,
+              "ci_high": 0.6136,
+              "n": 44
+            },
+            "precision": 0.7143
+          },
+          "no": {
+            "support": 24,
+            "n_predicted": 31,
+            "recall": {
+              "mean": 0.5833,
+              "ci_low": 0.375,
+              "ci_high": 0.7917,
+              "n": 24
+            },
+            "precision": 0.4516
+          },
+          "maybe": {
+            "support": 22,
+            "n_predicted": 31,
+            "recall": {
+              "mean": 0.4091,
+              "ci_low": 0.1818,
+              "ci_high": 0.6364,
+              "n": 22
+            },
+            "precision": 0.2903
+          }
+        }
+      },
+      "accuracy_delta_context_only_minus_final": {
+        "value": -0.0222,
+        "ci_low": -0.1111,
+        "ci_high": 0.0667,
+        "brackets_zero": true
+      },
+      "context_only_human_ceiling_on_these_items": {
+        "mean": 0.7111,
+        "ci_low": 0.6111,
+        "ci_high": 0.8111,
+        "n": 90
+      },
+      "gap_to_ceiling": -0.2111,
+      "cases_where_the_two_golds_differ": 26
+    },
+    "debate_pqal500_biolinkbert": {
+      "n_cases": 500,
+      "vs_final_decision": {
+        "overall_accuracy": {
+          "mean": 0.726,
+          "ci_low": 0.686,
+          "ci_high": 0.764,
+          "n": 500
+        },
+        "per_class": {
+          "yes": {
+            "support": 276,
+            "n_predicted": 254,
+            "recall": {
+              "mean": 0.7681,
+              "ci_low": 0.7174,
+              "ci_high": 0.8152,
+              "n": 276
+            },
+            "precision": 0.8346
+          },
+          "no": {
+            "support": 169,
+            "n_predicted": 222,
+            "recall": {
+              "mean": 0.8698,
+              "ci_low": 0.8166,
+              "ci_high": 0.9172,
+              "n": 169
+            },
+            "precision": 0.6622
+          },
+          "maybe": {
+            "support": 55,
+            "n_predicted": 24,
+            "recall": {
+              "mean": 0.0727,
+              "ci_low": 0.0182,
+              "ci_high": 0.1455,
+              "n": 55
+            },
+            "precision": 0.1667
+          }
+        }
+      },
+      "vs_context_only_annotator": {
+        "overall_accuracy": {
+          "mean": 0.684,
+          "ci_low": 0.644,
+          "ci_high": 0.724,
+          "n": 500
+        },
+        "per_class": {
+          "yes": {
+            "support": 305,
+            "n_predicted": 254,
+            "recall": {
+              "mean": 0.6951,
+              "ci_low": 0.6426,
+              "ci_high": 0.7475,
+              "n": 305
+            },
+            "precision": 0.8346
+          },
+          "no": {
+            "support": 148,
+            "n_predicted": 222,
+            "recall": {
+              "mean": 0.8311,
+              "ci_low": 0.7703,
+              "ci_high": 0.8919,
+              "n": 148
+            },
+            "precision": 0.5541
+          },
+          "maybe": {
+            "support": 47,
+            "n_predicted": 24,
+            "recall": {
+              "mean": 0.1489,
+              "ci_low": 0.0638,
+              "ci_high": 0.2553,
+              "n": 47
+            },
+            "precision": 0.2917
+          }
+        }
+      },
+      "accuracy_delta_context_only_minus_final": {
+        "value": -0.042,
+        "ci_low": -0.08,
+        "ci_high": -0.004,
+        "brackets_zero": false
+      },
+      "context_only_human_ceiling_on_these_items": {
+        "mean": 0.78,
+        "ci_low": 0.744,
+        "ci_high": 0.816,
+        "n": 500
+      },
+      "gap_to_ceiling": -0.054,
+      "cases_where_the_two_golds_differ": 110
+    }
+  }
+}

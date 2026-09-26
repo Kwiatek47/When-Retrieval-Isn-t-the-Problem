@@ -20,7 +20,36 @@ import random
 
 
 def auroc(pos: list[float], neg: list[float]) -> float:
-    """Probability a random positive outranks a random negative; ties count 0.5."""
+    """Probability a random positive outranks a random negative; ties count 0.5.
+
+    Mann-Whitney U via mid-ranks, which is exactly the pairwise definition
+    (`auroc_pairwise` below) but O(n log n) instead of O(n_pos·n_neg) — the whole
+    difference between a 5000-draw bootstrap taking seconds and taking minutes, since
+    these analyses score ~1000 items against ~100 positives thousands of times.
+    """
+    n_pos, n_neg = len(pos), len(neg)
+    if not n_pos or not n_neg:
+        return float("nan")
+    merged = sorted([(v, 1) for v in pos] + [(v, 0) for v in neg])
+    rank_sum_pos = 0.0
+    i = 0
+    while i < len(merged):
+        j = i
+        while j < len(merged) and merged[j][0] == merged[i][0]:
+            j += 1
+        # 1-based ranks i+1 .. j, all tied -> every member takes the group's mean rank.
+        mid_rank = (i + 1 + j) / 2.0
+        rank_sum_pos += mid_rank * sum(1 for k in range(i, j) if merged[k][1] == 1)
+        i = j
+    u = rank_sum_pos - n_pos * (n_pos + 1) / 2.0
+    return u / (n_pos * n_neg)
+
+
+def auroc_pairwise(pos: list[float], neg: list[float]) -> float:
+    """Reference implementation of `auroc`: every positive/negative pair, ties 0.5.
+
+    Kept because it is the definition the paper states, and the tests pin `auroc` to it.
+    """
     if not pos or not neg:
         return float("nan")
     wins = sum((1.0 if a > b else 0.5 if a == b else 0.0) for a in pos for b in neg)

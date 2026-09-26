@@ -14,6 +14,7 @@ from pathlib import Path
 
 from scripts.agents.bootstrap_stats import (
     auroc,
+    auroc_pairwise,
     bootstrap_auroc_ci,
     paired_auroc_delta_across_targets,
     paired_auroc_delta_ci,
@@ -174,6 +175,23 @@ class BootstrapStatsTests(unittest.TestCase):
 
     def test_auroc_empty_side_is_nan(self) -> None:
         self.assertNotEqual(auroc([], [1.0]), auroc([], [1.0]))  # NaN != NaN
+        self.assertNotEqual(auroc_pairwise([1.0], []), auroc_pairwise([1.0], []))
+
+    def test_fast_auroc_equals_the_pairwise_definition(self) -> None:
+        """The rank-based AUROC must reproduce the pairwise one, ties included."""
+        rng = random.Random(47)
+        for _ in range(40):
+            n_pos = rng.randint(1, 25)
+            n_neg = rng.randint(1, 25)
+            # Draw from a tiny discrete range so ties are frequent, not incidental.
+            pos = [float(rng.randint(0, 4)) for _ in range(n_pos)]
+            neg = [float(rng.randint(0, 4)) for _ in range(n_neg)]
+            self.assertAlmostEqual(auroc(pos, neg), auroc_pairwise(pos, neg), places=12)
+
+    def test_fast_auroc_handles_a_fully_tied_block_in_the_middle(self) -> None:
+        pos = [1.0, 2.0, 2.0, 3.0]
+        neg = [2.0, 2.0, 0.0]
+        self.assertAlmostEqual(auroc(pos, neg), auroc_pairwise(pos, neg), places=12)
 
     def test_percentile_interpolates(self) -> None:
         self.assertEqual(percentile([0.0, 1.0], 0.5), 0.5)

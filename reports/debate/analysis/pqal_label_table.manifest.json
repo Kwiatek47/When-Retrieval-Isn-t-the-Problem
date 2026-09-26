@@ -1,0 +1,36 @@
+{
+  "source": "data/raw/pubmedqa_official/data/ori_pqal.json",
+  "source_sha256": "8b3276be8942ebbd77f3ddcda12c1749bf0e490045a736fd8438ee40cf37a41d",
+  "out": "reports/debate/analysis/pqal_label_table.jsonl",
+  "n_hedge_cues": 91,
+  "annotator_agreement_with_gold": {
+    "reasoning_required_pred": 0.781,
+    "reasoning_free_pred": 0.916
+  },
+  "summary": {
+    "n": 1000,
+    "gold": {
+      "yes": 552,
+      "maybe": 110,
+      "no": 338
+    },
+    "split": {
+      "test": 500,
+      "train_dev": 500
+    },
+    "agreement_pattern": {
+      "agree": 701,
+      "dispute_final_follows_conclusion_annotator": 215,
+      "dispute_final_follows_neither": 4,
+      "dispute_final_follows_context_only_annotator": 80
+    },
+    "gold_maybe_by_annotator_pattern": {
+      "- / -": 2,
+      "conclusion_annotator=maybe / -": 56,
+      "- / context_only_annotator=maybe": 29,
+      "conclusion_annotator=maybe / context_only_annotator=maybe": 23
+    },
+    "items_without_results_section": 18,
+    "items_without_year": 58
+  }
+}

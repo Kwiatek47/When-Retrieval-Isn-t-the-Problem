@@ -71,8 +71,15 @@ def pqal500_cis(rng: random.Random, n_boot: int) -> dict:
     out: dict = {}
 
     # --- decision layer (BioLinkBERT), from debate_pqal500 report ---
-    # `reports/` is gitignored, so on a fresh checkout the 500-case run may not be here
-    # yet. Skip it rather than abort: the signal CIs above don't depend on it.
+    # `reports/` is gitignored, so the 500-case run only exists on the GPU box that
+    # produced it. Carry its published CIs over rather than deleting them: rerunning
+    # this script on a laptop must not silently drop results nobody can recompute here.
+    if not DEBATE_500.exists() and OUT.exists():
+        previous = json.loads(OUT.read_text()).get("pqal500") or {}
+        if "decision_overall_accuracy" in previous:
+            previous["carried_over_from_previous_run"] = True
+            previous["carried_over_reason"] = f"{DEBATE_500.name} not on this machine"
+            return previous
     if DEBATE_500.exists():
         d = json.loads(DEBATE_500.read_text())
         cases = d.get("cases") if isinstance(d, dict) else d
