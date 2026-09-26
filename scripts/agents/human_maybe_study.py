@@ -36,9 +36,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.agents.pqal_official import (  # noqa: E402
+    CONTEXT_ONLY_FIELD,
+    GOLD_FIELD,
+    ORI_PQAL_PATH,
+    SEES_CONCLUSION_FIELD,
+    assert_annotator_roles,
+    load_ori_pqal,
+    sha256,
+)
+
 DEFAULT_DATA = PROJECT_ROOT / "data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json"
 CORPUS = PROJECT_ROOT / "data/benchmarks/pubmedqa/official_pqal_test/corpus.json"
-ORI_PQAL = PROJECT_ROOT / "data/raw/pubmedqa_official/data/ori_pqal.json"
 OUT_DIR = PROJECT_ROOT / "reports/debate/human"
 
 
@@ -177,13 +186,18 @@ def score(args: argparse.Namespace) -> None:
 def human_baseline(args: argparse.Namespace) -> None:
     """Official-annotator agreement proxy: PubMedQA single-annotator predictions.
 
-    PubMedQA ships two single-annotator predictions per item — reasoning_free_pred
-    (from the abstract, no author conclusion) and reasoning_required_pred (with the
-    author LONG_ANSWER) — while final_decision is the multi-annotator gold. Agreement
-    of a single annotator with the gold is a real, citable human-reproducibility
-    signal for the `maybe` label, computed here on the study set.
+    PubMedQA ships two single-annotator predictions per item, while final_decision is
+    the multi-annotator gold. Agreement of a single annotator with the gold is a real,
+    citable human-reproducibility signal for the `maybe` label.
+
+    Which annotator is the honest comparison matters, and until 2026-09-26 this function
+    had the two roles swapped in its output keys. `reasoning_required_pred` is the
+    annotator who saw the question + CONTEXTS only — the *same information the model
+    gets* — so that is the model-comparable baseline. `reasoning_free_pred` additionally
+    saw the author conclusion and is an upper bound, not a peer. See `pqal_official`.
     """
-    ori = json.loads(ORI_PQAL.read_text())
+    ori = load_ori_pqal(ORI_PQAL_PATH, download=not args.no_download)
+    assert_annotator_roles(ori)
     cases = json.loads(args.dataset.read_text())
 
     def pmid(c: dict) -> str | None:
@@ -195,7 +209,7 @@ def human_baseline(args: argparse.Namespace) -> None:
     rows = [(p, c) for p, c in rows if p in ori]
 
     def metrics(pred_field: str) -> dict:
-        gold = [ori[p]["final_decision"] for p, _ in rows]
+        gold = [ori[p][GOLD_FIELD] for p, _ in rows]
         pred = [ori[p][pred_field] for p, _ in rows]
         n = len(gold)
         overall = sum(1 for g, x in zip(gold, pred) if g == x) / n
@@ -216,9 +230,21 @@ def human_baseline(args: argparse.Namespace) -> None:
         }
 
     result = {
-        "study_set": str(args.dataset),
-        "reasoning_free_pred (abstract only)": metrics("reasoning_free_pred"),
-        "reasoning_required_pred (with author conclusion)": metrics("reasoning_required_pred"),
+        "study_set": str(args.dataset.relative_to(PROJECT_ROOT) if args.dataset.is_relative_to(PROJECT_ROOT) else args.dataset),
+        "ori_pqal_sha256": sha256(ORI_PQAL_PATH),
+        "model_comparable_annotator": "context_only",
+        "annotators": {
+            "context_only": {
+                "field": CONTEXT_ONLY_FIELD,
+                "saw": "question + CONTEXTS (no author conclusion) — same input as the model",
+                **metrics(CONTEXT_ONLY_FIELD),
+            },
+            "sees_conclusion": {
+                "field": SEES_CONCLUSION_FIELD,
+                "saw": "question + CONTEXTS + author conclusion (LONG_ANSWER) — upper bound",
+                **metrics(SEES_CONCLUSION_FIELD),
+            },
+        },
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / "human_baseline_official.json"
@@ -247,6 +273,11 @@ def main() -> None:
         help="Official single-annotator agreement proxy (no manual annotation needed)",
     )
     p_base.add_argument("--dataset", type=Path, default=DEFAULT_DATA)
+    p_base.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Fail instead of fetching ori_pqal.json when it is absent.",
+    )
     p_base.set_defaults(func=human_baseline)
 
     args = parser.parse_args()
