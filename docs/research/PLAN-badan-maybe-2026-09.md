@@ -269,6 +269,33 @@ pytań `maybe`. Test rozdziela więc dwa pytania:
 **Co z tego wynika:** odmowa działa przez omijanie zwykłych pomyłek. Wśród błędów żaden sygnał nie wyróżnia
 `maybe` (B ≤ 0.5 dla wszystkich czterech), więc odmowa **nie jest** sposobem na rozpoznawanie `maybe`.
 
+#### Rejestracja RQ8 / RQ9a przed treningiem — 2026-10-01, gałąź `klap/pivot`
+
+Pytanie: skoro człowiek odczytuje `maybe` z kontekstu (F1 0.59), a wdrożony klasyfikator nie (4/55) — czy to wina
+danych treningowych (PQA-A: 0 `maybe`, w treningu 0.13% `maybe`), czy modelu?
+
+Skrypty: `scripts/classifier/train_maybe_detector.py` (trening) i `scripts/agents/analyze_rq8_maybe_detector.py` (ocena).
+
+- **Dane:** trening wyłącznie na 500 pytaniach PQA-L spoza testu (276 yes / 169 no / 55 `maybe` — naturalne 11%);
+  ocena na 500 pytaniach testowych. Bez PQA-A.
+- **Układ 2 × 2:** głowica `binary` (maybe / nie-maybe) albo `three_class`; próbkowanie `natural` (odpowiada „90:10”)
+  albo `balanced` (klasy losowane równie często — „50:50” dla głowicy binarnej).
+- **Stałe dla wszystkich komórek, ustalone z góry:** BioLinkBERT-large od wag pretrenowanych (rewizja `1eb6d81c`),
+  wejście pytanie + kontekst (512 tokenów), lr 2e-5, 10 epok, batch 16, 5 seedów (11, 23, 42, 47, 101).
+  **Żadnej selekcji modelu:** bez zbioru dev, bez early stopping, bez strojenia progu.
+- **Metryka:** average precision (AP) dla gold `maybe` na teście, liczona na średniej prawdopodobieństw z 5 seedów;
+  nie wymaga progu. Poziom losowy AP ≈ 0.11.
+- **Testy (sparowany bootstrap po pytaniach, 5000, seed 47):**
+  RQ8 — efekt głowicy = średnia po próbkowaniu z [AP(binary) − AP(three_class)];
+  RQ9a — efekt balansu = średnia po głowicy z [AP(balanced) − AP(natural)].
+  CI > 0 → potwierdzony; CI ≤ 0 → obalony; inaczej nierozstrzygnięty. Dwa testy obok siebie, bez korekty.
+- **Wtórne:** AP i AUROC każdej komórki; rozrzut AP między seedami; wdrożony checkpoint (3 klasy, trenowany z PQA-A)
+  jako punkt odniesienia; precision każdej komórki przy progu, przy którym odzyskuje tyle `maybe`, co annotator bez
+  konkluzji (30 z 55) — obok precision annotatora (30/47 = 0.638).
+- **Znane przed rejestracją:** wdrożony checkpoint — 4/55 przy argmax, AUROC 0.637 dla 1 − pewność. O nowych
+  komórkach nic. Próba techniczna treningu: 32 pytania treningowe, 1 epoka, ocena na 16 pytaniach **treningowych**.
+- **Ograniczenia z danych:** 55 przykładów `maybe` w treningu; jeden zbiór testowy; 5 seedów.
+
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
 
