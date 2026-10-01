@@ -213,6 +213,7 @@ punktu odniesienia (opisowo, nie był to test zarejestrowany).
 | H2 błędy tam, gdzie człowiek z tą samą informacją | **potwierdzona** (+0.278 [+0.174, +0.380]) | błędy skupione na pytaniach spornych; na `maybe` modele daleko poniżej człowieka |
 | H3 miękkie etykiety zmieniają porównanie | brak efektu (+0.002 [−0.024, +0.026]) | ranking bez zmian |
 | H4 odmowa łapie błędy, nie `maybe` | **potwierdzona** (D = +0.185 [+0.028, +0.347]) | 71% unikniętych błędów to yes/no; wśród błędów sygnał nie wyróżnia `maybe` |
+| RQ8 / RQ9a głowica binarna, balans klas | nierozstrzygnięte (+0.016, +0.026; CI obejmują 0) | AP 0.16–0.20 przy losowym 0.11; człowiek 4× lepszy |
 
 **Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
 (1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
@@ -295,6 +296,36 @@ Skrypty: `scripts/classifier/train_maybe_detector.py` (trening) i `scripts/agent
 - **Znane przed rejestracją:** wdrożony checkpoint — 4/55 przy argmax, AUROC 0.637 dla 1 − pewność. O nowych
   komórkach nic. Próba techniczna treningu: 32 pytania treningowe, 1 epoka, ocena na 16 pytaniach **treningowych**.
 - **Ograniczenia z danych:** 55 przykładów `maybe` w treningu; jeden zbiór testowy; 5 seedów.
+
+#### Wynik RQ8 / RQ9a (2026-10-01; rejestracja w commicie `d795751`, `reports/debate/analysis/rq8_maybe_detector.json`)
+
+20 runów treningowych + punkt odniesienia, bez błędów. **Oba testy — nierozstrzygnięte; żaden wariant nie zbliża
+się do człowieka.**
+
+| Test | Efekt na AP [95% CI] | Werdykt |
+|---|---|---|
+| RQ8 głowica (binary − three_class) | +0.016 [−0.032, +0.074] | nierozstrzygnięty |
+| RQ9a balans (balanced − natural) | +0.026 [−0.019, +0.074] | nierozstrzygnięty |
+
+| Wariant | AP [95% CI] | AUROC | Precision przy 30 trafionych `maybe` |
+|---|---|---|---|
+| binary, natural | 0.157 [0.101, 0.247] | 0.523 | 0.122 |
+| binary, balanced | 0.202 [0.127, 0.308] | 0.590 | 0.142 |
+| three_class, natural | 0.160 [0.112, 0.246] | 0.605 | 0.161 |
+| three_class, balanced | 0.168 [0.106, 0.260] | 0.574 | 0.145 |
+| wdrożony checkpoint (z PQA-A) | 0.177 [0.120, 0.265] | 0.633 | 0.174 |
+| **annotator bez konkluzji** | — | — | **0.638** |
+
+Poziom losowy AP = 0.11. Rozrzut AP między seedami: 0.018–0.026.
+
+**Co z tego wynika:**
+1. Ani osobna głowica binarna, ani zbalansowane próbkowanie, ani trening przy naturalnym udziale `maybe` (bez PQA-A)
+   nie dają detektora `maybe`: wszystkie warianty są blisko poziomu losowego i żaden nie jest lepszy od wdrożonego
+   modelu.
+2. **Samo przesunięcie priorów nie tłumaczy porażki:** usunięcie PQA-A i trening na 11% `maybe` niczego nie poprawia.
+3. Przy tym samym odzysku co człowiek (30/55) modele mają precision 0.12–0.17 wobec 0.638 — luka ok. 4-krotna.
+4. **Ograniczenie:** 55 przykładów `maybe` w treningu. Wynik nie rozstrzyga, czy zadanie jest dla enkodera za trudne,
+   czy danych jest za mało; pokazuje, że proste zabiegi (głowica, balans, prior) nie wystarczają.
 
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
@@ -555,3 +586,5 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   systemów identyczny na twardych i miękkich etykietach. Dodano podsumowanie stanu tezy.
 - 2026-10-01 — H4 zarejestrowana (`a622b87`) i policzona: potwierdzona dla wszystkich czterech sygnałów;
   odmowa omija zwykłe pomyłki, nie rozpoznaje `maybe`.
+- 2026-10-01 — RQ8/RQ9a zarejestrowane (`d795751`), wytrenowane (20 runów) i policzone: brak efektu głowicy i balansu;
+  żaden wariant nie zbliża się do annotatora bez konkluzji.
