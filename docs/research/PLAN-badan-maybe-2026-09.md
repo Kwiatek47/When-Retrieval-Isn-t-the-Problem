@@ -214,12 +214,18 @@ punktu odniesienia (opisowo, nie był to test zarejestrowany).
 | H3 miękkie etykiety zmieniają porównanie | brak efektu (+0.002 [−0.024, +0.026]) | ranking bez zmian |
 | H4 odmowa łapie błędy, nie `maybe` | **potwierdzona** (D = +0.185 [+0.028, +0.347]) | 71% unikniętych błędów to yes/no; wśród błędów sygnał nie wyróżnia `maybe` |
 | RQ8 / RQ9a głowica binarna, balans klas | nierozstrzygnięte (+0.016, +0.026; CI obejmują 0) | AP 0.16–0.20 przy losowym 0.11; człowiek 4× lepszy |
+| RQ8b duży LLM z definicją `maybe` wobec człowieka z tą samą informacją (T1) | **model poniżej człowieka** (+0.426 [+0.262, +0.569]) | F1 `maybe` 0.16 wobec 0.59; porażka nie wynika tylko z 55 przykładów treningowych |
+| H1 bezpośrednio: czy konkluzja daje modelowi `maybe` (T2) | nierozstrzygnięta (+0.022 [−0.104, +0.149]) | konkluzja podnosi accuracy (0.776 → 0.822), nie `maybe`; test o małej mocy |
 
 **Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
 (1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
 człowieka z tą samą informacją; (3) `maybe` jest odczytywalne z kontekstu — człowiek to robi (F1 0.59), modele nie
 (0.07–0.28). Wniosek roboczy: **luka `maybe` to problem modeli i danych treningowych (PQA-A: 0 `maybe`), a nie
 etykiety.** Następne w kolejności: RQ8 / RQ9a (detektor binarny, balans klas) i H4.
+
+**Uzupełnienie po teście z dużym LLM (2026-10-01):** `qwen3:30b` bez treningu, z definicją `maybe` w prompcie,
+też go nie rozpoznaje (F1 0.16–0.22). Sama liczba przykładów treningowych nie tłumaczy więc luki — dotyczy ona
+także modelu, który `maybe` nie musiał się uczyć.
 
 #### Rejestracja H4 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
 
@@ -352,6 +358,48 @@ przykładach. Ten test nie wymaga treningu.
 
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
+
+#### Wynik testu z dużym LLM (2026-10-01; rejestracja w commicie `a556bea`, `reports/debate/analysis/label_probe_qwen3_30b.json`)
+
+**Której luki dotyczy:** T1 to RQ8b (Blok II — porównanie z człowiekiem o tej samej informacji) rozszerzone z
+enkodera i małych modeli na duży LLM; domyka pytanie pozostawione przez RQ8 / RQ9a („dane czy zadanie”).
+T2 to bezpośredni test H1 (Blok I, RQ5 — skąd bierze się `maybe`).
+
+4 przebiegi po 500 pytań, 0 błędów, 0 odpowiedzi nie do odczytania. **T1: model poniżej człowieka (w obu trybach).
+T2: nierozstrzygnięty (w obu trybach).**
+
+| Test | Tryb myślenia | Efekt na F1 `maybe` [95% CI] | Werdykt |
+|---|---|---|---|
+| T1 luka do annotatora bez konkluzji | włączony (główny) | +0.426 [+0.262, +0.569] | model poniżej człowieka |
+| T1 | wyłączony | +0.366 [+0.192, +0.534] | model poniżej człowieka |
+| T2 efekt konkluzji | włączony (główny) | +0.022 [−0.104, +0.149] | nierozstrzygnięty |
+| T2 | wyłączony | −0.056 [−0.179, +0.069] | nierozstrzygnięty |
+| T2 u annotatorów (z konkluzją − bez) | — | +0.072 [−0.107, +0.263] | — |
+
+| Przebieg | Accuracy | Odpowiedzi `maybe` | Trafione / 55 | Precision | Recall | F1 `maybe` |
+|---|---|---|---|---|---|---|
+| bez konkluzji, myślenie włączone | 0.776 | 19 | 6 | 0.316 | 0.109 | 0.162 |
+| z konkluzją, myślenie włączone | 0.822 | 21 | 7 | 0.333 | 0.127 | 0.184 |
+| bez konkluzji, myślenie wyłączone | 0.784 | 26 | 9 | 0.346 | 0.164 | 0.222 |
+| z konkluzją, myślenie wyłączone | 0.818 | 17 | 6 | 0.353 | 0.109 | 0.167 |
+| **annotator bez konkluzji** | — | 47 | 30 | 0.638 | 0.545 | **0.588** |
+| **annotator z konkluzją** | — | 48 | 34 | 0.708 | 0.618 | **0.660** |
+
+Zmiany odpowiedzi po dodaniu konkluzji: na `maybe` 13, z `maybe` 11 (myślenie włączone); na `maybe` 7, z `maybe` 16
+(wyłączone). Zgodność z annotatorem z konkluzją rośnie po dodaniu konkluzji (0.776 → 0.832), z annotatorem bez
+konkluzji spada (0.734 → 0.720).
+
+**Co z tego wynika:**
+1. **„Dane czy zadanie”:** duży model, któremu podano definicję `maybe`, nie rozpoznaje go lepiej niż enkoder ani
+   `qwen3:8b` k=4 (F1 0.282). Porażka na `maybe` nie jest więc tylko skutkiem 55 przykładów treningowych.
+2. **Model prawie nie odpowiada `maybe`:** 17–26 razy wobec 55 w etykiecie końcowej i 47–48 u annotatorów.
+3. **Konkluzja pomaga na yes/no, nie na `maybe`:** accuracy rośnie o 3–5 pp, F1 `maybe` się nie zmienia.
+   H1 w wersji bezpośredniej pozostaje niepotwierdzona — ale też nieobalona.
+4. **Myślenie nie pomaga na `maybe`** (F1 0.162 włączone wobec 0.222 wyłączone, bez konkluzji).
+5. **Ograniczenie — moc T2:** F1 `maybe` modelu opiera się na 6–9 trafieniach, przedział ma szerokość ok. ±0.13,
+   a efekt u samych annotatorów to +0.072 z przedziałem obejmującym zero. Test nie mógł wykryć efektu wielkości
+   ludzkiej. Jeden model, jeden prompt, jedna odpowiedź na pytanie.
+6. Accuracy 0.776 jest wyższe niż BioLinkBERT (0.726), ale to porównanie nie było zarejestrowane i nie ma testu.
 
 ### Czy teza się z czymś pokrywa? (sprawdzone 2026-09-23)
 
@@ -611,3 +659,6 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   odmowa omija zwykłe pomyłki, nie rozpoznaje `maybe`.
 - 2026-10-01 — RQ8/RQ9a zarejestrowane (`d795751`), wytrenowane (20 runów) i policzone: brak efektu głowicy i balansu;
   żaden wariant nie zbliża się do annotatora bez konkluzji.
+- 2026-10-01 — test z dużym LLM zarejestrowany (`a556bea`) i policzony (`qwen3:30b`, 4 × 500 pytań): T1 — model
+  poniżej annotatora bez konkluzji (+0.426 [+0.262, +0.569]); T2 — efekt konkluzji nierozstrzygnięty
+  (+0.022 [−0.104, +0.149]).
