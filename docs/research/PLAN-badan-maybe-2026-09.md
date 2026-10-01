@@ -401,6 +401,38 @@ konkluzji spada (0.734 → 0.720).
    ludzkiej. Jeden model, jeden prompt, jedna odpowiedź na pytanie.
 6. Accuracy 0.776 jest wyższe niż BioLinkBERT (0.726), ale to porównanie nie było zarejestrowane i nie ma testu.
 
+#### Rejestracja testu z niezależnym punktem odniesienia (BRAKI §A8) — 2026-10-01, gałąź `klap/pivot`
+
+T1 porównał model z annotatorem 2 względem etykiety końcowej, którą annotator 2 współtworzył. Tutaj obaj
+czytelnicy są oceniani względem **drugiego annotatora**, na którego żaden z nich nie miał wpływu, i na pytaniach,
+których wyników modelu jeszcze nie oglądaliśmy.
+
+- **Pytania:** 500 pytań PQA-L spoza oficjalnego testu (`--split cv`; `qwen3:30b` nie był uczony na PQA-L).
+  Z analizy wyłączone pierwsze 16 w kolejności runnera — założenie, że to one były w próbie czasowej
+  (**do potwierdzenia**; jeśli próba użyła innych pytań, zmienić `PILOT_N` przed uruchomieniem). Zostaje 484,
+  w tym 53 gold `maybe`.
+- **Model, prompt, warunki, tryby myślenia, limity:** bez zmian względem pierwszego testu (`qwen3:30b`,
+  `label-defined@1`, hash `37742969f023`, `context` i `context+conclusion`, główny tryb = myślenie włączone).
+  Runner: `scripts/agents/run_label_probe.py --split cv`; analiza: `scripts/agents/analyze_label_probe_independent.py`.
+- **S1 — luka na tym samym miejscu:** F1 `maybe` (annotator 2 względem annotatora 1) − F1 `maybe` (model bez
+  konkluzji względem annotatora 1). CI > 0 → model poniżej człowieka; CI < 0 → powyżej; inaczej nieodróżnialne.
+- **S2 — część luki z T1 wynikająca ze współtworzenia etykiety:** (luka względem etykiety końcowej) − (luka
+  względem annotatora 1). CI > 0 → potwierdzona; CI ≤ 0 → obalona; inaczej nierozstrzygnięta.
+- **R1 — replikacja T1** na nowych pytaniach (luka względem etykiety końcowej).
+- **T2 — efekt konkluzji** na nowych pytaniach (test potwierdzający) oraz na połączonych 984 pytaniach
+  (większa moc, ale połowa testowa była już oglądana — wynik pomocniczy).
+- **Wtórne:** lustrzane miejsce (model z konkluzją i annotator 1, obaj względem annotatora 2); różnica ogólnej
+  zgodności na tym samym miejscu; precision / recall `maybe` względem każdego punktu odniesienia; tryb bez myślenia.
+- **Znane przed rejestracją** (eksploracyjnie, pytania testowe, myślenie włączone): annotator 2 względem
+  annotatora 1 F1 `maybe` 0.232, model 0.209; S1 +0.023 [−0.132, +0.178]; S2 +0.403 [+0.258, +0.565];
+  lustrzane miejsce −0.063 [−0.233, +0.114]; różnica zgodności −0.086 [−0.128, −0.046] (model zgodniejszy
+  z annotatorem 1 niż annotator 2). Na pytaniach objętych testem z samych etykiet: annotator 2 względem
+  annotatora 1 F1 `maybe` 0.247 (12 wspólnych, 37 i 60 odpowiedzi), względem etykiety końcowej 0.489.
+  Odpowiedzi modelu na tych pytaniach: tylko próba czasowa.
+- **Zastrzeżenia:** annotatorzy różnią się też informacją (z konkluzją / bez), więc ich wzajemna zgodność to dolna
+  granica zgodności dwóch osób z tą samą informacją. „Nieodróżnialne” w S1 nie dowodzi równości — przy ok. 12
+  wspólnych `maybe` przedział ma szerokość ok. ±0.15. Jeden model, jeden prompt, jedna odpowiedź na pytanie.
+
 ### Czy teza się z czymś pokrywa? (sprawdzone 2026-09-23)
 
 **Sprawdzenie:** (1) 1935 prac cytujących PubMedQA w Semantic Scholar (1732 z abstraktem) przeszukane po słowach

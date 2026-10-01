@@ -92,6 +92,20 @@ Policzone ad hoc 2026-09-17 na `data/raw/pubmedqa_official/data/ori_pqal.json` (
   plik `pqal500_maybe_pr_sweep.json`, patrz B2). Pokazuje, że różnice między architekturami to w dużej mierze
   częstość, a nie rozumienie.
 
+### A8. [ ] P0 — „człowiek czyta `maybe`, model nie” wymaga kontroli na niezależnym annotatorze
+Wniosek roboczy w PLAN („człowiek F1 0.59, modele 0.07–0.28”) i T1 testu z `qwen3:30b` (+0.426) mierzą annotatora
+względem etykiety, którą współtworzył. Policzone eksploracyjnie 2026-10-01 (po obejrzeniu wyników, test 500):
+- F1 `maybe` annotatora bez konkluzji względem annotatora z konkluzją: **0.232** (11 wspólnych, 47 i 48 odpowiedzi).
+- `qwen3:30b` bez konkluzji względem annotatora z konkluzją: 0.209 (myślenie włączone), 0.216 (wyłączone);
+  różnica człowiek − model +0.023 [−0.130, +0.175] i +0.015 [−0.153, +0.177].
+- Zgodność ogólna: annotatorzy między sobą 0.690; model z annotatorem z konkluzją 0.776.
+- [~] Test przygotowany 2026-10-01: rejestracja w PLAN („test z niezależnym punktem odniesienia”), analiza
+  `scripts/agents/analyze_label_probe_independent.py`, uruchomienie `logs/run_label_probe_qwen3_30b_cv.sh`
+  (500 pytań PQA-L spoza testu, 16 z próby czasowej wyłączone z analizy; 4 przebiegi, ok. 2 h GPU).
+  Do zrobienia: commit rejestracji, potem uruchomienie.
+- [ ] Na połączonych 1000 pytaniach powtórzyć T2 (110 `maybe` zamiast 55 — większa moc).
+- [ ] Do czasu potwierdzenia nie pisać w paperze, że modele są poniżej człowieka na `maybe`, bez tego zastrzeżenia.
+
 ---
 
 ## B. Nadal obowiązuje z audytu starej wersji (P0/P1)
@@ -228,3 +242,5 @@ Zostawione dla śladu; nie robić przed A–C.
 - 2026-09-17 — przegląd nowości: teza „Refuse, Don't Debate” pokrywa się z Abdaljalil 2026 i pracami o debacie.
   Policzona zgodność annotatorów (11/55 jednomyślnych `maybe`). **Plik przebudowany pod nową tezę**; stare punkty
   przeniesione do B (nadal obowiązują) albo E (zdegradowane).
+- 2026-10-01 — po teście z `qwen3:30b` dodano A8: luka do człowieka na `maybe` znika, gdy punktem odniesienia jest
+  niezależny annotator (eksploracyjnie, do potwierdzenia na pytaniach spoza testu).

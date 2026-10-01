@@ -1,0 +1,86 @@
+{
+  "prompt_version": "6370a996f653",
+  "prompt_sha256": "6370a996f65379162bcd19f6b200a1522c33632e6981870d5c16c4038b2d0c07",
+  "prompts_py_sha256": "ac17c28d8a9ce03c1029a12eca813449f70535d2ecd84710f732e72d5add40ea",
+  "captured_at": "2026-10-01T12:15:42.387923+00:00",
+  "run_label": "label-defined-v1.context.qwen3-30b.think-on.test",
+  "script": "scripts/agents/run_label_probe.py",
+  "source_file": "scripts/agents/probe_prompts.py",
+  "prompts": {
+    "label-defined@1": {
+      "id": "label-defined@1",
+      "sha": "37742969f023",
+      "status": "candidate",
+      "purpose": "Yes/no/maybe with PubMedQA's definition of maybe (Jin et al. 2019); main probe prompt.",
+      "notes": "The last line of the definition follows H1: hedging is not what makes an answer maybe.",
+      "system": "You answer biomedical research questions from the text of one study abstract. Use only the text you are given, not outside knowledge.",
+      "user": "Research question: {question}\n\n{evidence}\n\nAnswer:\n- yes: the findings support \"yes\" to the question as asked;\n- no: the findings support \"no\" to the question as asked;\n- maybe: the answer holds for some subgroups, outcomes or conditions but not for others, or\n  the findings are mixed and do not settle the question.\nDo not answer maybe only because the study has limitations or the wording is cautious.\n\nFirst give a short rationale (at most 40 words), then the answer, then your\nconfidence from 0 to 100 that the answer is correct.\nReturn JSON: {{\"rationale\": \"...\", \"label\": \"yes\" | \"no\" | \"maybe\", \"confidence\": 0-100}}",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "maybe"
+            ]
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "rationale",
+          "label",
+          "confidence"
+        ]
+      },
+      "options": {
+        "temperature": 0,
+        "num_ctx": 4096,
+        "num_predict": 200
+      }
+    }
+  },
+  "meta": {
+    "model": "qwen3:30b",
+    "prompt_ids": [
+      "label-defined@1"
+    ],
+    "argv": [
+      "scripts/agents/run_label_probe.py",
+      "--prompt",
+      "label-defined@1",
+      "--model",
+      "qwen3:30b",
+      "--split",
+      "test",
+      "--think",
+      "on",
+      "--input",
+      "context",
+      "--workers",
+      "4"
+    ],
+    "git": {
+      "commit": "a556bea563d41d74e05b4793896d66b05498295d",
+      "dirty": false
+    },
+    "input": "context",
+    "split": "test",
+    "think": "on",
+    "decoding_overrides": {
+      "num_predict": 4096,
+      "num_ctx": 8192
+    },
+    "repeats": 1,
+    "limit": null,
+    "questions_to_do": 494
+  }
+}
