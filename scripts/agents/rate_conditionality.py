@@ -5,68 +5,59 @@ uncertainty. Jin et al. define ``maybe`` as an answer that holds under some cond
 and not others, so H1b asks whether that conditionality is stated in the conclusion
 (hidden from models) rather than in the RESULTS section (visible to models).
 
-For every PQA-L question a local LLM rates two passages with the same frozen prompt:
-the authors' conclusion and the RESULTS section of the context. The rater sees the
-question and one passage only, never the label, the other passage or the annotators.
-Each passage is rated ``--repeats`` times with fixed seeds at temperature 0 (single
-ratings were not stable in a pilot); the analysis averages the repeats.
+For every PQA-L question a local LLM rates two passages with the same frozen prompt
+(``scripts/agents/probe_prompts.py``): the authors' conclusion and the RESULTS section of
+the context. The rater sees the question and one passage only, never the label, the other
+passage or the annotators. Each passage is rated ``--repeats`` times with fixed seeds at
+temperature 0 (single ratings were not stable in a pilot); the analysis averages the repeats.
 
-Resumable: ratings are appended to ``h1b_conditionality_ratings.jsonl`` and finished
-(pmid, part, repeat) keys are skipped on restart. Every row records the model and the
-prompt hash, so a changed prompt cannot silently mix into one run.
+``--prompt conditionality@1`` is the pre-registered prompt and writes to
+``h1b_conditionality_ratings.jsonl``; any other prompt writes to its own file.
+``--only-calibration`` rates just the 50 passages of the human calibration sheet, which is
+how candidate prompts are compared before a full run.
+
+Resumable: finished (pmid, part, repeat) keys are skipped on restart. Every row records the
+model, prompt id and prompt hash, and every invocation snapshots its prompts next to the output.
 """
 
 from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import hashlib
 import json
 from pathlib import Path
+import sys
 import time
-import urllib.request
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-PQAL = PROJECT_ROOT / "data/raw/pubmedqa_official/data/ori_pqal.json"
-OUT = PROJECT_ROOT / "reports/debate/analysis/h1b_conditionality_ratings.jsonl"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-SYSTEM_PROMPT = (
-    "You annotate biomedical research abstracts. You judge whether a passage answers a "
-    "research question unconditionally or only conditionally. You do not judge whether "
-    "the answer is yes or no, and you do not judge how cautious the wording is."
+from scripts.agents.probe_prompts import (  # noqa: E402
+    CONDITIONALITY_V1,
+    PromptSpec,
+    get_prompt,
+    ollama_chat_json,
+    snapshot_run,
 )
 
-USER_TEMPLATE = """Research question: {question}
+PQAL = PROJECT_ROOT / "data/raw/pubmedqa_official/data/ori_pqal.json"
+ANALYSIS = PROJECT_ROOT / "reports/debate/analysis"
+OUT = ANALYSIS / "h1b_conditionality_ratings.jsonl"
+CALIBRATION_KEY = ANALYSIS / "h1b_calibration_key.json"
 
-Passage:
-{passage}
+# Kept for callers that predate the prompt registry; equals CONDITIONALITY_V1.sha.
+PROMPT_SHA = CONDITIONALITY_V1.sha
 
-Does this passage, taken on its own, give a CONDITIONAL answer to the research question?
-An answer is conditional when it differs across subgroups, outcomes, settings, doses or time
-points, holds only for some of them, or when the passage reports both supporting and
-non-supporting findings for the question.
 
-Rate conditionality:
-0 = not conditional: one answer that holds as stated, or the passage does not address the question
-1 = partly: one main answer with a minor qualification or restriction
-2 = conditional: the answer clearly depends on a subgroup or condition, or findings point in different directions
+def default_out(spec: PromptSpec, only_calibration: bool) -> Path:
+    """The registered prompt keeps its original file; other prompts get their own."""
+    if spec.id == CONDITIONALITY_V1.id:
+        base = OUT
+    else:
+        base = ANALYSIS / f"h1b_conditionality_ratings.{spec.name}-v{spec.version}.jsonl"
+    return base.with_name(base.stem + ".calibration.jsonl") if only_calibration else base
 
-Ignore hedging words such as "may", "suggest" or "further studies are needed"; they do not
-make an answer conditional by themselves.
-Return JSON: {{"conditionality": 0, 1 or 2, "evidence": "<quote of at most 20 words, or empty>"}}"""
-
-RESPONSE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "conditionality": {"type": "integer", "enum": [0, 1, 2]},
-        "evidence": {"type": "string"},
-    },
-    "required": ["conditionality", "evidence"],
-}
-
-PROMPT_SHA = hashlib.sha256(
-    (SYSTEM_PROMPT + "\n" + USER_TEMPLATE + json.dumps(RESPONSE_SCHEMA, sort_keys=True)).encode("utf-8")
-).hexdigest()[:12]
 
 def passages(item: dict) -> dict[str, str]:
     """The two passages rated for one question; RESULTS is empty when the abstract has none."""
@@ -74,13 +65,6 @@ def passages(item: dict) -> dict[str, str]:
         c for c, lab in zip(item["CONTEXTS"], item["LABELS"]) if "RESULT" in lab.upper()
     )
     return {"conclusion": item["LONG_ANSWER"], "results": results}
-
-
-def build_messages(question: str, passage: str) -> list[dict]:
-    return [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": USER_TEMPLATE.format(question=question, passage=passage)},
-    ]
 
 
 def parse_rating(content: str) -> tuple[int | None, str]:
@@ -96,8 +80,8 @@ def parse_rating(content: str) -> tuple[int | None, str]:
     return rating, evidence if isinstance(evidence, str) else ""
 
 
-def done_keys(path: Path, model: str) -> set[tuple[str, str, int]]:
-    """(pmid, part, repeat) already rated by ``model`` with the current prompt."""
+def done_keys(path: Path, model: str, spec: PromptSpec = CONDITIONALITY_V1) -> set[tuple[str, str, int]]:
+    """(pmid, part, repeat) already rated by ``model`` with ``spec``."""
     if not path.exists():
         return set()
     keys = set()
@@ -106,7 +90,7 @@ def done_keys(path: Path, model: str) -> set[tuple[str, str, int]]:
             row = json.loads(line)
         except ValueError:
             continue  # a partial last line from an interrupted run
-        if row.get("prompt_sha") != PROMPT_SHA or row.get("model") != model:
+        if row.get("prompt_sha") != spec.sha or row.get("model") != model:
             raise SystemExit(
                 f"{path} holds ratings from another prompt or model "
                 f"({row.get('prompt_sha')}, {row.get('model')}); use a new --out."
@@ -116,31 +100,15 @@ def done_keys(path: Path, model: str) -> set[tuple[str, str, int]]:
     return keys
 
 
-def _chat(base_url: str, model: str, messages: list[dict], seed: int, timeout: float) -> str:
-    body = {
-        "model": model,
-        "messages": messages,
-        "stream": False,
-        "keep_alive": "60m",
-        "format": RESPONSE_SCHEMA,
-        "options": {"temperature": 0, "seed": seed, "num_ctx": 4096, "num_predict": 120},
-    }
-    request = urllib.request.Request(
-        f"{base_url.rstrip('/')}/api/chat",
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.load(response)["message"]["content"]
-
-
-def rate_one(task: dict, base_url: str, model: str, timeout: float, attempts: int = 3) -> dict:
-    messages = build_messages(task["question"], task["passage"])
+def rate_one(
+    task: dict, spec: PromptSpec, base_url: str, model: str, timeout: float, attempts: int = 3
+) -> dict:
+    messages = spec.messages(question=task["question"], passage=task["passage"])
     rating, evidence, error = None, "", ""
     for attempt in range(attempts):
         try:
             rating, evidence = parse_rating(
-                _chat(base_url, model, messages, seed=task["repeat"] + 1, timeout=timeout)
+                ollama_chat_json(base_url, model, spec, messages, seed=task["repeat"] + 1, timeout=timeout)
             )
             if rating is not None:
                 break
@@ -156,16 +124,27 @@ def rate_one(task: dict, base_url: str, model: str, timeout: float, attempts: in
         "evidence": evidence,
         "error": "" if rating is not None else error,
         "model": model,
-        "prompt_sha": PROMPT_SHA,
+        "prompt_id": spec.id,
+        "prompt_sha": spec.sha,
     }
 
 
-def build_tasks(data: dict, repeats: int, skip: set[tuple[str, str, int]], limit: int | None) -> list[dict]:
+def calibration_items(path: Path = CALIBRATION_KEY) -> set[tuple[str, str]]:
+    return {(k["pmid"], k["part"]) for k in json.loads(path.read_text(encoding="utf-8"))}
+
+
+def build_tasks(
+    data: dict,
+    repeats: int,
+    skip: set[tuple[str, str, int]],
+    limit: int | None,
+    only: set[tuple[str, str]] | None = None,
+) -> list[dict]:
     tasks = []
     for pmid in sorted(data)[:limit]:
         item = data[pmid]
         for part, text in passages(item).items():
-            if not text:
+            if not text or (only is not None and (pmid, part) not in only):
                 continue
             for repeat in range(repeats):
                 if (pmid, part, repeat) not in skip:
@@ -177,25 +156,44 @@ def build_tasks(data: dict, repeats: int, skip: set[tuple[str, str, int]], limit
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--prompt", default=CONDITIONALITY_V1.id, help="prompt id from probe_prompts.PROMPTS")
     parser.add_argument("--pqal", type=Path, default=PQAL)
-    parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--model", default="qwen2.5:32b")
     parser.add_argument("--base-url", default="http://localhost:11434")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--limit", type=int, default=None, help="rate only the first N questions (smoke test)")
+    parser.add_argument("--only-calibration", action="store_true", help="rate only the calibration sheet passages")
     args = parser.parse_args()
 
+    spec = get_prompt(args.prompt)
+    if spec.name != "conditionality":
+        raise SystemExit(f"{spec.id} is not a conditionality prompt")
+    out = args.out or default_out(spec, args.only_calibration)
     data = json.loads(args.pqal.read_text(encoding="utf-8"))
-    tasks = build_tasks(data, args.repeats, done_keys(args.out, args.model), args.limit)
-    print(f"prompt {PROMPT_SHA}, model {args.model}: {len(tasks)} ratings to do", flush=True)
+    only = calibration_items() if args.only_calibration else None
+    tasks = build_tasks(data, args.repeats, done_keys(out, args.model, spec), args.limit, only)
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_run(
+        out,
+        [spec],
+        script="scripts/agents/rate_conditionality.py",
+        model=args.model,
+        meta={
+            "repeats": args.repeats,
+            "limit": args.limit,
+            "only_calibration": args.only_calibration,
+            "ratings_to_do": len(tasks),
+        },
+    )
+    print(f"prompt {spec.id} ({spec.sha}, {spec.status}), model {args.model}: {len(tasks)} ratings to do -> {out}", flush=True)
+
     failed = 0
     started = time.time()
-    with args.out.open("a", encoding="utf-8") as fh, ThreadPoolExecutor(args.workers) as pool:
-        futures = [pool.submit(rate_one, t, args.base_url, args.model, args.timeout) for t in tasks]
+    with out.open("a", encoding="utf-8") as fh, ThreadPoolExecutor(args.workers) as pool:
+        futures = [pool.submit(rate_one, t, spec, args.base_url, args.model, args.timeout) for t in tasks]
         for n, future in enumerate(as_completed(futures), start=1):
             row = future.result()
             failed += row["conditionality"] is None

@@ -21,9 +21,9 @@ class RatingPromptTests(unittest.TestCase):
         )
 
     def test_messages_never_contain_the_label_or_annotators(self) -> None:
-        from scripts.agents.rate_conditionality import build_messages
+        from scripts.agents.probe_prompts import CONDITIONALITY_V1
 
-        text = json.dumps(build_messages("Does X help?", "X helped.")).lower()
+        text = json.dumps(CONDITIONALITY_V1.messages(question="Does X help?", passage="X helped.")).lower()
         for leaked in ("final_decision", "reasoning_free", "reasoning_required", "gold"):
             self.assertNotIn(leaked, text)
         self.assertIn("does x help?", text)

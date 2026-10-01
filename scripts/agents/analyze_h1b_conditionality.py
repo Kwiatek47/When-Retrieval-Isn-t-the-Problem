@@ -16,7 +16,8 @@ did not), both data splits, and rating stability across repeats.
 
 Calibration against people (run before trusting the ratings):
   ``--export-calibration`` writes a blind sheet of 50 passages for two raters;
-  ``--score-calibration`` computes agreement between the raters and with the LLM.
+  ``--score-calibration --ratings FILE`` computes agreement between the raters and with the
+  LLM ratings in FILE; run it for each candidate prompt's calibration ratings.
 
 Output: ``reports/debate/analysis/h1b_conditionality.json``.
 """
@@ -149,9 +150,14 @@ def export_calibration(n_questions: int = 25, n_maybe: int = 10, seed: int = 47)
     print(f"wrote {len(items)} passages -> {CALIBRATION_SHEET} (key: {CALIBRATION_KEY})")
 
 
-def score_calibration() -> dict:
+def score_calibration(ratings_path: Path = RATINGS) -> dict:
+    """Agreement of the two people with each other and with the LLM ratings in ``ratings_path``.
+
+    Run once per candidate prompt (``rate_conditionality.py --only-calibration``) to pick the
+    prompt that agrees best with people before any full run.
+    """
     key = {k["item"]: k for k in json.loads(CALIBRATION_KEY.read_text(encoding="utf-8"))}
-    ratings = load_ratings()
+    ratings = load_ratings(ratings_path)
     human_1, human_2, llm = [], [], []
     for row in csv.DictReader(CALIBRATION_SHEET.open(encoding="utf-8")):
         if row["rater_1"].strip() == "" or row["rater_2"].strip() == "":
@@ -166,6 +172,7 @@ def score_calibration() -> dict:
     if not human_1:
         raise SystemExit("no rated rows in the calibration sheet yet")
     return {
+        "ratings_file": str(ratings_path),
         "n": len(human_1),
         "kappa_rater1_rater2": round(cohen_kappa(human_1, human_2), 3),
         "weighted_kappa_rater1_rater2": round(cohen_kappa(human_1, human_2, weighted=True), 3),
@@ -189,7 +196,7 @@ def main() -> None:
         export_calibration(seed=args.seed)
         return
     if args.score_calibration:
-        print(json.dumps(score_calibration(), indent=2))
+        print(json.dumps(score_calibration(args.ratings), indent=2))
         return
 
     ratings = load_ratings(args.ratings)
