@@ -216,6 +216,8 @@ punktu odniesienia (opisowo, nie był to test zarejestrowany).
 | RQ8 / RQ9a głowica binarna, balans klas | nierozstrzygnięte (+0.016, +0.026; CI obejmują 0) | AP 0.16–0.20 przy losowym 0.11; człowiek 4× lepszy |
 | RQ8b duży LLM z definicją `maybe` wobec człowieka z tą samą informacją (T1) | **model poniżej człowieka** (+0.426 [+0.262, +0.569]) | F1 `maybe` 0.16 wobec 0.59; porażka nie wynika tylko z 55 przykładów treningowych |
 | H1 bezpośrednio: czy konkluzja daje modelowi `maybe` (T2) | nierozstrzygnięta (+0.022 [−0.104, +0.149]) | konkluzja podnosi accuracy (0.776 → 0.822), nie `maybe`; test o małej mocy |
+| RQ8b / BRAKI §A8: luka do człowieka przy niezależnym punkcie odniesienia (S1, S2) | S1 nieodróżnialne (+0.011 [−0.156, +0.178]); S2 **potwierdzona** (+0.275 [+0.142, +0.427]) | przewaga człowieka na `maybe` wynika ze współtworzenia etykiety; dwóch ludzi zgadza się co do `maybe` jak model z człowiekiem (0.25 wobec 0.24) |
+| H1 bezpośrednio na 984 pytaniach (T2) | nierozstrzygnięta (+0.013 [−0.083, +0.108]) | efektu konkluzji na `maybe` większego niż ok. 0.11 raczej nie ma |
 
 **Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
 (1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
@@ -226,6 +228,13 @@ etykiety.** Następne w kolejności: RQ8 / RQ9a (detektor binarny, balans klas) 
 **Uzupełnienie po teście z dużym LLM (2026-10-01):** `qwen3:30b` bez treningu, z definicją `maybe` w prompcie,
 też go nie rozpoznaje (F1 0.16–0.22). Sama liczba przykładów treningowych nie tłumaczy więc luki — dotyczy ona
 także modelu, który `maybe` nie musiał się uczyć.
+
+**Korekta po teście z niezależnym punktem odniesienia (2026-10-01):** punkt (3) powyżej i wniosek roboczy
+(„człowiek czyta `maybe`, modele nie”) **nie utrzymują się**. F1 0.59 annotatora 2 pochodzi stąd, że współtworzył
+etykietę; względem niezależnego annotatora ma 0.25, a model 0.24. Zostaje: (1) 11/55 jednomyślnych `maybe`,
+(2) błędy modeli skupione na pytaniach spornych (H2), odmowa łapiąca zwykłe błędy (H4), oraz nowe (4): co do `maybe`
+dwóch ludzi zgadza się nie lepiej niż model z człowiekiem. Teza wraca do wersji „`maybe` to w dużej mierze
+rozstrzygnięty spór annotatorów”.
 
 #### Rejestracja H4 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
 
@@ -432,6 +441,49 @@ których wyników modelu jeszcze nie oglądaliśmy.
 - **Zastrzeżenia:** annotatorzy różnią się też informacją (z konkluzją / bez), więc ich wzajemna zgodność to dolna
   granica zgodności dwóch osób z tą samą informacją. „Nieodróżnialne” w S1 nie dowodzi równości — przy ok. 12
   wspólnych `maybe` przedział ma szerokość ok. ±0.15. Jeden model, jeden prompt, jedna odpowiedź na pytanie.
+
+#### Wynik testu z niezależnym punktem odniesienia (2026-10-01; rejestracja w commicie `345b635`, `reports/debate/analysis/label_probe_qwen3_30b_independent.json`)
+
+**Której luki dotyczy:** RQ8b (Blok II — porównanie z człowiekiem o tej samej informacji) i BRAKI §A8: czy przewaga
+człowieka na `maybe` zostaje, gdy punktem odniesienia nie jest etykieta, którą sam współtworzył. T2 — ponownie H1.
+
+4 przebiegi po 500 pytań spoza testu, 0 błędów, 0 odpowiedzi nie do odczytania; analiza na 484 pytaniach
+(53 gold `maybe`). **S1: model nieodróżnialny od człowieka. S2: potwierdzona. R1: T1 się replikuje.
+T2: nierozstrzygnięty — także na połączonych 984 pytaniach.**
+
+| Test | Myślenie włączone (główny) | Myślenie wyłączone | Werdykt |
+|---|---|---|---|
+| S1 luka na tym samym miejscu (względem annotatora 1) | +0.011 [−0.156, +0.178] | +0.052 [−0.115, +0.221] | nieodróżnialne |
+| S2 część luki ze współtworzenia etykiety | +0.275 [+0.142, +0.427] | +0.303 [+0.167, +0.451] | **potwierdzona** |
+| R1 luka względem etykiety końcowej | +0.286 [+0.090, +0.465] | +0.356 [+0.169, +0.520] | model poniżej człowieka |
+| T2 efekt konkluzji (484 nowe pytania) | +0.003 [−0.141, +0.155] | +0.083 [−0.058, +0.229] | nierozstrzygnięty |
+| T2 na połączonych 984 pytaniach (pomocniczy) | +0.013 [−0.083, +0.108] | +0.012 [−0.081, +0.106] | nierozstrzygnięty |
+| lustrzane miejsce (z konkluzją, względem annotatora 2) | +0.094 [−0.070, +0.251] | +0.110 [−0.072, +0.279] | nieodróżnialne |
+| różnica ogólnej zgodności z annotatorem 1 (człowiek − model) | −0.056 [−0.101, −0.010] | −0.041 [−0.087, +0.004] | — |
+
+F1 `maybe` w głównym trybie (myślenie włączone, bez konkluzji):
+
+| Kto odpowiada | Względem annotatora 1 (niezależny) | Względem etykiety końcowej |
+|---|---|---|
+| annotator 2 (bez konkluzji) | 0.247 (12 wspólnych; 37 i 60 odpowiedzi) | 0.489 (22 / 37 / 53) |
+| `qwen3:30b` bez konkluzji | 0.237 (9 wspólnych; 16 i 60 odpowiedzi) | 0.203 (7 / 16 / 53) |
+
+**Co z tego wynika:**
+1. **Przewaga człowieka na `maybe` znika przy niezależnym punkcie odniesienia.** Annotator 2 zgadza się z annotatorem 1
+   co do `maybe` tak samo słabo jak model (0.247 wobec 0.237). Wynik eksploracyjny z pytań testowych (+0.023)
+   powtórzył się na nowych (+0.011).
+2. **Luka z T1 w większości bierze się ze współtworzenia etykiety** (S2 +0.275 z +0.286). T1 sam w sobie się
+   replikuje, więc nie był przypadkiem — mierzył co innego, niż sugerował.
+3. **Dwóch ludzi rzadko zgadza się co do `maybe`** (12 wspólnych na 37 i 60 odpowiedzi) — to wraca do słabszej wersji
+   tezy: `maybe` to w dużej mierze rozstrzygnięty spór annotatorów.
+4. **Ogólnie model zgadza się z annotatorem 1 częściej niż annotator 2** (0.775 wobec 0.719; w trybie bez myślenia
+   przedział dotyka zera).
+5. **H1 bezpośrednio — nadal nierozstrzygnięta**, mimo dwukrotnie większej próby: efekt konkluzji na `maybe` to
+   +0.013 [−0.083, +0.108] na 984 pytaniach. Efektu większego niż ok. 0.11 raczej nie ma.
+6. **Ograniczenia:** „nieodróżnialne” to nie „równe” — przedział S1 ma szerokość ok. ±0.17. Annotatorzy różnią się
+   też informacją (z konkluzją / bez), więc ich wzajemna zgodność to dolna granica. Model odpowiada `maybe` 16 razy
+   wobec 37 i 60 u ludzi, więc podobne F1 nie oznacza podobnego zachowania. Jeden model, jeden prompt.
+   Wyłączenie 16 pytań z próby czasowej opiera się na założeniu co do tego, które to były.
 
 ### Czy teza się z czymś pokrywa? (sprawdzone 2026-09-23)
 
@@ -694,3 +746,7 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
 - 2026-10-01 — test z dużym LLM zarejestrowany (`a556bea`) i policzony (`qwen3:30b`, 4 × 500 pytań): T1 — model
   poniżej annotatora bez konkluzji (+0.426 [+0.262, +0.569]); T2 — efekt konkluzji nierozstrzygnięty
   (+0.022 [−0.104, +0.149]).
+- 2026-10-01 — test z niezależnym punktem odniesienia zarejestrowany (`345b635`) i policzony (`qwen3:30b`, 4 × 500
+  pytań spoza testu): S1 nieodróżnialne (+0.011 [−0.156, +0.178]), S2 potwierdzona (+0.275 [+0.142, +0.427]),
+  T1 się replikuje, T2 nierozstrzygnięty także na 984 pytaniach. Wniosek roboczy „człowiek czyta `maybe`, modele
+  nie” skorygowany.

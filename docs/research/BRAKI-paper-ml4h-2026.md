@@ -92,19 +92,20 @@ Policzone ad hoc 2026-09-17 na `data/raw/pubmedqa_official/data/ori_pqal.json` (
   plik `pqal500_maybe_pr_sweep.json`, patrz B2). Pokazuje, że różnice między architekturami to w dużej mierze
   częstość, a nie rozumienie.
 
-### A8. [ ] P0 — „człowiek czyta `maybe`, model nie” wymaga kontroli na niezależnym annotatorze
+### A8. [~] P0 — „człowiek czyta `maybe`, model nie” wymaga kontroli na niezależnym annotatorze
 Wniosek roboczy w PLAN („człowiek F1 0.59, modele 0.07–0.28”) i T1 testu z `qwen3:30b` (+0.426) mierzą annotatora
 względem etykiety, którą współtworzył. Policzone eksploracyjnie 2026-10-01 (po obejrzeniu wyników, test 500):
 - F1 `maybe` annotatora bez konkluzji względem annotatora z konkluzją: **0.232** (11 wspólnych, 47 i 48 odpowiedzi).
 - `qwen3:30b` bez konkluzji względem annotatora z konkluzją: 0.209 (myślenie włączone), 0.216 (wyłączone);
   różnica człowiek − model +0.023 [−0.130, +0.175] i +0.015 [−0.153, +0.177].
 - Zgodność ogólna: annotatorzy między sobą 0.690; model z annotatorem z konkluzją 0.776.
-- [~] Test przygotowany 2026-10-01: rejestracja w PLAN („test z niezależnym punktem odniesienia”), analiza
-  `scripts/agents/analyze_label_probe_independent.py`, uruchomienie `logs/run_label_probe_qwen3_30b_cv.sh`
-  (500 pytań PQA-L spoza testu, 16 z próby czasowej wyłączone z analizy; 4 przebiegi, ok. 2 h GPU).
-  Do zrobienia: commit rejestracji, potem uruchomienie.
-- [ ] Na połączonych 1000 pytaniach powtórzyć T2 (110 `maybe` zamiast 55 — większa moc).
-- [ ] Do czasu potwierdzenia nie pisać w paperze, że modele są poniżej człowieka na `maybe`, bez tego zastrzeżenia.
+- [x] Potwierdzone 2026-10-01 zarejestrowanym testem (`345b635`) na 484 pytaniach PQA-L spoza testu:
+  S1 +0.011 [−0.156, +0.178] (nieodróżnialne), S2 +0.275 [+0.142, +0.427] (potwierdzona); annotator 2 względem
+  annotatora 1 F1 `maybe` 0.247, model 0.237. Wynik: `reports/debate/analysis/label_probe_qwen3_30b_independent.json`.
+- [x] T2 na połączonych 984 pytaniach: +0.013 [−0.083, +0.108] — nierozstrzygnięty.
+- [ ] **Tekst papera:** nie pisać, że modele są poniżej człowieka na `maybe`; „human performance” na `maybe` podawać
+  względem niezależnego annotatora (0.25), obok wartości względem etykiety końcowej (0.49–0.59).
+- [ ] Potwierdzić, które 16 pytań było w próbie czasowej (analiza wyłącza pierwsze 16 w kolejności runnera).
 
 ---
 
@@ -244,3 +245,4 @@ Zostawione dla śladu; nie robić przed A–C.
   przeniesione do B (nadal obowiązują) albo E (zdegradowane).
 - 2026-10-01 — po teście z `qwen3:30b` dodano A8: luka do człowieka na `maybe` znika, gdy punktem odniesienia jest
   niezależny annotator (eksploracyjnie, do potwierdzenia na pytaniach spoza testu).
+- 2026-10-01 — A8 potwierdzone zarejestrowanym testem na pytaniach spoza testu; zostaje poprawka tekstu papera.
