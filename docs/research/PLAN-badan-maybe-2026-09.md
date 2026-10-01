@@ -327,6 +327,29 @@ Poziom losowy AP = 0.11. Rozrzut AP między seedami: 0.018–0.026.
 4. **Ograniczenie:** 55 przykładów `maybe` w treningu. Wynik nie rozstrzyga, czy zadanie jest dla enkodera za trudne,
    czy danych jest za mało; pokazuje, że proste zabiegi (głowica, balans, prior) nie wystarczają.
 
+#### Rejestracja testu z dużym LLM (H1-direct + „dane czy zadanie”) — 2026-10-01, gałąź `klap/pivot`
+
+Po RQ8 / RQ9a zostało pytanie: czy `maybe` jest trudne dla modeli w ogóle, czy tylko dla enkodera uczonego na 55
+przykładach. Ten test nie wymaga treningu.
+
+- **Model:** `qwen3:30b` (największy Qwen 3 w Ollamie; 32B istnieje tylko dla Qwen 2.5), temperatura 0, seed 1,
+  jedna odpowiedź na pytanie.
+- **Prompt:** `label-defined@1` (hash `37742969f023`) — yes / no / maybe z definicją `maybe` wg Jin et al.
+- **Warunki:** `context` (abstrakt bez konkluzji — jak annotator 2 i modele) oraz `context+conclusion` (jak annotator 1).
+  500 pytań testowych. Runner: `scripts/agents/run_label_probe.py`; analiza: `scripts/agents/analyze_label_probe.py`.
+- **Tryb myślenia:** główny = włączony (domyślny tryb modelu; limit 4096 tokenów); wtórny = wyłączony (limit 600).
+- **T1 — luka do człowieka:** F1 `maybe` annotatora 2 − F1 `maybe` modelu (bez konkluzji), oba względem etykiety
+  końcowej; bootstrap po pytaniach. CI > 0 → model poniżej człowieka; CI < 0 → powyżej; inaczej nieodróżnialne.
+- **T2 — efekt konkluzji (bezpośredni test H1 modelem):** F1 `maybe` z konkluzją − bez konkluzji.
+  CI > 0 → potwierdzony; CI ≤ 0 → obalony; inaczej nierozstrzygnięty. Obok ta sama różnica dla annotatorów.
+- **Wtórne:** accuracy względem etykiety końcowej i obu annotatorów; precision / recall `maybe` i liczba odpowiedzi
+  `maybe`; ile odpowiedzi zmienia się na / z `maybe` po dodaniu konkluzji. Odpowiedź nie do odczytania po 3 próbach
+  liczy się jako błędna i nie-`maybe`.
+- **Znane przed rejestracją:** F1 `maybe` annotatorów 0.588 i 0.660; `qwen3:8b` k=4 z innym promptem: accuracy 0.742,
+  F1 `maybe` 0.282. Próba czasowa: 16 pytań **treningowych** w obu trybach (0.79 i 0.15 pytania/s); przy limicie 200
+  tokenów jedna odpowiedź została ucięta, stąd limity ustawiane przez runner (zapisywane w migawce runu).
+- **Zastrzeżenie:** annotator 2 współtworzył etykietę końcową, więc jego F1 jest zawyżone.
+
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
 

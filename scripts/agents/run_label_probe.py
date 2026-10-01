@@ -72,11 +72,22 @@ def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9.]+", "-", text).strip("-")
 
 
-def default_out(spec: PromptSpec, condition: str, model: str, split: str) -> Path:
-    return OUT_DIR / f"{spec.name}-v{spec.version}.{_slug(condition)}.{_slug(model)}.{split}.jsonl"
+THINK = {"default": None, "on": True, "off": False}
+# Token budget of one reply. A long rationale was cut off at the prompt's default of 200,
+# and thinking spends the same budget, so the runner sets its own limits.
+DECODING = {
+    "default": {"num_predict": 600},
+    "off": {"num_predict": 600},
+    "on": {"num_predict": 4096, "num_ctx": 8192},
+}
 
 
-def done_keys(path: Path, model: str, spec: PromptSpec, condition: str) -> set[tuple[str, int]]:
+def default_out(spec: PromptSpec, condition: str, model: str, split: str, think: str = "default") -> Path:
+    suffix = "" if think == "default" else f".think-{think}"
+    return OUT_DIR / f"{spec.name}-v{spec.version}.{_slug(condition)}.{_slug(model)}{suffix}.{split}.jsonl"
+
+
+def done_keys(path: Path, model: str, spec: PromptSpec, condition: str, think: str = "default") -> set[tuple[str, int]]:
     if not path.exists():
         return set()
     keys = set()
@@ -85,8 +96,9 @@ def done_keys(path: Path, model: str, spec: PromptSpec, condition: str) -> set[t
             row = json.loads(line)
         except ValueError:
             continue
-        if (row.get("prompt_sha"), row.get("model"), row.get("input")) != (spec.sha, model, condition):
-            raise SystemExit(f"{path} holds another prompt, model or input condition; use a new --out.")
+        found = (row.get("prompt_sha"), row.get("model"), row.get("input"), row.get("think", "default"))
+        if found != (spec.sha, model, condition, think):
+            raise SystemExit(f"{path} holds another prompt, model, input condition or think mode; use a new --out.")
         if row.get("label") is not None:
             keys.add((row["pmid"], row["repeat"]))
     return keys
@@ -99,13 +111,24 @@ def select_pmids(data: dict, split: str, test_path: Path = TEST_SET) -> list[str
     return sorted(p for p in data if (p in in_test) == (split == "test"))
 
 
-def ask_one(task: dict, spec: PromptSpec, base_url: str, model: str, timeout: float, attempts: int = 3) -> dict:
+def ask_one(
+    task: dict, spec: PromptSpec, base_url: str, model: str, timeout: float, think: str = "default", attempts: int = 3
+) -> dict:
     messages = spec.messages(question=task["question"], evidence=task["evidence"])
     label, confidence, rationale, error = None, None, "", ""
     for attempt in range(attempts):
         try:
             label, confidence, rationale = parse_label(
-                ollama_chat_json(base_url, model, spec, messages, seed=task["repeat"] + 1, timeout=timeout)
+                ollama_chat_json(
+                    base_url,
+                    model,
+                    spec,
+                    messages,
+                    seed=task["repeat"] + 1,
+                    timeout=timeout,
+                    think=THINK[think],
+                    options=DECODING[think],
+                )
             )
             if label is not None:
                 break
@@ -122,6 +145,7 @@ def ask_one(task: dict, spec: PromptSpec, base_url: str, model: str, timeout: fl
         "rationale": rationale,
         "error": "" if label is not None else error,
         "model": model,
+        "think": think,
         "prompt_id": spec.id,
         "prompt_sha": spec.sha,
     }
@@ -151,6 +175,7 @@ def main() -> None:
     parser.add_argument("--split", choices=("test", "cv", "all"), default="test")
     parser.add_argument("--model", default="qwen2.5:7b")
     parser.add_argument("--base-url", default="http://localhost:11434")
+    parser.add_argument("--think", choices=sorted(THINK), default="default", help="reasoning models: thinking on / off")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=300.0)
@@ -161,9 +186,9 @@ def main() -> None:
     spec = get_prompt(args.prompt)
     if "evidence" not in spec.fields:
         raise SystemExit(f"{spec.id} is not a label prompt")
-    out = args.out or default_out(spec, args.input, args.model, args.split)
+    out = args.out or default_out(spec, args.input, args.model, args.split, args.think)
     data = json.loads(PQAL.read_text(encoding="utf-8"))
-    skip = done_keys(out, args.model, spec, args.input)
+    skip = done_keys(out, args.model, spec, args.input, args.think)
     tasks = [
         {
             "pmid": pmid,
@@ -182,14 +207,26 @@ def main() -> None:
         [spec],
         script="scripts/agents/run_label_probe.py",
         model=args.model,
-        meta={"input": args.input, "split": args.split, "repeats": args.repeats, "limit": args.limit, "questions_to_do": len(tasks)},
+        meta={
+            "input": args.input,
+            "split": args.split,
+            "think": args.think,
+            "decoding_overrides": DECODING[args.think],
+            "repeats": args.repeats,
+            "limit": args.limit,
+            "questions_to_do": len(tasks),
+        },
     )
-    print(f"prompt {spec.id} ({spec.sha}), input {args.input}, model {args.model}: {len(tasks)} to do -> {out}", flush=True)
+    print(
+        f"prompt {spec.id} ({spec.sha}), input {args.input}, model {args.model}, think {args.think}: "
+        f"{len(tasks)} to do -> {out}",
+        flush=True,
+    )
 
     failed = 0
     started = time.time()
     with out.open("a", encoding="utf-8") as fh, ThreadPoolExecutor(args.workers) as pool:
-        futures = [pool.submit(ask_one, t, spec, args.base_url, args.model, args.timeout) for t in tasks]
+        futures = [pool.submit(ask_one, t, spec, args.base_url, args.model, args.timeout, args.think) for t in tasks]
         for n, future in enumerate(as_completed(futures), start=1):
             row = future.result()
             failed += row["label"] is None

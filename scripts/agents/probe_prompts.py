@@ -284,16 +284,25 @@ def ollama_chat_json(
     messages: list[dict],
     seed: int,
     timeout: float,
+    think: bool | None = None,
+    options: dict | None = None,
 ) -> str:
-    """One schema-constrained Ollama chat call with the spec's decoding options."""
+    """One schema-constrained Ollama chat call with the spec's decoding options.
+
+    ``think`` switches a reasoning model's thinking on or off (``None`` leaves the model's
+    default). Thinking is returned in a separate field but spends the ``num_predict``
+    budget, so callers that turn it on raise ``num_predict`` through ``options``.
+    """
     body = {
         "model": model,
         "messages": messages,
         "stream": False,
         "keep_alive": "60m",
         "format": spec.schema,
-        "options": {**spec.options, "seed": seed},
+        "options": {**spec.options, **(options or {}), "seed": seed},
     }
+    if think is not None:
+        body["think"] = think
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}/api/chat",
         data=json.dumps(body).encode("utf-8"),
