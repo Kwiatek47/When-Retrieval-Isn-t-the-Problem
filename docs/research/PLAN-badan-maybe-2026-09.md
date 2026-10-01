@@ -219,6 +219,26 @@ człowieka z tą samą informacją; (3) `maybe` jest odczytywalne z kontekstu �
 (0.07–0.28). Wniosek roboczy: **luka `maybe` to problem modeli i danych treningowych (PQA-A: 0 `maybe`), a nie
 etykiety.** Następne w kolejności: RQ8 / RQ9a (detektor binarny, balans klas) i H4.
 
+#### Rejestracja H4 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
+
+Skrypt: `scripts/agents/analyze_h4_abstention.py`. Sygnały niepewności: BioLinkBERT 1 − pewność, SC 1 − zgodność
+próbek, debata — podział głosów panelu i wynik u.
+
+Porównanie „AUROC błędów vs AUROC `maybe`” na wszystkich pytaniach byłoby koliste: BioLinkBERT myli się na 51 z 55
+pytań `maybe`. Test rozdziela więc dwa pytania:
+
+- **A** = AUROC sygnału dla **błędu** wśród pytań z gold yes/no (czy sygnał wskazuje zwykłe pomyłki?);
+- **B** = AUROC sygnału dla **gold `maybe`** wśród błędów systemu (czy wśród pomyłek wyróżnia `maybe`?).
+
+- **Test główny:** BioLinkBERT, 1 − pewność; D = A − B; bootstrap po 500 pytaniach (5000, seed 47).
+  CI A > 0.5 **oraz** CI D > 0 → **potwierdzona**; CI D ≤ 0 → **obalona**; inaczej nierozstrzygnięta.
+- **Wtórne:** A, B, D dla SC i debaty; AUROC dla błędu i dla gold `maybe` na wszystkich 500; AUROC dla pytań
+  spornych z H2 (RR ≠ etykieta końcowa); przy odmowie na 10–50% pytań — ile odrzuconych to gold `maybe` i jak
+  uniknięte błędy dzielą się na `maybe` i yes/no.
+- **Znane przed rejestracją:** z draftu papera — AUROC 0.637 dla gold `maybe` (BERT, wszystkie 500), 39/51 błędów na
+  `maybe` z pewnością ≥ 0.90, 21/55 `maybe` w zbiorze odmów; z `ANALYSIS_research_findings.md` — AUROC błędu ok. 0.62
+  (BERT), 0.70 (podział panelu), 0.62 (SC). **Nieznane:** A i B.
+
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
 
