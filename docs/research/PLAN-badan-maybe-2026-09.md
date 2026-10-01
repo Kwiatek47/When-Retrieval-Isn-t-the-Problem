@@ -212,6 +212,7 @@ punktu odniesienia (opisowo, nie był to test zarejestrowany).
 | H1b warunkowość w konkluzji | nierozstrzygnięta (0.663 vs 0.632) | `maybe` = odpowiedź warunkowa, widoczna też w RESULTS |
 | H2 błędy tam, gdzie człowiek z tą samą informacją | **potwierdzona** (+0.278 [+0.174, +0.380]) | błędy skupione na pytaniach spornych; na `maybe` modele daleko poniżej człowieka |
 | H3 miękkie etykiety zmieniają porównanie | brak efektu (+0.002 [−0.024, +0.026]) | ranking bez zmian |
+| H4 odmowa łapie błędy, nie `maybe` | **potwierdzona** (D = +0.185 [+0.028, +0.347]) | 71% unikniętych błędów to yes/no; wśród błędów sygnał nie wyróżnia `maybe` |
 
 **Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
 (1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
@@ -238,6 +239,35 @@ pytań `maybe`. Test rozdziela więc dwa pytania:
 - **Znane przed rejestracją:** z draftu papera — AUROC 0.637 dla gold `maybe` (BERT, wszystkie 500), 39/51 błędów na
   `maybe` z pewnością ≥ 0.90, 21/55 `maybe` w zbiorze odmów; z `ANALYSIS_research_findings.md` — AUROC błędu ok. 0.62
   (BERT), 0.70 (podział panelu), 0.62 (SC). **Nieznane:** A i B.
+
+#### Wynik H4 (2026-10-01; rejestracja w commicie `a622b87`, `reports/debate/analysis/h4_abstention.json`)
+
+**Test główny — potwierdzona.** A = AUROC dla błędu wśród pytań yes/no; B = AUROC dla gold `maybe` wśród błędów.
+
+| Sygnał | A [95% CI] | B [95% CI] | D = A − B [95% CI] |
+|---|---|---|---|
+| **BioLinkBERT 1 − pewność (główny)** | 0.660 [0.584, 0.731] | 0.476 [0.380, 0.572] | **+0.185 [+0.028, +0.347]** |
+| SC 1 − zgodność | 0.635 [0.582, 0.688] | 0.439 [0.355, 0.528] | +0.196 [+0.069, +0.324] |
+| Debata — podział panelu | 0.593 [0.529, 0.655] | 0.421 [0.327, 0.516] | +0.172 [+0.035, +0.314] |
+| Debata — wynik u | 0.807 [0.751, 0.859] | 0.210 [0.139, 0.289] | +0.598 [+0.472, +0.713] |
+
+**Wtórne (BioLinkBERT):**
+- Odmowa na 30% pytań: accuracy 0.726 → 0.809. Odrzucone: 22 z 55 `maybe` (losowo byłoby 16.5).
+  Uniknięte błędy: **50 na yes/no, 20 na `maybe`** — 71% zysku pochodzi z pytań yes/no.
+- Odmowa łapie 58% błędów na yes/no (50/86), ale tylko 39% błędów na `maybe` (20/51).
+- AUROC na wszystkich 500: błąd 0.666 [0.609, 0.722], gold `maybe` 0.637 [0.565, 0.708] — **potwierdza liczbę
+  0.637 z draftu papera**, która dotąd nie miała źródła w repo.
+- Sygnał słabo wskazuje pytania sporne z H2: 0.560 [0.492, 0.626].
+
+**Uwagi:**
+- Wynik u ma wysokie A (0.807) i bardzo niskie B (0.210), bo rośnie, gdy panel skłania się ku `maybe` — a to
+  najczęściej fałszywe `maybe` na pytaniach yes/no. Flaguje więc własne fałszywe alarmy debaty, a prawdziwe `maybe`
+  (na których debata odpowiada pewnie yes/no) pomija: przy odmowie na 10% unika 31 błędów na yes/no i 0 na `maybe`.
+- AUROC błędu dla u = 0.697 — to jest „niezgoda panelu 0.697” z `ANALYSIS_research_findings.md`; sam podział
+  głosów daje 0.563. Wyjaśnia to wcześniejszą rozbieżność (BRAKI §0): to dwa różne sygnały.
+
+**Co z tego wynika:** odmowa działa przez omijanie zwykłych pomyłek. Wśród błędów żaden sygnał nie wyróżnia
+`maybe` (B ≤ 0.5 dla wszystkich czterech), więc odmowa **nie jest** sposobem na rozpoznawanie `maybe`.
 
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
@@ -496,3 +526,5 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   [+0.174, +0.380]); na `maybe` modele daleko poniżej annotatora z tą samą informacją.
 - 2026-10-01 — H3 zarejestrowana (`f160dde`) i policzona: brak efektu (I = +0.002 [−0.024, +0.026]), ranking
   systemów identyczny na twardych i miękkich etykietach. Dodano podsumowanie stanu tezy.
+- 2026-10-01 — H4 zarejestrowana (`a622b87`) i policzona: potwierdzona dla wszystkich czterech sygnałów;
+  odmowa omija zwykłe pomyłki, nie rozpoznaje `maybe`.

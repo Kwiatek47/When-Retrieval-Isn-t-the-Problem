@@ -1,0 +1,355 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "primary_signal": "biolinkbert_1_minus_confidence",
+  "signals": {
+    "biolinkbert_1_minus_confidence": {
+      "n_errors": 137,
+      "n_errors_on_gold_maybe": 51,
+      "A_error_among_gold_yes_no": {
+        "value": 0.6604,
+        "ci_low": 0.5836,
+        "ci_high": 0.7308
+      },
+      "B_maybe_among_errors": {
+        "value": 0.4756,
+        "ci_low": 0.3804,
+        "ci_high": 0.5721
+      },
+      "D_separation": {
+        "value": 0.1848,
+        "ci_low": 0.0277,
+        "ci_high": 0.3469,
+        "verdict": "supported"
+      },
+      "auroc_error_all": {
+        "value": 0.6658,
+        "ci_low": 0.609,
+        "ci_high": 0.7222
+      },
+      "auroc_gold_maybe_all": {
+        "value": 0.637,
+        "ci_low": 0.5647,
+        "ci_high": 0.7075
+      },
+      "auroc_disputed_by_rr": {
+        "value": 0.5603,
+        "ci_low": 0.4921,
+        "ci_high": 0.6259
+      },
+      "abstention": [
+        {
+          "abstention_rate": 0.1,
+          "abstained": 50,
+          "abstained_gold_maybe": 8,
+          "expected_gold_maybe_if_random": 5.5,
+          "errors_avoided_on_maybe": 7,
+          "errors_avoided_on_yes_no": 21,
+          "correct_answers_lost": 22,
+          "selective_accuracy": 0.7578
+        },
+        {
+          "abstention_rate": 0.2,
+          "abstained": 100,
+          "abstained_gold_maybe": 16,
+          "expected_gold_maybe_if_random": 11.0,
+          "errors_avoided_on_maybe": 14,
+          "errors_avoided_on_yes_no": 39,
+          "correct_answers_lost": 47,
+          "selective_accuracy": 0.79
+        },
+        {
+          "abstention_rate": 0.3,
+          "abstained": 150,
+          "abstained_gold_maybe": 22,
+          "expected_gold_maybe_if_random": 16.5,
+          "errors_avoided_on_maybe": 20,
+          "errors_avoided_on_yes_no": 50,
+          "correct_answers_lost": 80,
+          "selective_accuracy": 0.8086
+        },
+        {
+          "abstention_rate": 0.4,
+          "abstained": 200,
+          "abstained_gold_maybe": 29,
+          "expected_gold_maybe_if_random": 22.0,
+          "errors_avoided_on_maybe": 27,
+          "errors_avoided_on_yes_no": 51,
+          "correct_answers_lost": 122,
+          "selective_accuracy": 0.8033
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstained": 250,
+          "abstained_gold_maybe": 39,
+          "expected_gold_maybe_if_random": 27.5,
+          "errors_avoided_on_maybe": 37,
+          "errors_avoided_on_yes_no": 53,
+          "correct_answers_lost": 160,
+          "selective_accuracy": 0.812
+        }
+      ]
+    },
+    "self_consistency_1_minus_agreement": {
+      "n_errors": 129,
+      "n_errors_on_gold_maybe": 36,
+      "A_error_among_gold_yes_no": {
+        "value": 0.6349,
+        "ci_low": 0.5824,
+        "ci_high": 0.6883
+      },
+      "B_maybe_among_errors": {
+        "value": 0.4394,
+        "ci_low": 0.3551,
+        "ci_high": 0.5282
+      },
+      "D_separation": {
+        "value": 0.1955,
+        "ci_low": 0.0694,
+        "ci_high": 0.3237,
+        "verdict": "supported"
+      },
+      "auroc_error_all": {
+        "value": 0.6156,
+        "ci_low": 0.572,
+        "ci_high": 0.6608
+      },
+      "auroc_gold_maybe_all": {
+        "value": 0.5518,
+        "ci_low": 0.4926,
+        "ci_high": 0.6153
+      },
+      "auroc_disputed_by_rr": {
+        "value": 0.5269,
+        "ci_low": 0.4846,
+        "ci_high": 0.5721
+      },
+      "abstention": [
+        {
+          "abstention_rate": 0.1,
+          "abstained": 50,
+          "abstained_gold_maybe": 9,
+          "expected_gold_maybe_if_random": 5.5,
+          "errors_avoided_on_maybe": 6,
+          "errors_avoided_on_yes_no": 21,
+          "correct_answers_lost": 23,
+          "selective_accuracy": 0.7733
+        },
+        {
+          "abstention_rate": 0.2,
+          "abstained": 100,
+          "abstained_gold_maybe": 16,
+          "expected_gold_maybe_if_random": 11.0,
+          "errors_avoided_on_maybe": 11,
+          "errors_avoided_on_yes_no": 36,
+          "correct_answers_lost": 53,
+          "selective_accuracy": 0.795
+        },
+        {
+          "abstention_rate": 0.3,
+          "abstained": 150,
+          "abstained_gold_maybe": 22,
+          "expected_gold_maybe_if_random": 16.5,
+          "errors_avoided_on_maybe": 14,
+          "errors_avoided_on_yes_no": 46,
+          "correct_answers_lost": 90,
+          "selective_accuracy": 0.8029
+        },
+        {
+          "abstention_rate": 0.4,
+          "abstained": 200,
+          "abstained_gold_maybe": 27,
+          "expected_gold_maybe_if_random": 22.0,
+          "errors_avoided_on_maybe": 18,
+          "errors_avoided_on_yes_no": 50,
+          "correct_answers_lost": 132,
+          "selective_accuracy": 0.7967
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstained": 250,
+          "abstained_gold_maybe": 35,
+          "expected_gold_maybe_if_random": 27.5,
+          "errors_avoided_on_maybe": 21,
+          "errors_avoided_on_yes_no": 57,
+          "correct_answers_lost": 172,
+          "selective_accuracy": 0.796
+        }
+      ]
+    },
+    "debate_dissent_panel_split": {
+      "n_errors": 130,
+      "n_errors_on_gold_maybe": 48,
+      "A_error_among_gold_yes_no": {
+        "value": 0.5934,
+        "ci_low": 0.5292,
+        "ci_high": 0.6549
+      },
+      "B_maybe_among_errors": {
+        "value": 0.4209,
+        "ci_low": 0.3274,
+        "ci_high": 0.5164
+      },
+      "D_separation": {
+        "value": 0.1725,
+        "ci_low": 0.0347,
+        "ci_high": 0.3142,
+        "verdict": "supported"
+      },
+      "auroc_error_all": {
+        "value": 0.5633,
+        "ci_low": 0.5092,
+        "ci_high": 0.6145
+      },
+      "auroc_gold_maybe_all": {
+        "value": 0.4961,
+        "ci_low": 0.4193,
+        "ci_high": 0.5726
+      },
+      "auroc_disputed_by_rr": {
+        "value": 0.5325,
+        "ci_low": 0.478,
+        "ci_high": 0.587
+      },
+      "abstention": [
+        {
+          "abstention_rate": 0.1,
+          "abstained": 50,
+          "abstained_gold_maybe": 7,
+          "expected_gold_maybe_if_random": 5.5,
+          "errors_avoided_on_maybe": 6,
+          "errors_avoided_on_yes_no": 13,
+          "correct_answers_lost": 31,
+          "selective_accuracy": 0.7533
+        },
+        {
+          "abstention_rate": 0.2,
+          "abstained": 100,
+          "abstained_gold_maybe": 11,
+          "expected_gold_maybe_if_random": 11.0,
+          "errors_avoided_on_maybe": 10,
+          "errors_avoided_on_yes_no": 26,
+          "correct_answers_lost": 64,
+          "selective_accuracy": 0.765
+        },
+        {
+          "abstention_rate": 0.3,
+          "abstained": 150,
+          "abstained_gold_maybe": 17,
+          "expected_gold_maybe_if_random": 16.5,
+          "errors_avoided_on_maybe": 15,
+          "errors_avoided_on_yes_no": 35,
+          "correct_answers_lost": 100,
+          "selective_accuracy": 0.7714
+        },
+        {
+          "abstention_rate": 0.4,
+          "abstained": 200,
+          "abstained_gold_maybe": 22,
+          "expected_gold_maybe_if_random": 22.0,
+          "errors_avoided_on_maybe": 20,
+          "errors_avoided_on_yes_no": 42,
+          "correct_answers_lost": 138,
+          "selective_accuracy": 0.7733
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstained": 250,
+          "abstained_gold_maybe": 28,
+          "expected_gold_maybe_if_random": 27.5,
+          "errors_avoided_on_maybe": 24,
+          "errors_avoided_on_yes_no": 48,
+          "correct_answers_lost": 178,
+          "selective_accuracy": 0.768
+        }
+      ]
+    },
+    "debate_dissent_u_score": {
+      "n_errors": 130,
+      "n_errors_on_gold_maybe": 48,
+      "A_error_among_gold_yes_no": {
+        "value": 0.8074,
+        "ci_low": 0.7515,
+        "ci_high": 0.859
+      },
+      "B_maybe_among_errors": {
+        "value": 0.2096,
+        "ci_low": 0.1391,
+        "ci_high": 0.289
+      },
+      "D_separation": {
+        "value": 0.5978,
+        "ci_low": 0.472,
+        "ci_high": 0.7132,
+        "verdict": "supported"
+      },
+      "auroc_error_all": {
+        "value": 0.6972,
+        "ci_low": 0.6405,
+        "ci_high": 0.7502
+      },
+      "auroc_gold_maybe_all": {
+        "value": 0.5358,
+        "ci_low": 0.4512,
+        "ci_high": 0.6219
+      },
+      "auroc_disputed_by_rr": {
+        "value": 0.5808,
+        "ci_low": 0.521,
+        "ci_high": 0.6402
+      },
+      "abstention": [
+        {
+          "abstention_rate": 0.1,
+          "abstained": 50,
+          "abstained_gold_maybe": 7,
+          "expected_gold_maybe_if_random": 5.5,
+          "errors_avoided_on_maybe": 0,
+          "errors_avoided_on_yes_no": 31,
+          "correct_answers_lost": 19,
+          "selective_accuracy": 0.78
+        },
+        {
+          "abstention_rate": 0.2,
+          "abstained": 100,
+          "abstained_gold_maybe": 13,
+          "expected_gold_maybe_if_random": 11.0,
+          "errors_avoided_on_maybe": 6,
+          "errors_avoided_on_yes_no": 46,
+          "correct_answers_lost": 48,
+          "selective_accuracy": 0.805
+        },
+        {
+          "abstention_rate": 0.3,
+          "abstained": 150,
+          "abstained_gold_maybe": 21,
+          "expected_gold_maybe_if_random": 16.5,
+          "errors_avoided_on_maybe": 14,
+          "errors_avoided_on_yes_no": 57,
+          "correct_answers_lost": 79,
+          "selective_accuracy": 0.8314
+        },
+        {
+          "abstention_rate": 0.4,
+          "abstained": 200,
+          "abstained_gold_maybe": 25,
+          "expected_gold_maybe_if_random": 22.0,
+          "errors_avoided_on_maybe": 18,
+          "errors_avoided_on_yes_no": 60,
+          "correct_answers_lost": 122,
+          "selective_accuracy": 0.8267
+        },
+        {
+          "abstention_rate": 0.5,
+          "abstained": 250,
+          "abstained_gold_maybe": 31,
+          "expected_gold_maybe_if_random": 27.5,
+          "errors_avoided_on_maybe": 24,
+          "errors_avoided_on_yes_no": 63,
+          "correct_answers_lost": 163,
+          "selective_accuracy": 0.828
+        }
+      ]
+    }
+  }
+}
