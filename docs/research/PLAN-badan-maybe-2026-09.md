@@ -177,6 +177,48 @@ zamiast zliczania trafień).
   każdej miękkiej accuracy. **Nieznane:** accuracy względem RF.
 - **Zastrzeżenie:** annotatorzy czytali różne teksty, więc q miesza różnicę między osobami z efektem konkluzji.
 
+#### Wynik H3 (2026-10-01; rejestracja w commicie `f160dde`, `reports/debate/analysis/h3_soft_labels.json`)
+
+**Test główny — nierozstrzygnięty wg zarejestrowanej reguły, w praktyce brak efektu.**
+SC − BioLinkBERT: twarde +0.016, miękkie +0.018; **I = +0.002 [−0.024, +0.026]**. Przedział wychodzi nieznacznie poza
+±0.02, więc formalnie nie jest to „obalona”, ale estymata punktowa jest praktycznie zerowa.
+
+| System | Twarda acc | Miękka acc [95% CI] |
+|---|---|---|
+| SC `qwen3:8b` k=4 | 0.742 | 0.724 [0.692, 0.756] |
+| Debata dissent | 0.740 | 0.717 [0.685, 0.749] |
+| BioLinkBERT | 0.726 | 0.706 [0.673, 0.739] |
+| Debata majority | 0.714 | 0.692 [0.658, 0.725] |
+| Always-yes | 0.552 | 0.586 [0.549, 0.622] |
+
+**Wtórne:**
+- Kolejność systemów jest **identyczna** na twardych i miękkich etykietach. Wszystkie 6 par ma |I| ≤ 0.005;
+  3 pary spełniają kryterium równoważności, a w wariancie z etykietą końcową jako trzecim głosem — wszystkie 6
+  (para główna: +0.001 [−0.015, +0.018]).
+- Miękkie etykiety obniżają accuracy każdego systemu o ok. 2 pp, a always-yes **podnoszą** o 3.4 pp.
+  Przewaga BioLinkBERT nad always-yes spada z 17.4 pp do 12.0 pp.
+- `maybe`: miękkie F1 nieco wyższe dla systemów, które rzadko mówią `maybe` (BERT 0.101 → 0.168), bez zmiany dla SC
+  (0.282 → 0.275). Wszystkie pozostają niskie.
+
+**Co z tego wynika:** miękkie etykiety **nie zmieniają porównania systemów** na PubMedQA — przesuwają wszystkie
+o podobną wartość. H3 nie ma poparcia. Jedyna rzecz warta odnotowania to mniejszy dystans do trywialnego
+punktu odniesienia (opisowo, nie był to test zarejestrowany).
+
+#### Stan tezy po H1, H1b, H2, H3 (2026-10-01)
+
+| Hipoteza | Wynik | Co zostaje |
+|---|---|---|
+| H1 hedging w konkluzji | nierozstrzygnięta (0.550 vs 0.539) — prowadzi osobna osoba | hedging to styl, nie niepewność |
+| H1b warunkowość w konkluzji | nierozstrzygnięta (0.663 vs 0.632) | `maybe` = odpowiedź warunkowa, widoczna też w RESULTS |
+| H2 błędy tam, gdzie człowiek z tą samą informacją | **potwierdzona** (+0.278 [+0.174, +0.380]) | błędy skupione na pytaniach spornych; na `maybe` modele daleko poniżej człowieka |
+| H3 miękkie etykiety zmieniają porównanie | brak efektu (+0.002 [−0.024, +0.026]) | ranking bez zmian |
+
+**Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
+(1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
+człowieka z tą samą informacją; (3) `maybe` jest odczytywalne z kontekstu — człowiek to robi (F1 0.59), modele nie
+(0.07–0.28). Wniosek roboczy: **luka `maybe` to problem modeli i danych treningowych (PQA-A: 0 `maybe`), a nie
+etykiety.** Następne w kolejności: RQ8 / RQ9a (detektor binarny, balans klas) i H4.
+
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
 
@@ -432,3 +474,5 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   z konkluzją reaguje na warunkowość konkluzji (+0.170).
 - 2026-10-01 — H2 zarejestrowana (commit `2fb20ff`) i policzona: test główny potwierdzony (BERT +0.278
   [+0.174, +0.380]); na `maybe` modele daleko poniżej annotatora z tą samą informacją.
+- 2026-10-01 — H3 zarejestrowana (`f160dde`) i policzona: brak efektu (I = +0.002 [−0.024, +0.026]), ranking
+  systemów identyczny na twardych i miękkich etykietach. Dodano podsumowanie stanu tezy.
