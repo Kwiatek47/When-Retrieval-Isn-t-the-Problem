@@ -156,6 +156,27 @@ gold `maybe` (445 pytań, 85 spornych) efekt zostaje: BERT +0.197 [+0.089, +0.30
    i danych treningowych, nie ukrytej informacji. Priorytet rośnie dla RQ8 / RQ9a.
 3. Drobna rozbieżność do wyjaśnienia: BioLinkBERT przewiduje `maybe` 24 razy wg tych plików, paper podaje 23.
 
+#### Rejestracja H3 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
+
+Skrypt: `scripts/agents/analyze_h3_soft_labels.py`. Metryki wg Lionetti et al. 2025 (sumowanie prawdopodobieństw
+zamiast zliczania trafień).
+
+- **Etykieta miękka (główna):** q = ½ · RF + ½ · RR (dwie surowe annotacje). Gdzie annotatorzy byli zgodni,
+  jest równa etykiecie twardej. Na 500 pytaniach testowych różni się tam, gdzie RF ≠ RR.
+- **Miękka accuracy** systemu = średnie prawdopodobieństwo, jakie q daje odpowiedzi systemu.
+- **Test główny:** para SC (`qwen3:8b`, k=4) vs BioLinkBERT — jedyne dwa systemy, które nie widziały swoich odpowiedzi.
+  I = [miękka acc(SC) − miękka acc(BERT)] − [twarda acc(SC) − twarda acc(BERT)]; sparowany bootstrap (5000, seed 47).
+  CI I nie zawiera 0 → **potwierdzona**; CI I w całości w [−0.02, +0.02] → **obalona** (porównanie przesuwa się
+  o mniej niż 2 pp); inaczej nierozstrzygnięta.
+- **Dlaczego nie „zmiana rankingu”:** twarde accuracy czterech systemów mieszczą się w 3 pp (0.714–0.742), więc sama
+  zmiana kolejności mogłaby być szumem. Testujemy wielkość przesunięcia.
+- **Wtórne:** I dla wszystkich 6 par (bez korekty); jak często kolejność pary różni się między twardą a miękką
+  accuracy w tej samej próbie bootstrap; twarde vs miękkie precision / recall / F1 dla `maybe`; punkt odniesienia
+  always-yes; wariant q = ⅓ RF + ⅓ RR + ⅓ etykieta końcowa.
+- **Znane przed rejestracją:** twarda accuracy każdego systemu i jego accuracy względem RR (wynik H2), czyli połowa
+  każdej miękkiej accuracy. **Nieznane:** accuracy względem RF.
+- **Zastrzeżenie:** annotatorzy czytali różne teksty, więc q miesza różnicę między osobami z efektem konkluzji.
+
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
 
