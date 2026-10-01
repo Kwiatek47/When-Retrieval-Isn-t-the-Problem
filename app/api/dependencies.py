@@ -26,7 +26,7 @@ def get_ollama_provider() -> OllamaProvider:
         timeout=settings.ollama_timeout,
         keep_alive=settings.ollama_keep_alive,
         num_predict=settings.ollama_num_predict,
-        num_ctx=settings.ollama_num_ctx,
+        num_ctx=max(settings.ollama_num_ctx, 8192),
     )
 
 

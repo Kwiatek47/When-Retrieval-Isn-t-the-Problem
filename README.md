@@ -78,7 +78,7 @@ cd /path/to/When-Retrieval-Isn-t-the-Problem
 3. Activate your environment (example `llm_env`):
 
 ```bash
-source /path/to/miniconda3/etc/profile.d/conda.sh
+source ~/raid/miniconda3/etc/profile.d/conda.sh
 conda activate llm_env
 ```
 

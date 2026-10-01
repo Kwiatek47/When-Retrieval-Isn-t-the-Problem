@@ -1,0 +1,10 @@
+# Debate agents: widen context window for multi-round peer transcripts.
+# Register once per Ollama instance:
+#   ollama create qwen2.5:14b-debate -f scripts/agents/Modelfile.qwen2.5-14b-debate
+#
+# Then set OLLAMA_MODEL=qwen2.5:14b-debate (or pass --model to evaluate script).
+
+FROM qwen2.5:14b
+
+PARAMETER num_ctx 8192
+PARAMETER temperature 0.1

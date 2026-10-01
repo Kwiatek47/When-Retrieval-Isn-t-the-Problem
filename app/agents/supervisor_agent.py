@@ -12,7 +12,12 @@ from app.agents.models import (
     SupervisorDirectorOutput,
     SupervisorModerationOutput,
 )
-from app.agents.prompts import SUPERVISOR_DIRECTOR_PROMPT, SUPERVISOR_MODERATOR_PROMPT
+from app.agents.prompts import (
+    SUPERVISOR_DIRECTOR_PROMPT,
+    SUPERVISOR_MODERATOR_PROMPT,
+    PeerContextMode,
+    format_opinions_for_supervisor,
+)
 from app.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -59,27 +64,38 @@ class SupervisorAgent:
         *,
         backend: InferenceBackend,
         temperature: float = 0.2,
+        peer_context: PeerContextMode = "nl",
     ) -> None:
         self.backend = backend
         self.temperature = temperature
+        self.peer_context: PeerContextMode = (peer_context or "nl")  # type: ignore[assignment]
         self.last_moderation_output: SupervisorModerationOutput | None = None
+        self.last_moderation_failed: bool = False
         self.last_director_output: SupervisorDirectorOutput | None = None
 
     async def moderate_round(
         self,
         patient_case: str,
-        agents_opinions: dict[str, Any],
+        agents_opinions: dict[str, Any] | list[Any],
     ) -> SupervisorModerationOutput:
+        rendered = format_opinions_for_supervisor(
+            agents_opinions,
+            peer_context=self.peer_context,
+        )
         prompt = SUPERVISOR_MODERATOR_PROMPT.format(
             patient_case=patient_case,
-            previous_round_opinions=json.dumps(agents_opinions, ensure_ascii=False),
+            previous_round_opinions=rendered,
         )
         messages = [
             ChatMessage(role="system", content="Return only valid JSON matching the requested schema."),
             ChatMessage(role="user", content=prompt),
         ]
 
-        raw = await self._complete_with_repair(messages, self.temperature)
+        raw = await self._complete_with_repair(
+            messages,
+            self.temperature,
+            response_format=SupervisorModerationOutput.model_json_schema(),
+        )
         try:
             data = _safe_json_loads(raw)
             data["author_conclusion"] = _normalize_author_conclusion(
@@ -88,8 +104,32 @@ class SupervisorAgent:
             if not isinstance(data.get("residual_uncertainty"), list):
                 data["residual_uncertainty"] = []
             data.setdefault("primary_endpoint_result", "")
+            # Dissent adjudication is optional; a malformed block must not sink
+            # the whole moderation, so drop it rather than fail validation.
+            dissent = data.get("dissent")
+            if not isinstance(dissent, dict) or not dissent:
+                data["dissent"] = None
+            else:
+                agents = dissent.get("minority_agents")
+                dissent["minority_agents"] = (
+                    [str(a) for a in agents if str(a).strip()]
+                    if isinstance(agents, list)
+                    else []
+                )
+                for key in (
+                    "minority_label",
+                    "minority_core_claim",
+                    "directed_challenge_to_majority",
+                    "directed_challenge_to_minority",
+                ):
+                    dissent[key] = str(dissent.get(key) or "").strip()
+                dissent["majority_has_addressed_it"] = bool(
+                    dissent.get("majority_has_addressed_it")
+                )
+                data["dissent"] = dissent
             output = SupervisorModerationOutput.model_validate(data)
             self.last_moderation_output = output
+            self.last_moderation_failed = False
             return output
         except Exception:
             logger.warning("Failed to parse SupervisorModerationOutput; using fallback.", exc_info=True)
@@ -104,6 +144,7 @@ class SupervisorAgent:
                 residual_uncertainty=[],
             )
             self.last_moderation_output = output
+            self.last_moderation_failed = True
             return output
 
     async def synthesize_decision(
@@ -114,14 +155,17 @@ class SupervisorAgent:
         *,
         shared_report: str | None = None,
         debate_brief: str | None = None,
+        panel_vote_summary: str | None = None,
     ) -> SupervisorDirectorOutput:
         schema = SupervisorDirectorOutput.model_json_schema()
-        brief = debate_brief if debate_brief is not None else debate_transcript
-        report = shared_report if shared_report is not None else "{}"
+        # Full multi-round conflict transcript is the primary Director input.
+        # ``debate_brief`` remains for backward-compatible callers only.
+        transcript = (debate_transcript or "").strip() or (debate_brief or "")
         prompt = SUPERVISOR_DIRECTOR_PROMPT.format(
             patient_case=patient_case,
-            shared_report=report,
-            debate_brief=brief,
+            full_debate_transcript=transcript,
+            panel_vote_summary=(panel_vote_summary or "").strip()
+            or "(panel vote summary unavailable)",
             biolinkbert_hint=biolinkbert_hint,
         )
 
@@ -137,17 +181,41 @@ class SupervisorAgent:
             ChatMessage(role="user", content=prompt),
         ]
 
-        raw = await self._complete_with_repair(messages, self.temperature)
+        raw = await self._complete_with_repair(
+            messages,
+            self.temperature,
+            response_format=schema,
+        )
         try:
             data = _safe_json_loads(raw)
-            # Defaults for older models that omit the maybe-gate fields.
+            # Defaults for models that omit optional / newer schema fields.
+            data.setdefault("debate_conflict_level", "medium")
+            data.setdefault("conclusiveness_score", 5)
+            if not isinstance(data.get("unresolved_contradictions"), list):
+                data["unresolved_contradictions"] = []
             data.setdefault("primary_endpoint_answers_question", True)
             data.setdefault("findings_decisive_for_question", True)
             data.setdefault("authors_state_uncertainty", False)
+            conflict = str(data.get("debate_conflict_level") or "medium").strip().lower()
+            if conflict not in {"low", "medium", "high"}:
+                conflict = "medium"
+            data["debate_conflict_level"] = conflict
+            try:
+                score = int(data.get("conclusiveness_score", 5))
+            except (TypeError, ValueError):
+                score = 5
+            data["conclusiveness_score"] = min(10, max(1, score))
             coverage = str(data.get("question_coverage") or "full").strip().lower()
             if coverage not in {"full", "partial", "none"}:
                 coverage = "full"
             data["question_coverage"] = coverage
+            # An off-vocabulary consensus_type used to fail validation and discard the
+            # whole output, silently forcing the fallback "maybe". A usable final_label
+            # must not be thrown away over a descriptive field.
+            consensus = str(data.get("consensus_type") or "").strip().lower()
+            if consensus not in {"consensus", "differential", "escalation"}:
+                consensus = "differential"
+            data["consensus_type"] = consensus
             output = SupervisorDirectorOutput.model_validate(data)
             self.last_director_output = output
             return output
@@ -157,16 +225,45 @@ class SupervisorAgent:
                 final_label="maybe",
                 consensus_type="escalation",
                 rationale="Supervisor failed to produce valid output; defaulting to conservative 'maybe'.",
+                debate_conflict_level="high",
+                conclusiveness_score=3,
                 primary_endpoint_answers_question=False,
                 findings_decisive_for_question=False,
                 authors_state_uncertainty=True,
+                question_coverage="none",
             )
             self.last_director_output = output
             return output
 
-    async def _complete_with_repair(self, messages: list[ChatMessage], temperature: float) -> str:
+    async def _call(
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        response_format: dict[str, Any] | None,
+    ) -> str:
+        """Call the backend, passing a JSON schema when the backend accepts one.
+
+        Mock and test backends do not take ``response_format``; fall back silently
+        so constraining the output stays an optimisation, never a requirement.
+        """
+        if response_format is not None:
+            try:
+                return await self.backend.complete(
+                    messages, temperature=temperature, response_format=response_format
+                )
+            except TypeError:
+                pass
+        return await self.backend.complete(messages, temperature=temperature)
+
+    async def _complete_with_repair(
+        self,
+        messages: list[ChatMessage],
+        temperature: float,
+        *,
+        response_format: dict[str, Any] | None = None,
+    ) -> str:
         try:
-            raw = await self.backend.complete(messages, temperature=temperature)
+            raw = await self._call(messages, temperature, response_format)
             if (raw or "").strip():
                 return raw
             logger.warning("Supervisor returned empty response; retrying with repair.")
@@ -181,4 +278,4 @@ class SupervisorAgent:
                 + "\n\nYour previous reply was empty or invalid. Return ONLY valid JSON, no markdown, no commentary.",
             ),
         ]
-        return await self.backend.complete(repair, temperature=0.0)
+        return await self._call(repair, 0.0, response_format)

@@ -3,10 +3,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-# Full research run profile for 2x RTX 4080 16GB.
-# Values can still be overridden by exporting env vars before `make`.
+# Full research run profile for a single A40 (override with env vars before `make`).
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 export RUN_ROOT="${RUN_ROOT:-artifacts/classifier/pubmedqa_research_2x4080_$(date -u +%Y%m%dT%H%M%SZ)}"
-export NPROC_PER_NODE="${NPROC_PER_NODE:-2}"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
 export BATCH_SIZE="${BATCH_SIZE:-4}"
 export EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-8}"
 export GRADIENT_ACCUMULATION="${GRADIENT_ACCUMULATION:-8}"

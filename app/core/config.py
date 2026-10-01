@@ -99,7 +99,7 @@ def get_settings() -> Settings:
         ollama_timeout=float(os.getenv("OLLAMA_TIMEOUT", "300")),
         ollama_keep_alive=os.getenv("OLLAMA_KEEP_ALIVE", "30m"),
         ollama_num_predict=int(os.getenv("OLLAMA_NUM_PREDICT", "400")),
-        ollama_num_ctx=int(os.getenv("OLLAMA_NUM_CTX", "2048")),
+        ollama_num_ctx=int(os.getenv("OLLAMA_NUM_CTX", "8192")),
         query_rewrite_model=os.getenv("QUERY_REWRITE_MODEL", "qwen2.5:7b"),
         query_rewrite_timeout=float(os.getenv("QUERY_REWRITE_TIMEOUT", "15")),
         embedding_service_url=os.getenv("EMBEDDING_SERVICE_URL", "http://embedding-service:8080"),
