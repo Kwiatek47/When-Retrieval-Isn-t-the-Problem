@@ -68,12 +68,93 @@ Leksykon warunkowości (however, but, only, selected, subgroup, depend…, rathe
 - Pilot przed rejestracją: 4 pierwsze pytania (bez patrzenia na etykiety) — tylko sprawdzenie, że działa.
 - Kalibracja: arkusz 50 fragmentów (25 pytań, 10 gold `maybe`), ślepy, dla 2 osób — `--export-calibration`.
 
+**Wynik H1b (2026-09-24, 5913/5913 ocen, 0 błędów; `reports/debate/analysis/h1b_conditionality.json`):**
+
+Test główny — **nierozstrzygnięty** (971 pytań, 108 gold `maybe`):
+
+| Warunkowość (LLM, 0–2) | AUROC gold `maybe` vs reszta |
+|---|---|
+| konkluzja | **0.663** [0.612, 0.711] |
+| sekcja RESULTS | **0.632** [0.582, 0.681] |
+| różnica | +0.030 [−0.019, +0.080] |
+
+Podziały: test −0.004 [−0.077, +0.070], cv +0.064 [−0.003, +0.133] — oba nierozstrzygnięte.
+Stabilność powtórzeń: 99.0% (konkluzje) i 98.3% (RESULTS) identycznych ocen.
+
+Analiza wtórna (zarejestrowana): warunkowość **konkluzji** przewiduje `maybe` annotatora z konkluzją
+znacznie lepiej niż annotatora bez niej: **+0.170 [+0.106, +0.232]**; warunkowość RESULTS — bez różnicy
+(+0.020 [−0.046, +0.086]).
+
+Średnia warunkowość wg gold: konkluzja yes 0.76 / no 0.65 / maybe 1.15; RESULTS yes 1.14 / no 1.06 / maybe 1.48.
+
+**Co z tego wynika:**
+1. `maybe` **jest** związane z odpowiedzią warunkową (oba AUROC wyraźnie > 0.5) — to potwierdza definicję
+   Jin et al. na danych, ale nie jest samo w sobie nowe.
+2. **Silna teza („`maybe` jest ukryte w konkluzji”) nie ma poparcia:** warunkowość widać prawie tak samo dobrze
+   w RESULTS, czyli w tekście, który model dostaje. Część `maybe` jest więc do odczytania z wejścia modelu.
+3. Annotator z konkluzją reaguje na warunkowość konkluzji (+0.17), a etykieta końcowa w sporach przyjmuje jego
+   zdanie w 215/299 — mechanizm asymetrii informacji istnieje, ale test główny nie pokazuje, że dominuje.
+4. **Ograniczenie:** ocena LLM nie jest jeszcze skalibrowana z ludźmi (arkusz 50 fragmentów czeka).
+   Wyniki RESULTS mogą być zawyżone przez długość tekstu (dłuższy fragment = więcej wyników w podgrupach).
+
 **Następny krok — test potwierdzający H1b (ustalić z góry, przed uruchomieniem):**
 - [ ] Ocena „czy tekst daje odpowiedź warunkową / zależną od podgrupy” przez lokalny LLM z zamrożonym promptem,
       osobno dla konkluzji i dla RESULTS, na wszystkich 1000 pytaniach. Prompt i kryterium zapisać przed runem.
 - [ ] Kalibracja oceny: 50 pytań ocenionych ręcznie przez 2 osoby (κ) — czy LLM zgadza się z ludźmi.
 - [ ] To samo kryterium co w H1: AUROC(konkluzja) > 0.5 i ΔAUROC(konkluzja − RESULTS) > 0.
 - [ ] Jeśli H1b też upadnie: teza wraca do słabszej wersji poniżej.
+
+#### Rejestracja H2 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
+
+H2 nie zależy od H1/H1b (H1 prowadzi osobna osoba): korzysta tylko z etykiet annotatorów i z predykcji systemów,
+które już są w repo. Skrypt: `scripts/agents/analyze_h2_human_ceiling.py`.
+
+- **Dane:** 500 pytań testowych. Pytanie **sporne** = annotator bez konkluzji (RR) ≠ etykieta końcowa;
+  **zgodne** = RR = etykieta końcowa.
+- **Test główny:** BioLinkBERT; D = odsetek błędów (względem etykiety końcowej) na pytaniach spornych −
+  odsetek błędów na zgodnych; bootstrap po pytaniach (5000, seed 47).
+  CI D > 0 → **potwierdzona**; CI D ≤ 0 → **obalona**; inaczej nierozstrzygnięta.
+- **Wtórne:** to samo D dla SC (`qwen3:8b`, k=4) i dwóch runów debaty (debata widziała odpowiedź BERT, więc
+  nie jest niezależna); „po czyjej stronie” jest model, gdy się myli na pytaniu spornym (udział etykiety RR,
+  punkt odniesienia 0.5); accuracy względem RR − względem etykiety końcowej; udział błędów na pytaniach spornych
+  vs ich częstość; recall `maybe` tam, gdzie RR też powiedział `maybe`, i tam, gdzie nie; precision/recall/F1
+  `maybe` dla systemów i obu annotatorów.
+- **Znane przed rejestracją** (nie są dowodem): accuracy i recall `maybe` każdego systemu względem etykiety
+  końcowej; recall (30/55) i precision (30/47) RR. **Nieznane:** jak błędy systemów pokrywają się z pytaniami spornymi.
+- **Zastrzeżenie:** RR współtworzył etykietę końcową, więc jego zgodność z nią zawyża to, co osiągnąłby
+  niezależny czytelnik.
+
+#### Wynik H2 (2026-10-01; `reports/debate/analysis/h2_human_ceiling.json`)
+
+**Test główny — potwierdzona.** 500 pytań, 110 spornych (RR ≠ etykieta końcowa).
+
+| System | Błędy na spornych | Błędy na zgodnych | Różnica D [95% CI] |
+|---|---|---|---|
+| **BioLinkBERT (główny)** | 0.491 | 0.213 | **+0.278 [+0.174, +0.380]** |
+| SC `qwen3:8b` k=4 (niezależny od BERT) | 0.536 | 0.179 | +0.357 [+0.255, +0.458] |
+| Debata dissent (z podpowiedzią BERT) | 0.500 | 0.192 | +0.308 [+0.206, +0.409] |
+| Debata majority (z podpowiedzią BERT) | 0.464 | 0.236 | +0.228 [+0.125, +0.332] |
+
+**Wtórne (zarejestrowane):**
+- Gdy model myli się na pytaniu spornym, daje etykietę RR w 65% (BERT [0.52, 0.78]), 66% (SC [0.53, 0.78]),
+  65% (dissent), 59% (majority, CI obejmuje 0.5).
+- 39% błędów BERT i 46% błędów SC przypada na pytania sporne, które stanowią 22% zbioru. **Większość błędów
+  (54–64%) jest jednak na pytaniach, na których człowiek z tą samą informacją trafił.**
+- Modele zgadzają się z etykietą końcową **częściej** niż z RR: BERT −0.042 [−0.078, −0.006]. Nie zachowują się
+  więc „jak RR”.
+- **`maybe`: modele daleko poniżej człowieka z tą samą informacją.** F1: RR 0.588, RF 0.660; BERT 0.101, SC 0.282,
+  debata 0.141 / 0.074. Tam, gdzie RR rozpoznał `maybe` z samego kontekstu (30 pytań), BERT trafia 3, SC 11.
+
+**Kontrola eksploracyjna (niezarejestrowana):** pytania `maybe` są sporne w 45.5%, yes/no w 19.1%. Po wyłączeniu
+gold `maybe` (445 pytań, 85 spornych) efekt zostaje: BERT +0.197 [+0.089, +0.306], SC +0.352 [+0.240, +0.465].
+
+**Co z tego wynika:**
+1. Błędy modeli skupiają się tam, gdzie człowiek z tą samą informacją też odszedł od etykiety końcowej
+   (2–3× częściej) — to argument za oceną uwzględniającą niepewność etykiet (H3).
+2. To **nie** tłumaczy porażki na `maybe`: człowiek bez konkluzji odczytuje `maybe` z kontekstu (F1 0.59), modele nie
+   (0.07–0.28). Razem z H1b (warunkowość widać w RESULTS) — luka `maybe` leży głównie po stronie modeli
+   i danych treningowych, nie ukrytej informacji. Priorytet rośnie dla RQ8 / RQ9a.
+3. Drobna rozbieżność do wyjaśnienia: BioLinkBERT przewiduje `maybe` 24 razy wg tych plików, paper podaje 23.
 
 Jeśli H1 upadnie, teza wraca do słabszej wersji: „`maybe` to w dużej mierze rozstrzygnięty spór annotatorów”
 (11/55 jednomyślnych `maybe` pozostaje faktem niezależnie od H1).
@@ -101,6 +182,37 @@ przeczytać pełne teksty trzech najbliższych prac z tabeli (✱).
 **Wniosek:** nie znaleziono pracy, która stawia tę tezę dla PubMedQA. Najbliższa jest NEI-CAP (ta sama logika
 dla SciFact) — cytować wprost jako inspirację i pokazać, że PubMedQA ma inny mechanizm (asymetria informacji
 w protokole, a nie konstrukcja przykładów).
+
+---
+
+## Prompty testów i ich wersjonowanie (od 2026-09-24)
+
+Wszystkie prompty testów hipotez są w `scripts/agents/probe_prompts.py`. Każdy ma id `nazwa@wersja`
+i hash treści (system + szablon + schemat odpowiedzi).
+
+| Prompt | Hash | Status | Do czego |
+|---|---|---|---|
+| `conditionality@1` | `77e624205b2a` | **registered** | H1b — zarejestrowany i wykonany (commit `73cd9bf`) |
+| `conditionality@2` | `555584aa8a70` | candidate | H1b — poprawki słabych punktów v1 (długość tekstu, przykłady, cytat przed oceną) |
+| `label-minimal@1` | `66a0bd132da9` | candidate | yes/no/maybe bez definicji `maybe` — RQ10, punkt odniesienia |
+| `label-defined@1` | `37742969f023` | candidate | yes/no/maybe z definicją Jin et al. — główny prompt do H1-direct i H2 |
+| `label-defined-prior@1` | `1377f3cdfe43` | candidate | jak wyżej + rozkład etykiet PQA-L — RQ9a dla LLM |
+
+**Zasady:**
+1. Tekstu promptu, którego użył jakikolwiek run, **nie zmieniamy** — zmiana = nowa wersja. Hash promptu
+   zarejestrowanego jest przypięty testem (`tests/test_probe_prompts.py`).
+2. **Każde uruchomienie** (także wznowienie) zapisuje obok wyników `{run}.prompts.json` (pełna treść promptów,
+   hashe, model, opcje dekodowania, linia poleceń, commit i flaga niezacommitowanych zmian) i dopisuje wiersz do
+   `prompt_versions.jsonl` w tym samym formacie co runy debaty. Każdy wiersz wyników ma `prompt_id` i `prompt_sha`.
+3. **Wybór „optymalnego” promptu** odbywa się na arkuszu kalibracyjnym ocenionym przez ludzi, **nie** na
+   etykietach gold: `rate_conditionality.py --prompt conditionality@N --only-calibration`, potem
+   `analyze_h1b_conditionality.py --score-calibration --ratings <plik>`; wygrywa wyższa ważona κ z ludźmi.
+   Dopiero wybrany prompt idzie na pełny zbiór — jako nowy, osobno zarejestrowany test.
+4. Prompty etykietujące przed testem potwierdzającym (H1-direct, H2, RQ10) — rejestracja kryterium w tym pliku
+   i commit **przed** runem, tak jak dla H1b.
+
+Runnery: `rate_conditionality.py` (H1b) i `run_label_probe.py` (etykiety, warunki `context` /
+`context+conclusion`; w podsumowaniu recall `maybe` względem etykiety końcowej i obu annotatorów).
 
 ---
 
@@ -294,3 +406,8 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   na 1935 pracach cytujących PubMedQA; dodano RQ8b; ocena planu względem tezy.
 - 2026-09-23 — zaimplementowano i uruchomiono test H1 (gałąź `klap/pivot`): wynik nierozstrzygnięty, hedging
   nie odróżnia `maybe`. Eksploracyjny trop H1b (odpowiedź warunkowa) — do potwierdzenia z góry ustalonym testem.
+- 2026-09-24 — H1b zarejestrowana (commit `73cd9bf`) i zmierzona: test główny nierozstrzygnięty (konkluzja 0.663
+  vs RESULTS 0.632); `maybe` wiąże się z warunkowością, ale widoczną też w tekście modelu. Wtórnie: annotator
+  z konkluzją reaguje na warunkowość konkluzji (+0.170).
+- 2026-10-01 — H2 zarejestrowana (commit `2fb20ff`) i policzona: test główny potwierdzony (BERT +0.278
+  [+0.174, +0.380]); na `maybe` modele daleko poniżej annotatora z tą samą informacją.
