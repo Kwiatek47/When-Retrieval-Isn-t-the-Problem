@@ -111,7 +111,7 @@ względem etykiety, którą współtworzył. Policzone eksploracyjnie 2026-10-01
 
 ## B. Nadal obowiązuje z audytu starej wersji (P0/P1)
 
-### B1. [ ] P0 — liczby selektywnej predykcji nie dotyczą BERT
+### B1. [~] P0 — liczby selektywnej predykcji nie dotyczą BERT — przeliczone 2026-10-02, zostaje podmiana w drafcie
 BERT acc 0.726 ⇒ błąd 0.274. Tymczasem always-answer cost **0.246**, random AURC **0.231**, a krzywe
 risk–coverage kończą się przy pokryciu 1.0 na ≈0.246 (⇒ acc ≈0.754). Ustalić, czyje predykcje są w tabeli
 kosztów i na wykresie; przeliczyć. Losową krzywą zastąpić wartością oczekiwaną (pozioma linia).
@@ -126,6 +126,19 @@ kosztów i na wykresie; przeliczyć. Losową krzywą zastąpić wartością ocze
   jest wyłączony z mianownika — kod tego nie robi (porównuje `routed == gold`, więc gold `maybe` przy odpowiedzi to błąd).
 - Wniosek: tabelę kosztów i wykres trzeba **wygenerować na nowo** z `debate7b_dissent_pqal500_v1.json` (nie ma go
   na dysku, §B2). Selektywną accuracy BERT na 500 przy 10–50% odmów mamy w `h4_abstention.json`.
+
+**Przeliczenie 2026-10-02 (serwer, pliki runów 500 pytań są w `reports/debate/`):**
+`scripts/agents/analyze_b1_selective_prediction.py` → `reports/debate/analysis/b1_selective_prediction.json`.
+- BioLinkBERT 1 − pewność: koszt bez odmów **0.274**, AURC **0.209** [0.160, 0.265] (losowo 0.274, wyrocznia 0.042);
+  próg poza foldem: koszt **0.206** przy 25.6% odmów, zysk +0.068 [+0.044, +0.093] (−24.8%), accuracy na pytaniach
+  z odpowiedzią 0.809, 21/55 gold `maybe` w zbiorze odmów. Zysk utrzymuje się dla kosztu odmowy 0.10–0.40.
+- SC 1 − zgodność: 0.258 → 0.213, AURC 0.210. Debata, wynik u: 0.260 → 0.195, AURC 0.172. Podział panelu: 0.260 → 0.246, AURC 0.228.
+- [ ] Podmienić w drafcie: abstrakt („0.246 → 0.198, about a fifth” → 0.274 → 0.206, o jedną czwartą), Contribution 3,
+  tabela kosztów, podpis rysunku. Liczby 0.246 / 0.231 / 0.150 / 0.1975 wycofać.
+- [ ] Twierdzenie „BERT 1−conf beats debate u” usunąć albo przetestować sparowanie: w tych runach u ma niższe AURC
+  (0.172 wobec 0.209).
+- [ ] Rysunek risk–coverage wygenerować z `b1_selective_prediction.json` (pole `risk_coverage_curve`), losową krzywą
+  zastąpić poziomą linią na 0.274.
 
 ### B2. [ ] P0 — brakujące pliki wyników
 Nie istnieją na żadnej gałęzi: runy SC N=8 `qwen2.5:7b`, panel bez BERT (0.576; `debate7b_neutral_pqal500_v1`

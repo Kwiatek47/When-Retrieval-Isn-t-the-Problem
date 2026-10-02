@@ -29,7 +29,7 @@ mylą ranking. Tego dane nie potwierdziły (H1, H1b, H3, T2).
 | W sporze wygrywa annotator z konkluzją: 215/299; jego `maybe` przechodzi w 63–68%, drugiego w 47–50% | A1 | **fakt z danych** |
 | Spory nieuzgodnione usunięto ze zbioru; arbitra nie było; 4 etykiety końcowe nie pochodzą od żadnego annotatora | Jin et al. Alg. 1; A1; RQ2 | **fakt z protokołu** |
 | „Human performance” na `maybe` jest zawyżone przez współtworzenie etykiety | S2 +0.275 [+0.142, +0.427] | **potwierdzone** (zarejestrowany) |
-| Na niezależnym odniesieniu człowiek i model są nieodróżnialni na `maybe` (0.247 wobec 0.237) | S1 +0.011 [−0.156, +0.178] | nieodróżnialne — **nie** „równe”; jeden model |
+| Na niezależnym odniesieniu człowiek i model są nieodróżnialni na `maybe` (0.247 wobec 0.237) | S1 +0.011 [−0.156, +0.178]; eksploracyjnie to samo dla BioLinkBERT, SC i debaty | nieodróżnialne — **nie** „równe”; systemy rzadko mówiące `maybe` mają estymaty poniżej człowieka |
 | Błędy modeli skupiają się na pytaniach spornych (2–3×) | H2 +0.278 [+0.174, +0.380], 4 systemy | **potwierdzone** |
 | Odmowa łapie zwykłe błędy, nie `maybe` | H4 +0.185 [+0.028, +0.347], 4 sygnały | **potwierdzone** |
 | Flaga „dowody niekonkluzywne” w debacie to stała persony, nie pomiar pytania | RQ3 | opisowe, `balanced90` |
@@ -45,22 +45,66 @@ mylą ranking. Tego dane nie potwierdziły (H1, H1b, H3, T2).
 2. **Plan czterech stron** (ML4H Findings). Do tekstu głównego: Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem
    etykiety końcowej vs względem niezależnego annotatora” (człowiek i modele), H2 i H4 po jednym akapicie.
    Wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2) — jedna tabela zbiorcza albo appendix.
-3. **Jedno wzmocnienie najsłabszego ogniwa (S1):** ten sam pomiar „na tym samym miejscu” dla systemów, których
-   predykcje już mamy (BioLinkBERT, SC, debata) — bez LLM. S1 stoi dziś na jednym modelu i jednym prompcie.
-4. **B1:** przeliczyć risk–coverage i koszty dla BioLinkBERT na 500 pytaniach (pliki są na serwerze kamila;
-   liczb 0.246 / 0.231 nie ma w żadnym pliku — usunąć z draftu).
+3. ~~Wzmocnienie S1 dla istniejących systemów~~ — **zrobione 2026-10-02** (eksploracyjnie; wynik niżej, sekcja
+   „S1 / S2 dla istniejących systemów”).
+4. ~~B1: risk–coverage i koszty dla BioLinkBERT na 500 pytaniach~~ — **przeliczone 2026-10-02** (wynik niżej, sekcja
+   „Selektywna predykcja przeliczona”). Zostaje: podmienić liczby w drafcie i wygenerować rysunek z nowego pliku.
 5. **Przegląd i scalenie `feature/pqal-protocol-audit`** do `klap/pivot` (fast-forward).
 6. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (✱ w tabeli nowości); termin zgłoszeń ML4H.
 
 Nie robić przed napisaniem pierwszej wersji: RQ10, RQ11, RQ7, RQ4, kalibracja H1b (potrzebna tylko, jeśli H1b
 wchodzi do tekstu głównego), drugi zbiór danych.
 
+### S1 / S2 dla istniejących systemów (2026-10-02, **eksploracyjne**)
+
+`scripts/agents/analyze_same_seat_systems.py` → `reports/debate/analysis/same_seat_systems.json`. Nie było rejestracji:
+predykcje tych systemów istnieją tylko dla 500 pytań testowych, które wcześniej oglądaliśmy. BioLinkBERT był uczony na
+etykietach końcowych, a debata widziała jego odpowiedź, więc te systemy z konstrukcji ciążą ku etykiecie końcowej.
+
+| Kto odpowiada | F1 `maybe` wzgl. annotatora 1 (niezależny) | F1 `maybe` wzgl. etykiety końcowej | S1 [95% CI] | S2 [95% CI] |
+|---|---|---|---|---|
+| annotator 2 (bez konkluzji) | 0.232 (11 wspólnych; 47 i 48 odpowiedzi) | 0.588 | — | — |
+| SC `qwen3:8b` k=4 | 0.297 (19; 80 odpowiedzi) | 0.282 | −0.065 [−0.182, +0.056] | +0.372 [+0.246, +0.509] |
+| Debata dissent | 0.152 (7; 44) | 0.141 | +0.079 [−0.056, +0.207] | +0.367 [+0.235, +0.499] |
+| BioLinkBERT | 0.139 (5; 24) | 0.101 | +0.093 [−0.036, +0.219] | +0.394 [+0.266, +0.535] |
+| Debata majority | 0.108 (4; 26) | 0.074 | +0.123 [−0.008, +0.257] | +0.391 [+0.260, +0.531] |
+
+- **S2 powtarza się dla każdego systemu** (+0.37 do +0.39): większość przewagi człowieka względem etykiety końcowej
+  znika, gdy punktem odniesienia jest niezależny annotator.
+- **S1: żaden system nie jest odróżnialny od człowieka**, ale estymaty nie są zerowe: systemy, które rzadko mówią
+  `maybe` (24–44 odpowiedzi), są o 0.08–0.12 poniżej człowieka (przedział debaty majority prawie nie obejmuje zera);
+  SC, które mówi `maybe` 80 razy, jest o 0.07 powyżej. Zdanie do papera: „nieodróżnialne”, nie „równe”.
+- Ogólna zgodność z annotatorem 1: systemy 0.73 wobec 0.69 u annotatora 2 (różnica ok. −0.04, przedziały dotykają zera).
+
+### Selektywna predykcja przeliczona — BRAKI §B1 (2026-10-02)
+
+`scripts/agents/analyze_b1_selective_prediction.py` → `reports/debate/analysis/b1_selective_prediction.json`.
+Liczby opisowe do papera, nie test hipotezy. Ryzyko = odsetek błędów wśród pytań z odpowiedzią (gold `maybe`
+z odpowiedzią yes/no to błąd); AURC = średnie ryzyko po wszystkich pokryciach; próg wybierany poza foldem
+(5 foldów, seed 47), koszt błędu 1, odmowy 0.25, pokrycie ≥ 0.5.
+
+| Sygnał | Koszt bez odmów | AURC [95% CI] | AURC losowo / wyrocznia | Koszt z odmową | Odmowy | Zysk [95% CI] |
+|---|---|---|---|---|---|---|
+| **BioLinkBERT 1 − pewność** | 0.274 | 0.209 [0.160, 0.265] | 0.274 / 0.042 | 0.206 | 25.6% | +0.068 [+0.044, +0.093] |
+| SC 1 − zgodność | 0.258 | 0.210 [0.173, 0.248] | 0.258 / 0.037 | 0.213 | 18.0% | +0.045 [+0.025, +0.067] |
+| Debata — podział panelu | 0.260 | 0.228 [0.184, 0.274] | 0.260 / 0.037 | 0.246 | 13.6% | +0.014 [−0.001, +0.030] |
+| Debata — wynik u | 0.260 | 0.172 [0.128, 0.220] | 0.260 / 0.037 | 0.195 | 29.2% | +0.065 [+0.041, +0.090] |
+
+- **Zdanie z abstraktu do poprawy:** nie „0.246 → 0.198, o jedną piątą”, tylko **0.274 → 0.206, o jedną czwartą**
+  (−24.8%), przy 25.6% odmów; accuracy na pytaniach z odpowiedzią 0.809; w zbiorze odmów 21 z 55 gold `maybe`.
+- Zysk utrzymuje się dla kosztu odmowy 0.10–0.40 (od +0.120 do +0.023).
+- Krzywa BioLinkBERT (pokrycie → ryzyko): 0.1 → 0.160, 0.3 → 0.173, 0.5 → 0.188, 0.7 → 0.191, 0.9 → 0.242, 1.0 → 0.274.
+- **Twierdzenie draftu „pewność BERT bije sygnał z debaty” nie ma tu poparcia:** wynik u ma AURC 0.172 wobec 0.209
+  dla BERT i podobny zysk (+0.065 wobec +0.068). To różne systemy (inne błędy), bez testu sparowanego — ale kierunek
+  jest odwrotny niż w drafcie. Sam podział głosów panelu jest najsłabszy.
+- Liczb 0.246, 0.231, 0.150, 0.1975 z draftu nie da się odtworzyć z żadnego pliku; 21/55 `maybe` w zbiorze odmów się zgadza.
+
 ### Otwarte pytania i przydział (2026-10-02)
 
 | # | Do kogo | Sprawa | Stan |
 |---|---|---|---|
-| 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **są na serwerze** w `reports/debate/` (poza gitem, bo `reports/` jest w `.gitignore`) — przekazać albo policzyć B1 na serwerze |
-| 2 | kamil / Kwiatek | skąd 0.246 (always-answer) i 0.231 (random AURC) w drafcie | **brak źródła** na serwerze i u Wiktora; BERT ma błąd 0.274 → liczby wycofać, tabelę przeliczyć |
+| 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **są na serwerze** w `reports/debate/` (poza gitem); B1 policzone na serwerze — pliki potrzebne Wiktorowi tylko do RQ3 / RQ6 na 500 pytaniach |
+| 2 | kamil / Kwiatek | skąd 0.246 (always-answer) i 0.231 (random AURC) w drafcie | **brak źródła**; tabela przeliczona 2026-10-02 (0.274 → 0.206) — podmienić w drafcie |
 | 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze; kod w `6c2eafd` (`origin/feat/paper-baselines`) — autor commita powinien mieć pliki |
 | 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
 | 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
@@ -875,3 +919,7 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   Dodano na górze aktualną tezę, tabelę „co ma poparcie”, kolejność dalszych prac i przydział otwartych pytań;
   streszczono wyniki A1, audytu protokołu, RQ2 i RQ3 w blokach; odhaczono zrobione pozycje (Krok 1, RQ2, RQ3, RQ8,
   RQ8b, RQ9a); zaktualizowano „Co wchodzi do papera”. Teksty rejestracji i wyników bez zmian.
+- 2026-10-02 — **S1 / S2 dla istniejących systemów (eksploracyjnie):** S2 powtarza się dla BioLinkBERT, SC i obu debat
+  (+0.37 do +0.39); S1 nieodróżnialne dla wszystkich, estymaty od −0.065 (SC) do +0.123 (debata majority).
+- 2026-10-02 — **B1 przeliczone na 500 pytaniach:** BioLinkBERT koszt 0.274 → 0.206 przy 25.6% odmów
+  (zysk +0.068 [+0.044, +0.093]), AURC 0.209; wynik u z debaty ma AURC 0.172 — odwrotnie niż w drafcie.

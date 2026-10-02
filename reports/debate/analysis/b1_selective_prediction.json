@@ -1,0 +1,582 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "signals": {
+    "biolinkbert_1_minus_confidence": {
+      "n": 500,
+      "errors": 137,
+      "always_answer_cost": 0.274,
+      "aurc": {
+        "value": 0.2091,
+        "ci_low": 0.16,
+        "ci_high": 0.2647
+      },
+      "aurc_random_order": 0.274,
+      "aurc_oracle": 0.0418,
+      "operating_point": {
+        "abstain_cost": 0.25,
+        "min_coverage": 0.5,
+        "cost": 0.206,
+        "abstention_rate": 0.256,
+        "selective_accuracy": 0.8091,
+        "gold_maybe_abstained": 21,
+        "gain_vs_always_answer": {
+          "value": 0.068,
+          "ci_low": 0.044,
+          "ci_high": 0.0935
+        }
+      },
+      "abstain_cost_sensitivity": {
+        "0.10": {
+          "cost": 0.1542,
+          "abstention_rate": 0.482,
+          "gain_vs_always_answer": 0.1198
+        },
+        "0.15": {
+          "cost": 0.1783,
+          "abstention_rate": 0.482,
+          "gain_vs_always_answer": 0.0957
+        },
+        "0.20": {
+          "cost": 0.2024,
+          "abstention_rate": 0.302,
+          "gain_vs_always_answer": 0.0716
+        },
+        "0.25": {
+          "cost": 0.206,
+          "abstention_rate": 0.256,
+          "gain_vs_always_answer": 0.068
+        },
+        "0.30": {
+          "cost": 0.2188,
+          "abstention_rate": 0.256,
+          "gain_vs_always_answer": 0.0552
+        },
+        "0.35": {
+          "cost": 0.2316,
+          "abstention_rate": 0.256,
+          "gain_vs_always_answer": 0.0424
+        },
+        "0.40": {
+          "cost": 0.2508,
+          "abstention_rate": 0.222,
+          "gain_vs_always_answer": 0.0232
+        }
+      },
+      "risk_coverage_curve": [
+        {
+          "coverage": 0.05,
+          "risk": 0.28
+        },
+        {
+          "coverage": 0.1,
+          "risk": 0.16
+        },
+        {
+          "coverage": 0.15,
+          "risk": 0.16
+        },
+        {
+          "coverage": 0.2,
+          "risk": 0.15
+        },
+        {
+          "coverage": 0.25,
+          "risk": 0.144
+        },
+        {
+          "coverage": 0.3,
+          "risk": 0.1733
+        },
+        {
+          "coverage": 0.35,
+          "risk": 0.1771
+        },
+        {
+          "coverage": 0.4,
+          "risk": 0.185
+        },
+        {
+          "coverage": 0.45,
+          "risk": 0.1822
+        },
+        {
+          "coverage": 0.5,
+          "risk": 0.188
+        },
+        {
+          "coverage": 0.55,
+          "risk": 0.2
+        },
+        {
+          "coverage": 0.6,
+          "risk": 0.1967
+        },
+        {
+          "coverage": 0.65,
+          "risk": 0.1969
+        },
+        {
+          "coverage": 0.7,
+          "risk": 0.1914
+        },
+        {
+          "coverage": 0.75,
+          "risk": 0.192
+        },
+        {
+          "coverage": 0.8,
+          "risk": 0.21
+        },
+        {
+          "coverage": 0.85,
+          "risk": 0.2212
+        },
+        {
+          "coverage": 0.9,
+          "risk": 0.2422
+        },
+        {
+          "coverage": 0.95,
+          "risk": 0.2568
+        },
+        {
+          "coverage": 1.0,
+          "risk": 0.274
+        }
+      ]
+    },
+    "self_consistency_1_minus_agreement": {
+      "n": 500,
+      "errors": 129,
+      "always_answer_cost": 0.258,
+      "aurc": {
+        "value": 0.2097,
+        "ci_low": 0.1727,
+        "ci_high": 0.248
+      },
+      "aurc_random_order": 0.258,
+      "aurc_oracle": 0.0368,
+      "operating_point": {
+        "abstain_cost": 0.25,
+        "min_coverage": 0.5,
+        "cost": 0.213,
+        "abstention_rate": 0.18,
+        "selective_accuracy": 0.7951,
+        "gold_maybe_abstained": 15,
+        "gain_vs_always_answer": {
+          "value": 0.045,
+          "ci_low": 0.0255,
+          "ci_high": 0.0665
+        }
+      },
+      "abstain_cost_sensitivity": {
+        "0.10": {
+          "cost": 0.186,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.072
+        },
+        "0.15": {
+          "cost": 0.195,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.063
+        },
+        "0.20": {
+          "cost": 0.204,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.054
+        },
+        "0.25": {
+          "cost": 0.213,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.045
+        },
+        "0.30": {
+          "cost": 0.222,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.036
+        },
+        "0.35": {
+          "cost": 0.231,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.027
+        },
+        "0.40": {
+          "cost": 0.24,
+          "abstention_rate": 0.18,
+          "gain_vs_always_answer": 0.018
+        }
+      },
+      "risk_coverage_curve": [
+        {
+          "coverage": 0.05,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.1,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.15,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.2,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.25,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.3,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.35,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.4,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.45,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.5,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.55,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.6,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.65,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.7,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.75,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.8,
+          "risk": 0.2049
+        },
+        {
+          "coverage": 0.85,
+          "risk": 0.2141
+        },
+        {
+          "coverage": 0.9,
+          "risk": 0.2281
+        },
+        {
+          "coverage": 0.95,
+          "risk": 0.2423
+        },
+        {
+          "coverage": 1.0,
+          "risk": 0.258
+        }
+      ]
+    },
+    "debate_dissent_panel_split": {
+      "n": 500,
+      "errors": 130,
+      "always_answer_cost": 0.26,
+      "aurc": {
+        "value": 0.2275,
+        "ci_low": 0.1836,
+        "ci_high": 0.2743
+      },
+      "aurc_random_order": 0.26,
+      "aurc_oracle": 0.0374,
+      "operating_point": {
+        "abstain_cost": 0.25,
+        "min_coverage": 0.5,
+        "cost": 0.246,
+        "abstention_rate": 0.136,
+        "selective_accuracy": 0.7546,
+        "gold_maybe_abstained": 8,
+        "gain_vs_always_answer": {
+          "value": 0.014,
+          "ci_low": -0.001,
+          "ci_high": 0.0305
+        }
+      },
+      "abstain_cost_sensitivity": {
+        "0.10": {
+          "cost": 0.2256,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.0344
+        },
+        "0.15": {
+          "cost": 0.2324,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.0276
+        },
+        "0.20": {
+          "cost": 0.2392,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.0208
+        },
+        "0.25": {
+          "cost": 0.246,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.014
+        },
+        "0.30": {
+          "cost": 0.2528,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.0072
+        },
+        "0.35": {
+          "cost": 0.2654,
+          "abstention_rate": 0.044,
+          "gain_vs_always_answer": -0.0054
+        },
+        "0.40": {
+          "cost": 0.26,
+          "abstention_rate": 0.0,
+          "gain_vs_always_answer": 0.0
+        }
+      },
+      "risk_coverage_curve": [
+        {
+          "coverage": 0.05,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.1,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.15,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.2,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.25,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.3,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.35,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.4,
+          "risk": 0.2133
+        },
+        {
+          "coverage": 0.45,
+          "risk": 0.2172
+        },
+        {
+          "coverage": 0.5,
+          "risk": 0.2231
+        },
+        {
+          "coverage": 0.55,
+          "risk": 0.2279
+        },
+        {
+          "coverage": 0.6,
+          "risk": 0.2319
+        },
+        {
+          "coverage": 0.65,
+          "risk": 0.2353
+        },
+        {
+          "coverage": 0.7,
+          "risk": 0.2382
+        },
+        {
+          "coverage": 0.75,
+          "risk": 0.2407
+        },
+        {
+          "coverage": 0.8,
+          "risk": 0.2429
+        },
+        {
+          "coverage": 0.85,
+          "risk": 0.2449
+        },
+        {
+          "coverage": 0.9,
+          "risk": 0.2497
+        },
+        {
+          "coverage": 0.95,
+          "risk": 0.2551
+        },
+        {
+          "coverage": 1.0,
+          "risk": 0.26
+        }
+      ]
+    },
+    "debate_dissent_u_score": {
+      "n": 500,
+      "errors": 130,
+      "always_answer_cost": 0.26,
+      "aurc": {
+        "value": 0.1724,
+        "ci_low": 0.1284,
+        "ci_high": 0.2196
+      },
+      "aurc_random_order": 0.26,
+      "aurc_oracle": 0.0374,
+      "operating_point": {
+        "abstain_cost": 0.25,
+        "min_coverage": 0.5,
+        "cost": 0.195,
+        "abstention_rate": 0.292,
+        "selective_accuracy": 0.8277,
+        "gold_maybe_abstained": 21,
+        "gain_vs_always_answer": {
+          "value": 0.065,
+          "ci_low": 0.041,
+          "ci_high": 0.0905
+        }
+      },
+      "abstain_cost_sensitivity": {
+        "0.10": {
+          "cost": 0.1412,
+          "abstention_rate": 0.472,
+          "gain_vs_always_answer": 0.1188
+        },
+        "0.15": {
+          "cost": 0.1736,
+          "abstention_rate": 0.424,
+          "gain_vs_always_answer": 0.0864
+        },
+        "0.20": {
+          "cost": 0.1888,
+          "abstention_rate": 0.364,
+          "gain_vs_always_answer": 0.0712
+        },
+        "0.25": {
+          "cost": 0.195,
+          "abstention_rate": 0.292,
+          "gain_vs_always_answer": 0.065
+        },
+        "0.30": {
+          "cost": 0.2104,
+          "abstention_rate": 0.288,
+          "gain_vs_always_answer": 0.0496
+        },
+        "0.35": {
+          "cost": 0.2315,
+          "abstention_rate": 0.21,
+          "gain_vs_always_answer": 0.0285
+        },
+        "0.40": {
+          "cost": 0.2344,
+          "abstention_rate": 0.136,
+          "gain_vs_always_answer": 0.0256
+        }
+      },
+      "risk_coverage_curve": [
+        {
+          "coverage": 0.05,
+          "risk": 0.24
+        },
+        {
+          "coverage": 0.1,
+          "risk": 0.16
+        },
+        {
+          "coverage": 0.15,
+          "risk": 0.12
+        },
+        {
+          "coverage": 0.2,
+          "risk": 0.1
+        },
+        {
+          "coverage": 0.25,
+          "risk": 0.112
+        },
+        {
+          "coverage": 0.3,
+          "risk": 0.1333
+        },
+        {
+          "coverage": 0.35,
+          "risk": 0.1429
+        },
+        {
+          "coverage": 0.4,
+          "risk": 0.155
+        },
+        {
+          "coverage": 0.45,
+          "risk": 0.16
+        },
+        {
+          "coverage": 0.5,
+          "risk": 0.172
+        },
+        {
+          "coverage": 0.55,
+          "risk": 0.1673
+        },
+        {
+          "coverage": 0.6,
+          "risk": 0.1733
+        },
+        {
+          "coverage": 0.65,
+          "risk": 0.1723
+        },
+        {
+          "coverage": 0.7,
+          "risk": 0.1686
+        },
+        {
+          "coverage": 0.75,
+          "risk": 0.1867
+        },
+        {
+          "coverage": 0.8,
+          "risk": 0.195
+        },
+        {
+          "coverage": 0.85,
+          "risk": 0.2024
+        },
+        {
+          "coverage": 0.9,
+          "risk": 0.22
+        },
+        {
+          "coverage": 0.95,
+          "risk": 0.2295
+        },
+        {
+          "coverage": 1.0,
+          "risk": 0.26
+        }
+      ]
+    }
+  }
+}
