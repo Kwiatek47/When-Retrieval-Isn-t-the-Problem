@@ -141,8 +141,12 @@ kosztów i na wykresie; przeliczyć. Losową krzywą zastąpić wartością ocze
   uncertainty score not at all” jest fałszywe (AUROC błędu 0.697).
 - [ ] Twierdzenie „BERT 1−conf beats debate u” usunąć albo przetestować sparowanie: w tych runach u ma niższe AURC
   (0.172 wobec 0.209).
-- [ ] Rysunek risk–coverage wygenerować z `b1_selective_prediction.json` (pole `risk_coverage_curve`), losową krzywą
-  zastąpić poziomą linią na 0.274.
+- [x] Rysunek risk–coverage — `make risk-coverage-figure` (`scripts/agents/plot_risk_coverage.py`, czyta pole
+  `risk_by_k`). Wyjścia w `reports/debate/analysis/figures/`: `fig_risk_coverage.svg` (podgląd),
+  `fig_risk_coverage.tex` (pgfplots, do `\input` na Overleafie; wymaga `\usepackage{pgfplots}`),
+  `fig_risk_coverage.pdf` / `.png` (konwersja z SVG przez cairosvg, którego nie ma w zależnościach repo).
+  Losowa kolejność to pozioma linia na 0.274; zaznaczony punkt pracy (25.6% odmów, ryzyko 0.191).
+  **Wersja pgfplots nie była kompilowana** — na serwerze nie ma LaTeX-a.
 
 ### B2. [ ] P0 — brakujące pliki wyników
 Nie istnieją na żadnej gałęzi: runy SC N=8 `qwen2.5:7b`, panel bez BERT (0.576; `debate7b_neutral_pqal500_v1`

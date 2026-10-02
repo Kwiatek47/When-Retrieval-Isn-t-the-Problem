@@ -134,8 +134,10 @@ Nowe:
 \caption{Risk--coverage on PQA-L $500$ for BioLinkBERT $1{-}$confidence (AURC $0.209$). The dashed line is
 the risk of a random order, equal to the error rate ($0.274$). Costs: Table~\ref{tab:cost}.}
 ```
-Rysunek trzeba wygenerować na nowo z pola `risk_coverage_curve` w `b1_selective_prediction.json`
-(pokrycie → ryzyko: 0.1 → 0.160, 0.3 → 0.173, 0.5 → 0.188, 0.7 → 0.191, 0.9 → 0.242, 1.0 → 0.274).
+Rysunek jest wygenerowany (`make risk-coverage-figure`): `reports/debate/analysis/figures/fig_risk_coverage.{svg,tex,pdf,png}`.
+Na Overleafie albo `\includegraphics{figures/fig_risk_coverage.pdf}`, albo `\input{figures/fig_risk_coverage.tex}`
+(pgfplots; czcionka dokumentu; wymaga `\usepackage{pgfplots}` i `\pgfplotsset{compat=1.17}`).
+Punkty krzywej (pokrycie → ryzyko): 0.1 → 0.160, 0.3 → 0.173, 0.5 → 0.188, 0.7 → 0.191, 0.9 → 0.242, 1.0 → 0.274.
 
 ### 8. Tabela `tab:cost`
 

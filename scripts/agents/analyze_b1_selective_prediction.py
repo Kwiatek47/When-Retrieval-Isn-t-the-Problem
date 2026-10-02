@@ -137,6 +137,8 @@ def analyze_signal(frame: dict, seed: int, n_boot: int) -> dict:
         "risk_coverage_curve": [
             {"coverage": c, "risk": round(float(risks[max(int(round(c * n)), 1) - 1]), 4)} for c in CURVE_COVERAGES
         ],
+        # Risk after answering the k least uncertain questions, k = 1..n; the figure is drawn from this.
+        "risk_by_k": [round(float(r), 4) for r in risks],
     }
 
 

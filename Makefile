@@ -27,7 +27,7 @@ CORPORA_REGISTRY ?= scripts/data/corpora/registry.json
 CORPORA ?=
 CORPORA_ARG := $(if $(CORPORA),--corpora $(CORPORA),)
 
-.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 pqal-fetch pqal-label-table pqal-audit pqal-figure1 rq3-conclusiveness clean-local
+.PHONY: setup dev test lint format docker-up-cpu docker-up-gpu docker-down qdrant-init ingest-sample build-index embed-nice index-nice build-nice-benchmarks search-nice-smoke eval-retrieval eval-pubmedqa eval-nice-retrieval eval-nice-rag eval-nice-retrieval-large eval-nice-rag-large eval-statpearls-retrieval discover-statpearls build-statpearls-chunks build-processed-chunks validate-corpus corpus-ablation eval-quick-pqal eval-official-pqal500 eval-debate-pubmedqa eval-debate-biolinkbert eval-debate-ollama-fast eval-medical-suite classifier-prepare classifier-train classifier-prepare-local classifier-train-local classifier-train-2x4080 classifier-train-2x4080-full classifier-audit classifier-train-h100 classifier-train-biolinkbert-h100 classifier-train-biolinkbert-h100-v3 pqal-fetch pqal-label-table pqal-audit pqal-figure1 risk-coverage-figure rq3-conclusiveness clean-local
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -232,6 +232,11 @@ pqal-audit: pqal-label-table
 pqal-figure1: pqal-audit
 	$(PY) scripts/agents/plot_label_matrix.py
 	$(PY) scripts/agents/plot_label_matrix.py --format latex
+
+# Risk-coverage figure (BRAKI B1) — needs the 500-question run reports in reports/debate/.
+risk-coverage-figure:
+	$(PY) scripts/agents/analyze_b1_selective_prediction.py
+	$(PY) scripts/agents/plot_risk_coverage.py
 
 # RQ3 — reads the cached debate runs only; the label table is an optional join.
 rq3-conclusiveness:
