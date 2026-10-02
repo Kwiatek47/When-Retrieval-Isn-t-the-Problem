@@ -8,7 +8,71 @@ Koszt: **brak LLM** (sama analiza) · **tani** (lokalne modele, godziny) · **dr
 
 ---
 
-## Teza badawcza (wersja 2026-09-23)
+## Stan na 2026-10-02 — czytać najpierw
+
+### Teza (wersja 2026-10-02, po wszystkich testach)
+
+> **W PubMedQA etykieta `maybe` to w dużej mierze zapis rozstrzygniętego sporu dwóch annotatorów o różnym dostępie
+> do informacji, a nie własność abstraktu. „Human performance” podawane dla tego zbioru jest koliste: annotator
+> współtworzył etykietę, z którą się go porównuje. Względem niezależnego punktu odniesienia ani człowiek, ani model
+> nie odtwarzają `maybe` (F1 ≈ 0.25). Błędy modeli skupiają się na pytaniach spornych także dla ludzi, a odmowa
+> odpowiedzi pomaga przez omijanie zwykłych pomyłek, nie przez rozpoznawanie `maybe`.**
+
+Teza z 2026-09-23 (niżej, zachowana jako zapis) zakładała, że `maybe` jest ukryte w konkluzji i że twarde etykiety
+mylą ranking. Tego dane nie potwierdziły (H1, H1b, H3, T2).
+
+### Co ma poparcie, a co nie
+
+| Twierdzenie | Dowód | Status |
+|---|---|---|
+| `maybe` powstaje głównie w sporze: 701 pytań zgodnych, 299 negocjowanych; tylko 23 ze 110 gold `maybe` jest jednomyślnych | A1, macierz etykiet (Rys. 1) | **fakt z danych** |
+| W sporze wygrywa annotator z konkluzją: 215/299; jego `maybe` przechodzi w 63–68%, drugiego w 47–50% | A1 | **fakt z danych** |
+| Spory nieuzgodnione usunięto ze zbioru; arbitra nie było; 4 etykiety końcowe nie pochodzą od żadnego annotatora | Jin et al. Alg. 1; A1; RQ2 | **fakt z protokołu** |
+| „Human performance” na `maybe` jest zawyżone przez współtworzenie etykiety | S2 +0.275 [+0.142, +0.427] | **potwierdzone** (zarejestrowany) |
+| Na niezależnym odniesieniu człowiek i model są nieodróżnialni na `maybe` (0.247 wobec 0.237) | S1 +0.011 [−0.156, +0.178] | nieodróżnialne — **nie** „równe”; jeden model |
+| Błędy modeli skupiają się na pytaniach spornych (2–3×) | H2 +0.278 [+0.174, +0.380], 4 systemy | **potwierdzone** |
+| Odmowa łapie zwykłe błędy, nie `maybe` | H4 +0.185 [+0.028, +0.347], 4 sygnały | **potwierdzone** |
+| Flaga „dowody niekonkluzywne” w debacie to stała persony, nie pomiar pytania | RQ3 | opisowe, `balanced90` |
+| `maybe` ukryte w konkluzji (hedging / warunkowość / efekt konkluzji u modelu) | H1, H1b, T2 | nierozstrzygnięte ×3 |
+| Miękkie etykiety zmieniają porównanie systemów | H3 +0.002 [−0.024, +0.026] | brak efektu |
+| Osobna głowica, balans klas, naturalny prior dają detektor `maybe` | RQ8, RQ9a | brak efektu |
+| Format abstraktu przewiduje `maybe` albo spór | RQ6 (CV AUROC 0.517 / 0.508) | brak efektu (niezarejestrowany) |
+
+### Co dalej — w tej kolejności
+
+1. **Decyzja o kręgosłupie papera** (spotkanie). Propozycja: paper o trafności benchmarku, teza jak wyżej.
+   Wszystkie pomiary pod tę tezę są gotowe.
+2. **Plan czterech stron** (ML4H Findings). Do tekstu głównego: Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem
+   etykiety końcowej vs względem niezależnego annotatora” (człowiek i modele), H2 i H4 po jednym akapicie.
+   Wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2) — jedna tabela zbiorcza albo appendix.
+3. **Jedno wzmocnienie najsłabszego ogniwa (S1):** ten sam pomiar „na tym samym miejscu” dla systemów, których
+   predykcje już mamy (BioLinkBERT, SC, debata) — bez LLM. S1 stoi dziś na jednym modelu i jednym prompcie.
+4. **B1:** przeliczyć risk–coverage i koszty dla BioLinkBERT na 500 pytaniach (pliki są na serwerze kamila;
+   liczb 0.246 / 0.231 nie ma w żadnym pliku — usunąć z draftu).
+5. **Przegląd i scalenie `feature/pqal-protocol-audit`** do `klap/pivot` (fast-forward).
+6. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (✱ w tabeli nowości); termin zgłoszeń ML4H.
+
+Nie robić przed napisaniem pierwszej wersji: RQ10, RQ11, RQ7, RQ4, kalibracja H1b (potrzebna tylko, jeśli H1b
+wchodzi do tekstu głównego), drugi zbiór danych.
+
+### Otwarte pytania i przydział (2026-10-02)
+
+| # | Do kogo | Sprawa | Stan |
+|---|---|---|---|
+| 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **są na serwerze** w `reports/debate/` (poza gitem, bo `reports/` jest w `.gitignore`) — przekazać albo policzyć B1 na serwerze |
+| 2 | kamil / Kwiatek | skąd 0.246 (always-answer) i 0.231 (random AURC) w drafcie | **brak źródła** na serwerze i u Wiktora; BERT ma błąd 0.274 → liczby wycofać, tabelę przeliczyć |
+| 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze; kod w `6c2eafd` (`origin/feat/paper-baselines`) — autor commita powinien mieć pliki |
+| 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
+| 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
+| 6 | kamil | RQ11: dokończyć `debate7b_neutral_pqal500_v1` (24/500) | **odłożone** — tylko jeśli panel bez BERT zostaje w paperze |
+| 7 | witeczek | RQ5: taksonomia ~40 pytań `maybe`, dwoje kodujących, κ (materiał: `reports/debate/analysis/rq3_qualitative_sample.csv`; kategorie wg Jiang & de Marneffe 2022) | do zrobienia — jedyny brakujący element jakościowy |
+| 8 | wszyscy | kręgosłup papera | decyzja na spotkaniu |
+| 9 | wszyscy | priorytety pod 4 strony | decyzja na spotkaniu |
+| 10 | kamil | przegląd `feature/pqal-protocol-audit` | do zrobienia |
+
+---
+
+## Teza badawcza (wersja 2026-09-23) — zastąpiona, zachowana jako zapis
 
 > **W PubMedQA etykieta `maybe` w dużej mierze nie mówi, czy tekst widziany przez model rozstrzyga pytanie.
 > Zapisuje ostrożność konkluzji autorów, której model nie widzi, oraz sposób, w jaki annotatorzy rozstrzygali
@@ -97,12 +161,12 @@ znacznie lepiej niż annotatora bez niej: **+0.170 [+0.106, +0.232]**; warunkowo
 4. **Ograniczenie:** ocena LLM nie jest jeszcze skalibrowana z ludźmi (arkusz 50 fragmentów czeka).
    Wyniki RESULTS mogą być zawyżone przez długość tekstu (dłuższy fragment = więcej wyników w podgrupach).
 
-**Następny krok — test potwierdzający H1b (ustalić z góry, przed uruchomieniem):**
-- [ ] Ocena „czy tekst daje odpowiedź warunkową / zależną od podgrupy” przez lokalny LLM z zamrożonym promptem,
-      osobno dla konkluzji i dla RESULTS, na wszystkich 1000 pytaniach. Prompt i kryterium zapisać przed runem.
-- [ ] Kalibracja oceny: 50 pytań ocenionych ręcznie przez 2 osoby (κ) — czy LLM zgadza się z ludźmi.
-- [ ] To samo kryterium co w H1: AUROC(konkluzja) > 0.5 i ΔAUROC(konkluzja − RESULTS) > 0.
-- [ ] Jeśli H1b też upadnie: teza wraca do słabszej wersji poniżej.
+**Lista kroków H1b (zapisana 2026-09-23; stan na 2026-10-02):**
+- [x] Ocena warunkowości przez lokalny LLM z zamrożonym promptem, osobno dla konkluzji i RESULTS, 1000 pytań — wynik wyżej.
+- [ ] Kalibracja oceny: 50 fragmentów ocenionych ręcznie przez 2 osoby (κ). Arkusz czeka
+      (`reports/debate/analysis/h1b_calibration_sheet.csv`). Potrzebna tylko, jeśli H1b wchodzi do tekstu głównego.
+- [x] To samo kryterium co w H1 — zastosowane; test nierozstrzygnięty.
+- [x] Teza wróciła do słabszej wersji (patrz „Stan na 2026-10-02”).
 
 #### Rejestracja H2 przed policzeniem — 2026-10-01, gałąź `klap/pivot`
 
@@ -204,7 +268,7 @@ SC − BioLinkBERT: twarde +0.016, miękkie +0.018; **I = +0.002 [−0.024, +0.0
 o podobną wartość. H3 nie ma poparcia. Jedyna rzecz warta odnotowania to mniejszy dystans do trywialnego
 punktu odniesienia (opisowo, nie był to test zarejestrowany).
 
-#### Stan tezy po H1, H1b, H2, H3 (2026-10-01)
+#### Stan tezy po wszystkich testach (tabela narastająca, 2026-10-01 – 2026-10-02)
 
 | Hipoteza | Wynik | Co zostaje |
 |---|---|---|
@@ -218,6 +282,9 @@ punktu odniesienia (opisowo, nie był to test zarejestrowany).
 | H1 bezpośrednio: czy konkluzja daje modelowi `maybe` (T2) | nierozstrzygnięta (+0.022 [−0.104, +0.149]) | konkluzja podnosi accuracy (0.776 → 0.822), nie `maybe`; test o małej mocy |
 | RQ8b / BRAKI §A8: luka do człowieka przy niezależnym punkcie odniesienia (S1, S2) | S1 nieodróżnialne (+0.011 [−0.156, +0.178]); S2 **potwierdzona** (+0.275 [+0.142, +0.427]) | przewaga człowieka na `maybe` wynika ze współtworzenia etykiety; dwóch ludzi zgadza się co do `maybe` jak model z człowiekiem (0.25 wobec 0.24) |
 | H1 bezpośrednio na 984 pytaniach (T2) | nierozstrzygnięta (+0.013 [−0.083, +0.108]) | efektu konkluzji na `maybe` większego niż ok. 0.11 raczej nie ma |
+| RQ6 format abstraktu przewiduje `maybe` / spór | brak efektu (CV AUROC 0.517 / 0.508; niezarejestrowany) | format nie tłumaczy ani `maybe`, ani sporów |
+| RQ3 flaga „niekonkluzywne” w debacie | opisowe (`balanced90`): `uncertainty_advocate` flaguje 89–91% pytań | sygnał to stała persony; 92–95% oflagowanych kończy pewnym yes/no |
+| H1 i RQ8b — niezależna replikacja (Wiktor, inny kod) | H1: 0.556 vs 0.522, Δ +0.033 [−0.037, +0.103]; RQ8b: −0.042 [−0.080, −0.004] | werdykty zgodne z zespołowymi |
 
 **Teza w wersji „`maybe` jest ukryte przed modelem, a twarde etykiety mylą” nie ma poparcia.** Poparcie mają:
 (1) tylko 11/55 gold `maybe` jest jednomyślnych; (2) błędy modeli skupiają się na pytaniach spornych także dla
@@ -521,7 +588,7 @@ i hash treści (system + szablon + schemat odpowiedzi).
 | `conditionality@1` | `77e624205b2a` | **registered** | H1b — zarejestrowany i wykonany (commit `73cd9bf`) |
 | `conditionality@2` | `555584aa8a70` | candidate | H1b — poprawki słabych punktów v1 (długość tekstu, przykłady, cytat przed oceną) |
 | `label-minimal@1` | `66a0bd132da9` | candidate | yes/no/maybe bez definicji `maybe` — RQ10, punkt odniesienia |
-| `label-defined@1` | `37742969f023` | candidate | yes/no/maybe z definicją Jin et al. — główny prompt do H1-direct i H2 |
+| `label-defined@1` | `37742969f023` | **użyty w testach zarejestrowanych** (`a556bea`, `345b635`) | yes/no/maybe z definicją Jin et al. — T1, T2, S1, S2 na `qwen3:30b` |
 | `label-defined-prior@1` | `1377f3cdfe43` | candidate | jak wyżej + rozkład etykiet PQA-L — RQ9a dla LLM |
 
 **Zasady:**
@@ -577,14 +644,38 @@ Runnery: `rate_conditionality.py` (H1b) i `run_label_probe.py` (etykiety, warunk
   To ostrzejsza i łatwiejsza do sprawdzenia wersja tezy niż „`maybe` = niezgoda”.
 - Usuwanie nierozstrzygalnych pytań = selekcja: najbardziej sporne przypadki mogły wypaść ze zbioru.
 
-**Pierwszy krok — tabela per pytanie + test H1 (bez LLM, ~1 dzień):**
-- [ ] `scripts/agents/build_pqal_label_table.py` → `reports/debate/analysis/pqal_label_table.jsonl`, 1000 wierszy:
-      pmid, split (test / cv), RR, RF, final, wzorzec zgody, długości (tokeny) pytania, kontekstu i konkluzji,
-      liczba sekcji, liczby i p-wartości, słowa hedgingowe **osobno w kontekście i w konkluzji**, rok, MeSH.
-- [ ] Analizy etykiet (RQ5, RQ6) na **1000** pytaniach (110 `maybe` zamiast 55 — dwa razy większa moc);
-      analizy predykcji systemów tylko na 500 testowych.
-- [ ] Test H1: czy hedging w konkluzji przewiduje gold `maybe` lepiej niż hedging w kontekście (AUROC z CI).
-- [ ] Na tej tabeli stoją RQ5 (taksonomia), RQ6 (format), RQ7 (niezgoda) i porównania z RQ1.
+**Pierwszy krok — tabela per pytanie + test H1 (bez LLM) — zrobione:**
+- [x] `scripts/agents/build_pqal_label_table.py` → `reports/debate/analysis/pqal_label_table.jsonl`, 1000 wierszy
+      (plik poza gitem, odtwarzalny; w repo manifest z hashem).
+- [x] Analizy etykiet na **1000** pytaniach (A1, RQ6); analizy predykcji systemów na 500 testowych.
+- [x] Test H1 — nierozstrzygnięty (wynik wyżej); niezależna replikacja innym leksykonem daje ten sam werdykt.
+- [x] Na tej tabeli stoją RQ6 (zrobione) i RQ5 (taksonomia — do zrobienia).
+
+**Uzupełnienia z audytu protokołu (2026-09-26 / 2026-10-02; `2026-09-26-audyt-protokolu-pqal-i-h1.md`):**
+- `human_maybe_study.py` opisywał annotatorów odwrotnie i porównywał modele z annotatorem **z** konkluzją.
+  Naprawione; `scripts/agents/pqal_official.py` ładuje `ori_pqal.json` z przypiętym hashem i nazywa pola
+  `CONTEXT_ONLY_FIELD` / `SEES_CONCLUSION_FIELD`. Skrypty H1–H4 używały pól poprawnie.
+- Zgodność z etykietą końcową na 1000 pytaniach: annotator z konkluzją 91.6%, bez konkluzji 78.1%.
+- Najlepsza cecha powierzchniowa dla gold `maybe` to **długość konkluzji** (AUROC 0.595 [0.537, 0.648]);
+  wszystkie cechy z wejścia modelu są przy 0.5.
+- Hedging konkluzji a `maybe` każdego annotatora: z konkluzją 0.562, bez 0.488, Δ +0.074 [−0.001, +0.148] — graniczne,
+  ten sam kierunek co zarejestrowane H1b (+0.170).
+
+#### Wynik A1 — macierz etykiet i Rysunek 1 (2026-10-02; `2026-10-02-a1-macierz-etykiet-i-rysunek1.md`, `make pqal-figure1`)
+
+Wiersze = annotator bez konkluzji, kolumny = annotator z konkluzją, w nawiasie rozkład etykiety końcowej (yes/no/maybe):
+
+| bez \ z | yes | no | maybe |
+|---|---|---|---|
+| **yes** | **454** (454/0/0) | 98 (12/85/1) | 62 (21/2/**39**) |
+| **no** | 53 (42/10/1) | **224** (0/224/0) | 25 (0/8/**17**) |
+| **maybe** | 43 (23/0/**20**) | 18 (0/9/**9**) | **23** (0/0/23) |
+
+- Zgodnych 701, negocjowanych 299. `maybe` leży prawie wyłącznie poza przekątną (87 ze 110).
+- `maybe` zgłoszone tylko przez annotatora z konkluzją przechodzi do etykiety końcowej w 63–68% przypadków,
+  zgłoszone tylko przez annotatora bez konkluzji — w 47–50%.
+- W 4 pytaniach etykieta końcowa nie pochodzi od żadnego annotatora (0.4% [0.1%, 0.8%]).
+- Artefakty: `reports/debate/analysis/figures/fig1_label_matrix.{svg,tex}`, `pqal_protocol_audit.json`.
 
 ### RQ5. Dlaczego w ogóle jest `maybe`? *(witeczek)* — **P0, brak LLM**
 Co wiemy (policzone 2026-09-17 na `ori_pqal.json`, 500 pytań testowych):
@@ -594,17 +685,21 @@ Co wiemy (policzone 2026-09-17 na `ori_pqal.json`, 500 pytań testowych):
 - Pełna zgoda obu annotatorów i etykiety końcowej: 345/500.
 
 Do zrobienia:
-- [ ] Skrypt `scripts/agents/audit_pqal_labels.py` + przedziały ufności → `statistics.json` (BRAKI §A1).
+- [x] Skrypt `scripts/agents/audit_pqal_labels.py` + przedziały ufności (BRAKI §A1) — zrobione, wynik w A1 wyżej.
 - [ ] Taksonomia przyczyn na próbce ~40 pytań `maybe`: sprzeczne wyniki w abstrakcie, brak istotności
       statystycznej, wynik częściowy, pytanie szersze niż badanie, wynik dotyczy innej populacji.
       Kodowanie ręczne przez 2 osoby, zgodność κ.
 - [ ] Rozbić na: `maybe` jednomyślne (11) vs sporne (44) — czy przyczyny się różnią.
+      Materiał do kodowania: `reports/debate/analysis/rq3_qualitative_sample.csv`.
 
-### RQ2. Na czym stoimy z `maybe` w benchmarkach medycznych — **P0, brak LLM**
-- [ ] Przegląd: jak inne zbiory kodują „za mało dowodu” — SciFact NEI, HealthVer, NEI-CAP (arXiv 2605.26663),
-      ClinDet-Bench (arXiv 2602.22771), MedQAbstain (ACL 2026).
-- [ ] Dla każdego: kto anotował, ilu annotatorów, czy publikują surowe etykiety, jaki odsetek klasy „NEI”.
-- [ ] Wynik: tabela do Related Work + argument, że PubMedQA nie jest wyjątkiem (albo jest).
+### RQ2. Na czym stoimy z `maybe` w benchmarkach medycznych — **P0, brak LLM** — zrobione
+- [x] Przegląd pięciu zbiorów, zweryfikowany w tekstach prac: `2026-09-26-rq2-przeglad-literatury-nei.md`.
+- [x] Tabela (kto anotował / ilu na pozycję / surowe etykiety / udział klasy NEI): PQA-L 2 annotatorów + dyskusja,
+      11.0%; SciFact 1 (232 re-anotowane), 36.6%, κ 0.75; HealthVer 1 (603 re-anotowane), 42.7%, κ 0.76;
+      ClinDet-Bench 1 lekarz, 34.0%; MedQAbstain bez anotacji niepewności; NEI-CAP 2 + konsensus, κ 0.73.
+- [x] Wniosek: **PQA-L jest wyjątkiem w dwie strony** — jako jedyny publikuje surowe etykiety obu annotatorów
+      (dlatego ten audyt jest możliwy) i jako jedyny rozstrzyga spory negocjacją tych samych osób, z usuwaniem
+      pytań nieuzgodnionych. Do Related Work.
 
 ### RQ1. Jak SOTA radzi sobie z `maybe` — **P1, tani**
 - [ ] Zebrać z literatury recall/F1 dla `maybe` (nie samą accuracy) — większość prac podaje tylko accuracy.
@@ -624,23 +719,26 @@ Do zrobienia:
 
 ## Blok II — Detekcja `maybe`
 
-### RQ8 + RQ9. Czy da się oddzielić detekcję `maybe` od yes/no *(kamil)* — **P0, tani**
-- [ ] Zadanie binarne: `maybe` vs nie-`maybe`, osobny klasyfikator (BioLinkBERT, ta sama architektura).
-- [ ] Porównanie z obecnym 3-klasowym argmax (4/55) i z progiem na P(maybe) (35/55 przy precision 0.17).
-- [ ] Metryki: PR-AUC (nie accuracy), recall przy precision ≥ 0.5, kalibracja.
-- [ ] Wniosek do papera: czy `maybe` jest wykrywalne, gdy nie konkuruje z yes/no.
+### RQ8 + RQ9. Czy da się oddzielić detekcję `maybe` od yes/no *(kamil)* — **P0, tani** — zrobione
+- [x] Zadanie binarne, osobny klasyfikator BioLinkBERT — układ 2 × 2, 5 seedów (wynik: sekcja „Wynik RQ8 / RQ9a”).
+- [x] Porównanie z wdrożonym 3-klasowym checkpointem: AP 0.157–0.202 wobec 0.177.
+- [x] Metryka: average precision (PR-AUC) i precision przy 30 trafionych `maybe`. Kalibracji nie liczono.
+- [x] Wniosek: **nie** — `maybe` nie staje się wykrywalne, gdy nie konkuruje z yes/no (efekt +0.016 [−0.032, +0.074]).
 
-### RQ8b. Porównanie z człowiekiem o tej samej informacji (test H2) — **P0, brak LLM**
-- [ ] Oceniać każdy system także względem etykiety RR (annotator bez konkluzji), nie tylko `final_decision`.
-- [ ] Jeśli model zgadza się z RR częściej niż z final, jego „błędy” to w dużej mierze różnica informacji,
-      nie rozumienia.
-- [ ] Zgodność RR z final na 1000 pytaniach jako sufit dla modeli widzących tylko kontekst.
+### RQ8b. Porównanie z człowiekiem o tej samej informacji (test H2) — **P0** — zrobione
+- [x] Systemy ocenione także względem annotatora bez konkluzji (H2, wtórne; replikacja Wiktora).
+- [x] Wynik: modele zgadzają się z etykietą końcową **częściej** niż z tym annotatorem (BERT −0.042
+      [−0.078, −0.006]) — „błędy to różnica informacji” w tej prostej wersji się nie potwierdza.
+- [x] ~~Zgodność RR z final jako sufit~~ — **wycofane**: annotator współtworzył etykietę, więc 0.780 / 0.588 to nie
+      sufit. Właściwe porównanie to S1 / S2 (niezależny punkt odniesienia): człowiek 0.247, `qwen3:30b` 0.237.
+- [ ] Wzmocnienie: S1 dla systemów, których predykcje już są (BioLinkBERT, SC, debata), bez LLM.
 
 ### RQ9a. Balans klas w treningu *(kamil)* — **P0, tani**
 Kontekst: PQA-A nie ma etykiet `maybe`, więc trening ma 0.13% `maybe`, a test 11%.
-- [ ] Warianty: 50:50, 90:10, naturalny prior + ważenie klas, focal loss.
-- [ ] Sprawdzić, ile z luki 4/55 to prior, a ile tekst (BRAKI §A7).
-- [ ] Ewaluacja zawsze na PQA-L 500 z naturalnym priorem; `balanced90` tylko diagnostycznie.
+- [x] Warianty 50:50 (`balanced`) i 90:10 (`natural`) — brak efektu (+0.026 [−0.019, +0.074]).
+      Ważenie klas i focal loss miał już wdrożony checkpoint (4/55).
+- [x] Prior a tekst: trening bez PQA-A, przy naturalnych 11% `maybe`, niczego nie poprawia — sam prior nie tłumaczy luki.
+- [x] Ewaluacja na PQA-L 500 z naturalnym priorem.
 
 ### RQ7. Czy model przewidzi `maybe`, gdy dostanie informację o niezgodzie — **P1, tani**
 - [ ] Wejście: abstrakt + informacja „annotatorzy się nie zgodzili” (oracle) → górna granica detekcji.
@@ -651,15 +749,19 @@ Kontekst: PQA-A nie ma etykiet `maybe`, więc trening ma 0.13% `maybe`, a test 1
 
 ## Blok III — Zachowanie agentów
 
-### RQ3. Co agenci wypisują, gdy jest `maybe` — **P0, brak LLM (dane już są)**
-- [ ] Analiza `final_opinions` i `history` w runach PQA-L 500: jak wygląda uzasadnienie przy gold `maybe`
-      i predykcji yes/no — czy agent nazywa lukę w dowodach, czy jej nie widzi.
-- [ ] Policzyć pole `evidence_conclusiveness` vs etykieta: ile razy „inconclusive” przy finalnym yes/no.
-- [ ] Próbka ~30 przypadków do jakościowego opisu (jedno pudełko z przykładem w paperze).
+### RQ3. Co agenci wypisują, gdy jest `maybe` — **P0, brak LLM** — zrobione na `balanced90`
+Wynik (`2026-09-26-rq3-sygnal-konkluzywnosci.md`, `analyze_rq3_conclusiveness.py`, 6 ramion × 90 pytań):
+- [x] Flaga „dowody niekonkluzywne” przy finalnym yes/no: w ramionach z debatą 92–95% oflagowanych pytań kończy się
+      pewnym yes/no; 22–23 z 30 gold `maybe` jest oflagowanych i nadpisanych.
+- [x] **Flaga jest stałą persony:** `uncertainty_advocate` zgłasza niekonkluzywność w 89–91% pytań niezależnie od
+      treści; pozostałe persony 2–8% (z podpowiedzią BERT) albo 23–30% (bez). SC daje sygnał per pytanie (~26%).
+- [~] Próbka jakościowa: `reports/debate/analysis/rq3_qualitative_sample.csv` — do opisu i do RQ5.
+- [ ] To samo na runach PQA-L 500 (pliki są na serwerze kamila, BRAKI §B2).
 
 ### RQ10. Neutralne prompty agentów *(Kwiatek)* — **P1, drogi**
 Kontekst: częstość `maybe` zależy od promptu — BERT 23/500, SC k=4 80/500, SC N=8 252/500, panel 120B 283/500.
-- [ ] Zestaw 3 promptów: neutralny, z jawnym pozwoleniem na `maybe`, bez wzmianki o `maybe`.
+- [~] Zestaw 3 promptów gotowy i wersjonowany (`label-minimal@1`, `label-defined@1`, `label-defined-prior@1`);
+      uruchomiony tylko `label-defined@1` na `qwen3:30b` (16–26 odpowiedzi `maybe` na ~500 pytań).
 - [ ] Mierzyć *rate* `maybe` i F1 — pokazać, że architektura/prompt ustawia rate, a nie trafność.
 - [ ] Persona `uncertainty_advocate` ma strukturalny bias (`STRUCTURALLY_MAYBE_BIASED_ROLES` w kodzie) —
       zmierzyć jej wpływ osobno.
@@ -704,13 +806,21 @@ Kontekst: częstość `maybe` zależy od promptu — BERT 23/500, SC k=4 80/500,
 
 ## Co wchodzi do papera ML4H, a co nie
 
-**Do papera (P0):** RQ5 + H1, RQ2, RQ8, RQ8b, RQ9, RQ9a, RQ3, RQ11.
-Razem tworzą jedną historię: `maybe` zapisuje ostrożność ukrytej konkluzji i rozstrzygnięte spory (RQ5, H1,
-RQ2) → dlatego model widzący sam kontekst go nie odtworzy, tak jak nie odtwarza go człowiek z tą samą informacją
-(RQ8b) → detekcja binarna i balans klas tylko przesuwają częstość (RQ8, RQ9a) → agenci nie nazywają luki w
-dowodach (RQ3) → a podpowiedź z klasyfikatora dodatkowo ją zamyka (RQ11).
+*(wersja 2026-10-02; poprzednia opierała się na „ukrytej konkluzji”, która się nie potwierdziła)*
 
-**Wzmacniające (P1):** RQ1, RQ6, RQ7, RQ10, RQ4a, benchmarki.
+**Tekst główny (4 strony):**
+1. **Jak powstaje `maybe`** — protokół Jin et al. i macierz etykiet (A1, Rys. 1): 701 zgodnych, 299 negocjowanych,
+   23 ze 110 `maybe` jednomyślnych, przewaga annotatora z konkluzją, usuwanie sporów (RQ2 jako kontekst).
+2. **„Human performance” jest koliste** — F1 `maybe` annotatora bez konkluzji: 0.49–0.59 względem etykiety, którą
+   współtworzył, 0.25 względem niezależnego annotatora; model 0.24 (S1, S2).
+3. **Gdzie mylą się modele** — błędy skupione na pytaniach spornych (H2).
+4. **Czego nie rozwiązuje odmowa** — łapie zwykłe pomyłki, nie `maybe` (H4).
+
+**Jedna tabela zbiorcza albo appendix:** wyniki zerowe — H1, H1b, T2 (konkluzja), H3 (miękkie etykiety), RQ6 (format),
+RQ8 / RQ9a (detektor, balans); RQ3 (stała persony) jako krótka obserwacja o debacie.
+
+**Poza paperem / następna praca:** RQ1, RQ7, RQ10, RQ11, RQ4, RQ4a, drugi zbiór danych, benchmarki z Bloku V.
+RQ5 (taksonomia) — do tekstu głównego tylko, jeśli zdąży; inaczej appendix.
 
 **Następny paper (P2):** RQ4 (dostarczanie wiedzy) — wymaga innego zadania i innego zbioru.
 
@@ -718,12 +828,9 @@ dowodach (RQ3) → a podpowiedź z klasyfikatora dodatkowo ją zamyka (RQ11).
 
 ## Kolejność prac (propozycja)
 
-1. **Tydzień 1 — bez LLM:** RQ5 (skrypt audytu + taksonomia), RQ3 (analiza istniejących runów), RQ2 (przegląd).
-2. **Tydzień 2 — tanie:** RQ8 + RQ9a (detektor binarny i balans klas), RQ6 (regresja na cechach formatu).
-3. **Tydzień 3 — drogie:** RQ11 (dokończyć panel bez podpowiedzi), RQ10 (3 prompty), RQ7.
-4. **Równolegle:** naprawa liczb w paperze (BRAKI §B1–B3) i przepisanie tekstu (BRAKI §C).
-
-Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą infrastrukturę runów.
+Aktualna kolejność jest w sekcji „Stan na 2026-10-02 → Co dalej”. Pierwotna propozycja z 2026-09-23
+(tydzień 1: RQ5, RQ3, RQ2; tydzień 2: RQ8, RQ9a, RQ6; tydzień 3: RQ11, RQ10, RQ7) jest wykonana poza taksonomią RQ5
+oraz odłożonymi RQ7, RQ10, RQ11.
 
 ---
 
@@ -764,4 +871,7 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
 - 2026-10-02 — BRAKI §B1: liczby selektywnej predykcji (0.246 / 0.231) nie pochodzą z BERT ani z plików na dysku;
   `risk_coverage_curve` poprawiona (krzywa dochodzi do pokrycia 1.0). Tabelę i wykres trzeba przeliczyć z
   `debate7b_dissent_pqal500_v1.json` — **potrzebny plik od kamila/Kwiatka**.
-
+- 2026-10-02 — **plan scalony:** baza = wersja z `feature/pqal-protocol-audit` (nadzbiór wersji z `klap/pivot`).
+  Dodano na górze aktualną tezę, tabelę „co ma poparcie”, kolejność dalszych prac i przydział otwartych pytań;
+  streszczono wyniki A1, audytu protokołu, RQ2 i RQ3 w blokach; odhaczono zrobione pozycje (Krok 1, RQ2, RQ3, RQ8,
+  RQ8b, RQ9a); zaktualizowano „Co wchodzi do papera”. Teksty rejestracji i wyników bez zmian.
