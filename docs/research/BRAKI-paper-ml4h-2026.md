@@ -198,7 +198,8 @@ w logu runu, czy T nie odrzucono jako `stale`, i poprawić tekst.
 
 ## C. Tekst papera — co przepisać pod nową tezę (P1)
 
-- [ ] **Tytuł, abstrakt, wstęp, Contributions** — wokół wkładów 1–4; debata/SC jako przykład w jednym akapicie.
+- [~] **Tytuł, abstrakt, wstęp, Contributions** — propozycja pod tezę z 2026-10-02 w
+  [2026-10-02-abstrakt-i-wstep.md](2026-10-02-abstrakt-i-wstep.md); czeka na decyzję zespołu i przeniesienie na Overleaf.
 - [ ] **Related Work** — trzy akapity:
   (a) niezgoda annotatorów i etykiety miękkie: Pavlick & Kwiatkowski 2019, Nie et al. 2020 (ChaosNLI),
   Plank 2022, **Lionetti et al. 2025 (ML4H)**;

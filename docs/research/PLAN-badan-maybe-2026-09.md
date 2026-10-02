@@ -596,7 +596,38 @@ F1 `maybe` w głównym trybie (myślenie włączone, bez konkluzji):
    wobec 37 i 60 u ludzi, więc podobne F1 nie oznacza podobnego zachowania. Jeden model, jeden prompt.
    Wyłączenie 16 pytań z próby czasowej opiera się na założeniu co do tego, które to były.
 
-### Czy teza się z czymś pokrywa? (sprawdzone 2026-09-23)
+### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
+
+**Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
+rozszerzone o *human performance / baseline, adjudicat-, negotiat-, disagree-, label quality / noise / error,
+benchmark / construct validity, annotation protocol, reasoning-free / -required, audit* — 144 trafienia, przejrzane;
+(2) **pełne teksty** czterech najbliższych prac i trzech prac zespołów Med-PaLM / Med-Gemini; (3) wyszukiwanie
+ogólnych precedensów (krytyka ludzkich punktów odniesienia, rozstrzyganie sporów annotatorów).
+**Ograniczenie:** pełne teksty tylko 9 prac; reszta po abstraktach. Wyszukiwarka Semantic Scholar poza cytowaniami
+PubMedQA nie odpowiedziała (limit zapytań).
+
+**Wniosek: nie znaleziono pracy, która analizuje, jak powstaje etykieta PubMedQA, ani która pokazuje kolistość jego
+„human performance”.** Trzy rzeczy trzeba jednak zacytować, bo zawężają to, co wolno nazwać nowym:
+
+| Praca | Co już powiedziała | Co zostaje nasze |
+|---|---|---|
+| **Singhal et al. 2022 (Med-PaLM), 2023 (Med-PaLM 2)** — pełny tekst | „single rater human performance on PubMedQA is 78.0%, indicating that there may be an inherent ceiling”; „remaining failures … appear to be largely attributable to label noise intrinsic in the dataset” | To stwierdzenie bez analizy (0 wzmianek o annotatorach). **Nie jest więc nowe, że etykiety PubMedQA są zaszumione.** Nowe: mechanizm (negocjacja, asymetria informacji, usuwanie sporów), pomiar (23/110, 215/299) i to, że 78% nie jest sufitem, tylko wynikiem kolistym |
+| **Tedeschi et al. 2023 (ACL)**, „What's the Meaning of Superhuman Performance in Today's NLU?” | ogólna krytyka: ludzkie punkty odniesienia w benchmarkach są niewiarygodne (SuperGLUE, SQuAD) | PubMedQA tam nie ma; nasz przypadek to konkretny mechanizm kolistości, z pomiarem na niezależnym odniesieniu |
+| **Qiu et al. 2026 (NEI-CAP)** — pełny tekst, 0 wzmianek o PubMedQA | etykieta „za mało informacji” w SciFact zależy od konstrukcji przykładów | ta sama logika, inny zbiór i inny mechanizm (protokół annotacji) |
+| Abdaljalil et al. 2026 — pełny tekst | `maybe` to „epistemic output, indicating that the system recognizes evidence insufficiency”; 0 wzmianek o annotatorach | przyjmują założenie, które my sprawdzamy |
+| Wen et al. 2024 — pełny tekst | „we interpret maybe as unanswerable” | jw. |
+| Alwakeel et al. 2025 | ogólna krytyka jakości benchmarków medycznych, PubMedQA wspomniane 4 razy, bez annotatorów | brak pokrycia |
+| Med-Gemini (Saab et al. 2024) | ponowna annotacja **MedQA** przez klinicystów; PubMedQA nieobecne | precedens audytu etykiet benchmarku medycznego |
+| Pavlick & Kwiatkowski 2019, Nie et al. 2020, Plank 2022, Uma et al. 2021, Röttger et al. 2021 | niezgoda annotatorów jako sygnał; gold po adjudykacji gubi informację | tło; nikt nie opisuje asymetrii informacji między annotatorami |
+
+**Przydatne jako motywacja:** prace podające wynik „powyżej pojedynczego annotatora” na PubMedQA, np. SentiMedQAer (2022)
+i Med-PaLM 2 (81.8% wobec 78.0%) — pokazują, że kolisty punkt odniesienia jest w użyciu.
+
+**Co z tego wynika dla tekstu:** nie pisać „pokazujemy, że etykiety PubMedQA są zaszumione” (to mówił już Med-PaLM 2).
+Pisać: wcześniejsze prace przypisywały błędy szumowi etykiet i traktowały 78% jako sufit; my pokazujemy, skąd bierze się
+ten „szum”, i że sufit jest artefaktem protokołu.
+
+### Czy teza się z czymś pokrywa? (sprawdzone 2026-09-23 — dotyczy poprzedniej wersji tezy)
 
 **Sprawdzenie:** (1) 1935 prac cytujących PubMedQA w Semantic Scholar (1732 z abstraktem) przeszukane po słowach
 *maybe, inconclusive, annotator, hedging, spin, label noise* — **żadna nie analizuje, jak powstaje etykieta
@@ -927,3 +958,7 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   (9 miejsc). Źródeł tej wersji draftu nie ma w repo, więc zamiany trzeba przenieść ręcznie.
 - 2026-10-02 — rysunek risk–coverage dla BioLinkBERT na 500 pytaniach: `make risk-coverage-figure`,
   `reports/debate/analysis/figures/fig_risk_coverage.{svg,tex,pdf,png}` (BRAKI §B1, §D).
+- 2026-10-02 — propozycja abstraktu i wstępu pod nową tezę: `2026-10-02-abstrakt-i-wstep.md` (tytuł roboczy
+  „Maybe Is a Negotiation”), z tabelą źródeł każdej liczby. Do decyzji zespołu.
+- 2026-10-02 — sprawdzenie nowości dla aktualnej tezy (1974 prace cytujące, pełne teksty 9 prac): brak pokrycia;
+  do zacytowania Med-PaLM / Med-PaLM 2 (stwierdzili szum etykiet i „sufit” 78% bez analizy) i Tedeschi et al. 2023.
