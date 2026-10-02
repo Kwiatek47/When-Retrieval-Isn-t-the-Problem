@@ -612,10 +612,13 @@ Do zrobienia:
 - [ ] Jeśli prace nie podają recallu `maybe`, to samo w sobie jest wynikiem do Related Work.
 
 ### RQ6. Czy `maybe` zależy od formatu abstraktu i pytania *(Kwiatek)* — **P1, brak LLM**
-- [ ] Regresja logistyczna: gold `maybe` ~ długość abstraktu (tokeny), liczba sekcji, obecność liczb,
-      obecność słów hedgingowych („may”, „suggest”, „unclear”), długość pytania, typ pytania.
+- [x] Regresja logistyczna: gold `maybe` ~ długość abstraktu (tokeny), liczba sekcji, obecność liczb,
+      obecność słów hedgingowych („may”, „suggest”, „unclear”), długość pytania, ~~typ pytania~~.
+      **Brak efektu** (2026-10-02): CV AUROC 0.517, wszystkie OR obejmują 1. Typ pytania niezrobiony (brak pola
+      w tabeli). `analyze_rq6_format.py`, `2026-10-02-rq6-format-abstraktu.md`.
 - [ ] To samo dla *predykcji* `maybe` każdego systemu — czy modele reagują na inne cechy niż annotatorzy.
-- [ ] Kontrola: czy cechy przewidują też niezgodę annotatorów (RQ5).
+      *Zablokowane:* brak raportów 500 pytań na dysku (BRAKI §B2).
+- [x] Kontrola: czy cechy przewidują też niezgodę annotatorów (RQ5). **Nie** — CV AUROC 0.508.
 
 ---
 
