@@ -133,8 +133,12 @@ kosztów i na wykresie; przeliczyć. Losową krzywą zastąpić wartością ocze
   próg poza foldem: koszt **0.206** przy 25.6% odmów, zysk +0.068 [+0.044, +0.093] (−24.8%), accuracy na pytaniach
   z odpowiedzią 0.809, 21/55 gold `maybe` w zbiorze odmów. Zysk utrzymuje się dla kosztu odmowy 0.10–0.40.
 - SC 1 − zgodność: 0.258 → 0.213, AURC 0.210. Debata, wynik u: 0.260 → 0.195, AURC 0.172. Podział panelu: 0.260 → 0.246, AURC 0.228.
-- [ ] Podmienić w drafcie: abstrakt („0.246 → 0.198, about a fifth” → 0.274 → 0.206, o jedną czwartą), Contribution 3,
-  tabela kosztów, podpis rysunku. Liczby 0.246 / 0.231 / 0.150 / 0.1975 wycofać.
+- [~] Podmienić w drafcie: lista zamian „stare → nowe” dla 9 miejsc jest w
+  [2026-10-02-podmiana-liczb-draft.md](2026-10-02-podmiana-liczb-draft.md). **Do przeniesienia na Overleaf ręcznie** —
+  źródeł tej wersji draftu nie ma w repo (`origin/feat/ml4h-team-runbook:paper/` to starsza wersja V1).
+- [ ] Przy okazji wyszło: BioLinkBERT przewiduje `maybe` **24** razy (draft: 23); błędów na `maybe` z pewnością ≥ 0.90
+  jest **42/51** (draft: 39/51), a próg 0.90 przekracza 439/500 wszystkich odpowiedzi; zdanie abstraktu „debate-derived
+  uncertainty score not at all” jest fałszywe (AUROC błędu 0.697).
 - [ ] Twierdzenie „BERT 1−conf beats debate u” usunąć albo przetestować sparowanie: w tych runach u ma niższe AURC
   (0.172 wobec 0.209).
 - [ ] Rysunek risk–coverage wygenerować z `b1_selective_prediction.json` (pole `risk_coverage_curve`), losową krzywą

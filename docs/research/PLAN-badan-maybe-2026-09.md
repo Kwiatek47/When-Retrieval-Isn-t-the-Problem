@@ -923,3 +923,5 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   (+0.37 do +0.39); S1 nieodróżnialne dla wszystkich, estymaty od −0.065 (SC) do +0.123 (debata majority).
 - 2026-10-02 — **B1 przeliczone na 500 pytaniach:** BioLinkBERT koszt 0.274 → 0.206 przy 25.6% odmów
   (zysk +0.068 [+0.044, +0.093]), AURC 0.209; wynik u z debaty ma AURC 0.172 — odwrotnie niż w drafcie.
+- 2026-10-02 — lista zamian liczb selektywnej predykcji dla draftu z Overleafa: `2026-10-02-podmiana-liczb-draft.md`
+  (9 miejsc). Źródeł tej wersji draftu nie ma w repo, więc zamiany trzeba przenieść ręcznie.
