@@ -750,3 +750,15 @@ Zależności: RQ7 wymaga RQ5; RQ9a wymaga RQ8; RQ10 i RQ11 dzielą tę samą inf
   pytań spoza testu): S1 nieodróżnialne (+0.011 [−0.156, +0.178]), S2 potwierdzona (+0.275 [+0.142, +0.427]),
   T1 się replikuje, T2 nierozstrzygnięty także na 984 pytaniach. Wniosek roboczy „człowiek czyta `maybe`, modele
   nie” skorygowany.
+- 2026-10-02 — gałąź `feature/pqal-protocol-audit` zrebase'owana na `klap/pivot` i wypchnięta. Dołożone: A1 (macierz
+  annotator × annotator × final, Rys. 1: `make pqal-figure1`), audyt protokołu (`audit_pqal_labels.py`), RQ3 (flaga
+  konkluzywności jest stałą persony), RQ2 (jak inne benchmarki budują klasę NEI). Moje wersje H1 i RQ8b zastąpione
+  skryptami zespołu — traktować jako niezależne replikacje.
+- 2026-10-02 — **RQ6 policzone: brak efektu.** Cechy formatu (długość kontekstu, sekcje, liczby, p-value, hedging
+  w kontekście, długość pytania) nie przewidują gold `maybe` (CV AUROC 0.517) ani niezgody annotatorów (0.508); wszystkie
+  przedziały OR obejmują 1. `analyze_rq6_format.py`, `docs/research/2026-10-02-rq6-format-abstraktu.md`. Niezrobione:
+  typ pytania, cechy a predykcje systemów (brak raportów 500).
+- 2026-10-02 — BRAKI §B1: liczby selektywnej predykcji (0.246 / 0.231) nie pochodzą z BERT ani z plików na dysku;
+  `risk_coverage_curve` poprawiona (krzywa dochodzi do pokrycia 1.0). Tabelę i wykres trzeba przeliczyć z
+  `debate7b_dissent_pqal500_v1.json` — **potrzebny plik od kamila/Kwiatka**.
+
