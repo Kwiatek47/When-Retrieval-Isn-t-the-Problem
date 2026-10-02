@@ -116,6 +116,17 @@ BERT acc 0.726 ⇒ błąd 0.274. Tymczasem always-answer cost **0.246**, random 
 risk–coverage kończą się przy pokryciu 1.0 na ≈0.246 (⇒ acc ≈0.754). Ustalić, czyje predykcje są w tabeli
 kosztów i na wykresie; przeliczyć. Losową krzywą zastąpić wartością oczekiwaną (pozioma linia).
 
+**Ustalenia 2026-10-02 (dysk, bez GPU):**
+- `analysis/risk_coverage.json` i `cost_sensitive.json` dotyczą **debaty na balanced90** (n=90, metoda
+  `debate_balanced90_ollama_r2_uncertainty`), nie BioLinkBERT na PQA-L 500. Tam krzywa kończy się ryzykiem 0.360,
+  always-answer cost = 0.356, AURC = 0.311 — liczb 0.246 / 0.231 / 0.754 **nie ma w żadnym pliku na dysku**.
+- BERT na 500 ma 137 błędów (`h4_abstention.json`) ⇒ błąd 0.274, więc 0.246 nie jest jego ryzykiem przy pełnym pokryciu.
+- Wada kodu: `risk_coverage_curve` (`app/agents/uncertainty.py:440`) nie dochodzi do pokrycia 1.0 (ostatni punkt 0.956:
+  próg 1.0 nadal odrzuca przypadki o score ≥ 1.0), więc AURC całkuje po [0, 0.956]. Docstring mówi, że gold `maybe`
+  jest wyłączony z mianownika — kod tego nie robi (porównuje `routed == gold`, więc gold `maybe` przy odpowiedzi to błąd).
+- Wniosek: tabelę kosztów i wykres trzeba **wygenerować na nowo** z `debate7b_dissent_pqal500_v1.json` (nie ma go
+  na dysku, §B2). Selektywną accuracy BERT na 500 przy 10–50% odmów mamy w `h4_abstention.json`.
+
 ### B2. [ ] P0 — brakujące pliki wyników
 Nie istnieją na żadnej gałęzi: runy SC N=8 `qwen2.5:7b`, panel bez BERT (0.576; `debate7b_neutral_pqal500_v1`
 przerwany na 24/500), `gpt-oss-120b`, `gpt-5` (abstract/oracle), `pqal500_maybe_pr_sweep.json`,
