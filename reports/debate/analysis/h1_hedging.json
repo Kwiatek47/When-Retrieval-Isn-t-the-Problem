@@ -1,0 +1,259 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "n_questions": 1000,
+  "primary": {
+    "n": 971,
+    "n_maybe": 108,
+    "conclusion": {
+      "auroc": 0.5499,
+      "ci_low": 0.497,
+      "ci_high": 0.602
+    },
+    "results_section": {
+      "auroc": 0.539,
+      "ci_low": 0.5019,
+      "ci_high": 0.581
+    },
+    "difference": {
+      "d_auroc": 0.0109,
+      "ci_low": -0.0541,
+      "ci_high": 0.074
+    },
+    "verdict": "inconclusive"
+  },
+  "primary_by_split": {
+    "test": {
+      "n": 482,
+      "n_maybe": 53,
+      "conclusion": {
+        "auroc": 0.5798,
+        "ci_low": 0.5009,
+        "ci_high": 0.6586
+      },
+      "results_section": {
+        "auroc": 0.5632,
+        "ci_low": 0.5044,
+        "ci_high": 0.627
+      },
+      "difference": {
+        "d_auroc": 0.0166,
+        "ci_low": -0.0766,
+        "ci_high": 0.1102
+      },
+      "verdict": "inconclusive"
+    },
+    "cv": {
+      "n": 489,
+      "n_maybe": 55,
+      "conclusion": {
+        "auroc": 0.5179,
+        "ci_low": 0.4473,
+        "ci_high": 0.5917
+      },
+      "results_section": {
+        "auroc": 0.5161,
+        "ci_low": 0.4663,
+        "ci_high": 0.57
+      },
+      "difference": {
+        "d_auroc": 0.0018,
+        "ci_low": -0.0857,
+        "ci_high": 0.0912
+      },
+      "verdict": "inconclusive"
+    }
+  },
+  "annotator_contrast": {
+    "hedge_density_conclusion": {
+      "d_auroc": 0.0273,
+      "ci_low": -0.0449,
+      "ci_high": 0.1022
+    },
+    "hedge_density_results": {
+      "d_auroc": -0.032,
+      "ci_low": -0.0876,
+      "ci_high": 0.0226
+    }
+  },
+  "score_matrix": {
+    "n": 971,
+    "auroc": {
+      "hedge_density_conclusion": {
+        "final": {
+          "auroc": 0.5499,
+          "ci_low": 0.497,
+          "ci_high": 0.6028
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.5347,
+          "ci_low": 0.4804,
+          "ci_high": 0.587
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.5074,
+          "ci_low": 0.4454,
+          "ci_high": 0.573
+        }
+      },
+      "hedge_density_results": {
+        "final": {
+          "auroc": 0.539,
+          "ci_low": 0.5011,
+          "ci_high": 0.5798
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.5139,
+          "ci_low": 0.4793,
+          "ci_high": 0.5518
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.5459,
+          "ci_low": 0.4997,
+          "ci_high": 0.5976
+        }
+      },
+      "hedge_density_context": {
+        "final": {
+          "auroc": 0.5371,
+          "ci_low": 0.4848,
+          "ci_high": 0.5905
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.5192,
+          "ci_low": 0.4697,
+          "ci_high": 0.5711
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.5265,
+          "ci_low": 0.4673,
+          "ci_high": 0.5877
+        }
+      },
+      "hedge_ext_density_conclusion": {
+        "final": {
+          "auroc": 0.5525,
+          "ci_low": 0.5014,
+          "ci_high": 0.6045
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.5512,
+          "ci_low": 0.498,
+          "ci_high": 0.6038
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.5142,
+          "ci_low": 0.4541,
+          "ci_high": 0.5778
+        }
+      },
+      "hedge_ext_density_results": {
+        "final": {
+          "auroc": 0.5283,
+          "ci_low": 0.4843,
+          "ci_high": 0.5748
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.4998,
+          "ci_low": 0.4588,
+          "ci_high": 0.5421
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.5385,
+          "ci_low": 0.4853,
+          "ci_high": 0.5956
+        }
+      },
+      "null_density_conclusion": {
+        "final": {
+          "auroc": 0.487,
+          "ci_low": 0.4723,
+          "ci_high": 0.5058
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.4868,
+          "ci_low": 0.4722,
+          "ci_high": 0.5055
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.4865,
+          "ci_low": 0.4705,
+          "ci_high": 0.5073
+        }
+      },
+      "null_density_results": {
+        "final": {
+          "auroc": 0.4658,
+          "ci_low": 0.4263,
+          "ci_high": 0.5075
+        },
+        "annotator_with_conclusion": {
+          "auroc": 0.4913,
+          "ci_low": 0.4488,
+          "ci_high": 0.5355
+        },
+        "annotator_without_conclusion": {
+          "auroc": 0.4536,
+          "ci_low": 0.4105,
+          "ci_high": 0.4998
+        }
+      }
+    }
+  },
+  "prevalence": {
+    "by_gold_label": {
+      "yes": {
+        "n": 552,
+        "conclusion": 0.558,
+        "results_section": 0.1431
+      },
+      "no": {
+        "n": 338,
+        "conclusion": 0.4172,
+        "results_section": 0.0813
+      },
+      "maybe": {
+        "n": 110,
+        "conclusion": 0.6182,
+        "results_section": 0.1944
+      }
+    },
+    "gold_maybe_by_annotator_pattern": {
+      "rf=maybe|rr=maybe": {
+        "n": 23,
+        "conclusion": 0.4783,
+        "results_section": 0.1818
+      },
+      "rf=maybe|rr=no": {
+        "n": 17,
+        "conclusion": 0.5294,
+        "results_section": 0.1176
+      },
+      "rf=maybe|rr=yes": {
+        "n": 39,
+        "conclusion": 0.7436,
+        "results_section": 0.1538
+      },
+      "rf=no|rr=maybe": {
+        "n": 9,
+        "conclusion": 0.6667,
+        "results_section": 0.4444
+      },
+      "rf=no|rr=yes": {
+        "n": 1,
+        "conclusion": 0.0,
+        "results_section": NaN
+      },
+      "rf=yes|rr=maybe": {
+        "n": 20,
+        "conclusion": 0.6,
+        "results_section": 0.2
+      },
+      "rf=yes|rr=no": {
+        "n": 1,
+        "conclusion": 1.0,
+        "results_section": 1.0
+      }
+    }
+  }
+}

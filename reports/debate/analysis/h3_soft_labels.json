@@ -1,0 +1,391 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "n_questions": 500,
+  "n_soft_questions": 155,
+  "primary_pair": "self_consistency_qwen3_8b_k4 - biolinkbert",
+  "two_annotators": {
+    "systems": {
+      "biolinkbert": {
+        "hard_accuracy": 0.726,
+        "soft_accuracy": {
+          "value": 0.706,
+          "ci_low": 0.673,
+          "ci_high": 0.739
+        },
+        "maybe_hard": {
+          "soft_true_positives": 4.0,
+          "predicted": 24,
+          "gold_mass": 55.0,
+          "precision": 0.1667,
+          "recall": 0.0727,
+          "f1": 0.1013
+        },
+        "maybe_soft": {
+          "soft_true_positives": 6.0,
+          "predicted": 24,
+          "gold_mass": 47.5,
+          "precision": 0.25,
+          "recall": 0.1263,
+          "f1": 0.1678
+        }
+      },
+      "self_consistency_qwen3_8b_k4": {
+        "hard_accuracy": 0.742,
+        "soft_accuracy": {
+          "value": 0.724,
+          "ci_low": 0.692,
+          "ci_high": 0.756
+        },
+        "maybe_hard": {
+          "soft_true_positives": 19.0,
+          "predicted": 80,
+          "gold_mass": 55.0,
+          "precision": 0.2375,
+          "recall": 0.3455,
+          "f1": 0.2815
+        },
+        "maybe_soft": {
+          "soft_true_positives": 17.5,
+          "predicted": 80,
+          "gold_mass": 47.5,
+          "precision": 0.2188,
+          "recall": 0.3684,
+          "f1": 0.2745
+        }
+      },
+      "debate_dissent_hinted": {
+        "hard_accuracy": 0.74,
+        "soft_accuracy": {
+          "value": 0.717,
+          "ci_low": 0.685,
+          "ci_high": 0.749
+        },
+        "maybe_hard": {
+          "soft_true_positives": 7.0,
+          "predicted": 44,
+          "gold_mass": 55.0,
+          "precision": 0.1591,
+          "recall": 0.1273,
+          "f1": 0.1414
+        },
+        "maybe_soft": {
+          "soft_true_positives": 8.5,
+          "predicted": 44,
+          "gold_mass": 47.5,
+          "precision": 0.1932,
+          "recall": 0.1789,
+          "f1": 0.1858
+        }
+      },
+      "debate_majority_hinted": {
+        "hard_accuracy": 0.714,
+        "soft_accuracy": {
+          "value": 0.692,
+          "ci_low": 0.658,
+          "ci_high": 0.725
+        },
+        "maybe_hard": {
+          "soft_true_positives": 3.0,
+          "predicted": 26,
+          "gold_mass": 55.0,
+          "precision": 0.1154,
+          "recall": 0.0545,
+          "f1": 0.0741
+        },
+        "maybe_soft": {
+          "soft_true_positives": 5.0,
+          "predicted": 26,
+          "gold_mass": 47.5,
+          "precision": 0.1923,
+          "recall": 0.1053,
+          "f1": 0.1361
+        }
+      },
+      "always_yes": {
+        "hard_accuracy": 0.552,
+        "soft_accuracy": {
+          "value": 0.586,
+          "ci_low": 0.549,
+          "ci_high": 0.622
+        },
+        "maybe_hard": {
+          "soft_true_positives": 0.0,
+          "predicted": 0,
+          "gold_mass": 55.0,
+          "precision": NaN,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "maybe_soft": {
+          "soft_true_positives": 0.0,
+          "predicted": 0,
+          "gold_mass": 47.5,
+          "precision": NaN,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "pairs": {
+      "self_consistency_qwen3_8b_k4 - biolinkbert": {
+        "interaction": {
+          "value": 0.002,
+          "ci_low": -0.024,
+          "ci_high": 0.026,
+          "verdict": "inconclusive"
+        },
+        "hard_difference": 0.016,
+        "soft_difference": 0.018,
+        "order_differs_rate": 0.1644
+      },
+      "biolinkbert - debate_dissent_hinted": {
+        "interaction": {
+          "value": 0.003,
+          "ci_low": -0.009,
+          "ci_high": 0.016,
+          "verdict": "refuted"
+        },
+        "hard_difference": -0.014,
+        "soft_difference": -0.011,
+        "order_differs_rate": 0.119
+      },
+      "biolinkbert - debate_majority_hinted": {
+        "interaction": {
+          "value": 0.002,
+          "ci_low": -0.009,
+          "ci_high": 0.014,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.012,
+        "soft_difference": 0.014,
+        "order_differs_rate": 0.119
+      },
+      "self_consistency_qwen3_8b_k4 - debate_dissent_hinted": {
+        "interaction": {
+          "value": 0.005,
+          "ci_low": -0.018,
+          "ci_high": 0.029,
+          "verdict": "inconclusive"
+        },
+        "hard_difference": 0.002,
+        "soft_difference": 0.007,
+        "order_differs_rate": 0.2672
+      },
+      "self_consistency_qwen3_8b_k4 - debate_majority_hinted": {
+        "interaction": {
+          "value": 0.004,
+          "ci_low": -0.021,
+          "ci_high": 0.028,
+          "verdict": "inconclusive"
+        },
+        "hard_difference": 0.028,
+        "soft_difference": 0.032,
+        "order_differs_rate": 0.0968
+      },
+      "debate_dissent_hinted - debate_majority_hinted": {
+        "interaction": {
+          "value": -0.001,
+          "ci_low": -0.015,
+          "ci_high": 0.013,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.026,
+        "soft_difference": 0.025,
+        "order_differs_rate": 0.04
+      }
+    }
+  },
+  "two_annotators_plus_agreed_label": {
+    "systems": {
+      "biolinkbert": {
+        "hard_accuracy": 0.726,
+        "soft_accuracy": {
+          "value": 0.7127,
+          "ci_low": 0.678,
+          "ci_high": 0.746
+        },
+        "maybe_hard": {
+          "soft_true_positives": 4.0,
+          "predicted": 24,
+          "gold_mass": 55.0,
+          "precision": 0.1667,
+          "recall": 0.0727,
+          "f1": 0.1013
+        },
+        "maybe_soft": {
+          "soft_true_positives": 5.33,
+          "predicted": 24,
+          "gold_mass": 50.0,
+          "precision": 0.2222,
+          "recall": 0.1067,
+          "f1": 0.1441
+        }
+      },
+      "self_consistency_qwen3_8b_k4": {
+        "hard_accuracy": 0.742,
+        "soft_accuracy": {
+          "value": 0.73,
+          "ci_low": 0.6967,
+          "ci_high": 0.7627
+        },
+        "maybe_hard": {
+          "soft_true_positives": 19.0,
+          "predicted": 80,
+          "gold_mass": 55.0,
+          "precision": 0.2375,
+          "recall": 0.3455,
+          "f1": 0.2815
+        },
+        "maybe_soft": {
+          "soft_true_positives": 18.0,
+          "predicted": 80,
+          "gold_mass": 50.0,
+          "precision": 0.225,
+          "recall": 0.36,
+          "f1": 0.2769
+        }
+      },
+      "debate_dissent_hinted": {
+        "hard_accuracy": 0.74,
+        "soft_accuracy": {
+          "value": 0.7247,
+          "ci_low": 0.692,
+          "ci_high": 0.7567
+        },
+        "maybe_hard": {
+          "soft_true_positives": 7.0,
+          "predicted": 44,
+          "gold_mass": 55.0,
+          "precision": 0.1591,
+          "recall": 0.1273,
+          "f1": 0.1414
+        },
+        "maybe_soft": {
+          "soft_true_positives": 8.0,
+          "predicted": 44,
+          "gold_mass": 50.0,
+          "precision": 0.1818,
+          "recall": 0.16,
+          "f1": 0.1702
+        }
+      },
+      "debate_majority_hinted": {
+        "hard_accuracy": 0.714,
+        "soft_accuracy": {
+          "value": 0.6993,
+          "ci_low": 0.664,
+          "ci_high": 0.734
+        },
+        "maybe_hard": {
+          "soft_true_positives": 3.0,
+          "predicted": 26,
+          "gold_mass": 55.0,
+          "precision": 0.1154,
+          "recall": 0.0545,
+          "f1": 0.0741
+        },
+        "maybe_soft": {
+          "soft_true_positives": 4.33,
+          "predicted": 26,
+          "gold_mass": 50.0,
+          "precision": 0.1667,
+          "recall": 0.0867,
+          "f1": 0.114
+        }
+      },
+      "always_yes": {
+        "hard_accuracy": 0.552,
+        "soft_accuracy": {
+          "value": 0.5747,
+          "ci_low": 0.536,
+          "ci_high": 0.6127
+        },
+        "maybe_hard": {
+          "soft_true_positives": 0.0,
+          "predicted": 0,
+          "gold_mass": 55.0,
+          "precision": NaN,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "maybe_soft": {
+          "soft_true_positives": 0.0,
+          "predicted": 0,
+          "gold_mass": 50.0,
+          "precision": NaN,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    "pairs": {
+      "self_consistency_qwen3_8b_k4 - biolinkbert": {
+        "interaction": {
+          "value": 0.0013,
+          "ci_low": -0.0153,
+          "ci_high": 0.018,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.016,
+        "soft_difference": 0.0173,
+        "order_differs_rate": 0.109
+      },
+      "biolinkbert - debate_dissent_hinted": {
+        "interaction": {
+          "value": 0.002,
+          "ci_low": -0.0067,
+          "ci_high": 0.0107,
+          "verdict": "refuted"
+        },
+        "hard_difference": -0.014,
+        "soft_difference": -0.012,
+        "order_differs_rate": 0.0784
+      },
+      "biolinkbert - debate_majority_hinted": {
+        "interaction": {
+          "value": 0.0013,
+          "ci_low": -0.0067,
+          "ci_high": 0.0087,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.012,
+        "soft_difference": 0.0133,
+        "order_differs_rate": 0.098
+      },
+      "self_consistency_qwen3_8b_k4 - debate_dissent_hinted": {
+        "interaction": {
+          "value": 0.0033,
+          "ci_low": -0.012,
+          "ci_high": 0.0187,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.002,
+        "soft_difference": 0.0053,
+        "order_differs_rate": 0.1604
+      },
+      "self_consistency_qwen3_8b_k4 - debate_majority_hinted": {
+        "interaction": {
+          "value": 0.0027,
+          "ci_low": -0.014,
+          "ci_high": 0.0193,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.028,
+        "soft_difference": 0.0307,
+        "order_differs_rate": 0.0732
+      },
+      "debate_dissent_hinted - debate_majority_hinted": {
+        "interaction": {
+          "value": -0.0007,
+          "ci_low": -0.01,
+          "ci_high": 0.0087,
+          "verdict": "refuted"
+        },
+        "hard_difference": 0.026,
+        "soft_difference": 0.0253,
+        "order_differs_rate": 0.0296
+      }
+    }
+  }
+}

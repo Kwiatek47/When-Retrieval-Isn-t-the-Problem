@@ -1,0 +1,195 @@
+{
+  "status": "exploratory, not pre-registered; test questions were inspected before",
+  "n_boot": 5000,
+  "seed": 47,
+  "n_questions": 500,
+  "annotator_without_conclusion": {
+    "maybe_vs_annotator_with_conclusion": {
+      "hits": 11,
+      "predicted": 47,
+      "gold": 48,
+      "precision": 0.234,
+      "recall": 0.2292,
+      "f1": 0.2316
+    },
+    "maybe_vs_final": {
+      "hits": 30,
+      "predicted": 47,
+      "gold": 55,
+      "precision": 0.6383,
+      "recall": 0.5455,
+      "f1": 0.5882
+    },
+    "agreement_with_annotator_with_conclusion": 0.69
+  },
+  "systems": {
+    "biolinkbert": {
+      "S1_same_seat_gap": {
+        "value": 0.0927,
+        "ci_low": -0.0362,
+        "ci_high": 0.2194,
+        "verdict": "not distinguishable"
+      },
+      "S2_gap_owed_to_co_created_label": {
+        "value": 0.3943,
+        "ci_low": 0.2663,
+        "ci_high": 0.535,
+        "verdict": "supported"
+      },
+      "gap_against_final_label": {
+        "value": 0.487,
+        "ci_low": 0.3397,
+        "ci_high": 0.617,
+        "verdict": "model below human"
+      },
+      "agreement_gap_same_seat": {
+        "value": -0.038,
+        "ci_low": -0.0841,
+        "ci_high": 0.008
+      },
+      "maybe_vs_annotator_with_conclusion": {
+        "hits": 5,
+        "predicted": 24,
+        "gold": 48,
+        "precision": 0.2083,
+        "recall": 0.1042,
+        "f1": 0.1389
+      },
+      "maybe_vs_final": {
+        "hits": 4,
+        "predicted": 24,
+        "gold": 55,
+        "precision": 0.1667,
+        "recall": 0.0727,
+        "f1": 0.1013
+      },
+      "agreement_with_annotator_with_conclusion": 0.728
+    },
+    "self_consistency_qwen3_8b_k4": {
+      "S1_same_seat_gap": {
+        "value": -0.0653,
+        "ci_low": -0.1825,
+        "ci_high": 0.0559,
+        "verdict": "not distinguishable"
+      },
+      "S2_gap_owed_to_co_created_label": {
+        "value": 0.372,
+        "ci_low": 0.2457,
+        "ci_high": 0.5087,
+        "verdict": "supported"
+      },
+      "gap_against_final_label": {
+        "value": 0.3068,
+        "ci_low": 0.1602,
+        "ci_high": 0.444,
+        "verdict": "model below human"
+      },
+      "agreement_gap_same_seat": {
+        "value": -0.04,
+        "ci_low": -0.084,
+        "ci_high": 0.004
+      },
+      "maybe_vs_annotator_with_conclusion": {
+        "hits": 19,
+        "predicted": 80,
+        "gold": 48,
+        "precision": 0.2375,
+        "recall": 0.3958,
+        "f1": 0.2969
+      },
+      "maybe_vs_final": {
+        "hits": 19,
+        "predicted": 80,
+        "gold": 55,
+        "precision": 0.2375,
+        "recall": 0.3455,
+        "f1": 0.2815
+      },
+      "agreement_with_annotator_with_conclusion": 0.73
+    },
+    "debate_dissent_hinted": {
+      "S1_same_seat_gap": {
+        "value": 0.0794,
+        "ci_low": -0.0561,
+        "ci_high": 0.207,
+        "verdict": "not distinguishable"
+      },
+      "S2_gap_owed_to_co_created_label": {
+        "value": 0.3674,
+        "ci_low": 0.2354,
+        "ci_high": 0.4986,
+        "verdict": "supported"
+      },
+      "gap_against_final_label": {
+        "value": 0.4468,
+        "ci_low": 0.2977,
+        "ci_high": 0.5888,
+        "verdict": "model below human"
+      },
+      "agreement_gap_same_seat": {
+        "value": -0.042,
+        "ci_low": -0.086,
+        "ci_high": 0.002
+      },
+      "maybe_vs_annotator_with_conclusion": {
+        "hits": 7,
+        "predicted": 44,
+        "gold": 48,
+        "precision": 0.1591,
+        "recall": 0.1458,
+        "f1": 0.1522
+      },
+      "maybe_vs_final": {
+        "hits": 7,
+        "predicted": 44,
+        "gold": 55,
+        "precision": 0.1591,
+        "recall": 0.1273,
+        "f1": 0.1414
+      },
+      "agreement_with_annotator_with_conclusion": 0.732
+    },
+    "debate_majority_hinted": {
+      "S1_same_seat_gap": {
+        "value": 0.1235,
+        "ci_low": -0.0083,
+        "ci_high": 0.2569,
+        "verdict": "not distinguishable"
+      },
+      "S2_gap_owed_to_co_created_label": {
+        "value": 0.3907,
+        "ci_low": 0.2601,
+        "ci_high": 0.5314,
+        "verdict": "supported"
+      },
+      "gap_against_final_label": {
+        "value": 0.5142,
+        "ci_low": 0.3704,
+        "ci_high": 0.6422,
+        "verdict": "model below human"
+      },
+      "agreement_gap_same_seat": {
+        "value": -0.038,
+        "ci_low": -0.086,
+        "ci_high": 0.01
+      },
+      "maybe_vs_annotator_with_conclusion": {
+        "hits": 4,
+        "predicted": 26,
+        "gold": 48,
+        "precision": 0.1538,
+        "recall": 0.0833,
+        "f1": 0.1081
+      },
+      "maybe_vs_final": {
+        "hits": 3,
+        "predicted": 26,
+        "gold": 55,
+        "precision": 0.1154,
+        "recall": 0.0545,
+        "f1": 0.0741
+      },
+      "agreement_with_annotator_with_conclusion": 0.728
+    }
+  }
+}

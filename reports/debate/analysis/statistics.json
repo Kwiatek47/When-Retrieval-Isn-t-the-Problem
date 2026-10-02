@@ -122,11 +122,12 @@
     }
   },
   "human_vs_model_maybe_recall": {
-    "human_maybe_recall": 0.6,
+    "human_annotator": "reasoning_required_pred",
+    "human_maybe_recall": 0.6333333333333333,
     "model_maybe_recall": 0.0,
-    "difference": 0.6,
-    "diff_ci_low": 0.4333,
-    "diff_ci_high": 0.7667,
+    "difference": 0.6333,
+    "diff_ci_low": 0.4667,
+    "diff_ci_high": 0.8,
     "permutation_p_value": 0.0002,
     "n_maybe": 30
   },
@@ -218,6 +219,8 @@
       "ci_low": 0.68,
       "ci_high": 0.76,
       "n": 500
-    }
+    },
+    "carried_over_from_previous_run": true,
+    "carried_over_reason": "debate_pqal500_biolinkbert.json not on this machine"
   }
 }

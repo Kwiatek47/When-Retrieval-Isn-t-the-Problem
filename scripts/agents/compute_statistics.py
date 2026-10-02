@@ -21,6 +21,17 @@ import random
 import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.agents.bootstrap_stats import (  # noqa: E402
+    bootstrap_auroc_ci as _bootstrap_auroc_ci,
+)
+from scripts.agents.bootstrap_stats import (  # noqa: E402
+    bootstrap_mean_ci as _boot_ci_mean,
+)
+from scripts.agents.bootstrap_stats import percentile as _percentile  # noqa: E402
+
 ANALYSIS = PROJECT_ROOT / "reports/debate/analysis"
 CSV_PATH = ANALYSIS / "maybe_analysis.csv"
 HUMAN = PROJECT_ROOT / "reports/debate/human/human_baseline_official.json"
@@ -39,43 +50,6 @@ _SIGNALS = (
 )
 
 
-def _auroc(pos: list[float], neg: list[float]) -> float:
-    if not pos or not neg:
-        return float("nan")
-    wins = sum((1.0 if a > b else 0.5 if a == b else 0.0) for a in pos for b in neg)
-    return wins / (len(pos) * len(neg))
-
-
-def _percentile(xs: list[float], q: float) -> float:
-    if not xs:
-        return float("nan")
-    xs = sorted(xs)
-    k = (len(xs) - 1) * q
-    lo = int(k)
-    hi = min(lo + 1, len(xs) - 1)
-    return xs[lo] + (xs[hi] - xs[lo]) * (k - lo)
-
-
-def _bootstrap_auroc_ci(
-    pos: list[float], neg: list[float], rng: random.Random, n_boot: int
-) -> dict:
-    point = _auroc(pos, neg)
-    boots = []
-    for _ in range(n_boot):
-        rp = [pos[rng.randrange(len(pos))] for _ in pos]
-        rn = [neg[rng.randrange(len(neg))] for _ in neg]
-        boots.append(_auroc(rp, rn))
-    boots = [b for b in boots if b == b]  # drop NaN
-    return {
-        "auroc": round(point, 4),
-        "ci_low": round(_percentile(boots, 0.025), 4),
-        "ci_high": round(_percentile(boots, 0.975), 4),
-        "n_pos": len(pos),
-        "n_neg": len(neg),
-        "brackets_chance": _percentile(boots, 0.025) <= 0.5 <= _percentile(boots, 0.975),
-    }
-
-
 def _load_rows() -> list[dict]:
     return list(csv.DictReader(CSV_PATH.open(encoding="utf-8")))
 
@@ -85,26 +59,6 @@ RAG_500 = (
     PROJECT_ROOT
     / "reports/official_pqal500_biolinkbert_seed47/official_pqal500_biolinkbert_seed47_rag.json"
 )
-
-
-def _boot_ci_mean(vals: list[float], rng: random.Random, n_boot: int) -> dict:
-    """Bootstrap 95% CI for the mean of a 0/1 (or real) per-case vector."""
-    if not vals:
-        return {"mean": float("nan"), "ci_low": float("nan"), "ci_high": float("nan"), "n": 0}
-    n = len(vals)
-    point = sum(vals) / n
-    boots = []
-    for _ in range(n_boot):
-        s = 0.0
-        for _ in range(n):
-            s += vals[rng.randrange(n)]
-        boots.append(s / n)
-    return {
-        "mean": round(point, 4),
-        "ci_low": round(_percentile(boots, 0.025), 4),
-        "ci_high": round(_percentile(boots, 0.975), 4),
-        "n": n,
-    }
 
 
 def pqal500_cis(rng: random.Random, n_boot: int) -> dict:
@@ -117,15 +71,27 @@ def pqal500_cis(rng: random.Random, n_boot: int) -> dict:
     out: dict = {}
 
     # --- decision layer (BioLinkBERT), from debate_pqal500 report ---
-    d = json.loads(DEBATE_500.read_text())
-    cases = d.get("cases") if isinstance(d, dict) else d
-    correct = [1.0 if c.get("label_pass") else 0.0 for c in cases]
-    out["decision_overall_accuracy"] = _boot_ci_mean(correct, rng, n_boot)
-    per_class = {}
-    for lab in ("yes", "no", "maybe"):
-        sub = [1.0 if c.get("predicted_label") == lab else 0.0 for c in cases if c.get("expected_label") == lab]
-        per_class[lab] = _boot_ci_mean(sub, rng, n_boot)
-    out["decision_per_class_recall"] = per_class
+    # `reports/` is gitignored, so the 500-case run only exists on the GPU box that
+    # produced it. Carry its published CIs over rather than deleting them: rerunning
+    # this script on a laptop must not silently drop results nobody can recompute here.
+    if not DEBATE_500.exists() and OUT.exists():
+        previous = json.loads(OUT.read_text()).get("pqal500") or {}
+        if "decision_overall_accuracy" in previous:
+            previous["carried_over_from_previous_run"] = True
+            previous["carried_over_reason"] = f"{DEBATE_500.name} not on this machine"
+            return previous
+    if DEBATE_500.exists():
+        d = json.loads(DEBATE_500.read_text())
+        cases = d.get("cases") if isinstance(d, dict) else d
+        correct = [1.0 if c.get("label_pass") else 0.0 for c in cases]
+        out["decision_overall_accuracy"] = _boot_ci_mean(correct, rng, n_boot)
+        per_class = {}
+        for lab in ("yes", "no", "maybe"):
+            sub = [1.0 if c.get("predicted_label") == lab else 0.0 for c in cases if c.get("expected_label") == lab]
+            per_class[lab] = _boot_ci_mean(sub, rng, n_boot)
+        out["decision_per_class_recall"] = per_class
+    else:
+        out["missing_report"] = str(DEBATE_500.relative_to(PROJECT_ROOT))
 
     # --- retrieval + citation, from official RAG report (if present) ---
     if RAG_500.exists():
@@ -249,13 +215,23 @@ def signal_cis(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
 def human_vs_model(rng: random.Random, n_boot: int) -> dict:
     """Human maybe-recall vs model maybe-recall (model recall = 0 on maybe).
 
-    We use per-case correctness on the true-maybe subset. Human correctness comes
-    from the official single-annotator prediction; the model (best debate/routing
-    base) is treated as recall 0 on maybe (documented: models essentially never
-    output maybe). We bootstrap the recall difference and run a permutation test.
+    We use per-case correctness on the true-maybe subset. Human correctness comes from
+    the official **context-only** annotator — the one given the same question + abstract
+    as the model, with no author conclusion — so the comparison is apples to apples.
+    (Before 2026-09-26 this read the annotator who saw the conclusion, under a key that
+    mislabelled it "abstract only"; the gap is slightly *larger* with the correct one,
+    0.633 vs 0.600 maybe-recall on balanced90.) The model (best debate/routing base) is
+    treated as recall 0 on maybe (documented: models essentially never output maybe). We
+    bootstrap the recall difference and run a permutation test.
     """
     human = json.loads(HUMAN.read_text())
-    hb = human["reasoning_free_pred (abstract only)"]["per_class"]["maybe"]
+    if "annotators" not in human:
+        raise SystemExit(
+            f"{HUMAN} predates the RR/RF role fix. Regenerate it with "
+            "`python scripts/agents/human_maybe_study.py human-baseline`."
+        )
+    comparable = human["model_comparable_annotator"]
+    hb = human["annotators"][comparable]["per_class"]["maybe"]
     support = hb["support"]
     human_correct = round(hb["recall"] * support)
     # per-case binary correctness vectors on the maybe subset
@@ -284,6 +260,7 @@ def human_vs_model(rng: random.Random, n_boot: int) -> dict:
             count_ge += 1
     p_value = (count_ge + 1) / (n_perm + 1)
     return {
+        "human_annotator": human["annotators"][comparable]["field"],
         "human_maybe_recall": recall(human_vec),
         "model_maybe_recall": recall(model_vec),
         "difference": round(diff_point, 4),
@@ -353,10 +330,13 @@ def main() -> None:
         )
     p5 = result["pqal500"]
     print("\n=== PQA-L 500 (full) — bootstrap 95% CI ===")
-    d = p5["decision_overall_accuracy"]
-    print(f"decision accuracy  {d['mean']:.3f} [{d['ci_low']:.3f},{d['ci_high']:.3f}] n={d['n']}")
-    for lab, c in p5["decision_per_class_recall"].items():
-        print(f"  recall {lab:5s}     {c['mean']:.3f} [{c['ci_low']:.3f},{c['ci_high']:.3f}] n={c['n']}")
+    if "decision_overall_accuracy" in p5:
+        d = p5["decision_overall_accuracy"]
+        print(f"decision accuracy  {d['mean']:.3f} [{d['ci_low']:.3f},{d['ci_high']:.3f}] n={d['n']}")
+        for lab, c in p5["decision_per_class_recall"].items():
+            print(f"  recall {lab:5s}     {c['mean']:.3f} [{c['ci_low']:.3f},{c['ci_high']:.3f}] n={c['n']}")
+    else:
+        print(f"skipped — {p5['missing_report']} is not on this machine")
     for key in ("retrieval_hit_at_1", "retrieval_hit_at_3", "citation_pass", "rag_label_accuracy"):
         if key in p5:
             c = p5[key]

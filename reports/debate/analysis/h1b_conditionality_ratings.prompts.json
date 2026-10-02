@@ -1,0 +1,62 @@
+{
+  "prompt_version": "b8a8e813a646",
+  "prompt_sha256": "b8a8e813a646564187bfe60907765eed063354b6ce48120881366cd0b6a2d706",
+  "prompts_py_sha256": "3ba14ccee1a88e937da8308a6e108336d3880524c95923a17ca93371856a21c6",
+  "captured_at": "2026-09-24T18:03:59.466511+00:00",
+  "run_label": "h1b_conditionality_ratings",
+  "script": "scripts/agents/rate_conditionality.py",
+  "source_file": "scripts/agents/probe_prompts.py",
+  "prompts": {
+    "conditionality@1": {
+      "id": "conditionality@1",
+      "sha": "77e624205b2a",
+      "status": "registered",
+      "purpose": "H1b: rate how conditional a passage's answer is (0-2), conclusion vs RESULTS.",
+      "notes": "Pre-registered 2026-09-24 in commit 73cd9bf; full run on 1000 PQA-L questions done.",
+      "system": "You annotate biomedical research abstracts. You judge whether a passage answers a research question unconditionally or only conditionally. You do not judge whether the answer is yes or no, and you do not judge how cautious the wording is.",
+      "user": "Research question: {question}\n\nPassage:\n{passage}\n\nDoes this passage, taken on its own, give a CONDITIONAL answer to the research question?\nAn answer is conditional when it differs across subgroups, outcomes, settings, doses or time\npoints, holds only for some of them, or when the passage reports both supporting and\nnon-supporting findings for the question.\n\nRate conditionality:\n0 = not conditional: one answer that holds as stated, or the passage does not address the question\n1 = partly: one main answer with a minor qualification or restriction\n2 = conditional: the answer clearly depends on a subgroup or condition, or findings point in different directions\n\nIgnore hedging words such as \"may\", \"suggest\" or \"further studies are needed\"; they do not\nmake an answer conditional by themselves.\nReturn JSON: {{\"conditionality\": 0, 1 or 2, \"evidence\": \"<quote of at most 20 words, or empty>\"}}",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "conditionality": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "conditionality",
+          "evidence"
+        ]
+      },
+      "options": {
+        "temperature": 0,
+        "num_ctx": 4096,
+        "num_predict": 120
+      }
+    }
+  },
+  "meta": {
+    "model": "qwen2.5:32b",
+    "prompt_ids": [
+      "conditionality@1"
+    ],
+    "argv": [
+      "scripts/agents/rate_conditionality.py"
+    ],
+    "git": {
+      "commit": "73cd9bfaa817a43c020f71fb71bc1e83ace125ba",
+      "dirty": true
+    },
+    "repeats": 3,
+    "limit": null,
+    "only_calibration": false,
+    "ratings_to_do": 0
+  }
+}

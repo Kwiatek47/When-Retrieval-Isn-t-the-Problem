@@ -1,0 +1,124 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "model": "qwen3:30b",
+  "prompt": {
+    "id": "label-defined@1",
+    "sha": "37742969f023"
+  },
+  "n_questions": 500,
+  "primary_think_mode": "on",
+  "annotators": {
+    "without_conclusion": {
+      "hits": 30,
+      "predicted": 47,
+      "gold": 55,
+      "precision": 0.6383,
+      "recall": 0.5455,
+      "f1": 0.5882
+    },
+    "with_conclusion": {
+      "hits": 34,
+      "predicted": 48,
+      "gold": 55,
+      "precision": 0.7083,
+      "recall": 0.6182,
+      "f1": 0.6602
+    },
+    "conclusion_effect": {
+      "value": 0.072,
+      "ci_low": -0.107,
+      "ci_high": 0.2632
+    }
+  },
+  "think": {
+    "on": {
+      "T1_gap_to_human": {
+        "value": 0.4261,
+        "ci_low": 0.2619,
+        "ci_high": 0.5691,
+        "verdict": "model below human"
+      },
+      "T2_conclusion_effect": {
+        "value": 0.022,
+        "ci_low": -0.1038,
+        "ci_high": 0.1485,
+        "verdict": "inconclusive"
+      },
+      "context": {
+        "unanswered": 0,
+        "accuracy_vs_gold": 0.776,
+        "accuracy_vs_annotator_without_conclusion": 0.734,
+        "accuracy_vs_annotator_with_conclusion": 0.776,
+        "maybe_vs_gold": {
+          "hits": 6,
+          "predicted": 19,
+          "gold": 55,
+          "precision": 0.3158,
+          "recall": 0.1091,
+          "f1": 0.1622
+        }
+      },
+      "context+conclusion": {
+        "unanswered": 0,
+        "accuracy_vs_gold": 0.822,
+        "accuracy_vs_annotator_without_conclusion": 0.72,
+        "accuracy_vs_annotator_with_conclusion": 0.832,
+        "maybe_vs_gold": {
+          "hits": 7,
+          "predicted": 21,
+          "gold": 55,
+          "precision": 0.3333,
+          "recall": 0.1273,
+          "f1": 0.1842
+        }
+      },
+      "answers_changed_to_maybe": 13,
+      "answers_changed_from_maybe": 11
+    },
+    "off": {
+      "T1_gap_to_human": {
+        "value": 0.366,
+        "ci_low": 0.1915,
+        "ci_high": 0.5335,
+        "verdict": "model below human"
+      },
+      "T2_conclusion_effect": {
+        "value": -0.0556,
+        "ci_low": -0.1788,
+        "ci_high": 0.0694,
+        "verdict": "inconclusive"
+      },
+      "context": {
+        "unanswered": 0,
+        "accuracy_vs_gold": 0.784,
+        "accuracy_vs_annotator_without_conclusion": 0.74,
+        "accuracy_vs_annotator_with_conclusion": 0.768,
+        "maybe_vs_gold": {
+          "hits": 9,
+          "predicted": 26,
+          "gold": 55,
+          "precision": 0.3462,
+          "recall": 0.1636,
+          "f1": 0.2222
+        }
+      },
+      "context+conclusion": {
+        "unanswered": 0,
+        "accuracy_vs_gold": 0.818,
+        "accuracy_vs_annotator_without_conclusion": 0.708,
+        "accuracy_vs_annotator_with_conclusion": 0.83,
+        "maybe_vs_gold": {
+          "hits": 6,
+          "predicted": 17,
+          "gold": 55,
+          "precision": 0.3529,
+          "recall": 0.1091,
+          "f1": 0.1667
+        }
+      },
+      "answers_changed_to_maybe": 7,
+      "answers_changed_from_maybe": 16
+    }
+  }
+}
