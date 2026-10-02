@@ -460,7 +460,8 @@ def risk_coverage_curve(
     order = sorted(scores)
     points: list[dict[str, float]] = []
     thresholds = sorted({order[min(int(round(i / (steps - 1) * (len(order) - 1))), len(order) - 1)] for i in range(steps)}) if order else [0.5]
-    thresholds = sorted(set([0.0, *thresholds, 1.0]))
+    # A threshold above every score is needed for the curve to reach full coverage.
+    thresholds = sorted(set([0.0, *thresholds, 1.0, max(scores, default=0.0) + 1e-9]))
 
     for t in thresholds:
         answered = 0
