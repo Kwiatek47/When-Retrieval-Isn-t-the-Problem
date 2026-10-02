@@ -12,10 +12,13 @@ from pathlib import Path
 from scripts.agents.audit_pqal_labels import (
     _label_metrics,
     _paired_accuracy_delta,
-    ceilings_section,
+    annotator_agreement_section,
+    balanced90_selection_section,
+    label_matrix_section,
     load_table,
     protocol_section,
     rq8b_section,
+    training_labels_section,
 )
 
 
@@ -82,18 +85,140 @@ class ProtocolSectionTests(unittest.TestCase):
         self.assertEqual(section["gold_maybe_source"], {"neither_annotator": 1})
 
 
-class CeilingsSectionTests(unittest.TestCase):
-    def test_only_the_context_only_annotator_is_marked_a_model_ceiling(self) -> None:
-        section = ceilings_section(FIXTURE, random.Random(47), n_boot=200)
-        self.assertTrue(section["context_only_annotator"]["is_ceiling_for_models"])
-        self.assertFalse(section["sees_conclusion_annotator"]["is_ceiling_for_models"])
+class AnnotatorAgreementSectionTests(unittest.TestCase):
+    def test_neither_annotator_is_presented_as_a_model_ceiling(self) -> None:
+        """Pins the 2026-10-02 correction (see commit 4a120c2).
+
+        Both annotators co-authored `final_decision`, so neither number bounds a model.
+        An earlier version of this script tagged the context-only annotator
+        `is_ceiling_for_models: True` and a whole session's narrative was built on it.
+        """
+        section = annotator_agreement_section(FIXTURE, random.Random(47), n_boot=200)
+        for name, entry in section.items():
+            self.assertNotIn("is_ceiling_for_models", entry, msg=name)
+            self.assertIn("NOT a ceiling", entry["caveat"], msg=name)
 
     def test_accuracy_matches_a_hand_count(self) -> None:
-        section = ceilings_section(FIXTURE, random.Random(47), n_boot=200)
+        section = annotator_agreement_section(FIXTURE, random.Random(47), n_boot=200)
         # context-only annotator is right on pmids 1, 2, 5 -> 3/5
         self.assertAlmostEqual(section["context_only_annotator"]["overall_accuracy"]["mean"], 0.6)
         # conclusion-reading annotator is right on 1, 2, 3, 4 -> 4/5
         self.assertAlmostEqual(section["sees_conclusion_annotator"]["overall_accuracy"]["mean"], 0.8)
+
+
+class LabelMatrixSectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.section = label_matrix_section(FIXTURE, random.Random(47), n_boot=200)
+
+    def _cell(self, ctx: str, concl: str) -> dict:
+        return self.section["cells"][f"context_only={ctx}|sees_conclusion={concl}"]
+
+    def test_every_pair_of_labels_gets_a_cell(self) -> None:
+        self.assertEqual(len(self.section["cells"]), 9)
+        self.assertEqual(sum(c["n"] for c in self.section["cells"].values()), len(FIXTURE))
+
+    def test_cells_carry_the_final_decision_split(self) -> None:
+        # pmid 3: context-only said yes, conclusion-reader said maybe, final was maybe.
+        self.assertEqual(self._cell("yes", "maybe")["final_decision"], {"yes": 0, "no": 0, "maybe": 1})
+        # pmid 5: both-annotators-disagree cell that resolved towards the context-only reader.
+        self.assertEqual(self._cell("yes", "no")["final_decision"], {"yes": 1, "no": 0, "maybe": 0})
+
+    def test_diagonal_is_flagged_as_agreement(self) -> None:
+        for lab in ("yes", "no", "maybe"):
+            self.assertTrue(self._cell(lab, lab)["annotators_agree"])
+        self.assertFalse(self._cell("yes", "no")["annotators_agree"])
+
+    def test_marginals_match_the_rows(self) -> None:
+        self.assertEqual(self.section["marginals"]["context_only"], {"yes": 3, "no": 2})
+        self.assertEqual(self.section["marginals"]["sees_conclusion"], {"yes": 1, "no": 2, "maybe": 2})
+        self.assertEqual(self.section["marginals"]["final_decision"], {"yes": 2, "no": 1, "maybe": 2})
+
+    def test_fixture_has_no_label_neither_annotator_proposed(self) -> None:
+        self.assertEqual(self.section["final_label_neither_annotator_proposed"]["n"], 0)
+
+    def test_a_label_neither_annotator_proposed_is_counted(self) -> None:
+        # Both annotators said yes/no, yet the discussion settled on `maybe`.
+        section = label_matrix_section(
+            [_row("9", "maybe", "yes", "no")], random.Random(1), n_boot=50
+        )
+        invented = section["final_label_neither_annotator_proposed"]
+        self.assertEqual(invented["n"], 1)
+        self.assertEqual(invented["by_final_label"], {"maybe": 1})
+
+
+class Balanced90SelectionTests(unittest.TestCase):
+    def _sample(self, path: Path, pmids: list[str]) -> Path:
+        path.write_text(
+            json.dumps([{"id": f"pubmedqa-official-{p}"} for p in pmids]), encoding="utf-8"
+        )
+        return path
+
+    def test_reports_each_subset_and_matches_by_pmid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sample = self._sample(Path(tmp) / "b90.json", ["3", "4"])
+            out = balanced90_selection_section(FIXTURE, sample, random.Random(47), n_boot=200)
+        self.assertEqual(out["n_matched_to_label_table"], 2)
+        self.assertEqual(out["n_unmatched"], 0)
+        # pmids 3 and 4 are both gold `maybe` and both disputed.
+        self.assertEqual(out["balanced90"]["gold_distribution"], {"maybe": 2})
+        self.assertAlmostEqual(out["balanced90"]["annotator_agreement"]["mean"], 0.0)
+        # the full table has 2 agreements out of 5
+        self.assertAlmostEqual(out["all_1000"]["annotator_agreement"]["mean"], 0.4)
+
+    def test_pmids_absent_from_the_table_are_counted_not_crashed_on(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sample = self._sample(Path(tmp) / "b90.json", ["3", "does-not-exist"])
+            out = balanced90_selection_section(FIXTURE, sample, random.Random(47), n_boot=100)
+        self.assertEqual(out["n_matched_to_label_table"], 1)
+        self.assertEqual(out["n_unmatched"], 1)
+
+    def test_missing_sample_file_is_skipped(self) -> None:
+        out = balanced90_selection_section(
+            FIXTURE, Path("/nonexistent/b90.json"), random.Random(47), n_boot=50
+        )
+        self.assertIn("skipped", out)
+
+
+class TrainingLabelsTests(unittest.TestCase):
+    def test_train_maybe_is_the_non_test_pool_minus_the_dev_split(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp)
+            (ckpt / "dev_metrics.json").write_text(
+                json.dumps(
+                    {
+                        "macro_f1": 0.64,
+                        "ece": 0.0217,
+                        "per_label": {
+                            "yes": {"support": 500},
+                            "no": {"support": 500},
+                            "maybe": {"support": 11, "f1": 0.0},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (ckpt / "calibration.json").write_text(json.dumps({"temperature": 1.21}), encoding="utf-8")
+            (ckpt / "dev_metrics_calibrated.json").write_text(
+                json.dumps({"ece": 0.0114}), encoding="utf-8"
+            )
+            out = training_labels_section(ckpt)
+
+        # 55 `maybe` outside the official test split, 11 of them held out for dev.
+        self.assertEqual(out["train_maybe_count"], 44)
+        self.assertEqual(out["pqa_a_maybe_count"], 0)
+        self.assertAlmostEqual(out["train_maybe_share_of_34838"], 44 / 34838, places=6)
+        # The checkpoint was selected on macro-F1 over a dev set it scores 0 on for `maybe`.
+        self.assertEqual(out["dev_maybe_f1_of_selected_checkpoint"], 0.0)
+        self.assertEqual(out["dev_ece"], 0.0217)
+        self.assertEqual(out["dev_ece_after_temperature_scaling"], 0.0114)
+        self.assertEqual(out["temperature"], 1.21)
+
+    def test_missing_checkpoint_degrades_to_the_derivation_only(self) -> None:
+        out = training_labels_section(Path("/nonexistent/checkpoint"))
+        self.assertEqual(out["pqa_a_maybe_count"], 0)
+        self.assertEqual(out["pqal_non_test_maybe_count"], 55)
+        self.assertNotIn("train_maybe_count", out)
+        self.assertIn("not on this machine", out["dev_metrics"])
 
 
 class LabelMetricsTests(unittest.TestCase):
@@ -173,18 +298,19 @@ class Rq8bSectionTests(unittest.TestCase):
         self.assertAlmostEqual(m["accuracy_delta_context_only_minus_final"]["value"], -2 / 3, places=4)
         self.assertEqual(m["cases_where_the_two_golds_differ"], 2)
 
-    def test_ceiling_is_computed_on_the_items_the_method_actually_ran(self) -> None:
+    def test_human_comparison_is_computed_on_the_items_the_method_actually_ran(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             preds = self._predictions_csv(
                 Path(tmp) / "preds.csv",
                 # Only pmid 1, where the context-only annotator agrees with the gold, so
-                # the ceiling on this one-item subset is 1.0 rather than the 0.6 overall.
+                # the figure on this one-item subset is 1.0 rather than the 0.6 overall.
                 [{"method": "m", "id": "pubmedqa-official-1", "gold": "yes", "predicted_label": "no"}],
             )
             out = rq8b_section(FIXTURE, preds, random.Random(47), n_boot=200)
         m = out["m"]
-        self.assertAlmostEqual(m["context_only_human_ceiling_on_these_items"]["mean"], 1.0)
-        self.assertAlmostEqual(m["gap_to_ceiling"], -1.0)
+        self.assertAlmostEqual(m["context_only_human_vs_final_on_these_items"]["mean"], 1.0)
+        self.assertAlmostEqual(m["accuracy_delta_model_minus_context_only_human"], -1.0)
+        self.assertIn("NOT a ceiling", m["interpretation_warning"])
 
     def test_unknown_pmids_and_blank_predictions_are_dropped(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

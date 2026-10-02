@@ -33,10 +33,127 @@
       "n": 299
     }
   },
-  "ceilings": {
+  "label_matrix": {
+    "n_items": 1000,
+    "note": "Cross-tab of the two raw annotations against final_decision. On the diagonal the annotators agreed and final_decision follows by construction; off-diagonal cells are the negotiated ones.",
+    "cells": {
+      "context_only=yes|sees_conclusion=yes": {
+        "n": 454,
+        "annotators_agree": true,
+        "final_decision": {
+          "yes": 454,
+          "no": 0,
+          "maybe": 0
+        }
+      },
+      "context_only=yes|sees_conclusion=no": {
+        "n": 98,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 12,
+          "no": 85,
+          "maybe": 1
+        }
+      },
+      "context_only=yes|sees_conclusion=maybe": {
+        "n": 62,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 21,
+          "no": 2,
+          "maybe": 39
+        }
+      },
+      "context_only=no|sees_conclusion=yes": {
+        "n": 53,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 42,
+          "no": 10,
+          "maybe": 1
+        }
+      },
+      "context_only=no|sees_conclusion=no": {
+        "n": 224,
+        "annotators_agree": true,
+        "final_decision": {
+          "yes": 0,
+          "no": 224,
+          "maybe": 0
+        }
+      },
+      "context_only=no|sees_conclusion=maybe": {
+        "n": 25,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 0,
+          "no": 8,
+          "maybe": 17
+        }
+      },
+      "context_only=maybe|sees_conclusion=yes": {
+        "n": 43,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 23,
+          "no": 0,
+          "maybe": 20
+        }
+      },
+      "context_only=maybe|sees_conclusion=no": {
+        "n": 18,
+        "annotators_agree": false,
+        "final_decision": {
+          "yes": 0,
+          "no": 9,
+          "maybe": 9
+        }
+      },
+      "context_only=maybe|sees_conclusion=maybe": {
+        "n": 23,
+        "annotators_agree": true,
+        "final_decision": {
+          "yes": 0,
+          "no": 0,
+          "maybe": 23
+        }
+      }
+    },
+    "marginals": {
+      "context_only": {
+        "yes": 614,
+        "no": 302,
+        "maybe": 84
+      },
+      "sees_conclusion": {
+        "yes": 550,
+        "no": 340,
+        "maybe": 110
+      },
+      "final_decision": {
+        "yes": 552,
+        "maybe": 110,
+        "no": 338
+      }
+    },
+    "final_label_neither_annotator_proposed": {
+      "n": 4,
+      "by_final_label": {
+        "maybe": 2,
+        "no": 2
+      },
+      "share_of_all_items": {
+        "mean": 0.004,
+        "ci_low": 0.001,
+        "ci_high": 0.008,
+        "n": 1000
+      }
+    }
+  },
+  "annotator_agreement_with_final": {
     "context_only_annotator": {
       "saw": "question + CONTEXTS — the model's information set",
-      "is_ceiling_for_models": true,
+      "caveat": "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 disagreements are settled by the same two annotators talking, and unresolved items were dropped from the dataset, so this is partly agreement-with-oneself. Scored against an independent reference (commit 4a120c2) the human advantage on `maybe` disappears: annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178].",
       "overall_accuracy": {
         "mean": 0.781,
         "ci_low": 0.755,
@@ -81,8 +198,7 @@
     },
     "sees_conclusion_annotator": {
       "saw": "question + CONTEXTS + author conclusion",
-      "is_ceiling_for_models": false,
-      "caveat": "Reported by PubMedQA as single-human performance. Inflated twice over: this annotator read the conclusion, and in disputes the gold label usually adopted this annotator's vote.",
+      "caveat": "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 disagreements are settled by the same two annotators talking, and unresolved items were dropped from the dataset, so this is partly agreement-with-oneself. Scored against an independent reference (commit 4a120c2) the human advantage on `maybe` disappears: annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178]. Reported by PubMedQA as single-human performance, and inflated twice over: this annotator read the conclusion, and in disputes the gold label usually adopted this annotator's vote (215/299).",
       "overall_accuracy": {
         "mean": 0.916,
         "ci_low": 0.898,
@@ -125,6 +241,106 @@
         }
       }
     }
+  },
+  "balanced90_selection": {
+    "n_matched_to_label_table": 90,
+    "n_unmatched": 0,
+    "balanced90": {
+      "n": 90,
+      "gold_distribution": {
+        "maybe": 30,
+        "yes": 30,
+        "no": 30
+      },
+      "annotator_agreement": {
+        "mean": 0.5333,
+        "ci_low": 0.4333,
+        "ci_high": 0.6333,
+        "n": 90
+      },
+      "context_only_accuracy_vs_final": {
+        "mean": 0.7111,
+        "ci_low": 0.6111,
+        "ci_high": 0.8,
+        "n": 90
+      },
+      "sees_conclusion_accuracy_vs_final": {
+        "mean": 0.8,
+        "ci_low": 0.7111,
+        "ci_high": 0.8778,
+        "n": 90
+      }
+    },
+    "official_test_500": {
+      "n": 500,
+      "gold_distribution": {
+        "yes": 276,
+        "maybe": 55,
+        "no": 169
+      },
+      "annotator_agreement": {
+        "mean": 0.69,
+        "ci_low": 0.648,
+        "ci_high": 0.73,
+        "n": 500
+      },
+      "context_only_accuracy_vs_final": {
+        "mean": 0.78,
+        "ci_low": 0.742,
+        "ci_high": 0.816,
+        "n": 500
+      },
+      "sees_conclusion_accuracy_vs_final": {
+        "mean": 0.904,
+        "ci_low": 0.878,
+        "ci_high": 0.928,
+        "n": 500
+      }
+    },
+    "all_1000": {
+      "n": 1000,
+      "gold_distribution": {
+        "yes": 552,
+        "maybe": 110,
+        "no": 338
+      },
+      "annotator_agreement": {
+        "mean": 0.701,
+        "ci_low": 0.672,
+        "ci_high": 0.729,
+        "n": 1000
+      },
+      "context_only_accuracy_vs_final": {
+        "mean": 0.781,
+        "ci_low": 0.756,
+        "ci_high": 0.806,
+        "n": 1000
+      },
+      "sees_conclusion_accuracy_vs_final": {
+        "mean": 0.916,
+        "ci_low": 0.898,
+        "ci_high": 0.933,
+        "n": 1000
+      }
+    }
+  },
+  "training_labels": {
+    "pqa_a_maybe_count": 0,
+    "pqa_a_source": "ori_pqaa.json, 211269 items: 196144 yes / 15125 no / 0 maybe (BRAKI A2)",
+    "pqal_non_test_maybe_count": 55,
+    "derivation": "All training `maybe` must come from the 500 PQA-L items outside the official test split, which hold 55. The dev split takes some of them; training keeps the rest.",
+    "dev_support": {
+      "yes": 500,
+      "no": 500,
+      "maybe": 11
+    },
+    "train_maybe_count": 44,
+    "train_maybe_share_of_34838": 0.001263,
+    "dev_maybe_f1_of_selected_checkpoint": 0.0,
+    "dev_macro_f1": 0.6447807580390479,
+    "dev_ece": 0.0217413142927794,
+    "dev_ece_after_temperature_scaling": 0.011417377596439121,
+    "temperature": 1.2132594585418701
   },
   "rq8b_systems_vs_context_only_label": {
     "debate_balanced90_ollama_r2_bertgate": {
@@ -221,13 +437,14 @@
         "ci_high": 0.0111,
         "brackets_zero": true
       },
-      "context_only_human_ceiling_on_these_items": {
+      "context_only_human_vs_final_on_these_items": {
         "mean": 0.7111,
         "ci_low": 0.6111,
         "ci_high": 0.8,
         "n": 90
       },
-      "gap_to_ceiling": -0.0667,
+      "accuracy_delta_model_minus_context_only_human": -0.0667,
+      "interpretation_warning": "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 disagreements are settled by the same two annotators talking, and unresolved items were dropped from the dataset, so this is partly agreement-with-oneself. Scored against an independent reference (commit 4a120c2) the human advantage on `maybe` disappears: annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178].",
       "cases_where_the_two_golds_differ": 26
     },
     "debate_balanced90_ollama_r2_uncertainty": {
@@ -324,13 +541,14 @@
         "ci_high": 0.0667,
         "brackets_zero": true
       },
-      "context_only_human_ceiling_on_these_items": {
+      "context_only_human_vs_final_on_these_items": {
         "mean": 0.7111,
         "ci_low": 0.6111,
         "ci_high": 0.8111,
         "n": 90
       },
-      "gap_to_ceiling": -0.2111,
+      "accuracy_delta_model_minus_context_only_human": -0.2111,
+      "interpretation_warning": "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 disagreements are settled by the same two annotators talking, and unresolved items were dropped from the dataset, so this is partly agreement-with-oneself. Scored against an independent reference (commit 4a120c2) the human advantage on `maybe` disappears: annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178].",
       "cases_where_the_two_golds_differ": 26
     },
     "debate_pqal500_biolinkbert": {
@@ -427,13 +645,14 @@
         "ci_high": -0.004,
         "brackets_zero": false
       },
-      "context_only_human_ceiling_on_these_items": {
+      "context_only_human_vs_final_on_these_items": {
         "mean": 0.78,
         "ci_low": 0.744,
         "ci_high": 0.816,
         "n": 500
       },
-      "gap_to_ceiling": -0.054,
+      "accuracy_delta_model_minus_context_only_human": -0.054,
+      "interpretation_warning": "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 disagreements are settled by the same two annotators talking, and unresolved items were dropped from the dataset, so this is partly agreement-with-oneself. Scored against an independent reference (commit 4a120c2) the human advantage on `maybe` disappears: annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178].",
       "cases_where_the_two_golds_differ": 110
     }
   }

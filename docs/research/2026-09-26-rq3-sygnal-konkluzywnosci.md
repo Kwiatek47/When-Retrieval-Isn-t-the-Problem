@@ -91,9 +91,15 @@ nie wynik do zacytowania.
 
 Warto zauważyć, gdzie ta liczba jest wysoka: dokładnie w ramionach, które emitują **4 `maybe`
 na 90**. Panel ma ciągłą informację, bramka `bert_gate` zamienia ją w niemal stałe yes/no.
-To spina się z sufitem informacyjnym: przy 0.473 recall człowieka bez konkluzji vs 0.073
-modelu jest miejsce, a `confidence_level` jest pierwszym miejscem, gdzie widać, że część
-tego sygnału już istnieje w systemie i ginie w agregacji.
+`confidence_level` jest więc pierwszym miejscem, gdzie widać, że część sygnału niepewności
+już istnieje w systemie i ginie w agregacji — co jest twierdzeniem **o architekturze**
+i stoi samo, bez odniesienia do czyjejkolwiek wydajności na `maybe`.
+
+(Wcześniejsza wersja tego akapitu uzasadniała to „sufitem informacyjnym" — 0.473 recall
+człowieka bez konkluzji vs 0.073 modelu. Ten argument jest wycofany: 0.473 to zgodność
+annotatora z etykietą, którą współtworzył, a na niezależnym odniesieniu człowiek i model
+są nieodróżnialne (`4a120c2`). Wniosek o ginięciu sygnału w agregacji nie zależy od tego
+porównania.)
 
 ## 5. Próbka jakościowa
 

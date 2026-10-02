@@ -36,11 +36,16 @@ procedury.
 
 **(b) Pozycje, co do których annotatorzy nie doszli do porozumienia, zostały ze zbioru usunięte.**
 „if not ∃ l_a then Remove inst and continue to next iteration." PQA-L jest więc **przefiltrowane
-z przypadków nieredukowalnie spornych**. Konsekwencja dla naszego sufitu: **0.780 accuracy mierzymy
-na zbiorze już oczyszczonym z pozycji, których ludzie nie potrafili uzgodnić.** Prawdziwy sufit na
-niefiltrowanej populacji pytań jest niższy, a `maybe` w PQA-L nigdy nie znaczy „nie do rozstrzygnięcia" —
-znaczy „obaj się zgodzili, że `maybe`, albo tak ustalili po rozmowie". To osłabia interpretację
-`maybe` jako „pytanie jest obiektywnie niepewne" i wzmacnia interpretację proceduralną.
+z przypadków nieredukowalnie spornych**. Konsekwencja: `maybe` w PQA-L nigdy nie znaczy
+„nie do rozstrzygnięcia" — znaczy „obaj się zgodzili, że `maybe`, albo tak ustalili po rozmowie".
+To osłabia interpretację `maybe` jako „pytanie jest obiektywnie niepewne" i wzmacnia
+interpretację proceduralną. Każda metryka liczona względem `final_decision` jest przy tym
+liczona na zbiorze już oczyszczonym z pozycji, których ludzie nie potrafili uzgodnić.
+
+Czego z tego **nie** wyprowadzać: zgodności annotatora z `final_decision` (0.780 bez konkluzji,
+0.916 z konkluzją) nie wolno czytać jako sufitu dla modeli — ten annotator współtworzył etykietę.
+Zarejestrowany test z niezależnym punktem odniesienia (`4a120c2`) pokazał, że przewaga człowieka
+na `maybe` wtedy znika (F1 0.247 vs 0.237 u modelu, S1 +0.011 [−0.156, +0.178]).
 
 Potwierdzone przy okazji: obaj annotatorzy to **kandydaci na M.D.**; `ReasoningFreeAnnotation ← l1`
 gdzie annotator 1 widzi `long answer`, `ReasoningRequiredAnnotation ← l2` gdzie annotator 2 widzi
@@ -96,17 +101,27 @@ pewnością.
 
 **(1) PQA-L publikuje surowe etykiety obu annotatorów i to wśród tych zbiorów wyjątek.** SciFact
 i HealthVer raportują κ na ponownie anotowanym podzbiorze, ale w pracach nie ma informacji
-o udostępnianiu etykiet per annotator. Cały nasz audyt — sufit 0.780/0.473, 215/299, rozkład źródeł
-`maybe` — jest policzalny **tylko** dlatego, że `ori_pqal.json` wozi `reasoning_required_pred`
-i `reasoning_free_pred`. To jest samodzielne zdanie do Contributions: eksploatujemy własność
+o udostępnianiu etykiet per annotator. Cały nasz audyt — 215/299, rozkład źródeł `maybe`
+(56/29/23/2), 11/55 jednomyślnych, a przede wszystkim **test z niezależnym punktem odniesienia**
+— jest policzalny **tylko** dlatego, że `ori_pqal.json` wozi `reasoning_required_pred`
+i `reasoning_free_pred`. Bez surowych etykiet nie da się nawet zauważyć, że „human performance"
+jest mierzone względem etykiety współtworzonej, nie mówiąc o skorygowaniu tego.
+To jest samodzielne zdanie do Contributions: eksploatujemy własność
 benchmarku, której porównywalne zbiory nie mają, więc tej analizy nie da się wprost powtórzyć
 na SciFact ani HealthVer.
 
 **(2) Nasza klasa NEI jest jedyną rzadką i niekonstruowaną.** 11.0% vs 36.6% (SciFact),
 42.7% (HealthVer, największa klasa), 34.0% (ClinDet), 100% (MedQAbstain z konstrukcji). Pozostałe
-zbiory *budują* NEI tak, by było liczne; PubMedQA je *zastaje*. To bezpośrednio uzasadnia RQ9a:
-niezgodność prioru (trening 0.13% vs test 11%) jest właściwością naszego ustawienia, nie wadą
-wykonania, i nikt inny jej nie ma.
+zbiory *budują* NEI tak, by było liczne; PubMedQA je *zastaje*. Niezgodność prioru (trening 0.13%
+vs test 11%) jest więc właściwością naszego ustawienia, nie wadą wykonania, i nikt inny jej nie ma.
+
+**To jest kontrast opisowy, a nie uzasadnienie dla RQ9a** — wcześniejsza wersja tego akapitu
+twierdziła inaczej, ale RQ9a został w międzyczasie policzony (`6a7ec1f`) i **przesunięcie prioru
+niczego nie poprawia**: efekt balansu na AP to +0.026 [−0.019, +0.074], a trening na naturalnych
+11% `maybe` z wyrzuconym PQA-A nie bije wdrożonego checkpointu (AP 0.157–0.202 przy losowym 0.11).
+Rzadkość i niekonstruowalność `maybe` zostaje jako **różnica względem innych zbiorów**, nie jako
+diagnoza zapaści. Argumentacyjnie jest nawet mocniejsza w tej roli: pokazuje, że nasz wynik
+negatywny nie jest artefaktem rzadkości, bo rzadkość dała się usunąć i nic to nie zmieniło.
 
 **(3) Nasza zapaść `maybe` zgadza się liczbowo z NEI-CAP na niezależnym zbiorze.** Według ich
 taksonomii `maybe` w PQA-L to przypadek „hard NEI": ten sam abstrakt, anotowany przez człowieka,
@@ -121,9 +136,12 @@ dokłada skrajną kontrolę: modele nie abstynują nawet przy ukrytym pytaniu. W
 z zastrzeżeniem — ich niepewność jest *konstruowana przez usunięcie odpowiedzi*, więc krytyka
 z NEI-CAP stosuje się do nich tak samo jak do placeholderów.
 
-**(5) Wniosek z §2 zmienia jedno zdanie o naszym sufycie.** 0.780 jest mierzone na zbiorze
-przefiltrowanym z przypadków nieuzgadnialnych. Trzeba to napisać wprost przy tabeli sufitu,
-bo inaczej recenzent to znajdzie.
+**(5) Wniosek z §2: filtracja zbioru to osobne ograniczenie, obok współtworzenia etykiety.**
+Każda liczba liczona względem `final_decision` jest liczona na zbiorze przefiltrowanym
+z przypadków nieuzgadnialnych — trzeba to napisać wprost, bo inaczej recenzent to znajdzie.
+To ograniczenie jest **niezależne** od problemu z §2 (annotator współtworzy etykietę, patrz
+`4a120c2`) i oba trzeba wymienić w Limitations osobno: pierwsze zawęża populację pytań,
+drugie zawyża zgodność człowieka.
 
 ## 5. Czego nie zweryfikowałem
 

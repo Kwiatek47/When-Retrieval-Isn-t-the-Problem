@@ -3,7 +3,12 @@
 > Branch `feature/pqal-protocol-audit` (od `klap/pivot`). Realizuje Krok 0 i część Fazy 1
 > z `Notes/PLAN-2026-09-26-po-h1.md`. Wszystko liczone na laptopie, bez LLM i bez GPU.
 > Trzy wyniki: jeden błąd naprawiony, H1 potwierdzone jako nierozstrzygnięte, RQ8b
-> **obalone w wersji, w której było planowane** — i zastąpione mocniejszym wariantem.
+> **obalone w wersji, w której było planowane**.
+>
+> **Status po rewizji 2026-10-02:** §4 zostało przepisane. Oryginalna wersja zastępowała
+> obalone RQ8b „sufitem informacyjnym" (0.780 accuracy / 0.473 recall `maybe`) — ten argument
+> jest nieważny i został wycofany; patrz §4.1. Plan kanoniczny jest na `origin/klap/pivot`
+> (`PLAN-badan-maybe-2026-09.md`), nie w `Notes/`.
 
 ## 1. Co odblokowaliśmy (Krok 0)
 
@@ -62,6 +67,10 @@ więc nie można twierdzić, że ostrożność jest zapisana w tekście niedost�
 Punktowe wartości różnią się od pierwszego runu (leksykon hedgingowy napisany od nowa,
 inny wybór sekcji RESULTS), ale kierunek i wniosek są identyczne.
 
+**To replikacja, nie nowy wynik.** Zespołowy H1 istnieje na `origin/klap/pivot` (`73cd9bf`)
+i daje 0.550 vs 0.539 na 971 wierszach; nasze 0.556 vs 0.522 na 982 wierszach to ten sam
+werdykt innym leksykonem. Przy rebase raportować jako niezależną replikację.
+
 ### 3.1 Dwie rzeczy, których nie było w planie
 
 **Asymetria informacji, wariant bez LLM.** Ten sam predyktor (hedging konkluzji) mierzony
@@ -101,25 +110,50 @@ Modele zgadzają się z **konsensusem** wyraźnie lepiej niż z pojedynczym anno
 konkluzji, i to istotnie. Nic dziwnego: pojedynczy annotator jest szumny (78.1% zgody
 z goldem), a BioLinkBERT był trenowany na `final_decision`. Ta karta nie działa.
 
-**Co działa — ta sama liczba, właściwy kierunek porównania.** Nie „przeliczmy model na
-inną etykietę", ale „ile człowiek z tą samą informacją w ogóle osiąga na tej etykiecie":
+Ten pomiar jest **niezależną replikacją**, nie nowym wynikiem: wtórna analiza w zespołowym
+H2 daje −0.042 [−0.078, −0.006] na tych samych 500 wierszach. Zgodność co do trzeciego
+miejsca po przecinku, inny kod — wartość jako walidacja.
 
-| Na 500 wierszach testu | Accuracy na `final_decision` | `maybe` recall |
+### 4.1 Czego ten audyt **nie** pokazuje: nie ma tu żadnego sufitu
+
+> ⛔ Wcześniejsza wersja tej sekcji stawiała „sufit informacyjny": człowiek bez konkluzji
+> osiąga 0.780 accuracy i 0.473 recall `maybe`, model 0.726 i 0.073, więc „zadanie ogólne
+> jest prawie wyczerpane, a `maybe` nieruszone". **To rozumowanie jest nieważne** i zostało
+> wycofane po zarejestrowanym teście z niezależnym punktem odniesienia (`4a120c2`, wynik
+> `reports/debate/analysis/label_probe_qwen3_30b_independent.json`).
+
+Dlaczego nieważne: annotator bez konkluzji (RR) **współtworzył `final_decision`** — w sporach
+etykieta końcowa powstaje z dyskusji tych samych dwóch osób (Alg. 1), a pozycje nieuzgodnione
+usuwa się ze zbioru. Jego zgodność z tą etykietą to więc po części zgodność z samym sobą,
+a nie osiągnięcie czytelnika. Liczby 0.780 i 0.473 są arytmetycznie poprawne i mogą zostać
+jako **opis protokołu**, ale nie wolno ich nazywać sufitem ani granicą dla modeli.
+
+Co pokazuje pomiar przy punkcie odniesienia, na który żadna ze stron nie miała wpływu
+(annotator 1, pytania spoza testu, n=484, 53 gold `maybe`):
+
+| F1 `maybe` | vs **niezależny** annotator 1 | vs `final_decision` (współtworzone) |
 |---|---|---|
-| człowiek **bez** konkluzji (sufit) | 0.780 [0.744, 0.816] | 0.473 [0.382, 0.564]¹ |
-| BioLinkBERT | 0.726 | 0.073 (4/55) |
-| człowiek **z** konkluzją (PubMedQA: „human performance") | 0.916 [0.898, 0.932] | 0.718 [0.627, 0.800]¹ |
+| annotator 2 (bez konkluzji) | **0.247** | 0.489 |
+| `qwen3:30b` bez konkluzji | **0.237** | 0.203 |
 
-¹ recall `maybe` liczony na wszystkich 1000 wierszach, gdzie support = 110.
+- S1 (luka człowiek − model na tym samym miejscu) = **+0.011 [−0.156, +0.178]** → **nieodróżnialne**.
+- S2 (część luki brana ze współtworzenia etykiety) = **+0.275 [+0.142, +0.427]** → potwierdzona.
 
-Czyli: **model jest 5.4 punktu od sufitu dla swojego zbioru informacji na accuracy,
-a 6.5× poniżej na `maybe`.** Zadanie ogólne jest prawie wyczerpane, klasa `maybe` nie jest
-nawet ruszona — i to jest właściwe zdanie do papera, a nie „modele mylą się rzadziej niż
-się wydaje".
+Czyli z pozornej luki +0.286 aż +0.275 bierze się z konstrukcji etykiety. **Dwóch ludzi
+zgadza się co do `maybe` nie lepiej niż model z człowiekiem.** Zdanie do papera nie jest więc
+„model nie dotyka `maybe`, które człowiek czyta", a: *`maybe` jest w dużej mierze rozstrzygniętym
+sporem annotatorów i na niezależnym odniesieniu nikt go nie odtwarza — ani człowiek, ani model.*
 
-Dodatkowo: 91.6% podawane przez PubMedQA jako wynik pojedynczego człowieka jest zawyżone
-**dwa razy** — ten annotator czytał konkluzję, a w sporach etykieta końcowa zwykle
-przyjmowała właśnie jego zdanie (215/299). To nie jest sufit, to częściowo definicja.
+Co zostaje z tej sekcji bez zastrzeżeń: 91.6% podawane przez PubMedQA jako wynik pojedynczego
+człowieka jest zawyżone, bo ten annotator czytał konkluzję, a w sporach etykieta końcowa
+przyjmowała zwykle jego zdanie (215/299). To nie jest sufit, to częściowo definicja.
+(Obserwacja nie jest nasza — zespół ma negocjację zamiast arbitra i usuwanie pozycji
+nieuzgodnionych w planie od 2026-09-23.)
+
+Uwaga o §1.1: raportowana tam różnica człowiek − model na `balanced90` (0.63 [0.47, 0.80])
+jest liczona względem `final_decision`, więc podlega **dokładnie tej samej krytyce**.
+Przy przenoszeniu czegokolwiek z §1.1 do papera trzeba ją przeliczyć na niezależne
+odniesienie albo opisać jako zgodność z etykietą współtworzoną.
 
 Uboczny wynik: przy liczeniu względem etykiety bez konkluzji recall `maybe` BioLinkBERTa
 rośnie z 0.073 do 0.149 (7/47) — czyli część zapaści `maybe` faktycznie siedzi w tym,
@@ -150,10 +184,13 @@ Punktowe AUROC w `statistics.json` nie drgnęły, co potwierdza, że refaktor je
 - Faza 1: tabela 1000 ✅, weryfikacja H1 ✅, RQ8b ✅ (wynik negatywny, przeformułowane).
   Zostaje RQ5 (taksonomia ~40 pytań, kodowanie ręczne, κ), RQ3 (`final_opinions`
   w istniejących runach), RQ2 (przegląd literatury).
-- Narracja z §8 planu wymaga jednej korekty: ogniwo „człowiek z tą samą informacją co model
-  też nie odtwarza `maybe` (RQ8b)" jest prawdziwe, ale **nie** dlatego, że przeliczenie na
-  etykietę RR poprawia modele. Poprawne ogniwo: sufit dla zbioru informacji modelu to 0.780
-  accuracy i 0.473 recall `maybe`; model dobija do pierwszego i nie dotyka drugiego.
+- Narracja z §8 planu wymaga korekty, ale **nie takiej, jaką ta notatka proponowała pierwotnie**
+  (patrz §4.1). Ogniwo „człowiek z tą samą informacją co model też nie odtwarza `maybe`" jest
+  prawdziwe — tylko z innego powodu: nie bo model dobija do sufitu 0.780/0.473, bo takiego
+  sufitu nie zmierzyliśmy. Poprawne ogniwo: na niezależnym punkcie odniesienia człowiek
+  bez konkluzji ma F1 `maybe` 0.247, a model 0.237 (S1 nieodróżnialne), więc `maybe` nie jest
+  „czytelne dla człowieka i nieczytelne dla modelu" — jest w dużej mierze rozstrzygniętym sporem.
+  Przeliczenie modeli na etykietę RR też nie pomaga (§4, −0.042).
 - Decyzja z §9 dostaje nowy argument za **opcją A**: mechanizm asymetrii informacji da się
   pokazać bez GPU (§3.1), choć granicznie. H1b z kalibracją wzmocniłoby ten jeden akapit,
   nie całą pracę.

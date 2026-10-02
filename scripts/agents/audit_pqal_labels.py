@@ -9,11 +9,22 @@ in `maybe_analysis.csv` — no LLM calls, no GPU.
    read the author conclusion. `maybe` is where this bites hardest: of 110 gold `maybe`,
    only 23 are unanimous; 56 come from the conclusion-reading annotator alone.
 
-2. **Ceilings** — each annotator's agreement with the gold label, overall and per class,
-   with bootstrap CIs. The context-only annotator is the honest ceiling for any system
-   that sees question + abstract: 78.1% overall. The 90.4% figure PubMedQA reports as
-   "single human performance" belongs to the annotator who read the conclusion *and*
-   whose vote the gold label usually adopted, so it is partly definitional.
+2. **Annotator agreement with the gold label** — each annotator, overall and per class,
+   with bootstrap CIs: 78.1% for the context-only annotator, 91.6% for the one who read
+   the conclusion.
+
+   These are NOT ceilings for models, and this section used to claim they were.
+   Both annotators co-authored `final_decision`: under Alg. 1 a disagreement is settled by
+   those same two people talking, and items they could not settle were dropped from the
+   dataset. So each number is partly agreement-with-oneself. The registered test on an
+   independent reference (commit `4a120c2`) scored annotator 2 and `qwen3:30b` against
+   annotator 1, whom neither influenced, and the human advantage on `maybe` vanished:
+   F1 0.247 vs 0.237, difference +0.011 [-0.156, +0.178]. Of the apparent gap of +0.286
+   against `final_decision`, +0.275 [+0.142, +0.427] is co-authorship of the label.
+
+   Read this section as a description of the protocol, never as a bound on models.
+   The 90.4% PubMedQA reports as "single human performance" is the worst case: that
+   annotator read the conclusion *and* the gold label usually adopted their vote (215/299).
 
 3. **RQ8b** — every cached system re-scored against the context-only annotator's label
    instead of `final_decision`, paired per case. This is the difference between calling a
@@ -45,6 +56,10 @@ ANALYSIS = PROJECT_ROOT / "reports/debate/analysis"
 TABLE = ANALYSIS / "pqal_label_table.jsonl"
 PREDICTIONS = ANALYSIS / "maybe_analysis.csv"
 OUT = ANALYSIS / "pqal_protocol_audit.json"
+BALANCED90 = (
+    PROJECT_ROOT / "data/benchmarks/pubmedqa/official_pqal_test/quick/balanced90.json"
+)
+CHECKPOINT = PROJECT_ROOT / "biolinkbert_pubmedqa_seed47_best/best"
 
 
 def load_table(path: Path, split: str | None) -> list[dict]:
@@ -97,6 +112,154 @@ def protocol_section(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
     }
 
 
+def label_matrix_section(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
+    """Full context-only x sees-conclusion x final cross-tabulation (BRAKI A1, Figure 1).
+
+    The 3x3 annotator-by-annotator table, and inside each cell how `final_decision` came
+    out. This is the whole protocol in one object: the diagonal is agreement (where final
+    is forced), the off-diagonal is the 299 negotiated items.
+    """
+    cells = Counter(
+        (r["context_only_pred"], r["sees_conclusion_pred"], r["gold"]) for r in rows
+    )
+    pairs = {}
+    for ctx in LABELS:
+        for concl in LABELS:
+            n = sum(cells[(ctx, concl, f)] for f in LABELS)
+            pairs[f"context_only={ctx}|sees_conclusion={concl}"] = {
+                "n": n,
+                "annotators_agree": ctx == concl,
+                "final_decision": {f: cells[(ctx, concl, f)] for f in LABELS},
+            }
+
+    # Items where the negotiated label is one neither annotator put forward. Under Alg. 1
+    # these can only come out of the discussion step, so they are pure protocol artefacts.
+    invented = [r for r in rows if r["gold"] not in (r["context_only_pred"], r["sees_conclusion_pred"])]
+
+    return {
+        "n_items": len(rows),
+        "note": (
+            "Cross-tab of the two raw annotations against final_decision. On the diagonal "
+            "the annotators agreed and final_decision follows by construction; off-diagonal "
+            "cells are the negotiated ones."
+        ),
+        "cells": pairs,
+        "marginals": {
+            "context_only": dict(Counter(r["context_only_pred"] for r in rows)),
+            "sees_conclusion": dict(Counter(r["sees_conclusion_pred"] for r in rows)),
+            "final_decision": dict(Counter(r["gold"] for r in rows)),
+        },
+        "final_label_neither_annotator_proposed": {
+            "n": len(invented),
+            "by_final_label": dict(Counter(r["gold"] for r in invented)),
+            "share_of_all_items": bootstrap_mean_ci(
+                [
+                    1.0 if r["gold"] not in (r["context_only_pred"], r["sees_conclusion_pred"]) else 0.0
+                    for r in rows
+                ],
+                rng,
+                n_boot,
+            ),
+        },
+    }
+
+
+def balanced90_selection_section(
+    rows: list[dict], balanced90: Path, rng: random.Random, n_boot: int
+) -> dict:
+    """Does the 30/30/30 `balanced90` sample distort annotator agreement? (BRAKI A1)
+
+    `balanced90` oversamples gold `maybe` from 11% to 33%. Gold `maybe` is far more often
+    a negotiated label than yes/no, so the sample cannot be assumed neutral: every
+    human-vs-model number measured on these 90 cases sits on a subset enriched for
+    annotator disagreement. Reported as two independent rates with CIs (the item sets are
+    nested, not paired, so no paired delta is computed).
+    """
+    if not balanced90.exists():
+        return {"skipped": f"{balanced90.name} not on this machine"}
+
+    wanted = set()
+    for case in json.loads(balanced90.read_text(encoding="utf-8")):
+        case_id = case.get("id") or ""
+        wanted.add(case_id.rsplit("-", 1)[-1])
+
+    by_pmid = {r["pmid"]: r for r in rows}
+    sampled = [by_pmid[p] for p in wanted if p in by_pmid]
+    test_rows = [r for r in rows if r["split"] == "test"]
+
+    def rates(subset: list[dict]) -> dict:
+        if not subset:
+            return {"n": 0}
+        return {
+            "n": len(subset),
+            "gold_distribution": dict(Counter(r["gold"] for r in subset)),
+            "annotator_agreement": bootstrap_mean_ci(
+                [1.0 if r["annotators_agree"] else 0.0 for r in subset], rng, n_boot
+            ),
+            "context_only_accuracy_vs_final": bootstrap_mean_ci(
+                [1.0 if r["context_only_pred"] == r["gold"] else 0.0 for r in subset], rng, n_boot
+            ),
+            "sees_conclusion_accuracy_vs_final": bootstrap_mean_ci(
+                [1.0 if r["sees_conclusion_pred"] == r["gold"] else 0.0 for r in subset], rng, n_boot
+            ),
+        }
+
+    return {
+        "n_matched_to_label_table": len(sampled),
+        "n_unmatched": len(wanted) - len(sampled),
+        "balanced90": rates(sampled),
+        "official_test_500": rates(test_rows),
+        "all_1000": rates(rows),
+    }
+
+
+def training_labels_section(checkpoint: Path) -> dict:
+    """Where the deployed classifier's 44 training `maybe` come from (BRAKI A1, B7).
+
+    The training jsonl itself is not in the repo (it was built on Colab; `training_config`
+    points at /content/...), so the count is reconstructed from two facts that *are*
+    checkable here: PQA-A contributes no `maybe` at all, and the checkpoint's own
+    dev_metrics.json records the dev support per class.
+    """
+    out: dict = {
+        "pqa_a_maybe_count": 0,
+        "pqa_a_source": "ori_pqaa.json, 211269 items: 196144 yes / 15125 no / 0 maybe (BRAKI A2)",
+        "pqal_non_test_maybe_count": 55,
+        "derivation": (
+            "All training `maybe` must come from the 500 PQA-L items outside the official "
+            "test split, which hold 55. The dev split takes some of them; training keeps "
+            "the rest."
+        ),
+    }
+    dev_metrics = checkpoint / "dev_metrics.json"
+    if not dev_metrics.exists():
+        out["dev_metrics"] = f"not on this machine ({dev_metrics})"
+        return out
+
+    dev = json.loads(dev_metrics.read_text(encoding="utf-8"))
+    per_label = dev.get("per_label", {})
+    dev_support = {lab: per_label.get(lab, {}).get("support") for lab in LABELS}
+    dev_maybe = dev_support.get("maybe")
+    out["dev_support"] = dev_support
+    if isinstance(dev_maybe, int):
+        out["train_maybe_count"] = 55 - dev_maybe
+        out["train_maybe_share_of_34838"] = round((55 - dev_maybe) / 34838, 6)
+    # The selection metric was macro-F1 on this dev set, so it is worth recording what the
+    # selected checkpoint actually scored on the 11 dev `maybe`.
+    out["dev_maybe_f1_of_selected_checkpoint"] = per_label.get("maybe", {}).get("f1")
+    out["dev_macro_f1"] = dev.get("macro_f1")
+    out["dev_ece"] = dev.get("ece")
+    calibrated = checkpoint / "dev_metrics_calibrated.json"
+    if calibrated.exists():
+        out["dev_ece_after_temperature_scaling"] = json.loads(
+            calibrated.read_text(encoding="utf-8")
+        ).get("ece")
+    temperature = checkpoint / "calibration.json"
+    if temperature.exists():
+        out["temperature"] = json.loads(temperature.read_text(encoding="utf-8")).get("temperature")
+    return out
+
+
 def _label_metrics(gold: list[str], pred: list[str], rng: random.Random, n_boot: int) -> dict:
     per_class = {}
     for lab in LABELS:
@@ -118,21 +281,34 @@ def _label_metrics(gold: list[str], pred: list[str], rng: random.Random, n_boot:
     }
 
 
-def ceilings_section(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
+_CO_AUTHORSHIP_CAVEAT = (
+    "NOT a ceiling for models. This annotator co-authored final_decision: under Alg. 1 "
+    "disagreements are settled by the same two annotators talking, and unresolved items were "
+    "dropped from the dataset, so this is partly agreement-with-oneself. Scored against an "
+    "independent reference (commit 4a120c2) the human advantage on `maybe` disappears: "
+    "annotator 2 F1 0.247 vs qwen3:30b 0.237, difference +0.011 [-0.156, +0.178]."
+)
+
+
+def annotator_agreement_section(rows: list[dict], rng: random.Random, n_boot: int) -> dict:
+    """Each annotator's agreement with `final_decision` — a description of the protocol.
+
+    Deliberately NOT called a ceiling: see the module docstring. Both annotators helped
+    produce the label they are being scored against.
+    """
     gold = [r["gold"] for r in rows]
     return {
         "context_only_annotator": {
             "saw": "question + CONTEXTS — the model's information set",
-            "is_ceiling_for_models": True,
+            "caveat": _CO_AUTHORSHIP_CAVEAT,
             **_label_metrics(gold, [r["context_only_pred"] for r in rows], rng, n_boot),
         },
         "sees_conclusion_annotator": {
             "saw": "question + CONTEXTS + author conclusion",
-            "is_ceiling_for_models": False,
             "caveat": (
-                "Reported by PubMedQA as single-human performance. Inflated twice over: this "
-                "annotator read the conclusion, and in disputes the gold label usually adopted "
-                "this annotator's vote."
+                _CO_AUTHORSHIP_CAVEAT + " Reported by PubMedQA as single-human performance, and "
+                "inflated twice over: this annotator read the conclusion, and in disputes the "
+                "gold label usually adopted this annotator's vote (215/299)."
             ),
             **_label_metrics(gold, [r["sees_conclusion_pred"] for r in rows], rng, n_boot),
         },
@@ -189,9 +365,10 @@ def rq8b_section(rows: list[dict], predictions: Path, rng: random.Random, n_boot
 
     out: dict = {}
     for method, b in sorted(per_method.items()):
-        # The human ceiling has to be recomputed on exactly the items this method was run
-        # on, otherwise a 90-case arm is being compared against a 1000-item ceiling.
-        ceiling = bootstrap_mean_ci(
+        # Recomputed on exactly the items this method was run on, otherwise a 90-case arm
+        # gets compared against a 1000-item number. This is the context-only annotator's
+        # agreement with final_decision — not a bound on the model (see module docstring).
+        human = bootstrap_mean_ci(
             [1.0 if c == f else 0.0 for c, f in zip(b["context_only"], b["final"])], rng, n_boot
         )
         model = bootstrap_mean_ci(
@@ -204,10 +381,13 @@ def rq8b_section(rows: list[dict], predictions: Path, rng: random.Random, n_boot
             "accuracy_delta_context_only_minus_final": _paired_accuracy_delta(
                 b["pred"], b["context_only"], b["final"], rng, n_boot
             ),
-            # The quantity that survives: how far the system is from the best a human with
-            # the same information (no conclusion) manages on the same items.
-            "context_only_human_ceiling_on_these_items": ceiling,
-            "gap_to_ceiling": round(model["mean"] - ceiling["mean"], 4),
+            # Descriptive only: how the context-only annotator scores against a label they
+            # helped write, on the same items. Do not read the delta as distance-to-ceiling.
+            "context_only_human_vs_final_on_these_items": human,
+            "accuracy_delta_model_minus_context_only_human": round(
+                model["mean"] - human["mean"], 4
+            ),
+            "interpretation_warning": _CO_AUTHORSHIP_CAVEAT,
             # How many of the method's apparent errors are cases where a context-only
             # reader would not have produced the gold label either?
             "cases_where_the_two_golds_differ": sum(
@@ -221,22 +401,41 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--table", type=Path, default=TABLE)
     parser.add_argument("--predictions", type=Path, default=PREDICTIONS)
+    parser.add_argument("--balanced90", type=Path, default=BALANCED90)
+    parser.add_argument("--checkpoint", type=Path, default=CHECKPOINT)
     parser.add_argument("--out", type=Path, default=OUT)
     parser.add_argument("--n-boot", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=47)
     parser.add_argument("--split", choices=["test", "train_dev"], default=None)
     args = parser.parse_args()
 
-    rng = random.Random(args.seed)
     rows = load_table(args.table, args.split)
+
+    # The original three sections share one stream, in this order, because their CIs are
+    # already quoted in docs/research and in the team plan — reordering them or inserting
+    # a bootstrap in front would silently move the last digits.
+    legacy_rng = random.Random(args.seed)
+    protocol = protocol_section(rows, legacy_rng, args.n_boot)
+    annotator_agreement = annotator_agreement_section(rows, legacy_rng, args.n_boot)
+    rq8b = rq8b_section(rows, args.predictions, legacy_rng, args.n_boot)
+
+    # Sections added later get their own derived stream, so adding the next one does not
+    # perturb anything already published.
+    def section_rng(name: str) -> random.Random:
+        return random.Random(f"{args.seed}:{name}")
 
     result = {
         "split": args.split or "all",
         "n_boot": args.n_boot,
         "seed": args.seed,
-        "protocol": protocol_section(rows, rng, args.n_boot),
-        "ceilings": ceilings_section(rows, rng, args.n_boot),
-        "rq8b_systems_vs_context_only_label": rq8b_section(rows, args.predictions, rng, args.n_boot),
+        "protocol": protocol,
+        "label_matrix": label_matrix_section(rows, section_rng("label_matrix"), args.n_boot),
+        "annotator_agreement_with_final": annotator_agreement,
+        "balanced90_selection": balanced90_selection_section(
+            rows, args.balanced90, section_rng("balanced90_selection"), args.n_boot
+        ),
+        "training_labels": training_labels_section(args.checkpoint),
+        "rq8b_systems_vs_context_only_label": rq8b,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -255,8 +454,52 @@ def main() -> None:
     for source, count in sorted(p["gold_maybe_source"].items(), key=lambda kv: -kv[1]):
         print(f"    {source:30s} {count}")
 
-    print("\n=== Ceilings: annotator vs gold label ===")
-    for name, c in result["ceilings"].items():
+    lm = result["label_matrix"]
+    print("\n=== Figure 1: context-only (rows) x sees-conclusion (cols), cell = n ===")
+    print(f"{'':>8}" + "".join(f"{c:>22}" for c in LABELS))
+    for ctx in LABELS:
+        line = f"{ctx:>8}"
+        for concl in LABELS:
+            cell = lm["cells"][f"context_only={ctx}|sees_conclusion={concl}"]
+            split = "/".join(str(cell["final_decision"][f]) for f in LABELS)
+            line += f"{cell['n']:>6}  (f {split:>10})"
+        print(line)
+    print(f"    cell shows n, then final_decision split as {'/'.join(LABELS)}")
+    inv = lm["final_label_neither_annotator_proposed"]
+    print(f"    final label neither annotator proposed: {inv['n']}  {inv['by_final_label']}")
+
+    b90 = result["balanced90_selection"]
+    if "skipped" in b90:
+        print(f"\n=== balanced90 check skipped — {b90['skipped']} ===")
+    else:
+        print("\n=== Does the 30/30/30 balanced90 sample distort annotator agreement? ===")
+        for name in ("balanced90", "official_test_500", "all_1000"):
+            s = b90[name]
+            a = s["annotator_agreement"]
+            print(
+                f"{name:20s} n={s['n']:4d}  annotators agree "
+                f"{a['mean']:.3f} [{a['ci_low']:.3f},{a['ci_high']:.3f}]  gold {s['gold_distribution']}"
+            )
+
+    tl = result["training_labels"]
+    print("\n=== Deployed classifier: where the training `maybe` come from ===")
+    print(f"    PQA-A `maybe`: {tl['pqa_a_maybe_count']}; PQA-L non-test `maybe`: {tl['pqal_non_test_maybe_count']}")
+    if "train_maybe_count" in tl:
+        print(
+            f"    dev support {tl['dev_support']} -> train keeps {tl['train_maybe_count']} "
+            f"`maybe` ({tl['train_maybe_share_of_34838']:.4%} of 34838)"
+        )
+        print(
+            f"    selected on dev macro-F1 {tl['dev_macro_f1']:.4f}, but dev `maybe` F1 = "
+            f"{tl['dev_maybe_f1_of_selected_checkpoint']}"
+        )
+        print(
+            f"    dev ECE {tl['dev_ece']:.4f} -> {tl.get('dev_ece_after_temperature_scaling')} "
+            f"at T={tl.get('temperature')}"
+        )
+
+    print("\n=== Annotator vs final_decision (NOT a ceiling — label is co-authored) ===")
+    for name, c in result["annotator_agreement_with_final"].items():
         acc = c["overall_accuracy"]
         rec = c["per_class"]["maybe"]["recall"]
         print(
@@ -278,14 +521,15 @@ def main() -> None:
                 f"{method:42s} n={c['n_cases']:3d}  {f['mean']:.3f} -> {r['mean']:.3f}  "
                 f"delta {d['value']:+.3f} [{d['ci_low']:+.3f},{d['ci_high']:+.3f}]{flag}"
             )
-        print("\n=== System vs the same-information human ceiling (accuracy on final_decision) ===")
+        print("\n=== System vs context-only annotator, both on final_decision (descriptive) ===")
+        print("    The annotator co-authored this label; the gap is NOT distance to a ceiling.")
         for method, c in rq8b.items():
-            ceil = c["context_only_human_ceiling_on_these_items"]
+            hum = c["context_only_human_vs_final_on_these_items"]
             model = c["vs_final_decision"]["overall_accuracy"]
             print(
                 f"{method:42s} model {model['mean']:.3f} vs human(no conclusion) "
-                f"{ceil['mean']:.3f} [{ceil['ci_low']:.3f},{ceil['ci_high']:.3f}]  "
-                f"gap {c['gap_to_ceiling']:+.3f}"
+                f"{hum['mean']:.3f} [{hum['ci_low']:.3f},{hum['ci_high']:.3f}]  "
+                f"delta {c['accuracy_delta_model_minus_context_only_human']:+.3f}"
             )
     print(f"\nWrote {args.out}")
 
