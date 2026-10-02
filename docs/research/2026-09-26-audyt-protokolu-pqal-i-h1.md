@@ -5,6 +5,11 @@
 > Trzy wyniki: jeden błąd naprawiony, H1 potwierdzone jako nierozstrzygnięte, RQ8b
 > **obalone w wersji, w której było planowane**.
 >
+> **Status po rebase 2026-10-02:** H1 (§3) i RQ8b (§4) to **niezależne replikacje**, nie nowe wyniki —
+> zespół ma je na `origin/klap/pivot` (H1: `73cd9bf`; RQ8b: wtórna analiza H2 i testy T1/S1/S2).
+> Po rebase obowiązują ich skrypty (`analyze_h1_hedging.py`, `build_pqal_label_table.py`); moje wersje usunięto.
+> Werdykty są zgodne, więc zostają w tekście jako potwierdzenie.
+>
 > **Status po rewizji 2026-10-02:** §4 zostało przepisane. Oryginalna wersja zastępowała
 > obalone RQ8b „sufitem informacyjnym" (0.780 accuracy / 0.473 recall `maybe`) — ten argument
 > jest nieważny i został wycofany; patrz §4.1. Plan kanoniczny jest na `origin/klap/pivot`

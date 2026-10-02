@@ -136,6 +136,8 @@ W. Tężycki) — zapytać o wyniki, zmergować.
 ### B3. [ ] P0 — oba ramiona SC muszą być w paperze
 `qwen3:8b` k=4 → **0.742**, 80× `maybe`; `qwen2.5:7b` N=8 → 0.480, 252× `maybe`. W nowej tezie to atut (A7),
 ale pominięcie k=4 = selektywne raportowanie.
+**Wymóg (2026-10-02):** w tabeli głównej obie wiersze SC obok siebie, z `maybe`-recall i liczbą `maybe`;
+nie wybierać ramienia po wyniku. Zob. `h2_human_ceiling.json` (SC k=4 użyte jako system niezależny od BERT).
 
 ### B4. [ ] P1 — C3 niespójne liczby i opis
 - balanced90: tekst 19/30, diff 0.63 [0.47,0.80] vs `statistics.json` 18/30, diff 0.60 [0.43,0.77].

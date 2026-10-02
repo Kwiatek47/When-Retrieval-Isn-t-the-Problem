@@ -1,0 +1,94 @@
+{
+  "seed": 47,
+  "n_boot": 2000,
+  "gold_maybe": {
+    "n": 1000,
+    "n_positive": 110,
+    "odds_ratio_per_sd": {
+      "log_context_tokens": {
+        "or": 0.865,
+        "ci_low": 0.691,
+        "ci_high": 1.08
+      },
+      "n_sections": {
+        "or": 1.17,
+        "ci_low": 0.957,
+        "ci_high": 1.401
+      },
+      "log1p_numbers": {
+        "or": 1.118,
+        "ci_low": 0.892,
+        "ci_high": 1.439
+      },
+      "has_pvalue": {
+        "or": 0.862,
+        "ci_low": 0.693,
+        "ci_high": 1.069
+      },
+      "hedge_density_context": {
+        "or": 1.184,
+        "ci_low": 0.96,
+        "ci_high": 1.42
+      },
+      "log_question_tokens": {
+        "or": 1.106,
+        "ci_low": 0.907,
+        "ci_high": 1.344
+      }
+    },
+    "cv_auroc_all_features": 0.5171,
+    "single_feature_auroc": {
+      "log_context_tokens": 0.4798,
+      "n_sections": 0.5284,
+      "log1p_numbers": 0.4872,
+      "has_pvalue": 0.4668,
+      "hedge_density_context": 0.5397,
+      "log_question_tokens": 0.5315
+    }
+  },
+  "annotators_disagree": {
+    "n": 1000,
+    "n_positive": 299,
+    "odds_ratio_per_sd": {
+      "log_context_tokens": {
+        "or": 1.131,
+        "ci_low": 0.975,
+        "ci_high": 1.319
+      },
+      "n_sections": {
+        "or": 0.978,
+        "ci_low": 0.84,
+        "ci_high": 1.117
+      },
+      "log1p_numbers": {
+        "or": 1.08,
+        "ci_low": 0.931,
+        "ci_high": 1.278
+      },
+      "has_pvalue": {
+        "or": 0.95,
+        "ci_low": 0.809,
+        "ci_high": 1.11
+      },
+      "hedge_density_context": {
+        "or": 1.086,
+        "ci_low": 0.948,
+        "ci_high": 1.241
+      },
+      "log_question_tokens": {
+        "or": 1.008,
+        "ci_low": 0.88,
+        "ci_high": 1.147
+      }
+    },
+    "cv_auroc_all_features": 0.5078,
+    "single_feature_auroc": {
+      "log_context_tokens": 0.5367,
+      "n_sections": 0.4915,
+      "log1p_numbers": 0.5234,
+      "has_pvalue": 0.498,
+      "hedge_density_context": 0.5274,
+      "log_question_tokens": 0.5013
+    }
+  }
+}
