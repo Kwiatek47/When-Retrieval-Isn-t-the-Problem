@@ -105,7 +105,7 @@ z odpowiedzią yes/no to błąd); AURC = średnie ryzyko po wszystkich pokryciac
 |---|---|---|---|
 | 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **przekazane 2026-10-04**; RQ3 i druga część RQ6 na 500 pytaniach policzone |
 | 2 | kamil / Kwiatek | skąd 0.246 (always-answer) i 0.231 (random AURC) w drafcie | **brak źródła**; tabela przeliczona 2026-10-02 (0.274 → 0.206) — podmienić w drafcie |
-| 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze i **brak na laptopie witeczka** (2026-10-04): jest tylko `arm_sc_temp03.json` — N=9, temp. 0.3, `balanced90`, 90 pytań. Do sprawdzenia maszyna, na której liczono (`/home/wiktor_tezycki/When-Retrieval-Isn-t-the-Problem/`) |
+| 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze i **brak na laptopie witeczka** (2026-10-04): jest tylko `arm_sc_temp03.json` — N=9, temp. 0.3, `balanced90`, 90 pytań. **Klaster `gradient` sprawdzony: też brak.** Do ustalenia, kto liczył 0.480 / 252 / 36 |
 | 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
 | 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
 | 6 | kamil | RQ11: dokończyć `debate7b_neutral_pqal500_v1` (24/500) | **odłożone** — tylko jeśli panel bez BERT zostaje w paperze |
@@ -973,7 +973,11 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-04 — **RQ5 przygotowane:** losowa próbka 40 pytań gold `maybe` (20 jednomyślnych, 20 negocjowanych),
   ślepy arkusz, propozycja codebooka (6 kategorii, trzy klasy Jiang & de Marneffe 2022). Kodowanie nie ruszyło:
   codebook do akceptacji, brak drugiej osoby. `2026-10-04-rq5-codebook-taksonomia-maybe.md`.
-- 2026-10-04 — SC N=8 `qwen2.5:7b`: plików nie ma także na laptopie witeczka (jest N=9 na `balanced90`).
+- 2026-10-04 — SC N=8 `qwen2.5:7b`: plików nie ma ani na laptopie witeczka, ani na jego koncie na klastrze `gradient`
+  (są tylko `arm_sc.json` i `arm_sc_temp03.json`: N=9, `balanced90`, 90 pytań). Liczby 0.480 / 252 / 36 nie pochodzą
+  z runów witeczka — do ustalenia, kto je liczył.
+- 2026-10-04 — RQ5: 40 pytań zakodowane przez koder-model (Opus 5.5, osobny agent bez kontekstu) —
+  `rq5_coding_llm.csv` z promptem w `rq5_coding_llm.prompt.md`. Kody ludzkie nadal do zrobienia.
 - 2026-10-04 — **uwaga do „odwrócenia sufitu”:** 78.0% to accuracy, 0.25 to F1 `maybe` — nie zestawiać. W tej samej
   metryce: zgodność annotatora 2 z etykietą końcową 0.780, z annotatorem 1 **0.690** (500 testowych; 0.781 i 0.701
   na 1000). Policzone z `pqal_label_table.jsonl`.

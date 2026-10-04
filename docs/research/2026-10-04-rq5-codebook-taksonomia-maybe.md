@@ -69,6 +69,19 @@ zgodność i κ Cohena dla wszystkich 40 pytań oraz osobno dla każdej warstwy,
 Odczyt pod tezę papera: jeśli `maybe` jest zapisem sporu, a nie własnością abstraktu, to F powinno być częstsze
 w warstwie negocjowanej niż w jednomyślnej. Przy 20 pytaniach na warstwę to opis, nie test.
 
+## Koder-model (2026-10-04)
+
+`reports/debate/analysis/rq5_coding_llm.csv` — te same 40 pytań zakodowane przez Claude Opus 5.5 (`claude-opus-5-5`),
+uruchomionego jako osobny agent bez kontekstu: dostał arkusz, sześć kategorii i reguły rozstrzygania; nie znał tezy
+papera ani warstw. Prompt dosłownie: `rq5_coding_llm.prompt.md`. Jeden run, nieodtwarzalny co do bitu; prompt nie
+jest w `probe_prompts.py`.
+
+- To **trzeci koder obok ludzi, nie zamiast nich** — wzór jak w H1b. Do papera: κ dwóch osób oraz zgodność modelu
+  z każdą z nich.
+- **Kodujący ludzie nie otwierają tego pliku** przed zakończeniem własnego kodowania.
+- `score` porównuje dziś tylko `coder_1` z `coder_2`; porównanie z modelem do dopisania, gdy będą kody ludzkie.
+- SC N=8: sprawdzone także na klastrze `gradient` — brak (są tylko N=9 na `balanced90`).
+
 ## Do decyzji zespołu
 
 1. ~~Czy sześć kategorii zostaje~~ — zostaje (2026-10-04).
