@@ -3,9 +3,11 @@
 Logistic regression on features a model also sees (question + context; never the conclusion), on all 1000
 PQA-L questions of ``pqal_label_table.jsonl``. Odds ratios are per 1 SD with bootstrap CIs; predictive value is
 5-fold cross-validated AUROC (repeated), reported with the best single feature as reference.
-Per-system prediction analysis (RQ6 second bullet) needs the system reports, which are not in this repo.
+``--systems`` runs the second bullet of RQ6 instead: the same features against each system's *predicted* `maybe`
+and against its errors, on the 500 test questions (needs the 500-question reports in ``reports/debate/``).
+Exploratory: the test questions were inspected before.
 
-Output: ``reports/debate/analysis/rq6_format.json``. No LLM calls.
+Output: ``reports/debate/analysis/rq6_format.json`` (``rq6_format_systems.json`` with ``--systems``). No LLM calls.
 """
 
 from __future__ import annotations
@@ -22,8 +24,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.agents.analyze_h1_hedging import TABLE, auroc, load_rows  # noqa: E402
+from scripts.agents.analyze_h2_human_ceiling import DEBATE, SYSTEMS, load_predictions  # noqa: E402
 
 OUT = TABLE.parent / "rq6_format.json"
+SYSTEMS_OUT = TABLE.parent / "rq6_format_systems.json"
 
 FEATURES = {
     "log_context_tokens": lambda r: np.log(r["context_tokens"]),
@@ -74,9 +78,20 @@ def cv_auroc(x: np.ndarray, y: np.ndarray, rng: np.random.Generator, repeats: in
     return float(np.mean(scores))
 
 
-def analyse(rows: list[dict], target: str, rng: np.random.Generator, n_boot: int) -> dict:
+def system_targets(rows: list[dict]) -> tuple[list[dict], dict]:
+    """Test rows every system answered, and per-system targets: predicted `maybe`, wrong answer."""
+    predictions = {name: load_predictions(DEBATE / file, field) for name, (file, field) in SYSTEMS.items()}
+    rows = [r for r in rows if all(r["pmid"] in p for p in predictions.values())]
+    targets = {"gold_maybe": TARGETS["gold_maybe"]}
+    for name, pred in predictions.items():
+        targets[f"{name}__predicts_maybe"] = lambda r, pred=pred: pred[r["pmid"]] == "maybe"
+        targets[f"{name}__error"] = lambda r, pred=pred: pred[r["pmid"]] != r["gold"]
+    return rows, targets
+
+
+def analyse(rows: list[dict], target, rng: np.random.Generator, n_boot: int) -> dict:
     x = design(rows)
-    y = np.array([TARGETS[target](r) for r in rows], dtype=float)
+    y = np.array([target(r) for r in rows], dtype=float)
     w = fit_logistic(x, y)
     boots = []
     for _ in range(n_boot):
@@ -100,15 +115,19 @@ def analyse(rows: list[dict], target: str, rng: np.random.Generator, n_boot: int
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--table", type=Path, default=TABLE)
-    parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--systems", action="store_true", help="targets = system predictions on the 500 test questions")
     parser.add_argument("--n-boot", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=47)
     args = parser.parse_args()
-    rows = load_rows(args.table)
+    rows, targets = load_rows(args.table), TARGETS
+    if args.systems:
+        rows, targets = system_targets(rows)
+    out = args.out or (SYSTEMS_OUT if args.systems else OUT)
     rng = np.random.default_rng(args.seed)
-    result = {"seed": args.seed, "n_boot": args.n_boot, **{t: analyse(rows, t, rng, args.n_boot) for t in TARGETS}}
-    args.out.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    for t in TARGETS:
+    result = {"seed": args.seed, "n_boot": args.n_boot, **{t: analyse(rows, f, rng, args.n_boot) for t, f in targets.items()}}
+    out.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    for t in targets:
         print(t, "CV AUROC", result[t]["cv_auroc_all_features"])
 
 
