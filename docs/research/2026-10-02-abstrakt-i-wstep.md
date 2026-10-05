@@ -142,6 +142,12 @@ questions, and abstention avoids ordinary errors without detecting \maybe{}.
 
 - **„Not distinguishable”, nie „equal”.** Przedział S1 ma szerokość ok. ±0.17; test potwierdzający to jeden model
   i jeden prompt. Zdanie we wstępie mówi to wprost — nie skracać.
+- **Nie zestawiać 78.0% z 0.25** (dopisane 2026-10-04). 78.0% to accuracy na trzech klasach, 0.25 to F1 `maybe`.
+  Przy „odwróceniu sufitu” Med-PaLM podawać tę samą metrykę: accuracy annotatora 2 względem etykiety końcowej 0.780,
+  względem annotatora 1 **0.690** (500 testowych; na 1000 pytaniach 0.781 i 0.701). Źródło: `pqal_label_table.jsonl`
+  (`context_only_pred` wobec `gold` i wobec `sees_conclusion_pred`). Spadek o 9 punktów, nie z 78% do 25%.
+- **Odwrócenia nie ma w abstrakcie ani w Contributions** — „ceiling” pada tylko w pierwszym akapicie wstępu.
+  Jeśli ma być trzecim wkładem względem Med-PaLM, dopisać do Contribution (2).
 - **Annotator 1 czytał konkluzję**, więc zgodność annotatorów to dolna granica zgodności dwóch osób z tą samą
   informacją. Do Limitations.
 - **Liczby dla 484 pytań i dla 500 testowych to różne zbiory.** Abstrakt i akapit o człowieku używają 484 (test

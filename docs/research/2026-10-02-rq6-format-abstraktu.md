@@ -23,6 +23,33 @@ rozstrzygnięty spór, a nie własność tekstu. Moc: 110 dodatnich wykryłoby e
 
 **Nie zrobione:**
 - typ pytania (brak pola w tabeli; wymaga tekstu pytania z `ori_pqal.json`);
-- drugi punkt RQ6 (cechy a *predykcje* systemów) — raporty 500 pytań (`debate7b_dissent_pqal500_v1.json`)
-  nie są na dysku (BRAKI §B2);
+- ~~drugi punkt RQ6 (cechy a *predykcje* systemów)~~ — zrobione 2026-10-04, niżej;
 - wynik jest nierejestrowany z góry; cechy wzięto z planu, bez strojenia.
+
+## Druga część: cechy a predykcje systemów (2026-10-04)
+
+`.venv/bin/python scripts/agents/analyze_rq6_format.py --systems` → `reports/debate/analysis/rq6_format_systems.json`.
+Te same sześć cech i ta sama regresja, 500 pytań testowych, cztery systemy z `analyze_h2_human_ceiling.SYSTEMS`.
+**Eksploracyjne**: pytania testowe były wcześniej oglądane, 9 celów × 6 cech bez korekty na wielokrotne porównania.
+
+| Cel | n dodatnich z 500 | CV AUROC | OR na 1 SD z przedziałem poza 1 |
+|---|---:|---:|---|
+| gold `maybe` | 55 | 0.544 | sekcje 1.34 [1.05, 1.69]; hedging 1.33 [1.01, 1.70] |
+| BioLinkBERT mówi `maybe` | 24 | **0.651** | długość kontekstu 1.91 [1.31, 3.10]; sekcje 0.49 [0.23, 0.79] |
+| debata dissent mówi `maybe` | 44 | **0.652** | długość kontekstu 1.36 [1.01, 1.98]; p-value 0.47 [0.29, 0.68] |
+| debata majority mówi `maybe` | 26 | **0.663** | długość kontekstu 1.78 [1.25, 2.77]; sekcje 0.64 [0.32, 0.92]; p-value 0.66 [0.40, 0.99] |
+| SC `qwen3:8b` k=4 mówi `maybe` | 80 | 0.490 | — |
+| błąd systemu (każdy z czterech) | 129–143 | 0.463–0.489 | — |
+
+- **Systemy oparte na BioLinkBERT mówią `maybe` według formatu**: częściej przy długim kontekście, rzadziej przy
+  wielu sekcjach i przy p-value. Etykieta gold reaguje na te cechy słabiej (0.544) i częściowo w przeciwną stronę
+  (sekcje: gold OR 1.34, BioLinkBERT 0.49).
+- To nie są trzy niezależne obserwacje: obie debaty dostały podpowiedź BioLinkBERT.
+- **SC bez podpowiedzi nie reaguje na format** (0.490), mimo że mówi `maybe` najczęściej.
+- **Format nie przewiduje błędów** żadnego systemu.
+- Dwa przedziały dla gold `maybe` wychodzą poza 1 na 500 testowych, a na 1000 pytaniach żaden — przy tylu
+  porównaniach nie traktować tego jako efektu.
+- Moc: 24–44 dodatnich; przedziały OR są szerokie.
+
+Odczyt pod tezę: klasyfikator uczony na etykietach końcowych nie odtwarza `maybe`, tylko korelat powierzchniowy.
+Zgodne z RQ8 (detektor nie odzyskuje etykiety). Nadaje się na jedno zdanie w appendixie, z oznaczeniem „exploratory”.

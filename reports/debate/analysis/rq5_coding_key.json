@@ -1,0 +1,322 @@
+[
+  {
+    "item": 1,
+    "pmid": "20971618",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 2,
+    "pmid": "19711462",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 3,
+    "pmid": "15787677",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 4,
+    "pmid": "11570976",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 5,
+    "pmid": "25103647",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "no"
+  },
+  {
+    "item": 6,
+    "pmid": "11247896",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 7,
+    "pmid": "19578820",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 8,
+    "pmid": "17279467",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 9,
+    "pmid": "23386371",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "yes"
+  },
+  {
+    "item": 10,
+    "pmid": "25371231",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 11,
+    "pmid": "20082356",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "yes"
+  },
+  {
+    "item": 12,
+    "pmid": "16361634",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 13,
+    "pmid": "24160268",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 14,
+    "pmid": "23149821",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "yes"
+  },
+  {
+    "item": 15,
+    "pmid": "22427593",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 16,
+    "pmid": "25735444",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 17,
+    "pmid": "12805495",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 18,
+    "pmid": "19468282",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 19,
+    "pmid": "20337202",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 20,
+    "pmid": "17489316",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 21,
+    "pmid": "15381614",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 22,
+    "pmid": "20101129",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 23,
+    "pmid": "18714572",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 24,
+    "pmid": "20736672",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "yes"
+  },
+  {
+    "item": 25,
+    "pmid": "22954812",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 26,
+    "pmid": "18235194",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 27,
+    "pmid": "20871246",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 28,
+    "pmid": "12920330",
+    "stratum": "negotiated",
+    "split": "train_dev",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 29,
+    "pmid": "22849512",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 30,
+    "pmid": "17691856",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 31,
+    "pmid": "24946973",
+    "stratum": "unanimous",
+    "split": "train_dev",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 32,
+    "pmid": "22491528",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 33,
+    "pmid": "25779009",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 34,
+    "pmid": "11867487",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 35,
+    "pmid": "18243752",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 36,
+    "pmid": "25277731",
+    "stratum": "unanimous",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 37,
+    "pmid": "25793749",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "maybe",
+    "sees_conclusion_annotator": "yes"
+  },
+  {
+    "item": 38,
+    "pmid": "26134053",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 39,
+    "pmid": "17940352",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "yes",
+    "sees_conclusion_annotator": "maybe"
+  },
+  {
+    "item": 40,
+    "pmid": "19694846",
+    "stratum": "negotiated",
+    "split": "test",
+    "context_only_annotator": "no",
+    "sees_conclusion_annotator": "maybe"
+  }
+]

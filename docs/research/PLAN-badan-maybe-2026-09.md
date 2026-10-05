@@ -103,13 +103,13 @@ z odpowiedzią yes/no to błąd); AURC = średnie ryzyko po wszystkich pokryciac
 
 | # | Do kogo | Sprawa | Stan |
 |---|---|---|---|
-| 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **są na serwerze** w `reports/debate/` (poza gitem); B1 policzone na serwerze — pliki potrzebne Wiktorowi tylko do RQ3 / RQ6 na 500 pytaniach |
+| 1 | kamil | pliki `debate7b_dissent_pqal500_v1.json` (16.7 MB), `selfconsistency_qwen3_8b_k4_pqal500.json`, `debate7b_sup14b_majority_pqal500_v1.json` | **przekazane 2026-10-04**; RQ3 i druga część RQ6 na 500 pytaniach policzone |
 | 2 | kamil / Kwiatek | skąd 0.246 (always-answer) i 0.231 (random AURC) w drafcie | **brak źródła**; tabela przeliczona 2026-10-02 (0.274 → 0.206) — podmienić w drafcie |
-| 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze; kod w `6c2eafd` (`origin/feat/paper-baselines`) — autor commita powinien mieć pliki |
+| 3 | witeczek / Kwiatek | wyniki SC N=8 `qwen2.5:7b` | brak na serwerze i **brak na laptopie witeczka** (2026-10-04): jest tylko `arm_sc_temp03.json` — N=9, temp. 0.3, `balanced90`, 90 pytań. **Klaster `gradient` sprawdzony: też brak.** Do ustalenia, kto liczył 0.480 / 252 / 36 |
 | 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
 | 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
 | 6 | kamil | RQ11: dokończyć `debate7b_neutral_pqal500_v1` (24/500) | **odłożone** — tylko jeśli panel bez BERT zostaje w paperze |
-| 7 | witeczek | RQ5: taksonomia ~40 pytań `maybe`, dwoje kodujących, κ (materiał: `reports/debate/analysis/rq3_qualitative_sample.csv`; kategorie wg Jiang & de Marneffe 2022) | do zrobienia — jedyny brakujący element jakościowy |
+| 7 | witeczek | RQ5: taksonomia 40 pytań `maybe`, dwoje kodujących, κ | arkusz i codebook gotowe 2026-10-04 (`2026-10-04-rq5-codebook-taksonomia-maybe.md`, `rq5_coding_sheet.csv`); **czeka na akceptację codebooka i drugą osobę**. Stary materiał (`rq3_qualitative_sample.csv`) ma tylko 15 unikalnych pytań; kategorie Jiang & de Marneffe nie przenoszą się 1:1, bierzemy ich trzy klasy |
 | 8 | wszyscy | kręgosłup papera | decyzja na spotkaniu |
 | 9 | wszyscy | priorytety pod 4 strony | decyzja na spotkaniu |
 | 10 | kamil | przegląd `feature/pqal-protocol-audit` | do zrobienia |
@@ -761,11 +761,12 @@ Co wiemy (policzone 2026-09-17 na `ori_pqal.json`, 500 pytań testowych):
 
 Do zrobienia:
 - [x] Skrypt `scripts/agents/audit_pqal_labels.py` + przedziały ufności (BRAKI §A1) — zrobione, wynik w A1 wyżej.
-- [ ] Taksonomia przyczyn na próbce ~40 pytań `maybe`: sprzeczne wyniki w abstrakcie, brak istotności
-      statystycznej, wynik częściowy, pytanie szersze niż badanie, wynik dotyczy innej populacji.
-      Kodowanie ręczne przez 2 osoby, zgodność κ.
-- [ ] Rozbić na: `maybe` jednomyślne (11) vs sporne (44) — czy przyczyny się różnią.
-      Materiał do kodowania: `reports/debate/analysis/rq3_qualitative_sample.csv`.
+- [~] Taksonomia przyczyn na próbce 40 pytań `maybe`: sprzeczne wyniki w abstrakcie, brak istotności
+      statystycznej, wynik częściowy, pytanie szersze niż badanie, wynik dotyczy innej populacji, brak widocznej
+      przyczyny. Kodowanie ręczne przez 2 osoby, zgodność κ. **Arkusz i codebook gotowe 2026-10-04**
+      (`scripts/agents/rq5_maybe_taxonomy.py`, `2026-10-04-rq5-codebook-taksonomia-maybe.md`); kodowanie czeka.
+- [~] Rozbić na: `maybe` jednomyślne vs sporne — czy przyczyny się różnią. Próbka losowa z 1000 pytań,
+      20 z 23 jednomyślnych i 20 z 87 negocjowanych (na samych 500 testowych jest tylko 11 jednomyślnych).
 
 ### RQ2. Na czym stoimy z `maybe` w benchmarkach medycznych — **P0, brak LLM** — zrobione
 - [x] Przegląd pięciu zbiorów, zweryfikowany w tekstach prac: `2026-09-26-rq2-przeglad-literatury-nei.md`.
@@ -786,8 +787,9 @@ Do zrobienia:
       obecność słów hedgingowych („may”, „suggest”, „unclear”), długość pytania, ~~typ pytania~~.
       **Brak efektu** (2026-10-02): CV AUROC 0.517, wszystkie OR obejmują 1. Typ pytania niezrobiony (brak pola
       w tabeli). `analyze_rq6_format.py`, `2026-10-02-rq6-format-abstraktu.md`.
-- [ ] To samo dla *predykcji* `maybe` każdego systemu — czy modele reagują na inne cechy niż annotatorzy.
-      *Zablokowane:* brak raportów 500 pytań na dysku (BRAKI §B2).
+- [x] To samo dla *predykcji* `maybe` każdego systemu — czy modele reagują na inne cechy niż annotatorzy.
+      **Tak, ale tylko systemy oparte na BioLinkBERT** (2026-10-04, eksploracyjne): CV AUROC 0.65–0.66 wobec 0.544
+      dla gold na tych samych 500 pytaniach; SC 0.490; błędów format nie przewiduje. `analyze_rq6_format.py --systems`.
 - [x] Kontrola: czy cechy przewidują też niezgodę annotatorów (RQ5). **Nie** — CV AUROC 0.508.
 
 ---
@@ -831,7 +833,9 @@ Wynik (`2026-09-26-rq3-sygnal-konkluzywnosci.md`, `analyze_rq3_conclusiveness.py
 - [x] **Flaga jest stałą persony:** `uncertainty_advocate` zgłasza niekonkluzywność w 89–91% pytań niezależnie od
       treści; pozostałe persony 2–8% (z podpowiedzią BERT) albo 23–30% (bez). SC daje sygnał per pytanie (~26%).
 - [~] Próbka jakościowa: `reports/debate/analysis/rq3_qualitative_sample.csv` — do opisu i do RQ5.
-- [ ] To samo na runach PQA-L 500 (pliki są na serwerze kamila, BRAKI §B2).
+- [x] To samo na runach PQA-L 500 (2026-10-04, `2026-10-04-rq3-na-pqal500.md`): sprzeczność potwierdzona (87–90%),
+      **„stała persony” słabsza** (`uncertainty_advocate` 38–58%, nie 89–91%), flaga wskazuje błędy
+      (Δ accuracy −0.18 i −0.22), `maybe` prawie nie (AUROC 0.56–0.60).
 
 ### RQ10. Neutralne prompty agentów *(Kwiatek)* — **P1, drogi**
 Kontekst: częstość `maybe` zależy od promptu — BERT 23/500, SC k=4 80/500, SC N=8 252/500, panel 120B 283/500.
@@ -962,3 +966,18 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   „Maybe Is a Negotiation”), z tabelą źródeł każdej liczby. Do decyzji zespołu.
 - 2026-10-02 — sprawdzenie nowości dla aktualnej tezy (1974 prace cytujące, pełne teksty 9 prac): brak pokrycia;
   do zacytowania Med-PaLM / Med-PaLM 2 (stwierdzili szum etykiet i „sufit” 78% bez analizy) i Tedeschi et al. 2023.
+- 2026-10-04 — **RQ3 na PQA-L 500** (pliki runów od kamila): sprzeczność potwierdzona, „stała persony” słabsza
+  (38–58% zamiast 89–91%), flaga wskazuje błędy, nie `maybe`. `2026-10-04-rq3-na-pqal500.md`. Eksploracyjne.
+- 2026-10-04 — **RQ6, druga część:** systemy oparte na BioLinkBERT mówią `maybe` według formatu (CV AUROC 0.65–0.66),
+  SC nie (0.490), błędów format nie przewiduje. Dopisane do `2026-10-02-rq6-format-abstraktu.md`. Eksploracyjne.
+- 2026-10-04 — **RQ5 przygotowane:** losowa próbka 40 pytań gold `maybe` (20 jednomyślnych, 20 negocjowanych),
+  ślepy arkusz, propozycja codebooka (6 kategorii, trzy klasy Jiang & de Marneffe 2022). Kodowanie nie ruszyło:
+  codebook do akceptacji, brak drugiej osoby. `2026-10-04-rq5-codebook-taksonomia-maybe.md`.
+- 2026-10-04 — SC N=8 `qwen2.5:7b`: plików nie ma ani na laptopie witeczka, ani na jego koncie na klastrze `gradient`
+  (są tylko `arm_sc.json` i `arm_sc_temp03.json`: N=9, `balanced90`, 90 pytań). Liczby 0.480 / 252 / 36 nie pochodzą
+  z runów witeczka — do ustalenia, kto je liczył.
+- 2026-10-04 — RQ5: 40 pytań zakodowane przez koder-model (Opus 5.5, osobny agent bez kontekstu) —
+  `rq5_coding_llm.csv` z promptem w `rq5_coding_llm.prompt.md`. Kody ludzkie nadal do zrobienia.
+- 2026-10-04 — **uwaga do „odwrócenia sufitu”:** 78.0% to accuracy, 0.25 to F1 `maybe` — nie zestawiać. W tej samej
+  metryce: zgodność annotatora 2 z etykietą końcową 0.780, z annotatorem 1 **0.690** (500 testowych; 0.781 i 0.701
+  na 1000). Policzone z `pqal_label_table.jsonl`.
