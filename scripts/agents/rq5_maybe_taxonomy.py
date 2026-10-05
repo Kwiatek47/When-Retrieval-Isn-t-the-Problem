@@ -10,6 +10,8 @@ Exploratory: these questions have been looked at in earlier analyses.
 Usage:
   python scripts/agents/rq5_maybe_taxonomy.py export     # writes the sheet and the key
   python scripts/agents/rq5_maybe_taxonomy.py score      # after coder_1 / coder_2 are filled
+  python scripts/agents/rq5_maybe_taxonomy.py score --codes-1 a.csv --codes-2 b.csv
+                                                         # codes from rq5_code.py files instead
 """
 
 from __future__ import annotations
@@ -92,12 +94,23 @@ def export(per_stratum: int, seed: int) -> None:
     print(f"wrote {len(key)} questions -> {SHEET} (key: {KEY})")
 
 
-def score() -> dict:
+def read_code_file(path: Path) -> dict[int, str]:
+    """Codes written by ``rq5_code.py`` (or any CSV with ``item`` and ``code`` columns)."""
+    with path.open(encoding="utf-8", newline="") as fh:
+        return {int(r["item"]): r["code"].strip().upper() for r in csv.DictReader(fh)}
+
+
+def score(codes_1: Path | None = None, codes_2: Path | None = None, out: Path = OUT) -> dict:
     from sklearn.metrics import cohen_kappa_score
 
     key = {k["item"]: k for k in json.loads(KEY.read_text(encoding="utf-8"))}
     rows = list(csv.DictReader(SHEET.open(encoding="utf-8")))
-    codes = [(int(r["item"]), r["coder_1"].strip().upper(), r["coder_2"].strip().upper()) for r in rows]
+    first = read_code_file(codes_1) if codes_1 else {int(r["item"]): r["coder_1"] for r in rows}
+    second = read_code_file(codes_2) if codes_2 else {int(r["item"]): r["coder_2"] for r in rows}
+    codes = [
+        (int(r["item"]), first.get(int(r["item"]), "").strip().upper(), second.get(int(r["item"]), "").strip().upper())
+        for r in rows
+    ]
     bad = [i for i, a, b in codes if a not in CODES or b not in CODES]
     if bad:
         raise SystemExit(f"items without a valid code from both coders ({'/'.join(CODES)}): {bad}")
@@ -113,10 +126,15 @@ def score() -> dict:
             "coder_2": dict(sorted(Counter(b).items())),
         }
 
-    result = {"exploratory": True, "all": section(codes)}
+    result = {
+        "exploratory": True,
+        "coder_1_source": str(codes_1) if codes_1 else "sheet column coder_1",
+        "coder_2_source": str(codes_2) if codes_2 else "sheet column coder_2",
+        "all": section(codes),
+    }
     for name in STRATA:
         result[name] = section([c for c in codes if key[c[0]]["stratum"] == name])
-    OUT.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    out.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
     return result
 
@@ -126,13 +144,16 @@ def main() -> None:
     parser.add_argument("command", choices=("export", "score"))
     parser.add_argument("--per-stratum", type=int, default=20)
     parser.add_argument("--seed", type=int, default=47)
+    parser.add_argument("--codes-1", type=Path, default=None, help="score: coder 1's file from rq5_code.py")
+    parser.add_argument("--codes-2", type=Path, default=None, help="score: coder 2's file from rq5_code.py")
+    parser.add_argument("--out", type=Path, default=OUT, help="score: where to write the result")
     args = parser.parse_args()
     if args.command == "export":
         if SHEET.exists():
             raise SystemExit(f"{SHEET} exists — refusing to overwrite a sheet that may hold codes.")
         export(args.per_stratum, args.seed)
     else:
-        score()
+        score(args.codes_1, args.codes_2, args.out)
 
 
 if __name__ == "__main__":
