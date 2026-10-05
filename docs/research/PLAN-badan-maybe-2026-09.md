@@ -38,22 +38,35 @@ mylą ranking. Tego dane nie potwierdziły (H1, H1b, H3, T2).
 | Osobna głowica, balans klas, naturalny prior dają detektor `maybe` | RQ8, RQ9a | brak efektu |
 | Format abstraktu przewiduje `maybe` albo spór | RQ6 (CV AUROC 0.517 / 0.508) | brak efektu (niezarejestrowany) |
 
-### Co dalej — w tej kolejności
+### Co dalej — w tej kolejności (wersja 2026-10-05)
 
-1. **Decyzja o kręgosłupie papera** (spotkanie). Propozycja: paper o trafności benchmarku, teza jak wyżej.
-   Wszystkie pomiary pod tę tezę są gotowe.
-2. **Plan czterech stron** (ML4H Findings). Do tekstu głównego: Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem
-   etykiety końcowej vs względem niezależnego annotatora” (człowiek i modele), H2 i H4 po jednym akapicie.
-   Wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2) — jedna tabela zbiorcza albo appendix.
-3. ~~Wzmocnienie S1 dla istniejących systemów~~ — **zrobione 2026-10-02** (eksploracyjnie; wynik niżej, sekcja
-   „S1 / S2 dla istniejących systemów”).
-4. ~~B1: risk–coverage i koszty dla BioLinkBERT na 500 pytaniach~~ — **przeliczone 2026-10-02** (wynik niżej, sekcja
-   „Selektywna predykcja przeliczona”). Zostaje: podmienić liczby w drafcie i wygenerować rysunek z nowego pliku.
-5. **Przegląd i scalenie `feature/pqal-protocol-audit`** do `klap/pivot` (fast-forward).
-6. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (✱ w tabeli nowości); termin zgłoszeń ML4H.
+Nie zgłaszamy pracy na ML4H; venue jeszcze nieustalone, więc limit stron i termin wynikną z punktu 1.
 
-Nie robić przed napisaniem pierwszej wersji: RQ10, RQ11, RQ7, RQ4, kalibracja H1b (potrzebna tylko, jeśli H1b
-wchodzi do tekstu głównego), drugi zbiór danych.
+1. **Wybór venue i kręgosłupa papera** (spotkanie). Od venue zależy limit stron i termin. Kręgosłup — propozycja
+   z przekazania 2026-10-02: paper o trafności benchmarku, teza jak wyżej. Pomiary pod tę tezę są gotowe.
+2. **Scalić PR witeczka (#21) i ruszyć z kodowaniem RQ5.** Przed kodowaniem ukryć przed drugą osobą
+   `rq5_coding_llm.csv` i `rq5_coding_key.json` — dać jej sam arkusz poza repo. RQ5 to jedyny brakujący element
+   jakościowy; bez drugiej osoby nie ma κ.
+3. **Zamknąć luki w liczbach** — blokuje każdy tekst:
+   - wgrać źródła draftu z Overleafa do repo;
+   - podmienić 9 miejsc z [2026-10-02-podmiana-liczb-draft.md](2026-10-02-podmiana-liczb-draft.md);
+   - odnaleźć pliki SC N=8 `qwen2.5:7b` albo usunąć te liczby (BRAKI §B2–B3);
+   - ustalić źródło 0.246 / 0.231 / 0.150 / 0.1975 albo je usunąć.
+4. **Jedno źródło liczb:** skrypt audytu etykiet (A1) i `statistics.json`; wszystkie rysunki generowane skryptami
+   z repo.
+5. **Drugi zbiór danych** (SciFact NEI albo podobny) — decyzja razem z venue, bo zmienia skalę pracy. Bez sztywnego
+   limitu stron to najmocniejsze wzmocnienie: dziś wszystkie wyniki, w tym zerowe, pochodzą z jednego zbioru.
+6. **Pisanie:** Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem etykiety końcowej vs względem niezależnego
+   annotatora” (człowiek i modele), H2, H4 z rysunkiem risk–coverage; wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2)
+   w jednej tabeli zbiorczej. Przy dłuższym formacie RQ5 może wejść do tekstu głównego.
+7. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (Abdaljalil 2026, NEI-CAP, Wen 2024; ✱ w tabeli
+   nowości), sprawdzenie bibliografii (BRAKI §D), anonimizacja suplementu, Data and Code Availability zgodne
+   z jego zawartością.
+8. **Odłożone:** RQ10, RQ11, RQ7, RQ4; kalibracja H1b tylko, jeśli H1b wchodzi do tekstu głównego. Kolejne zerowe
+   pytania o detekcję `maybe` niewiele już dodadzą.
+
+Porządki: unieważnić token GitHuba zapisany w URL-u remote'a `origin`; zdecydować o nieaktualnym, niezacommitowanym
+`docs/research/przeglad-runow-2026-09.md`.
 
 ### S1 / S2 dla istniejących systemów (2026-10-02, **eksploracyjne**)
 
@@ -962,3 +975,5 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   „Maybe Is a Negotiation”), z tabelą źródeł każdej liczby. Do decyzji zespołu.
 - 2026-10-02 — sprawdzenie nowości dla aktualnej tezy (1974 prace cytujące, pełne teksty 9 prac): brak pokrycia;
   do zacytowania Med-PaLM / Med-PaLM 2 (stwierdzili szum etykiet i „sufit” 78% bez analizy) i Tedeschi et al. 2023.
+- 2026-10-05 — „Co dalej” zastąpione nową kolejnością: bez ML4H (venue do ustalenia), PR #21 i kodowanie RQ5,
+  luki w liczbach, jedno źródło liczb, decyzja o drugim zbiorze danych, pisanie.
