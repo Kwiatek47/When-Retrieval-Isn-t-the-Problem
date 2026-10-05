@@ -122,9 +122,9 @@ z odpowiedzią yes/no to błąd); AURC = średnie ryzyko po wszystkich pokryciac
 | 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
 | 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
 | 6 | kamil | RQ11: dokończyć `debate7b_neutral_pqal500_v1` (24/500) | **odłożone** — tylko jeśli panel bez BERT zostaje w paperze |
-| 7 | witeczek | RQ5: taksonomia 40 pytań `maybe`, dwoje kodujących, κ | arkusz i codebook gotowe 2026-10-04 (`2026-10-04-rq5-codebook-taksonomia-maybe.md`, `rq5_coding_sheet.csv`); **czeka na akceptację codebooka i drugą osobę**. Stary materiał (`rq3_qualitative_sample.csv`) ma tylko 15 unikalnych pytań; kategorie Jiang & de Marneffe nie przenoszą się 1:1, bierzemy ich trzy klasy |
+| 7 | witeczek | RQ5: taksonomia 40 pytań `maybe`, dwoje kodujących, κ | arkusz i codebook gotowe 2026-10-04 (`2026-10-04-rq5-codebook-taksonomia-maybe.md`, `rq5_coding_sheet.csv`); codebook **zaakceptowany 2026-10-04**; koder-model zrobiony (`rq5_coding_llm.csv`); **czeka na drugą osobę**. Stary materiał (`rq3_qualitative_sample.csv`) ma tylko 15 unikalnych pytań; kategorie Jiang & de Marneffe nie przenoszą się 1:1, bierzemy ich trzy klasy |
 | 8 | wszyscy | kręgosłup papera | decyzja na spotkaniu |
-| 9 | wszyscy | priorytety pod 4 strony | decyzja na spotkaniu |
+| 9 | wszyscy | priorytety pod limit stron wybranego venue | decyzja na spotkaniu, po wyborze venue |
 | 10 | kamil | przegląd `feature/pqal-protocol-audit` | do zrobienia |
 
 ---
@@ -777,7 +777,8 @@ Do zrobienia:
 - [~] Taksonomia przyczyn na próbce 40 pytań `maybe`: sprzeczne wyniki w abstrakcie, brak istotności
       statystycznej, wynik częściowy, pytanie szersze niż badanie, wynik dotyczy innej populacji, brak widocznej
       przyczyny. Kodowanie ręczne przez 2 osoby, zgodność κ. **Arkusz i codebook gotowe 2026-10-04**
-      (`scripts/agents/rq5_maybe_taxonomy.py`, `2026-10-04-rq5-codebook-taksonomia-maybe.md`); kodowanie czeka.
+      (`scripts/agents/rq5_maybe_taxonomy.py`, `2026-10-04-rq5-codebook-taksonomia-maybe.md`), codebook zaakceptowany
+      2026-10-04; kodowanie ludzkie czeka na drugą osobę.
 - [~] Rozbić na: `maybe` jednomyślne vs sporne — czy przyczyny się różnią. Próbka losowa z 1000 pytań,
       20 z 23 jednomyślnych i 20 z 87 negocjowanych (na samych 500 testowych jest tylko 11 jednomyślnych).
 
@@ -996,3 +997,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   na 1000). Policzone z `pqal_label_table.jsonl`.
 - 2026-10-05 — „Co dalej” zastąpione nową kolejnością: bez ML4H (venue do ustalenia), PR #21 i kodowanie RQ5,
   luki w liczbach, jedno źródło liczb, decyzja o drugim zbiorze danych, pisanie.
+- 2026-10-05 — status RQ5 uzgodniony: codebook zaakceptowany 2026-10-04 (wpis wyżej z tego dnia mówił jeszcze
+  „do akceptacji”); czeka tylko na drugą osobę do kodowania. Wiersz 9 tabeli otwartych spraw — priorytety pod
+  limit stron wybranego venue zamiast 4 stron.
