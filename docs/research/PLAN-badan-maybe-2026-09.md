@@ -1000,3 +1000,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-05 — status RQ5 uzgodniony: codebook zaakceptowany 2026-10-04 (wpis wyżej z tego dnia mówił jeszcze
   „do akceptacji”); czeka tylko na drugą osobę do kodowania. Wiersz 9 tabeli otwartych spraw — priorytety pod
   limit stron wybranego venue zamiast 4 stron.
+- 2026-10-05 — RQ5: kodowanie przeniesione na stronę dla dwóch niezależnych osób (artifact claude.ai; każda widzi
+  tylko własne kody, właściciel widzi postęp). Teksty po polsku (tłumaczenie pomocnicze, oryginał EN rozstrzyga),
+  zapis w `rq5_coding_sheet_pl.json`; adnotacja w codebooku przed rozpoczęciem kodowania. Kategorie i reguły bez zmian.

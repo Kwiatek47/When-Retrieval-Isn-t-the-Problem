@@ -82,6 +82,28 @@ jest w `probe_prompts.py`.
 - `score` porównuje dziś tylko `coder_1` z `coder_2`; porównanie z modelem do dopisania, gdy będą kody ludzkie.
 - SC N=8: sprawdzone także na klastrze `gradient` — brak (są tylko N=9 na `balanced90`).
 
+## Zmiana materiału: tłumaczenie na polski (2026-10-05, przed rozpoczęciem kodowania)
+
+Kategorie i reguły bez zmian. Zmienia się sposób podania tekstu kodującym ludziom.
+
+- Kodowanie odbywa się na stronie (artifact claude.ai, link u właściciela), która domyślnie pokazuje **polskie
+  tłumaczenie** pytania, kontekstu i konkluzji, z przełącznikiem na oryginał angielski. Instrukcja na stronie:
+  tłumaczenie jest pomocnicze, rozstrzyga oryginał; przy sformułowaniach decydujących o kodzie (may, suggest,
+  trend, not significant) sprawdzić oryginał.
+- Tłumaczenie: Claude Opus 5.5 (`claude-opus-5-5`), 2026-10-05, zdanie po zdaniu, bez skracania; liczby, wartości p,
+  przedziały ufności i skróty bez zmian. Kontrola automatyczna: dla wszystkich 40 pozycji te same etykiety sekcji
+  i dokładnie te same liczby (z krotnościami) co w oryginale. Przeglądu przez człowieka nie było.
+- Plik: `reports/debate/analysis/rq5_coding_sheet_pl.json` (oryginał i tłumaczenie w jednym rekordzie, `n` = numer
+  pozycji z arkusza).
+- Każdy zapisany kod ma pole `view` (`pl` / `en`): wersja tekstu widoczna w chwili wyboru kodu.
+- Właściciel strony może kodować jak pozostałe osoby. Ma techniczny dostęp do kodów wszystkich, więc jego niezależność
+  zapewnia sama strona: odpowiedzi innych pokazuje dopiero po zakończeniu jego kodowania. Właściciel może też
+  zrezygnować z kodowania i od razu zobaczyć odpowiedzi; wtedy dokument dostaje `observer: true`, kodowanie jest
+  blokowane, a jego ewentualne kody nie wchodzą do analizy.
+- **Konsekwencja dla analizy:** koder-model (`rq5_coding_llm.csv`) kodował oryginał angielski, ludzie głównie
+  tłumaczenie. Zgodność człowiek–człowiek nie jest tym zaburzona (obie osoby widzą ten sam tekst), ale porównanie
+  z koderem-modelem miesza wpływ osoby i języka. Raportować to jako ograniczenie.
+
 ## Do decyzji zespołu
 
 1. ~~Czy sześć kategorii zostaje~~ — zostaje (2026-10-04).
