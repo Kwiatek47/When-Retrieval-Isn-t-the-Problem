@@ -1,0 +1,41 @@
+item,code,note,coded_at,view
+1,C,,2026-10-05T10:00:04.449Z,pl
+2,B,,2026-10-05T10:08:37.762Z,pl
+3,C,,2026-10-06T09:49:10.517Z,pl
+4,E,,2026-10-05T10:36:47.125Z,pl
+5,E,,2026-10-05T10:41:32.162Z,pl
+6,C,,2026-10-05T10:46:05.641Z,pl
+7,C,,2026-10-05T10:49:06.790Z,pl
+8,B,,2026-10-05T10:54:27.517Z,pl
+9,B,,2026-10-05T10:59:08.069Z,pl
+10,B,,2026-10-05T11:01:24.827Z,pl
+11,A,konkluzja daje odpowiedz twierdzącą ,2026-10-05T11:04:03.004Z,pl
+12,B,,2026-10-05T11:06:56.010Z,pl
+13,E,,2026-10-05T11:08:19.738Z,pl
+14,C,korelacja jest i moze powinno byc tak jednak ci pacjenci mieli tez CRF. (nie wiadomo czy to to nie powoduje tego),2026-10-05T11:16:03.323Z,pl
+15,C,widzacy i slabowidzacy poprawnie decyduja sie jednak niewidomi slabo,2026-10-05T11:20:50.958Z,pl
+16,D,pytanie pyta czy wystarczajaca konkluzja podaje ze jest bezpieczna (nigdzie nie ma stweirdzenia czy jest wystarczajaca),2026-10-05T11:55:44.237Z,pl
+17,C,,2026-10-05T11:58:44.797Z,pl
+18,E,abstrakt mówi o czymś innym niż pyta tytuł,2026-10-05T16:14:28.288Z,pl
+19,B,,2026-10-05T16:21:37.644Z,pl
+20,C,,2026-10-05T16:30:44.022Z,pl
+21,F,moim zdaniem (nie),2026-10-05T16:36:34.258Z,pl
+22,C,,2026-10-05T16:47:56.182Z,pl
+23,E,,2026-10-05T16:52:14.217Z,pl
+24,B,,2026-10-05T16:57:37.410Z,pl
+25,C,,2026-10-06T09:08:02.400Z,pl
+26,C,,2026-10-06T09:09:33.914Z,pl
+27,B,,2026-10-06T09:11:45.467Z,pl
+28,C,,2026-10-06T09:14:29.782Z,pl
+29,C,,2026-10-06T09:17:09.855Z,pl
+30,B,,2026-10-06T09:19:36.873Z,pl
+31,B,,2026-10-06T09:21:50.229Z,pl
+32,C,,2026-10-06T09:23:57.560Z,pl
+33,C,,2026-10-06T09:25:31.932Z,pl
+34,D,,2026-10-06T09:26:50.640Z,pl
+35,C,,2026-10-06T09:29:08.937Z,pl
+36,D,,2026-10-06T09:30:20.034Z,pl
+37,B,,2026-10-06T09:35:43.763Z,pl
+38,D,,2026-10-06T09:38:17.793Z,pl
+39,C,,2026-10-06T09:45:07.649Z,pl
+40,B,,2026-10-06T09:47:00.608Z,pl
