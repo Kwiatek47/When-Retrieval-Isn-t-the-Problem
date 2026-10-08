@@ -255,6 +255,46 @@ In this collection about 55% of questions are answered yes, 34% no and 11% maybe
     options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
 )
 
+# --- Protocol replay: two LLM annotators negotiate as PQA-L's annotators did ------------------
+# Round 0 of the replay uses label-defined@1 unchanged (with and without the conclusion). This
+# prompt is only for the discussion rounds that follow a disagreement.
+
+NEGOTIATE_V1 = PromptSpec(
+    name="negotiate",
+    version=1,
+    status="candidate",
+    purpose="Protocol replay: one discussion turn between two labellers who disagree on yes/no/maybe.",
+    notes=(
+        "Mirrors Jin et al. 2019, Alg. 1: the two labellers discuss until they agree; items they cannot settle are "
+        "removed. Each side is told what the other side could see. Same label definition as label-defined@1. "
+        "Says 'reviewers' so that no prompt contains the word the leak guard in tests/test_probe_prompts.py blocks."
+    ),
+    system=(
+        "You are one of two reviewers labelling a biomedical research question as yes, no or maybe from a study "
+        "abstract. You labelled it independently, and your colleague chose a different label. You now discuss it "
+        "to reach a shared label. Use only the text you are given. Change your label only if your colleague's "
+        "reasons convince you; keeping it is allowed."
+    ),
+    user="""Research question: {question}
+
+What you can see:
+{evidence}
+
+What your colleague can see: {partner_view}
+
+""" + _MAYBE_DEFINITION + """
+
+Discussion round {round}.
+Your current label: {own_label}. Your reason: {own_rationale}
+Your colleague's current label: {partner_label}. Their reason: {partner_rationale}
+
+Reply to your colleague and give the label you now hold.
+""" + _LABEL_OUTPUT,
+    schema=_LABEL_SCHEMA,
+    fields=("question", "evidence", "partner_view", "round", "own_label", "own_rationale", "partner_label", "partner_rationale"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
 PROMPTS: dict[str, PromptSpec] = {
     spec.id: spec
     for spec in (
@@ -263,6 +303,7 @@ PROMPTS: dict[str, PromptSpec] = {
         LABEL_MINIMAL_V1,
         LABEL_DEFINED_V1,
         LABEL_DEFINED_PRIOR_V1,
+        NEGOTIATE_V1,
     )
 }
 

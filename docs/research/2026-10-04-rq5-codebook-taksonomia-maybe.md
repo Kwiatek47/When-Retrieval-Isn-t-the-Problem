@@ -104,6 +104,28 @@ Kategorie i reguły bez zmian. Zmienia się sposób podania tekstu kodującym lu
   tłumaczenie. Zgodność człowiek–człowiek nie jest tym zaburzona (obie osoby widzą ten sam tekst), ale porównanie
   z koderem-modelem miesza wpływ osoby i języka. Raportować to jako ograniczenie.
 
+## Plan analizy (rejestracja 2026-10-08, przed kodowaniem drugiej osoby)
+
+Polecenie: `python scripts/agents/rq5_maybe_taxonomy.py analyze --codes-1 <osoba1>.csv --codes-2 <osoba2>.csv
+--llm-codes reports/debate/analysis/rq5_coding_llm.csv` → `reports/debate/analysis/rq5_analysis.json`.
+Wymaga Pythona ≥ 3.9 (np. `llm_env`); bez `sklearn`.
+
+1. **Bramka rzetelności.** κ Cohena między dwiema osobami na sześciu kodach, wszystkie 40 pytań. **κ < 0.40 →**
+   porównania warstw nie interpretujemy; raportujemy tylko zgodność.
+2. **Kod pytania.** Zgodni kodujący → ten kod; niezgodni → każdy z dwóch kodów z wagą ½. Grupowanie w trzy klasy:
+   treść (A, B, C), zadanie (D, E), annotator (F).
+3. **Test główny.** D = udział klasy „treść” wśród pytań jednomyślnych − wśród negocjowanych. Teza przewiduje D > 0
+   (gdy obaj annotatorzy dali `maybe`, sam abstrakt częściej jest nierozstrzygnięty). Test permutacyjny dwustronny po
+   etykietach warstw (10 000 permutacji, seed 47) i przedział bootstrap (losowanie pytań w obrębie warstw).
+   p < 0.05 i D > 0 → **potwierdzony**; p < 0.05 i D < 0 → **sprzeczny z tezą**; inaczej nierozstrzygnięty.
+   Przy 20 pytaniach na warstwę wykrywalna jest tylko duża różnica.
+4. **Wtórne (bez korekty):** to samo dla F (przewidywane częstsze wśród negocjowanych) i dla D/E; κ w każdej warstwie
+   i na trzech klasach; zgodność kodera-modelu z każdą osobą (miesza osobę i język); rozkład klas dla wszystkich 110 gold
+   `maybe` z wagami warstw 23 : 87.
+5. **Stan w chwili rejestracji:** kamil zakodował 40/40 (`5303df8`) przed tą rejestracją. **Do potwierdzenia przez
+   kamila:** nie zestawiał swoich kodów z warstwami z `rq5_coding_key.json` ani z kodami modelu. Druga osoba jeszcze
+   nie kodowała.
+
 ## Do decyzji zespołu
 
 1. ~~Czy sześć kategorii zostaje~~ — zostaje (2026-10-04).
