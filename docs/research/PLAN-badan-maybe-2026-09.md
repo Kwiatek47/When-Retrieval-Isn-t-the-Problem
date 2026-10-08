@@ -645,6 +645,49 @@ bootstrap po pytaniach, 5000, seed 47):
 - **Zastrzeżenia:** obaj agenci to ten sam model (badamy asymetrię informacji, nie różnicę osób); jedna odpowiedź na turę;
   liczba rund (3) to nasz wybór — Jin et al. jej nie podają.
 
+#### Wynik: LLM-y odtwarzają protokół annotacji (2026-10-08; rejestracja `27e5441`, `reports/debate/analysis/annotation_protocol.json`)
+
+Run wystartował 08:16:50 z czystego drzewa na `27e5441` (zapis w migawce runu). 1000/1000 pytań, 0 błędów; analiza na 995
+(5 pytań pilota wyłączone).
+
+**Wszystkie trzy testy główne — nierozstrzygnięte** (przedziały 98.33%):
+
+| Test | Odtworzenie | Ludzie | Werdykt |
+|---|---|---|---|
+| P1 `maybe` z negocjacji | 0.583 [0.333, 0.826] | 0.791 | nierozstrzygnięty (przedział szeroki: tylko 24 końcowe `maybe`) |
+| P2 spory wygrywa strona z konkluzją | 0.656 [0.550, 0.756] | 0.729 | nierozstrzygnięty (dolna granica poza 0.729 − 0.15) |
+| P3 zysk F1 `maybe` protokołu wobec samego agenta z konkluzją | +0.021 [−0.089, +0.129] | — | nierozstrzygnięty |
+
+**Wtórne (zarejestrowane, bez korekty):**
+
+| | Odtworzenie (LLM) | Ludzie (te same 995 pytań) |
+|---|---|---|
+| zgoda w rundzie 0 | 848 (85%) | 698 (70%) |
+| spory | 147 | 297 |
+| usunięte po 3 rundach | 21 (2.1%) | nieznane (Jin et al. nie podają) |
+| końcowe `maybe` | **24** (2.4%) | 110 (11%) |
+| `maybe` u strony **z** konkluzją w rundzie 0 | **29** | **110** |
+| `maybe` u strony **bez** konkluzji w rundzie 0 | **54** | 84 |
+| samotne `maybe` strony z konkluzją (druga strona yes/no) | 19 | 87 |
+| spór yes kontra no kończący się `maybe` | 1/84 | 2/151 |
+
+- Zgodność agentów z ich ludzkimi odpowiednikami w rundzie 0: z konkluzją accuracy 0.806, F1 `maybe` 0.187; bez konkluzji
+  0.726 i 0.145.
+- F1 `maybe` końcowej etykiety: wzgl. etykiety końcowej 0.165, wzgl. annotatora z konkluzją 0.209, bez konkluzji 0.074.
+- Końcowe `maybe` na gold `maybe`: 3/23 jednomyślnych u ludzi, 8/86 negocjowanych.
+
+**Co z tego wynika:**
+1. **Kształt procesu częściowo się odtwarza:** spory częściej rozstrzyga strona z konkluzją (2/3; przedział powyżej 0.5),
+   a spór yes kontra no prawie nigdy nie kończy się kompromisem `maybe` — jak u ludzi.
+2. **Nie odtwarza się ilość `maybe`, i to z konkretnego powodu:** konkluzja działa na model **odwrotnie** niż na człowieka.
+   Annotator z konkluzją mówi `maybe` częściej niż ten bez niej (110 wobec 84); agent z konkluzją — dwa razy rzadziej niż
+   ten bez niej (29 wobec 54). Najwięcej brakuje „samotnych `maybe` strony z konkluzją”: 19 wobec 87, a to one u ludzi
+   są głównym źródłem gold `maybe`. Model czyta konkluzję jako rozstrzygnięcie, człowiek — jako zastrzeżenie.
+   **To interpretacja po fakcie** (eksploracyjna); spójna z wtórnym wynikiem H1b (annotator z konkluzją reaguje na
+   warunkowość konkluzji, +0.170).
+3. Negocjacja nie poprawia trafiania w `maybe` (P3), bo do negocjacji rzadko dochodzi — agenci zgadzają się w 85%.
+4. **Ograniczenia:** jeden model w obu rolach, jedna odpowiedź na turę, myślenie wyłączone, 3 rundy (nasz wybór).
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1046,3 +1089,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
   `negotiate@1`): dwóch agentów `qwen3:30b` z różną informacją, negocjacja do 3 rund, usuwanie nieuzgodnionych; testy
   P1 (`maybe` z negocjacji wobec 0.791), P2 (wygrana strony z konkluzją wobec 0.729), P3 (zysk F1 `maybe` wobec samego
   agenta z konkluzją). Pilot na 5 pytaniach.
+- 2026-10-08 — **odtworzenie protokołu policzone:** P1, P2, P3 nierozstrzygnięte. Kształt procesu częściowo się odtwarza
+  (strona z konkluzją wygrywa 2/3 sporów, brak kompromisu yes/no → `maybe`), ilość `maybe` nie: agent z konkluzją mówi
+  `maybe` 29 razy wobec 110 u człowieka — konkluzja działa na model odwrotnie niż na annotatora (eksploracyjnie).

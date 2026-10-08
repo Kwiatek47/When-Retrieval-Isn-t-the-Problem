@@ -1,0 +1,117 @@
+{
+  "n_questions": 995,
+  "n_failed": 0,
+  "human_reference": {
+    "maybe_through_negotiation": 0.7909,
+    "maybe_through_negotiation_counts": [
+      87,
+      110
+    ],
+    "conclusion_wins": 0.7288,
+    "conclusion_wins_counts": [
+      215,
+      295
+    ],
+    "yes_no_dispute_to_maybe": [
+      2,
+      151
+    ]
+  },
+  "P1_maybe_through_negotiation": {
+    "value": 0.5833,
+    "ci_low": 0.3333,
+    "ci_high": 0.8261,
+    "ci_level": 0.9833,
+    "human": 0.7909,
+    "verdict": "inconclusive"
+  },
+  "P2_conclusion_wins": {
+    "value": 0.6557,
+    "ci_low": 0.5496,
+    "ci_high": 0.7562,
+    "ci_level": 0.9833,
+    "human": 0.7288,
+    "verdict": "inconclusive"
+  },
+  "P3_protocol_gain_maybe_f1": {
+    "value": 0.0205,
+    "ci_low": -0.0893,
+    "ci_high": 0.1289,
+    "ci_level": 0.9833,
+    "verdict": "inconclusive"
+  },
+  "status_counts": {
+    "agreed": 848,
+    "negotiated": 126,
+    "removed": 21
+  },
+  "final_label_counts": {
+    "yes": 591,
+    "no": 359,
+    "removed": 21,
+    "maybe": 24
+  },
+  "round0_agreement_with_human_counterpart": {
+    "with_conclusion_vs_rf": {
+      "accuracy": 0.806,
+      "maybe_f1": 0.1871
+    },
+    "context_only_vs_rr": {
+      "accuracy": 0.7256,
+      "maybe_f1": 0.1449
+    }
+  },
+  "maybe_f1_of_final": {
+    "vs_gold": 0.1654,
+    "vs_annotator_with_conclusion": 0.209,
+    "vs_annotator_without_conclusion": 0.0741
+  },
+  "maybe_f1_round0_vs_gold": {
+    "with_conclusion": 0.1449,
+    "context_only": 0.1963
+  },
+  "initial_label_matrix": {
+    "replay": {
+      "with=yes|without=yes": 526,
+      "with=yes|without=no": 52,
+      "with=yes|without=maybe": 29,
+      "with=no|without=yes": 32,
+      "with=no|without=no": 312,
+      "with=no|without=maybe": 15,
+      "with=maybe|without=yes": 11,
+      "with=maybe|without=no": 8,
+      "with=maybe|without=maybe": 10
+    },
+    "human": {
+      "with=yes|without=yes": 451,
+      "with=yes|without=no": 52,
+      "with=yes|without=maybe": 43,
+      "with=no|without=yes": 97,
+      "with=no|without=no": 224,
+      "with=no|without=maybe": 18,
+      "with=maybe|without=yes": 62,
+      "with=maybe|without=no": 25,
+      "with=maybe|without=maybe": 23
+    }
+  },
+  "yes_no_dispute_to_maybe": {
+    "replay": [
+      1,
+      84
+    ],
+    "human": [
+      2,
+      151
+    ]
+  },
+  "final_maybe_on_gold_maybe": {
+    "human_unanimous": [
+      3,
+      23
+    ],
+    "human_negotiated": [
+      8,
+      86
+    ]
+  }
+}
