@@ -1,0 +1,193 @@
+{
+  "thesis": "PubMedQA's `maybe` is largely a recorded, negotiated dispute between two annotators, one of whom saw the authors' conclusion; the human reference for `maybe` is circular because one annotator co-created the label models are scored against.",
+  "thesis_version": "PLAN-badan-maybe-2026-09.md, 'Stan na 2026-10-02'",
+  "sources": {
+    "protocol_audit": {
+      "from": "reports/debate/analysis/pqal_protocol_audit.json",
+      "script": "scripts/agents/audit_pqal_labels.py",
+      "status": "descriptive",
+      "registration": null,
+      "n": "1000 PQA-L questions"
+    },
+    "label_probe_independent": {
+      "from": "reports/debate/analysis/label_probe_qwen3_30b_independent.json",
+      "script": "scripts/agents/analyze_label_probe_independent.py",
+      "status": "registered",
+      "registration": "345b635",
+      "n": "484 non-test PQA-L questions (16 pilot questions left out)"
+    },
+    "label_probe_test": {
+      "from": "reports/debate/analysis/label_probe_qwen3_30b.json",
+      "script": "scripts/agents/analyze_label_probe.py",
+      "status": "registered",
+      "registration": "a556bea",
+      "n": "500 official test questions"
+    },
+    "same_seat_systems": {
+      "from": "reports/debate/analysis/same_seat_systems.json",
+      "script": "scripts/agents/analyze_same_seat_systems.py",
+      "status": "exploratory",
+      "registration": null,
+      "n": "500 official test questions"
+    },
+    "h2": {
+      "from": "reports/debate/analysis/h2_human_ceiling.json",
+      "script": "scripts/agents/analyze_h2_human_ceiling.py",
+      "status": "registered",
+      "registration": "2fb20ff",
+      "n": "500 official test questions"
+    },
+    "h4": {
+      "from": "reports/debate/analysis/h4_abstention.json",
+      "script": "scripts/agents/analyze_h4_abstention.py",
+      "status": "registered",
+      "registration": "a622b87",
+      "n": "500 official test questions"
+    },
+    "b1": {
+      "from": "reports/debate/analysis/b1_selective_prediction.json",
+      "script": "scripts/agents/analyze_b1_selective_prediction.py",
+      "status": "descriptive",
+      "registration": null,
+      "n": "500 official test questions; threshold chosen out of fold; abstention costs 0.25 of an error"
+    },
+    "protocol_replay": {
+      "from": "reports/debate/analysis/annotation_protocol.json",
+      "script": "scripts/agents/analyze_annotation_protocol.py",
+      "status": "registered",
+      "registration": "27e5441",
+      "n": "995 PQA-L questions (5 pilot questions left out); 98.33% Bonferroni intervals"
+    },
+    "h1": {
+      "from": "reports/debate/analysis/h1_hedging.json",
+      "script": "scripts/agents/analyze_h1_hedging.py",
+      "status": "registered",
+      "registration": "PLAN 2026-09-23, no separate commit",
+      "n": "971 PQA-L questions with a results section"
+    },
+    "h1b": {
+      "from": "reports/debate/analysis/h1b_conditionality.json",
+      "script": "scripts/agents/analyze_h1b_conditionality.py",
+      "status": "registered",
+      "registration": "73cd9bf",
+      "n": "971 PQA-L questions with a results section"
+    }
+  },
+  "figures": {
+    "fig1_label_matrix.svg": "reports/debate/analysis/figures/fig1_label_matrix.svg",
+    "fig1_label_matrix.tex": "reports/debate/analysis/figures/fig1_label_matrix.tex",
+    "fig_risk_coverage.pdf": "reports/debate/analysis/figures/fig_risk_coverage.pdf",
+    "fig_risk_coverage.svg": "reports/debate/analysis/figures/fig_risk_coverage.svg",
+    "fig_risk_coverage.tex": "reports/debate/analysis/figures/fig_risk_coverage.tex"
+  },
+  "sections": [
+    {
+      "id": "A",
+      "title": "How `maybe` is made (Jin et al. 2019 protocol, raw labels)",
+      "claims": [
+        {"id": "A1", "text": "Questions the two annotators disputed", "source": "protocol_audit", "path": "/protocol/n_disputes", "value": "299"},
+        {"id": "A2", "text": "Gold `maybe` labels", "source": "protocol_audit", "path": "/protocol/n_gold_maybe", "value": "110"},
+        {"id": "A3", "text": "Gold `maybe` given by both annotators (unanimous)", "source": "protocol_audit", "path": "/protocol/gold_maybe_unanimous", "value": "23"},
+        {"id": "A4", "text": "Gold `maybe` that came out of a dispute", "source": "protocol_audit", "path": "/protocol/gold_maybe_disputed", "value": "87"},
+        {"id": "A5", "text": "Disputes settled on the annotator who saw the conclusion", "source": "protocol_audit", "path": "/protocol/dispute_resolution/dispute_final_follows_conclusion_annotator", "value": "215"},
+        {"id": "A6", "text": "Share of all disputes settled on the annotator with the conclusion", "source": "protocol_audit", "path": "/protocol/share_of_disputes_following_conclusion_annotator", "value": "0.719", "ci": ["0.669", "0.769"]},
+        {"id": "A7", "text": "Disputes whose final label follows neither annotator", "source": "protocol_audit", "path": "/protocol/dispute_resolution/dispute_final_follows_neither", "value": "4"}
+      ]
+    },
+    {
+      "id": "B",
+      "title": "The human reference for `maybe` is circular (S1/S2)",
+      "claims": [
+        {"id": "B1", "text": "S2: part of the human-model gap owed to the annotator co-creating the label (maybe F1)", "source": "label_probe_independent", "path": "/think/on/S2_gap_owed_to_co_created_label", "value": "0.275", "ci": ["0.142", "0.427"], "verdict": "supported"},
+        {"id": "B2", "text": "S1: human minus model against the independent annotator (maybe F1)", "source": "label_probe_independent", "path": "/think/on/S1_same_seat_gap", "value": "0.011", "ci": ["-0.156", "0.178"], "verdict": "not distinguishable"},
+        {"id": "B3", "text": "Annotator without conclusion: maybe F1 against the final label", "source": "label_probe_independent", "path": "/annotators/without_conclusion_vs_final/f1", "value": "0.489"},
+        {"id": "B4", "text": "Annotator without conclusion: maybe F1 against the independent annotator", "source": "label_probe_independent", "path": "/annotators/without_vs_with_conclusion/f1", "value": "0.247"},
+        {"id": "B5", "text": "qwen3:30b: maybe F1 against the independent annotator", "source": "label_probe_independent", "path": "/think/on/model_without_conclusion/maybe_vs_annotator_with_conclusion/f1", "value": "0.237"},
+        {"id": "B6", "text": "R1: human minus model against the final label (replicates T1)", "source": "label_probe_independent", "path": "/think/on/R1_gap_against_final_label", "value": "0.286", "ci": ["0.090", "0.465"]},
+        {"id": "B7", "text": "T1 on the test half: human minus model against the final label", "source": "label_probe_test", "path": "/think/on/T1_gap_to_human", "value": "0.426", "ci": ["0.262", "0.569"]},
+        {"id": "B8", "text": "Annotator without conclusion departs from the final label on this many of 500 test questions (accuracy 0.780)", "source": "h2", "path": "/n_disputed", "value": "110"},
+        {"id": "B9", "text": "Annotator without conclusion: accuracy against the independent annotator (test)", "source": "same_seat_systems", "path": "/annotator_without_conclusion/agreement_with_annotator_with_conclusion", "value": "0.690"},
+        {"id": "B10", "text": "S2 for BioLinkBERT", "source": "same_seat_systems", "path": "/systems/biolinkbert/S2_gap_owed_to_co_created_label", "value": "0.394", "ci": ["0.266", "0.535"]},
+        {"id": "B11", "text": "S2 for self-consistency qwen3:8b k=4", "source": "same_seat_systems", "path": "/systems/self_consistency_qwen3_8b_k4/S2_gap_owed_to_co_created_label", "value": "0.372", "ci": ["0.246", "0.509"]},
+        {"id": "B12", "text": "S2 for debate (dissent)", "source": "same_seat_systems", "path": "/systems/debate_dissent_hinted/S2_gap_owed_to_co_created_label", "value": "0.367", "ci": ["0.235", "0.499"]},
+        {"id": "B13", "text": "S2 for debate (majority)", "source": "same_seat_systems", "path": "/systems/debate_majority_hinted/S2_gap_owed_to_co_created_label", "value": "0.391"},
+        {"id": "B14", "text": "S1 for BioLinkBERT", "source": "same_seat_systems", "path": "/systems/biolinkbert/S1_same_seat_gap", "value": "0.093", "ci": ["-0.036", "0.219"]},
+        {"id": "B15", "text": "S1 for self-consistency qwen3:8b k=4", "source": "same_seat_systems", "path": "/systems/self_consistency_qwen3_8b_k4/S1_same_seat_gap", "value": "-0.065", "ci": ["-0.183", "0.056"]},
+        {"id": "B16", "text": "S1 for debate (dissent)", "source": "same_seat_systems", "path": "/systems/debate_dissent_hinted/S1_same_seat_gap", "value": "0.079", "ci": ["-0.056", "0.207"]},
+        {"id": "B17", "text": "S1 for debate (majority)", "source": "same_seat_systems", "path": "/systems/debate_majority_hinted/S1_same_seat_gap", "value": "0.124"}
+      ]
+    },
+    {
+      "id": "C",
+      "title": "Models fail where the annotators disputed (H2)",
+      "claims": [
+        {"id": "C1", "text": "BioLinkBERT error-rate gap, disputed minus agreed questions", "source": "h2", "path": "/systems/biolinkbert/error_gap", "value": "0.278", "ci": ["0.174", "0.380"], "verdict": "supported"},
+        {"id": "C2", "text": "BioLinkBERT error rate on disputed questions", "source": "h2", "path": "/systems/biolinkbert/error_rate_disputed", "value": "0.491"},
+        {"id": "C3", "text": "BioLinkBERT error rate on agreed questions", "source": "h2", "path": "/systems/biolinkbert/error_rate_agreed", "value": "0.213"},
+        {"id": "C4", "text": "Error-rate gap, self-consistency", "source": "h2", "path": "/systems/self_consistency_qwen3_8b_k4/error_gap", "value": "0.357", "ci": ["0.255", "0.458"]},
+        {"id": "C5", "text": "Error-rate gap, debate (dissent)", "source": "h2", "path": "/systems/debate_dissent_hinted/error_gap", "value": "0.308"},
+        {"id": "C6", "text": "Error-rate gap, debate (majority)", "source": "h2", "path": "/systems/debate_majority_hinted/error_gap", "value": "0.228"},
+        {"id": "C7", "text": "BioLinkBERT accuracy against the annotator without conclusion minus against the final label", "source": "h2", "path": "/systems/biolinkbert/accuracy_shift_rr_minus_gold", "value": "-0.042", "ci": ["-0.078", "-0.006"]},
+        {"id": "C8", "text": "BioLinkBERT accuracy against the final label", "source": "h2", "path": "/systems/biolinkbert/accuracy_vs_gold", "value": "0.726"}
+      ]
+    },
+    {
+      "id": "D",
+      "title": "Abstention avoids ordinary errors, not `maybe` (H4, B1)",
+      "claims": [
+        {"id": "D1", "text": "D = A - B for BioLinkBERT 1 - confidence", "source": "h4", "path": "/signals/biolinkbert_1_minus_confidence/D_separation", "value": "0.185", "ci": ["0.028", "0.347"], "verdict": "supported"},
+        {"id": "D2", "text": "A: AUROC for errors among gold yes/no", "source": "h4", "path": "/signals/biolinkbert_1_minus_confidence/A_error_among_gold_yes_no", "value": "0.660", "ci": ["0.584", "0.731"]},
+        {"id": "D3", "text": "B: AUROC for gold `maybe` among errors", "source": "h4", "path": "/signals/biolinkbert_1_minus_confidence/B_maybe_among_errors", "value": "0.476", "ci": ["0.380", "0.572"]},
+        {"id": "D4", "text": "D for self-consistency 1 - agreement", "source": "h4", "path": "/signals/self_consistency_1_minus_agreement/D_separation", "value": "0.196"},
+        {"id": "D5", "text": "D for debate panel split", "source": "h4", "path": "/signals/debate_dissent_panel_split/D_separation", "value": "0.172"},
+        {"id": "D6", "text": "D for debate u score", "source": "h4", "path": "/signals/debate_dissent_u_score/D_separation", "value": "0.598"},
+        {"id": "D7", "text": "BioLinkBERT expected cost, always answering", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/always_answer_cost", "value": "0.274"},
+        {"id": "D8", "text": "BioLinkBERT expected cost with abstention", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/operating_point/cost", "value": "0.206"},
+        {"id": "D9", "text": "BioLinkBERT abstention rate at that operating point", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/operating_point/abstention_rate", "value": "0.256"},
+        {"id": "D10", "text": "Cost reduction from abstention", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/operating_point/gain_vs_always_answer", "value": "0.068", "ci": ["0.044", "0.094"]},
+        {"id": "D11", "text": "BioLinkBERT accuracy on answered questions", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/operating_point/selective_accuracy", "value": "0.809"},
+        {"id": "D12", "text": "BioLinkBERT AURC", "source": "b1", "path": "/signals/biolinkbert_1_minus_confidence/aurc", "value": "0.209", "ci": ["0.160", "0.265"]},
+        {"id": "D13", "text": "Debate u score AURC (lowest of the four signals)", "source": "b1", "path": "/signals/debate_dissent_u_score/aurc/value", "value": "0.172"},
+        {"id": "D14", "text": "Self-consistency AURC", "source": "b1", "path": "/signals/self_consistency_1_minus_agreement/aurc/value", "value": "0.210"}
+      ]
+    },
+    {
+      "id": "E",
+      "title": "LLM replay of the annotation protocol (two qwen3:30b agents, with and without the conclusion)",
+      "claims": [
+        {"id": "E1", "text": "P1: share of final `maybe` reached by negotiation (human 0.791)", "source": "protocol_replay", "path": "/P1_maybe_through_negotiation", "value": "0.583", "ci": ["0.333", "0.826"], "verdict": "inconclusive"},
+        {"id": "E2", "text": "P2: share of settled disputes won by the agent with the conclusion (human 0.729)", "source": "protocol_replay", "path": "/P2_conclusion_wins", "value": "0.656", "ci": ["0.550", "0.756"], "verdict": "inconclusive"},
+        {"id": "E3", "text": "P3: maybe F1 gain of the protocol over the agent with the conclusion alone", "source": "protocol_replay", "path": "/P3_protocol_gain_maybe_f1", "value": "0.021", "ci": ["-0.089", "0.129"], "verdict": "inconclusive"},
+        {"id": "E4", "text": "Human reference for P1", "source": "protocol_replay", "path": "/human_reference/maybe_through_negotiation", "value": "0.791"},
+        {"id": "E5", "text": "Human reference for P2", "source": "protocol_replay", "path": "/human_reference/conclusion_wins", "value": "0.729"},
+        {"id": "E6", "text": "Questions the agents agreed on at round 0 (of 995; humans: 698)", "source": "protocol_replay", "path": "/status_counts/agreed", "value": "848"},
+        {"id": "E7", "text": "Final `maybe` labels in the replay (gold: 110)", "source": "protocol_replay", "path": "/final_label_counts/maybe", "value": "24"},
+        {"id": "E8", "text": "Questions removed as unsettled", "source": "protocol_replay", "path": "/final_label_counts/removed", "value": "21"},
+        {"id": "E9", "text": "Round-0 `maybe` from the agent with the conclusion", "source": "protocol_replay", "sum": ["/initial_label_matrix/replay/with=maybe|without=yes", "/initial_label_matrix/replay/with=maybe|without=no", "/initial_label_matrix/replay/with=maybe|without=maybe"], "value": "29"},
+        {"id": "E10", "text": "Initial `maybe` from the human annotator with the conclusion (same 995 questions)", "source": "protocol_replay", "sum": ["/initial_label_matrix/human/with=maybe|without=yes", "/initial_label_matrix/human/with=maybe|without=no", "/initial_label_matrix/human/with=maybe|without=maybe"], "value": "110"},
+        {"id": "E11", "text": "Round-0 `maybe` from the agent without the conclusion", "source": "protocol_replay", "sum": ["/initial_label_matrix/replay/with=yes|without=maybe", "/initial_label_matrix/replay/with=no|without=maybe", "/initial_label_matrix/replay/with=maybe|without=maybe"], "value": "54"},
+        {"id": "E12", "text": "Initial `maybe` from the human annotator without the conclusion (same 995 questions)", "source": "protocol_replay", "sum": ["/initial_label_matrix/human/with=yes|without=maybe", "/initial_label_matrix/human/with=no|without=maybe", "/initial_label_matrix/human/with=maybe|without=maybe"], "value": "84"},
+        {"id": "E13", "text": "Agent with the conclusion vs its human counterpart, round-0 accuracy", "source": "protocol_replay", "path": "/round0_agreement_with_human_counterpart/with_conclusion_vs_rf/accuracy", "value": "0.806"},
+        {"id": "E14", "text": "Agent without the conclusion vs its human counterpart, round-0 accuracy", "source": "protocol_replay", "path": "/round0_agreement_with_human_counterpart/context_only_vs_rr/accuracy", "value": "0.726"}
+      ]
+    },
+    {
+      "id": "F",
+      "title": "What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)",
+      "claims": [
+        {"id": "F1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive"},
+        {"id": "F2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive"},
+        {"id": "F3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
+        {"id": "F4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
+        {"id": "F5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
+        {"id": "F6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
+      ]
+    }
+  ],
+  "left_out": [
+    "H3 soft labels, RQ8/RQ9a maybe detector, RQ6 abstract format, RQ3 debate conclusiveness flag: nulls or side results that do not bear on the thesis.",
+    "RQ5 maybe taxonomy: waiting for the second coder; no results may be shown before the coding is done.",
+    "RQ2 literature review of NEI datasets: not a computed result (docs/research/2026-09-26-rq2-przeglad-literatury-nei.md).",
+    "Raw LLM runs (reports/debate/analysis/annotation_protocol/, label_probe/): inputs to the files above; they stay where they are."
+  ]
+}
