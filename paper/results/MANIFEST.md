@@ -12,17 +12,21 @@ Intervals are 95% bootstrap CIs over questions (5000 resamples, seed 47) unless 
 otherwise. Status: *registered* = criterion committed before the run; *exploratory* = not
 registered or on questions already inspected; *descriptive* = a count, not a test.
 
+Verdict is the outcome the analysis script recorded for a tested quantity, under the rule fixed
+in its registration. A dash means the row is not a test: a count, a component of a test (for
+example A and B of H4's D = A - B) or a human reference value.
+
 ## A. How `maybe` is made (Jin et al. 2019 protocol, raw labels)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
-| A1 | Questions the two annotators disputed | 299 |  | `data/pqal_protocol_audit.json` `/protocol/n_disputes` | descriptive |
-| A2 | Gold `maybe` labels | 110 |  | `data/pqal_protocol_audit.json` `/protocol/n_gold_maybe` | descriptive |
-| A3 | Gold `maybe` given by both annotators (unanimous) | 23 |  | `data/pqal_protocol_audit.json` `/protocol/gold_maybe_unanimous` | descriptive |
-| A4 | Gold `maybe` that came out of a dispute | 87 |  | `data/pqal_protocol_audit.json` `/protocol/gold_maybe_disputed` | descriptive |
-| A5 | Disputes settled on the annotator who saw the conclusion | 215 |  | `data/pqal_protocol_audit.json` `/protocol/dispute_resolution/dispute_final_follows_conclusion_annotator` | descriptive |
-| A6 | Share of all disputes settled on the annotator with the conclusion | 0.719 [0.669, 0.769] |  | `data/pqal_protocol_audit.json` `/protocol/share_of_disputes_following_conclusion_annotator` | descriptive |
-| A7 | Disputes whose final label follows neither annotator | 4 |  | `data/pqal_protocol_audit.json` `/protocol/dispute_resolution/dispute_final_follows_neither` | descriptive |
+| A1 | Questions the two annotators disputed | 299 | — | `data/pqal_protocol_audit.json` `/protocol/n_disputes` | descriptive |
+| A2 | Gold `maybe` labels | 110 | — | `data/pqal_protocol_audit.json` `/protocol/n_gold_maybe` | descriptive |
+| A3 | Gold `maybe` given by both annotators (unanimous) | 23 | — | `data/pqal_protocol_audit.json` `/protocol/gold_maybe_unanimous` | descriptive |
+| A4 | Gold `maybe` that came out of a dispute | 87 | — | `data/pqal_protocol_audit.json` `/protocol/gold_maybe_disputed` | descriptive |
+| A5 | Disputes settled on the annotator who saw the conclusion | 215 | — | `data/pqal_protocol_audit.json` `/protocol/dispute_resolution/dispute_final_follows_conclusion_annotator` | descriptive |
+| A6 | Share of all disputes settled on the annotator with the conclusion | 0.719 [0.669, 0.769] | — | `data/pqal_protocol_audit.json` `/protocol/share_of_disputes_following_conclusion_annotator` | descriptive |
+| A7 | Disputes whose final label follows neither annotator | 4 | — | `data/pqal_protocol_audit.json` `/protocol/dispute_resolution/dispute_final_follows_neither` | descriptive |
 
 ## B. The human reference for `maybe` is circular (S1/S2)
 
@@ -30,53 +34,53 @@ registered or on questions already inspected; *descriptive* = a count, not a tes
 |---|---|---|---|---|---|
 | B1 | S2: part of the human-model gap owed to the annotator co-creating the label (maybe F1) | 0.275 [0.142, 0.427] | supported | `data/label_probe_qwen3_30b_independent.json` `/think/on/S2_gap_owed_to_co_created_label` | registered |
 | B2 | S1: human minus model against the independent annotator (maybe F1) | 0.011 [-0.156, 0.178] | not distinguishable | `data/label_probe_qwen3_30b_independent.json` `/think/on/S1_same_seat_gap` | registered |
-| B3 | Annotator without conclusion: maybe F1 against the final label | 0.489 |  | `data/label_probe_qwen3_30b_independent.json` `/annotators/without_conclusion_vs_final/f1` | registered |
-| B4 | Annotator without conclusion: maybe F1 against the independent annotator | 0.247 |  | `data/label_probe_qwen3_30b_independent.json` `/annotators/without_vs_with_conclusion/f1` | registered |
-| B5 | qwen3:30b: maybe F1 against the independent annotator | 0.237 |  | `data/label_probe_qwen3_30b_independent.json` `/think/on/model_without_conclusion/maybe_vs_annotator_with_conclusion/f1` | registered |
-| B6 | R1: human minus model against the final label (replicates T1) | 0.286 [0.090, 0.465] |  | `data/label_probe_qwen3_30b_independent.json` `/think/on/R1_gap_against_final_label` | registered |
-| B7 | T1 on the test half: human minus model against the final label | 0.426 [0.262, 0.569] |  | `data/label_probe_qwen3_30b.json` `/think/on/T1_gap_to_human` | registered |
-| B8 | Annotator without conclusion departs from the final label on this many of 500 test questions (accuracy 0.780) | 110 |  | `data/h2_human_ceiling.json` `/n_disputed` | registered |
-| B9 | Annotator without conclusion: accuracy against the independent annotator (test) | 0.690 |  | `data/same_seat_systems.json` `/annotator_without_conclusion/agreement_with_annotator_with_conclusion` | exploratory |
-| B10 | S2 for BioLinkBERT | 0.394 [0.266, 0.535] |  | `data/same_seat_systems.json` `/systems/biolinkbert/S2_gap_owed_to_co_created_label` | exploratory |
-| B11 | S2 for self-consistency qwen3:8b k=4 | 0.372 [0.246, 0.509] |  | `data/same_seat_systems.json` `/systems/self_consistency_qwen3_8b_k4/S2_gap_owed_to_co_created_label` | exploratory |
-| B12 | S2 for debate (dissent) | 0.367 [0.235, 0.499] |  | `data/same_seat_systems.json` `/systems/debate_dissent_hinted/S2_gap_owed_to_co_created_label` | exploratory |
-| B13 | S2 for debate (majority) | 0.391 |  | `data/same_seat_systems.json` `/systems/debate_majority_hinted/S2_gap_owed_to_co_created_label` | exploratory |
-| B14 | S1 for BioLinkBERT | 0.093 [-0.036, 0.219] |  | `data/same_seat_systems.json` `/systems/biolinkbert/S1_same_seat_gap` | exploratory |
-| B15 | S1 for self-consistency qwen3:8b k=4 | -0.065 [-0.183, 0.056] |  | `data/same_seat_systems.json` `/systems/self_consistency_qwen3_8b_k4/S1_same_seat_gap` | exploratory |
-| B16 | S1 for debate (dissent) | 0.079 [-0.056, 0.207] |  | `data/same_seat_systems.json` `/systems/debate_dissent_hinted/S1_same_seat_gap` | exploratory |
-| B17 | S1 for debate (majority) | 0.124 |  | `data/same_seat_systems.json` `/systems/debate_majority_hinted/S1_same_seat_gap` | exploratory |
+| B3 | Annotator without conclusion: maybe F1 against the final label | 0.489 | — | `data/label_probe_qwen3_30b_independent.json` `/annotators/without_conclusion_vs_final/f1` | registered |
+| B4 | Annotator without conclusion: maybe F1 against the independent annotator | 0.247 | — | `data/label_probe_qwen3_30b_independent.json` `/annotators/without_vs_with_conclusion/f1` | registered |
+| B5 | qwen3:30b: maybe F1 against the independent annotator | 0.237 | — | `data/label_probe_qwen3_30b_independent.json` `/think/on/model_without_conclusion/maybe_vs_annotator_with_conclusion/f1` | registered |
+| B6 | R1: human minus model against the final label (replicates T1) | 0.286 [0.090, 0.465] | model below human | `data/label_probe_qwen3_30b_independent.json` `/think/on/R1_gap_against_final_label` | registered |
+| B7 | T1 on the test half: human minus model against the final label | 0.426 [0.262, 0.569] | model below human | `data/label_probe_qwen3_30b.json` `/think/on/T1_gap_to_human` | registered |
+| B8 | Annotator without conclusion departs from the final label on this many of 500 test questions (accuracy 0.780) | 110 | — | `data/h2_human_ceiling.json` `/n_disputed` | registered |
+| B9 | Annotator without conclusion: accuracy against the independent annotator (test) | 0.690 | — | `data/same_seat_systems.json` `/annotator_without_conclusion/agreement_with_annotator_with_conclusion` | exploratory |
+| B10 | S2 for BioLinkBERT | 0.394 [0.266, 0.535] | supported | `data/same_seat_systems.json` `/systems/biolinkbert/S2_gap_owed_to_co_created_label` | exploratory |
+| B11 | S2 for self-consistency qwen3:8b k=4 | 0.372 [0.246, 0.509] | supported | `data/same_seat_systems.json` `/systems/self_consistency_qwen3_8b_k4/S2_gap_owed_to_co_created_label` | exploratory |
+| B12 | S2 for debate (dissent) | 0.367 [0.235, 0.499] | supported | `data/same_seat_systems.json` `/systems/debate_dissent_hinted/S2_gap_owed_to_co_created_label` | exploratory |
+| B13 | S2 for debate (majority) | 0.391 [0.260, 0.531] | supported | `data/same_seat_systems.json` `/systems/debate_majority_hinted/S2_gap_owed_to_co_created_label` | exploratory |
+| B14 | S1 for BioLinkBERT | 0.093 [-0.036, 0.219] | not distinguishable | `data/same_seat_systems.json` `/systems/biolinkbert/S1_same_seat_gap` | exploratory |
+| B15 | S1 for self-consistency qwen3:8b k=4 | -0.065 [-0.183, 0.056] | not distinguishable | `data/same_seat_systems.json` `/systems/self_consistency_qwen3_8b_k4/S1_same_seat_gap` | exploratory |
+| B16 | S1 for debate (dissent) | 0.079 [-0.056, 0.207] | not distinguishable | `data/same_seat_systems.json` `/systems/debate_dissent_hinted/S1_same_seat_gap` | exploratory |
+| B17 | S1 for debate (majority) | 0.124 [-0.008, 0.257] | not distinguishable | `data/same_seat_systems.json` `/systems/debate_majority_hinted/S1_same_seat_gap` | exploratory |
 
 ## C. Models fail where the annotators disputed (H2)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
 | C1 | BioLinkBERT error-rate gap, disputed minus agreed questions | 0.278 [0.174, 0.380] | supported | `data/h2_human_ceiling.json` `/systems/biolinkbert/error_gap` | registered |
-| C2 | BioLinkBERT error rate on disputed questions | 0.491 |  | `data/h2_human_ceiling.json` `/systems/biolinkbert/error_rate_disputed` | registered |
-| C3 | BioLinkBERT error rate on agreed questions | 0.213 |  | `data/h2_human_ceiling.json` `/systems/biolinkbert/error_rate_agreed` | registered |
-| C4 | Error-rate gap, self-consistency | 0.357 [0.255, 0.458] |  | `data/h2_human_ceiling.json` `/systems/self_consistency_qwen3_8b_k4/error_gap` | registered |
-| C5 | Error-rate gap, debate (dissent) | 0.308 |  | `data/h2_human_ceiling.json` `/systems/debate_dissent_hinted/error_gap` | registered |
-| C6 | Error-rate gap, debate (majority) | 0.228 |  | `data/h2_human_ceiling.json` `/systems/debate_majority_hinted/error_gap` | registered |
-| C7 | BioLinkBERT accuracy against the annotator without conclusion minus against the final label | -0.042 [-0.078, -0.006] |  | `data/h2_human_ceiling.json` `/systems/biolinkbert/accuracy_shift_rr_minus_gold` | registered |
-| C8 | BioLinkBERT accuracy against the final label | 0.726 |  | `data/h2_human_ceiling.json` `/systems/biolinkbert/accuracy_vs_gold` | registered |
+| C2 | BioLinkBERT error rate on disputed questions | 0.491 | — | `data/h2_human_ceiling.json` `/systems/biolinkbert/error_rate_disputed` | registered |
+| C3 | BioLinkBERT error rate on agreed questions | 0.213 | — | `data/h2_human_ceiling.json` `/systems/biolinkbert/error_rate_agreed` | registered |
+| C4 | Error-rate gap, self-consistency | 0.357 [0.255, 0.458] | supported | `data/h2_human_ceiling.json` `/systems/self_consistency_qwen3_8b_k4/error_gap` | registered |
+| C5 | Error-rate gap, debate (dissent) | 0.308 [0.206, 0.409] | supported | `data/h2_human_ceiling.json` `/systems/debate_dissent_hinted/error_gap` | registered |
+| C6 | Error-rate gap, debate (majority) | 0.228 [0.125, 0.332] | supported | `data/h2_human_ceiling.json` `/systems/debate_majority_hinted/error_gap` | registered |
+| C7 | BioLinkBERT accuracy against the annotator without conclusion minus against the final label | -0.042 [-0.078, -0.006] | — | `data/h2_human_ceiling.json` `/systems/biolinkbert/accuracy_shift_rr_minus_gold` | registered |
+| C8 | BioLinkBERT accuracy against the final label | 0.726 | — | `data/h2_human_ceiling.json` `/systems/biolinkbert/accuracy_vs_gold` | registered |
 
 ## D. Abstention avoids ordinary errors, not `maybe` (H4, B1)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
 | D1 | D = A - B for BioLinkBERT 1 - confidence | 0.185 [0.028, 0.347] | supported | `data/h4_abstention.json` `/signals/biolinkbert_1_minus_confidence/D_separation` | registered |
-| D2 | A: AUROC for errors among gold yes/no | 0.660 [0.584, 0.731] |  | `data/h4_abstention.json` `/signals/biolinkbert_1_minus_confidence/A_error_among_gold_yes_no` | registered |
-| D3 | B: AUROC for gold `maybe` among errors | 0.476 [0.380, 0.572] |  | `data/h4_abstention.json` `/signals/biolinkbert_1_minus_confidence/B_maybe_among_errors` | registered |
-| D4 | D for self-consistency 1 - agreement | 0.196 |  | `data/h4_abstention.json` `/signals/self_consistency_1_minus_agreement/D_separation` | registered |
-| D5 | D for debate panel split | 0.172 |  | `data/h4_abstention.json` `/signals/debate_dissent_panel_split/D_separation` | registered |
-| D6 | D for debate u score | 0.598 |  | `data/h4_abstention.json` `/signals/debate_dissent_u_score/D_separation` | registered |
-| D7 | BioLinkBERT expected cost, always answering | 0.274 |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/always_answer_cost` | descriptive |
-| D8 | BioLinkBERT expected cost with abstention | 0.206 |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/cost` | descriptive |
-| D9 | BioLinkBERT abstention rate at that operating point | 0.256 |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/abstention_rate` | descriptive |
-| D10 | Cost reduction from abstention | 0.068 [0.044, 0.094] |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/gain_vs_always_answer` | descriptive |
-| D11 | BioLinkBERT accuracy on answered questions | 0.809 |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/selective_accuracy` | descriptive |
-| D12 | BioLinkBERT AURC | 0.209 [0.160, 0.265] |  | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/aurc` | descriptive |
-| D13 | Debate u score AURC (lowest of the four signals) | 0.172 |  | `data/b1_selective_prediction.json` `/signals/debate_dissent_u_score/aurc/value` | descriptive |
-| D14 | Self-consistency AURC | 0.210 |  | `data/b1_selective_prediction.json` `/signals/self_consistency_1_minus_agreement/aurc/value` | descriptive |
+| D2 | A: AUROC for errors among gold yes/no | 0.660 [0.584, 0.731] | — | `data/h4_abstention.json` `/signals/biolinkbert_1_minus_confidence/A_error_among_gold_yes_no` | registered |
+| D3 | B: AUROC for gold `maybe` among errors | 0.476 [0.380, 0.572] | — | `data/h4_abstention.json` `/signals/biolinkbert_1_minus_confidence/B_maybe_among_errors` | registered |
+| D4 | D for self-consistency 1 - agreement | 0.196 [0.069, 0.324] | supported | `data/h4_abstention.json` `/signals/self_consistency_1_minus_agreement/D_separation` | registered |
+| D5 | D for debate panel split | 0.172 [0.035, 0.314] | supported | `data/h4_abstention.json` `/signals/debate_dissent_panel_split/D_separation` | registered |
+| D6 | D for debate u score | 0.598 [0.472, 0.713] | supported | `data/h4_abstention.json` `/signals/debate_dissent_u_score/D_separation` | registered |
+| D7 | BioLinkBERT expected cost, always answering | 0.274 | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/always_answer_cost` | descriptive |
+| D8 | BioLinkBERT expected cost with abstention | 0.206 | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/cost` | descriptive |
+| D9 | BioLinkBERT abstention rate at that operating point | 0.256 | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/abstention_rate` | descriptive |
+| D10 | Cost reduction from abstention | 0.068 [0.044, 0.094] | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/gain_vs_always_answer` | descriptive |
+| D11 | BioLinkBERT accuracy on answered questions | 0.809 | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/operating_point/selective_accuracy` | descriptive |
+| D12 | BioLinkBERT AURC | 0.209 [0.160, 0.265] | — | `data/b1_selective_prediction.json` `/signals/biolinkbert_1_minus_confidence/aurc` | descriptive |
+| D13 | Debate u score AURC (lowest of the four signals) | 0.172 | — | `data/b1_selective_prediction.json` `/signals/debate_dissent_u_score/aurc/value` | descriptive |
+| D14 | Self-consistency AURC | 0.210 | — | `data/b1_selective_prediction.json` `/signals/self_consistency_1_minus_agreement/aurc/value` | descriptive |
 
 ## E. LLM replay of the annotation protocol (two qwen3:30b agents, with and without the conclusion)
 
@@ -85,17 +89,17 @@ registered or on questions already inspected; *descriptive* = a count, not a tes
 | E1 | P1: share of final `maybe` reached by negotiation (human 0.791) | 0.583 [0.333, 0.826] | inconclusive | `data/annotation_protocol.json` `/P1_maybe_through_negotiation` | registered |
 | E2 | P2: share of settled disputes won by the agent with the conclusion (human 0.729) | 0.656 [0.550, 0.756] | inconclusive | `data/annotation_protocol.json` `/P2_conclusion_wins` | registered |
 | E3 | P3: maybe F1 gain of the protocol over the agent with the conclusion alone | 0.021 [-0.089, 0.129] | inconclusive | `data/annotation_protocol.json` `/P3_protocol_gain_maybe_f1` | registered |
-| E4 | Human reference for P1 | 0.791 |  | `data/annotation_protocol.json` `/human_reference/maybe_through_negotiation` | registered |
-| E5 | Human reference for P2 | 0.729 |  | `data/annotation_protocol.json` `/human_reference/conclusion_wins` | registered |
-| E6 | Questions the agents agreed on at round 0 (of 995; humans: 698) | 848 |  | `data/annotation_protocol.json` `/status_counts/agreed` | registered |
-| E7 | Final `maybe` labels in the replay (gold: 110) | 24 |  | `data/annotation_protocol.json` `/final_label_counts/maybe` | registered |
-| E8 | Questions removed as unsettled | 21 |  | `data/annotation_protocol.json` `/final_label_counts/removed` | registered |
-| E9 | Round-0 `maybe` from the agent with the conclusion | 29 |  | `data/annotation_protocol.json` `/initial_label_matrix/replay/with=maybe|without=yes + /initial_label_matrix/replay/with=maybe|without=no + /initial_label_matrix/replay/with=maybe|without=maybe` | registered |
-| E10 | Initial `maybe` from the human annotator with the conclusion (same 995 questions) | 110 |  | `data/annotation_protocol.json` `/initial_label_matrix/human/with=maybe|without=yes + /initial_label_matrix/human/with=maybe|without=no + /initial_label_matrix/human/with=maybe|without=maybe` | registered |
-| E11 | Round-0 `maybe` from the agent without the conclusion | 54 |  | `data/annotation_protocol.json` `/initial_label_matrix/replay/with=yes|without=maybe + /initial_label_matrix/replay/with=no|without=maybe + /initial_label_matrix/replay/with=maybe|without=maybe` | registered |
-| E12 | Initial `maybe` from the human annotator without the conclusion (same 995 questions) | 84 |  | `data/annotation_protocol.json` `/initial_label_matrix/human/with=yes|without=maybe + /initial_label_matrix/human/with=no|without=maybe + /initial_label_matrix/human/with=maybe|without=maybe` | registered |
-| E13 | Agent with the conclusion vs its human counterpart, round-0 accuracy | 0.806 |  | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/with_conclusion_vs_rf/accuracy` | registered |
-| E14 | Agent without the conclusion vs its human counterpart, round-0 accuracy | 0.726 |  | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/context_only_vs_rr/accuracy` | registered |
+| E4 | Human reference for P1 | 0.791 | — | `data/annotation_protocol.json` `/human_reference/maybe_through_negotiation` | registered |
+| E5 | Human reference for P2 | 0.729 | — | `data/annotation_protocol.json` `/human_reference/conclusion_wins` | registered |
+| E6 | Questions the agents agreed on at round 0 (of 995; humans: 698) | 848 | — | `data/annotation_protocol.json` `/status_counts/agreed` | registered |
+| E7 | Final `maybe` labels in the replay (gold: 110) | 24 | — | `data/annotation_protocol.json` `/final_label_counts/maybe` | registered |
+| E8 | Questions removed as unsettled | 21 | — | `data/annotation_protocol.json` `/final_label_counts/removed` | registered |
+| E9 | Round-0 `maybe` from the agent with the conclusion | 29 | — | `data/annotation_protocol.json` `/initial_label_matrix/replay/with=maybe|without=yes + /initial_label_matrix/replay/with=maybe|without=no + /initial_label_matrix/replay/with=maybe|without=maybe` | registered |
+| E10 | Initial `maybe` from the human annotator with the conclusion (same 995 questions) | 110 | — | `data/annotation_protocol.json` `/initial_label_matrix/human/with=maybe|without=yes + /initial_label_matrix/human/with=maybe|without=no + /initial_label_matrix/human/with=maybe|without=maybe` | registered |
+| E11 | Round-0 `maybe` from the agent without the conclusion | 54 | — | `data/annotation_protocol.json` `/initial_label_matrix/replay/with=yes|without=maybe + /initial_label_matrix/replay/with=no|without=maybe + /initial_label_matrix/replay/with=maybe|without=maybe` | registered |
+| E12 | Initial `maybe` from the human annotator without the conclusion (same 995 questions) | 84 | — | `data/annotation_protocol.json` `/initial_label_matrix/human/with=yes|without=maybe + /initial_label_matrix/human/with=no|without=maybe + /initial_label_matrix/human/with=maybe|without=maybe` | registered |
+| E13 | Agent with the conclusion vs its human counterpart, round-0 accuracy | 0.806 | — | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/with_conclusion_vs_rf/accuracy` | registered |
+| E14 | Agent without the conclusion vs its human counterpart, round-0 accuracy | 0.726 | — | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/context_only_vs_rr/accuracy` | registered |
 
 ## F. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
 
@@ -103,10 +107,10 @@ registered or on questions already inspected; *descriptive* = a count, not a tes
 |---|---|---|---|---|---|
 | F1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
 | F2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
-| F3 | H1b: conditionality AUROC in the results section the model sees | 0.632 |  | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
+| F3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
 | F4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
-| F5 | qwen3:30b accuracy without the conclusion (test) | 0.776 |  | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
-| F6 | qwen3:30b accuracy with the conclusion (test) | 0.822 |  | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
+| F5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
+| F6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
 
 ## Sources
 
