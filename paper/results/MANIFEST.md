@@ -92,7 +92,7 @@ example A and B of H4's D = A - B) or a human reference value.
 | E4 | Human reference for P1 | 0.791 | — | `data/annotation_protocol.json` `/human_reference/maybe_through_negotiation` | registered |
 | E5 | Human reference for P2 | 0.729 | — | `data/annotation_protocol.json` `/human_reference/conclusion_wins` | registered |
 | E6 | Questions the agents agreed on at round 0 (of 995; humans: 698) | 848 | — | `data/annotation_protocol.json` `/status_counts/agreed` | registered |
-| E7 | Final `maybe` labels in the replay (gold: 110) | 24 | — | `data/annotation_protocol.json` `/final_label_counts/maybe` | registered |
+| E7 | Final `maybe` labels in the replay (gold on the same 995 questions: 109) | 24 | — | `data/annotation_protocol.json` `/final_label_counts/maybe` | registered |
 | E8 | Questions removed as unsettled | 21 | — | `data/annotation_protocol.json` `/final_label_counts/removed` | registered |
 | E9 | Round-0 `maybe` from the agent with the conclusion | 29 | — | `data/annotation_protocol.json` `/initial_label_matrix/replay/with=maybe|without=yes + /initial_label_matrix/replay/with=maybe|without=no + /initial_label_matrix/replay/with=maybe|without=maybe` | registered |
 | E10 | Initial `maybe` from the human annotator with the conclusion (same 995 questions) | 110 | — | `data/annotation_protocol.json` `/initial_label_matrix/human/with=maybe|without=yes + /initial_label_matrix/human/with=maybe|without=no + /initial_label_matrix/human/with=maybe|without=maybe` | registered |
