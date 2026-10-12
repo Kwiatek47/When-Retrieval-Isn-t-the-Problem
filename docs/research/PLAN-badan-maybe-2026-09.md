@@ -735,6 +735,51 @@ python scripts/agents/run_annotation_protocol.py --model-with mistral-small3.2:2
 python scripts/agents/analyze_mixed_protocol.py
 ```
 
+#### Wynik: dwa różne modele (2026-10-12; rejestracja `b0b71b7`, `reports/debate/analysis/mixed_protocol.json`)
+
+Oba runy wystartowały 11:34 UTC z `66b7c44` (merge rejestracji do `feat/benchmarks`), skończyły 12:38. 1000/1000 pytań
+w każdym, 0 błędów; analiza na 995. Migawka MQ ma `dirty: True` tylko dlatego, że QM sekundę wcześniej dopisał swój
+wiersz do śledzonego `prompt_versions.jsonl`; kod obu runów ten sam.
+
+**Testy główne** (przedziały 97.5%):
+
+| Test | Mieszane − QQ | Werdykt |
+|---|---|---|
+| M1 więcej sporów w rundzie 0 | +0.034 [+0.010, +0.058] | **potwierdzone** |
+| M2 F1 `maybe` końcowej etykiety wzgl. gold | −0.003 [−0.098, +0.093] | nierozstrzygnięte |
+
+**Wtórne (bez korekty):**
+
+| | QQ | QM | MQ | Ludzie (te same 995) |
+|---|---|---|---|---|
+| odsetek sporów w rundzie 0 | 0.148 | 0.192 | 0.172 | 0.298 |
+| końcowe `maybe` | 24 | 28 | 35 | 109 |
+| usunięte po 3 rundach | 21 | 14 | 16 | nieznane |
+| F1 `maybe` końcowej wzgl. gold | 0.165 | 0.117 | 0.208 | — |
+| accuracy wzgl. gold | 0.795 | 0.801 | 0.802 | — |
+| spory wygrywa strona z konkluzją (P2) | 0.656 | 0.874 | **0.344** | 0.728 |
+
+- M1 i M2 osobno: QM +0.044 [+0.018, +0.069] i −0.049 [−0.138, +0.040]; MQ +0.024 [+0.002, +0.046] i +0.043 [−0.062, +0.148].
+- `maybe` w rundzie 0 według modelu i miejsca: `qwen3` z konkluzją 34, bez 53; `mistral` z konkluzją 42, bez 63; ludzie 110
+  i 84.
+- Wirtualna para `mistral` × 2 (etykiety z MQ i QM): spory 0.126 — mniej niż `qwen3` × 2.
+- P1 nierozstrzygnięte w obu (0.607, 0.657 wobec 0.789); P3 w QM obalone (−0.065 [−0.124, −0.014]), w MQ nierozstrzygnięte.
+
+**Kontrola szumu (dodana po analizie, eksploracyjna):** `qwen3:30b` przy temperaturze 0 zmienia między runami ok. 4% etykiet
+rundy 0 (40 i 45 z 995; Ollama przy równoległych zapytaniach nie jest w pełni deterministyczna). Para `qwen3` × 2 złożona
+z runów mieszanych ma 0.139 sporów — tyle co QQ (0.148), więc szum nie tłumaczy M1.
+
+**Co z tego wynika:**
+1. **Różne modele spierają się częściej, ale niewiele:** różnica +0.034 zamyka ok. jednej czwartej luki do ludzi
+   (0.148 → 0.182 wobec 0.298). Większość „nadmiernej zgody” agentów nie wynika z tego, że to ten sam model.
+2. **`maybe` dalej się nie odtwarza:** 28–35 końcowych `maybe` wobec 109; F1 bez poprawy (M2).
+3. **Konkluzja usztywnia oba modele:** `mistral`, tak jak `qwen3`, mówi `maybe` rzadziej, gdy widzi konkluzję (42 wobec 63),
+   odwrotnie niż ludzie (110 wobec 84). Obserwacja z pierwszego odtworzenia powtarza się na drugiej rodzinie modeli
+   (zarejestrowane jako liczby wtórne, bez testu).
+4. **O wyniku sporu decyduje model, nie informacja:** u ludzi wygrywa strona z konkluzją (0.728). W parach mieszanych
+   wygrywa `qwen3` niezależnie od miejsca: 152/174 (0.874), gdy widzi konkluzję, i 99/151 (0.656), gdy jej nie widzi.
+   Negocjacja agentów mierzy więc ich wzajemną „siłę przekonywania”, a nie przewagę informacyjną (po fakcie).
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1142,3 +1187,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-12 — **zarejestrowane odtworzenie protokołu przez dwa różne modele** (`qwen3:30b` i `mistral-small3.2:24b`,
   obie kolejności): M1 (więcej sporów niż `qwen3` × 2) i M2 (lepsze F1 `maybe` względem gold), przedziały 97.5%.
   Protokół przyjmuje teraz osobny model dla każdej strony. Pilot na 5 pytaniach: 0 błędów.
+- 2026-10-12 — **odtworzenie z dwoma różnymi modelami policzone:** M1 potwierdzone (+0.034 [+0.010, +0.058] sporów, ale to
+  ok. 1/4 luki do ludzi), M2 nierozstrzygnięte. `mistral` też mówi rzadziej `maybe` z konkluzją (42 wobec 63); spory
+  wygrywa `qwen3` niezależnie od tego, czy widzi konkluzję (0.874 i 0.656).
