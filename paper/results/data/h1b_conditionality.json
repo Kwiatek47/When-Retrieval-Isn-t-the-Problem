@@ -1,0 +1,106 @@
+{
+  "n_boot": 5000,
+  "seed": 47,
+  "n_questions_rated": 971,
+  "primary": {
+    "n": 971,
+    "n_maybe": 108,
+    "conclusion": {
+      "auroc": 0.6627,
+      "ci_low": 0.6121,
+      "ci_high": 0.7107
+    },
+    "results_section": {
+      "auroc": 0.6323,
+      "ci_low": 0.582,
+      "ci_high": 0.6812
+    },
+    "difference": {
+      "d_auroc": 0.0305,
+      "ci_low": -0.0188,
+      "ci_high": 0.0796
+    },
+    "verdict": "inconclusive"
+  },
+  "primary_by_split": {
+    "test": {
+      "n": 482,
+      "n_maybe": 53,
+      "conclusion": {
+        "auroc": 0.6321,
+        "ci_low": 0.5591,
+        "ci_high": 0.7012
+      },
+      "results_section": {
+        "auroc": 0.6356,
+        "ci_low": 0.5583,
+        "ci_high": 0.703
+      },
+      "difference": {
+        "d_auroc": -0.0035,
+        "ci_low": -0.0772,
+        "ci_high": 0.0697
+      },
+      "verdict": "inconclusive"
+    },
+    "cv": {
+      "n": 489,
+      "n_maybe": 55,
+      "conclusion": {
+        "auroc": 0.6933,
+        "ci_low": 0.6256,
+        "ci_high": 0.7577
+      },
+      "results_section": {
+        "auroc": 0.6292,
+        "ci_low": 0.5588,
+        "ci_high": 0.6936
+      },
+      "difference": {
+        "d_auroc": 0.0641,
+        "ci_low": -0.003,
+        "ci_high": 0.1332
+      },
+      "verdict": "inconclusive"
+    }
+  },
+  "annotator_contrast": {
+    "cond_conclusion": {
+      "d_auroc": 0.17,
+      "ci_low": 0.1065,
+      "ci_high": 0.232
+    },
+    "cond_results": {
+      "d_auroc": 0.0198,
+      "ci_low": -0.0465,
+      "ci_high": 0.086
+    }
+  },
+  "mean_conditionality_by_gold_label": {
+    "yes": {
+      "n": 531,
+      "conclusion_mean": 0.761,
+      "results_mean": 1.141
+    },
+    "no": {
+      "n": 332,
+      "conclusion_mean": 0.652,
+      "results_mean": 1.057
+    },
+    "maybe": {
+      "n": 108,
+      "conclusion_mean": 1.145,
+      "results_mean": 1.481
+    }
+  },
+  "rating_stability": {
+    "conclusion": {
+      "n_passages": 1000,
+      "all_repeats_equal": 0.99
+    },
+    "results": {
+      "n_passages": 971,
+      "all_repeats_equal": 0.9825
+    }
+  }
+}

@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="718" viewBox="0 0 660 718" font-family="Helvetica,Arial,sans-serif">
+<rect width="660" height="718" fill="#ffffff"/>
+<text x="24" y="30" font-size="15" font-weight="600" fill="#111111">How PQA-L&#8217;s gold label is produced (1000 items)</text>
+<text x="24" y="52" font-size="11.5" fill="#444444">Bars show the <tspan font-style="italic">final_decision</tspan> split inside each cell. On the diagonal the annotators agreed,</text>
+<text x="24" y="68" font-size="11.5" fill="#444444">so the label follows by construction. Off-diagonal cells are settled by discussion between the</text>
+<text x="24" y="84" font-size="11.5" fill="#444444">same two annotators; items they could not settle were removed from the dataset.</text>
+<text x="380.0" y="104.0" font-size="12" font-weight="600" text-anchor="middle" fill="#111111">annotator 1 &#8212; saw question + abstract + conclusion</text>
+<text x="224.0" y="126.0" font-size="12.5" text-anchor="middle" fill="#111111">yes <tspan fill="#777777">(n=550)</tspan></text>
+<text x="380.0" y="126.0" font-size="12.5" text-anchor="middle" fill="#111111">no <tspan fill="#777777">(n=340)</tspan></text>
+<text x="536.0" y="126.0" font-size="12.5" text-anchor="middle" fill="#111111">maybe <tspan fill="#777777">(n=110)</tspan></text>
+<text transform="translate(26,370.0) rotate(-90)" font-size="12" font-weight="600" text-anchor="middle" fill="#111111">annotator 2 &#8212; abstract only (model&#8217;s information)</text>
+<text x="136.0" y="214.0" font-size="12.5" text-anchor="end" fill="#111111">yes <tspan fill="#777777">(n=614)</tspan></text>
+<rect x="150.0" y="140.0" width="148.0" height="148.0" rx="4" fill="#F2F5F9" stroke="#B8C6D8" stroke-width="1"/>
+<text x="162.0" y="174.0" font-size="26" font-weight="600" fill="#111111">454</text>
+<text x="162.0" y="192.0" font-size="10.5" fill="#777777">45.4% of items</text>
+<text x="286.0" y="160.0" font-size="9.5" text-anchor="end" fill="#8A9AAD">agree</text>
+<rect x="162.00" y="238.0" width="124.00" height="20.0" fill="#4C72B0"/>
+<text x="224.00" y="252.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">454</text>
+<text x="162.0" y="273.0" font-size="10" fill="#555555">454 yes</text>
+<rect x="306.0" y="140.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="318.0" y="174.0" font-size="26" font-weight="600" fill="#111111">98</text>
+<text x="318.0" y="192.0" font-size="10.5" fill="#777777">9.8% of items</text>
+<rect x="318.00" y="238.0" width="15.18" height="20.0" fill="#4C72B0"/>
+<rect x="333.18" y="238.0" width="107.55" height="20.0" fill="#9A9A9A"/>
+<text x="386.96" y="252.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">85</text>
+<rect x="440.73" y="238.0" width="1.27" height="20.0" fill="#C44E52"/>
+<text x="318.0" y="273.0" font-size="10" fill="#555555">12 yes, 85 no, 1 maybe</text>
+<rect x="462.0" y="140.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="474.0" y="174.0" font-size="26" font-weight="600" fill="#111111">62</text>
+<text x="474.0" y="192.0" font-size="10.5" fill="#777777">6.2% of items</text>
+<rect x="474.00" y="238.0" width="42.00" height="20.0" fill="#4C72B0"/>
+<text x="495.00" y="252.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">21</text>
+<rect x="516.00" y="238.0" width="4.00" height="20.0" fill="#9A9A9A"/>
+<rect x="520.00" y="238.0" width="78.00" height="20.0" fill="#C44E52"/>
+<text x="559.00" y="252.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">39</text>
+<text x="474.0" y="273.0" font-size="10" fill="#555555">21 yes, 2 no, 39 maybe</text>
+<text x="136.0" y="370.0" font-size="12.5" text-anchor="end" fill="#111111">no <tspan fill="#777777">(n=302)</tspan></text>
+<rect x="150.0" y="296.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="162.0" y="330.0" font-size="26" font-weight="600" fill="#111111">53</text>
+<text x="162.0" y="348.0" font-size="10.5" fill="#777777">5.3% of items</text>
+<rect x="162.00" y="394.0" width="98.26" height="20.0" fill="#4C72B0"/>
+<text x="211.13" y="408.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">42</text>
+<rect x="260.26" y="394.0" width="23.40" height="20.0" fill="#9A9A9A"/>
+<rect x="283.66" y="394.0" width="2.34" height="20.0" fill="#C44E52"/>
+<text x="162.0" y="429.0" font-size="10" fill="#555555">42 yes, 10 no, 1 maybe</text>
+<rect x="306.0" y="296.0" width="148.0" height="148.0" rx="4" fill="#F2F5F9" stroke="#B8C6D8" stroke-width="1"/>
+<text x="318.0" y="330.0" font-size="26" font-weight="600" fill="#111111">224</text>
+<text x="318.0" y="348.0" font-size="10.5" fill="#777777">22.4% of items</text>
+<text x="442.0" y="316.0" font-size="9.5" text-anchor="end" fill="#8A9AAD">agree</text>
+<rect x="318.00" y="394.0" width="124.00" height="20.0" fill="#9A9A9A"/>
+<text x="380.00" y="408.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">224</text>
+<text x="318.0" y="429.0" font-size="10" fill="#555555">224 no</text>
+<rect x="462.0" y="296.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="474.0" y="330.0" font-size="26" font-weight="600" fill="#111111">25</text>
+<text x="474.0" y="348.0" font-size="10.5" fill="#777777">2.5% of items</text>
+<rect x="474.00" y="394.0" width="39.68" height="20.0" fill="#9A9A9A"/>
+<text x="493.84" y="408.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">8</text>
+<rect x="513.68" y="394.0" width="84.32" height="20.0" fill="#C44E52"/>
+<text x="555.84" y="408.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">17</text>
+<text x="474.0" y="429.0" font-size="10" fill="#555555">8 no, 17 maybe</text>
+<text x="136.0" y="526.0" font-size="12.5" text-anchor="end" fill="#111111">maybe <tspan fill="#777777">(n=84)</tspan></text>
+<rect x="150.0" y="452.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="162.0" y="486.0" font-size="26" font-weight="600" fill="#111111">43</text>
+<text x="162.0" y="504.0" font-size="10.5" fill="#777777">4.3% of items</text>
+<rect x="162.00" y="550.0" width="66.33" height="20.0" fill="#4C72B0"/>
+<text x="195.16" y="564.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">23</text>
+<rect x="228.33" y="550.0" width="57.67" height="20.0" fill="#C44E52"/>
+<text x="257.16" y="564.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">20</text>
+<text x="162.0" y="585.0" font-size="10" fill="#555555">23 yes, 20 maybe</text>
+<rect x="306.0" y="452.0" width="148.0" height="148.0" rx="4" fill="#FBFBFB" stroke="#E2E2E2" stroke-width="1"/>
+<text x="318.0" y="486.0" font-size="26" font-weight="600" fill="#111111">18</text>
+<text x="318.0" y="504.0" font-size="10.5" fill="#777777">1.8% of items</text>
+<rect x="318.00" y="550.0" width="62.00" height="20.0" fill="#9A9A9A"/>
+<text x="349.00" y="564.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">9</text>
+<rect x="380.00" y="550.0" width="62.00" height="20.0" fill="#C44E52"/>
+<text x="411.00" y="564.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">9</text>
+<text x="318.0" y="585.0" font-size="10" fill="#555555">9 no, 9 maybe</text>
+<rect x="462.0" y="452.0" width="148.0" height="148.0" rx="4" fill="#F2F5F9" stroke="#B8C6D8" stroke-width="1"/>
+<text x="474.0" y="486.0" font-size="26" font-weight="600" fill="#111111">23</text>
+<text x="474.0" y="504.0" font-size="10.5" fill="#777777">2.3% of items</text>
+<text x="598.0" y="472.0" font-size="9.5" text-anchor="end" fill="#8A9AAD">agree</text>
+<rect x="474.00" y="550.0" width="124.00" height="20.0" fill="#C44E52"/>
+<text x="536.00" y="564.0" font-size="10.5" text-anchor="middle" fill="#ffffff" font-weight="600">23</text>
+<text x="474.0" y="585.0" font-size="10" fill="#555555">23 maybe</text>
+<text x="24" y="634.0" font-size="11" font-weight="600" fill="#111111">final_decision:</text>
+<rect x="124.0" y="624.0" width="13" height="13" rx="2" fill="#4C72B0"/>
+<text x="143.0" y="634.0" font-size="11" fill="#333333">yes</text>
+<rect x="198.0" y="624.0" width="13" height="13" rx="2" fill="#9A9A9A"/>
+<text x="217.0" y="634.0" font-size="11" fill="#333333">no</text>
+<rect x="272.0" y="624.0" width="13" height="13" rx="2" fill="#C44E52"/>
+<text x="291.0" y="634.0" font-size="11" fill="#333333">maybe</text>
+<text x="24" y="658.0" font-size="10.5" fill="#555555">In 4 items the agreed label is one neither annotator proposed (2 maybe, 2 no).</text>
+</svg>

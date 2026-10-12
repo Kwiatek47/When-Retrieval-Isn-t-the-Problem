@@ -38,22 +38,35 @@ mylą ranking. Tego dane nie potwierdziły (H1, H1b, H3, T2).
 | Osobna głowica, balans klas, naturalny prior dają detektor `maybe` | RQ8, RQ9a | brak efektu |
 | Format abstraktu przewiduje `maybe` albo spór | RQ6 (CV AUROC 0.517 / 0.508) | brak efektu (niezarejestrowany) |
 
-### Co dalej — w tej kolejności
+### Co dalej — w tej kolejności (wersja 2026-10-05)
 
-1. **Decyzja o kręgosłupie papera** (spotkanie). Propozycja: paper o trafności benchmarku, teza jak wyżej.
-   Wszystkie pomiary pod tę tezę są gotowe.
-2. **Plan czterech stron** (ML4H Findings). Do tekstu głównego: Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem
-   etykiety końcowej vs względem niezależnego annotatora” (człowiek i modele), H2 i H4 po jednym akapicie.
-   Wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2) — jedna tabela zbiorcza albo appendix.
-3. ~~Wzmocnienie S1 dla istniejących systemów~~ — **zrobione 2026-10-02** (eksploracyjnie; wynik niżej, sekcja
-   „S1 / S2 dla istniejących systemów”).
-4. ~~B1: risk–coverage i koszty dla BioLinkBERT na 500 pytaniach~~ — **przeliczone 2026-10-02** (wynik niżej, sekcja
-   „Selektywna predykcja przeliczona”). Zostaje: podmienić liczby w drafcie i wygenerować rysunek z nowego pliku.
-5. **Przegląd i scalenie `feature/pqal-protocol-audit`** do `klap/pivot` (fast-forward).
-6. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (✱ w tabeli nowości); termin zgłoszeń ML4H.
+Nie zgłaszamy pracy na ML4H; venue jeszcze nieustalone, więc limit stron i termin wynikną z punktu 1.
 
-Nie robić przed napisaniem pierwszej wersji: RQ10, RQ11, RQ7, RQ4, kalibracja H1b (potrzebna tylko, jeśli H1b
-wchodzi do tekstu głównego), drugi zbiór danych.
+1. **Wybór venue i kręgosłupa papera** (spotkanie). Od venue zależy limit stron i termin. Kręgosłup — propozycja
+   z przekazania 2026-10-02: paper o trafności benchmarku, teza jak wyżej. Pomiary pod tę tezę są gotowe.
+2. ~~Scalić PR witeczka (#21)~~ — **scalone 2026-10-05** do `main`. **Ruszyć z kodowaniem RQ5.** Przed kodowaniem ukryć przed drugą osobą
+   `rq5_coding_llm.csv` i `rq5_coding_key.json` — dać jej sam arkusz poza repo. RQ5 to jedyny brakujący element
+   jakościowy; bez drugiej osoby nie ma κ.
+3. **Zamknąć luki w liczbach** — blokuje każdy tekst:
+   - wgrać źródła draftu z Overleafa do repo;
+   - podmienić 9 miejsc z [2026-10-02-podmiana-liczb-draft.md](2026-10-02-podmiana-liczb-draft.md);
+   - odnaleźć pliki SC N=8 `qwen2.5:7b` albo usunąć te liczby (BRAKI §B2–B3);
+   - ustalić źródło 0.246 / 0.231 / 0.150 / 0.1975 albo je usunąć.
+4. **Jedno źródło liczb:** skrypt audytu etykiet (A1) i `statistics.json`; wszystkie rysunki generowane skryptami
+   z repo.
+5. **Drugi zbiór danych** (SciFact NEI albo podobny) — decyzja razem z venue, bo zmienia skalę pracy. Bez sztywnego
+   limitu stron to najmocniejsze wzmocnienie: dziś wszystkie wyniki, w tym zerowe, pochodzą z jednego zbioru.
+6. **Pisanie:** Rys. 1 (macierz etykiet), tabela „F1 `maybe` względem etykiety końcowej vs względem niezależnego
+   annotatora” (człowiek i modele), H2, H4 z rysunkiem risk–coverage; wyniki zerowe (H1, H1b, H3, RQ6, RQ8, RQ9a, T2)
+   w jednej tabeli zbiorczej. Przy dłuższym formacie RQ5 może wejść do tekstu głównego.
+7. **Przed wysłaniem:** pełne teksty trzech najbliższych prac (Abdaljalil 2026, NEI-CAP, Wen 2024; ✱ w tabeli
+   nowości), sprawdzenie bibliografii (BRAKI §D), anonimizacja suplementu, Data and Code Availability zgodne
+   z jego zawartością.
+8. **Odłożone:** RQ10, RQ11, RQ7, RQ4; kalibracja H1b tylko, jeśli H1b wchodzi do tekstu głównego. Kolejne zerowe
+   pytania o detekcję `maybe` niewiele już dodadzą.
+
+Porządki: unieważnić token GitHuba zapisany w URL-u remote'a `origin`; zdecydować o nieaktualnym, niezacommitowanym
+`docs/research/przeglad-runow-2026-09.md`.
 
 ### S1 / S2 dla istniejących systemów (2026-10-02, **eksploracyjne**)
 
@@ -109,9 +122,9 @@ z odpowiedzią yes/no to błąd); AURC = średnie ryzyko po wszystkich pokryciac
 | 4 | Kwiatek | RQ6: przejrzeć `2026-10-02-rq6-format-abstraktu.md`; czy dodać typ pytania | czeka |
 | 5 | Kwiatek | RQ10 (trzy prompty) | **odłożone** — prompty `label-minimal@1` / `label-defined@1` / `label-defined-prior@1` i runner są gotowe; uruchomić tylko, jeśli wchodzi do papera |
 | 6 | kamil | RQ11: dokończyć `debate7b_neutral_pqal500_v1` (24/500) | **odłożone** — tylko jeśli panel bez BERT zostaje w paperze |
-| 7 | witeczek | RQ5: taksonomia 40 pytań `maybe`, dwoje kodujących, κ | arkusz i codebook gotowe 2026-10-04 (`2026-10-04-rq5-codebook-taksonomia-maybe.md`, `rq5_coding_sheet.csv`); **czeka na akceptację codebooka i drugą osobę**. Stary materiał (`rq3_qualitative_sample.csv`) ma tylko 15 unikalnych pytań; kategorie Jiang & de Marneffe nie przenoszą się 1:1, bierzemy ich trzy klasy |
+| 7 | witeczek | RQ5: taksonomia 40 pytań `maybe`, dwoje kodujących, κ | arkusz i codebook gotowe 2026-10-04 (`2026-10-04-rq5-codebook-taksonomia-maybe.md`, `rq5_coding_sheet.csv`); codebook **zaakceptowany 2026-10-04**; koder-model zrobiony (`rq5_coding_llm.csv`); **czeka na drugą osobę**. Stary materiał (`rq3_qualitative_sample.csv`) ma tylko 15 unikalnych pytań; kategorie Jiang & de Marneffe nie przenoszą się 1:1, bierzemy ich trzy klasy |
 | 8 | wszyscy | kręgosłup papera | decyzja na spotkaniu |
-| 9 | wszyscy | priorytety pod 4 strony | decyzja na spotkaniu |
+| 9 | wszyscy | priorytety pod limit stron wybranego venue | decyzja na spotkaniu, po wyborze venue |
 | 10 | kamil | przegląd `feature/pqal-protocol-audit` | do zrobienia |
 
 ---
@@ -596,6 +609,85 @@ F1 `maybe` w głównym trybie (myślenie włączone, bez konkluzji):
    wobec 37 i 60 u ludzi, więc podobne F1 nie oznacza podobnego zachowania. Jeden model, jeden prompt.
    Wyłączenie 16 pytań z próby czasowej opiera się na założeniu co do tego, które to były.
 
+#### Rejestracja: LLM-y odtwarzają protokół annotacji PubMedQA — 2026-10-08, gałąź `klap/pivot`
+
+**Pytanie.** Czy dwaj agenci LLM, odgrywający protokół Jin et al. (2019, Alg. 1), odtwarzają sposób, w jaki powstało
+`maybe`: głównie w negocjacji, z przewagą strony, która widziała konkluzję?
+
+**Protokół** (`app/agents/annotation_protocol.py`, runner `scripts/agents/run_annotation_protocol.py`):
+- agent „z konkluzją” widzi pytanie, abstrakt i konkluzję; agent „bez konkluzji” — pytanie i abstrakt;
+- runda 0: obaj niezależnie, prompt `label-defined@1` (hash `37742969f023`, ten sam co w testach z `qwen3:30b`);
+- zgoda → etykieta końcowa; spór → do 3 rund dyskusji (`negotiate@1`, hash `e7df0ce563dd`), w każdej obaj widzą swoją
+  i cudzą odpowiedź z uzasadnieniem oraz wiedzą, co widział partner; pierwsza runda zgody kończy spór; brak zgody po
+  3 rundach → pytanie usunięte (jak w PQA-L);
+- `qwen3:30b`, myślenie wyłączone, temperatura 0, jedna odpowiedź na turę; wszystkie 1000 pytań PQA-L.
+- **Dlaczego nie prompty debaty:** zawierają regułę „maybe ONLY if completely mixed” i persony, które sztucznie tłumią
+  `maybe`. Używamy tylko komponentów architektury (backend Ollamy, schemat odpowiedzi) i nowego trybu protokołu.
+
+**Wartości ludzkie** (liczone w skrypcie z `ori_pqal.json`): `maybe` z negocjacji 87/110 = 0.791; spory rozstrzygnięte
+na korzyść strony z konkluzją 215/295 = 0.729; spór yes kontra no kończący się `maybe` — 2/151.
+
+**Testy** (`scripts/agents/analyze_annotation_protocol.py`; trzy równorzędne, korekta Bonferroniego: przedziały 98.33%,
+bootstrap po pytaniach, 5000, seed 47):
+- **P1 — `maybe` z negocjacji:** udział końcowych `maybe` w odtworzeniu, które powstały w negocjacji. Przedział w całości
+  w 0.791 ± 0.15 → **odtworzone**; w całości poza → **nieodtworzone**; inaczej nierozstrzygnięte.
+- **P2 — wygrywa strona z konkluzją:** udział sporów rozstrzygniętych po jednej stronie, w których wygrał agent
+  z konkluzją. Ta sama reguła wobec 0.729.
+- **P3 — czy protokół coś daje:** F1 `maybe` (wzgl. etykiety końcowej) odtworzenia − F1 samego agenta z konkluzją
+  (jego etykieta z rundy 0). Pytania usunięte liczą się jako „nie maybe”. CI > 0 → potwierdzony; CI ≤ 0 → obalony.
+- **Wtórne:** liczby statusów i odsetek usuniętych; rozkład etykiet; zgodność każdego agenta w rundzie 0 z jego ludzkim
+  odpowiednikiem; F1 `maybe` końcowej etykiety wzgl. etykiety końcowej i obu annotatorów; macierz 3 × 3 etykiet z rundy 0
+  obok ludzkiej; spory yes kontra no kończące się `maybe`; recall `maybe` na pytaniach jednomyślnych i negocjowanych u ludzi.
+- **Znane przed rejestracją:** wartości ludzkie; zachowanie pojedynczego `qwen3:30b` z tym samym promptem (myślenie
+  wyłączone) na wszystkich 1000 pytaniach — runda 0 to w praktyce ten sam pomiar, np. F1 `maybe` wzgl. etykiety końcowej
+  0.167 z konkluzją i 0.222 bez (połowa testowa). Pilot: 5 pierwszych pytań w kolejności runnera (5/5, 0 błędów,
+  3 spory rozstrzygnięte w 1–2 rundach) — wyłączone z analizy (`PILOT_PMIDS`).
+- **Zastrzeżenia:** obaj agenci to ten sam model (badamy asymetrię informacji, nie różnicę osób); jedna odpowiedź na turę;
+  liczba rund (3) to nasz wybór — Jin et al. jej nie podają.
+
+#### Wynik: LLM-y odtwarzają protokół annotacji (2026-10-08; rejestracja `27e5441`, `reports/debate/analysis/annotation_protocol.json`)
+
+Run wystartował 08:16:50 z czystego drzewa na `27e5441` (zapis w migawce runu). 1000/1000 pytań, 0 błędów; analiza na 995
+(5 pytań pilota wyłączone).
+
+**Wszystkie trzy testy główne — nierozstrzygnięte** (przedziały 98.33%):
+
+| Test | Odtworzenie | Ludzie | Werdykt |
+|---|---|---|---|
+| P1 `maybe` z negocjacji | 0.583 [0.333, 0.826] | 0.791 | nierozstrzygnięty (przedział szeroki: tylko 24 końcowe `maybe`) |
+| P2 spory wygrywa strona z konkluzją | 0.656 [0.550, 0.756] | 0.729 | nierozstrzygnięty (dolna granica poza 0.729 − 0.15) |
+| P3 zysk F1 `maybe` protokołu wobec samego agenta z konkluzją | +0.021 [−0.089, +0.129] | — | nierozstrzygnięty |
+
+**Wtórne (zarejestrowane, bez korekty):**
+
+| | Odtworzenie (LLM) | Ludzie (te same 995 pytań) |
+|---|---|---|
+| zgoda w rundzie 0 | 848 (85%) | 698 (70%) |
+| spory | 147 | 297 |
+| usunięte po 3 rundach | 21 (2.1%) | nieznane (Jin et al. nie podają) |
+| końcowe `maybe` | **24** (2.4%) | 110 (11%) |
+| `maybe` u strony **z** konkluzją w rundzie 0 | **29** | **110** |
+| `maybe` u strony **bez** konkluzji w rundzie 0 | **54** | 84 |
+| samotne `maybe` strony z konkluzją (druga strona yes/no) | 19 | 87 |
+| spór yes kontra no kończący się `maybe` | 1/84 | 2/151 |
+
+- Zgodność agentów z ich ludzkimi odpowiednikami w rundzie 0: z konkluzją accuracy 0.806, F1 `maybe` 0.187; bez konkluzji
+  0.726 i 0.145.
+- F1 `maybe` końcowej etykiety: wzgl. etykiety końcowej 0.165, wzgl. annotatora z konkluzją 0.209, bez konkluzji 0.074.
+- Końcowe `maybe` na gold `maybe`: 3/23 jednomyślnych u ludzi, 8/86 negocjowanych.
+
+**Co z tego wynika:**
+1. **Kształt procesu częściowo się odtwarza:** spory częściej rozstrzyga strona z konkluzją (2/3; przedział powyżej 0.5),
+   a spór yes kontra no prawie nigdy nie kończy się kompromisem `maybe` — jak u ludzi.
+2. **Nie odtwarza się ilość `maybe`, i to z konkretnego powodu:** konkluzja działa na model **odwrotnie** niż na człowieka.
+   Annotator z konkluzją mówi `maybe` częściej niż ten bez niej (110 wobec 84); agent z konkluzją — dwa razy rzadziej niż
+   ten bez niej (29 wobec 54). Najwięcej brakuje „samotnych `maybe` strony z konkluzją”: 19 wobec 87, a to one u ludzi
+   są głównym źródłem gold `maybe`. Model czyta konkluzję jako rozstrzygnięcie, człowiek — jako zastrzeżenie.
+   **To interpretacja po fakcie** (eksploracyjna); spójna z wtórnym wynikiem H1b (annotator z konkluzją reaguje na
+   warunkowość konkluzji, +0.170).
+3. Negocjacja nie poprawia trafiania w `maybe` (P3), bo do negocjacji rzadko dochodzi — agenci zgadzają się w 85%.
+4. **Ograniczenia:** jeden model w obu rolach, jedna odpowiedź na turę, myślenie wyłączone, 3 rundy (nasz wybór).
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -764,7 +856,8 @@ Do zrobienia:
 - [~] Taksonomia przyczyn na próbce 40 pytań `maybe`: sprzeczne wyniki w abstrakcie, brak istotności
       statystycznej, wynik częściowy, pytanie szersze niż badanie, wynik dotyczy innej populacji, brak widocznej
       przyczyny. Kodowanie ręczne przez 2 osoby, zgodność κ. **Arkusz i codebook gotowe 2026-10-04**
-      (`scripts/agents/rq5_maybe_taxonomy.py`, `2026-10-04-rq5-codebook-taksonomia-maybe.md`); kodowanie czeka.
+      (`scripts/agents/rq5_maybe_taxonomy.py`, `2026-10-04-rq5-codebook-taksonomia-maybe.md`), codebook zaakceptowany
+      2026-10-04; kodowanie ludzkie czeka na drugą osobę.
 - [~] Rozbić na: `maybe` jednomyślne vs sporne — czy przyczyny się różnią. Próbka losowa z 1000 pytań,
       20 z 23 jednomyślnych i 20 z 87 negocjowanych (na samych 500 testowych jest tylko 11 jednomyślnych).
 
@@ -981,3 +1074,21 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-04 — **uwaga do „odwrócenia sufitu”:** 78.0% to accuracy, 0.25 to F1 `maybe` — nie zestawiać. W tej samej
   metryce: zgodność annotatora 2 z etykietą końcową 0.780, z annotatorem 1 **0.690** (500 testowych; 0.781 i 0.701
   na 1000). Policzone z `pqal_label_table.jsonl`.
+- 2026-10-05 — „Co dalej” zastąpione nową kolejnością: bez ML4H (venue do ustalenia), PR #21 i kodowanie RQ5,
+  luki w liczbach, jedno źródło liczb, decyzja o drugim zbiorze danych, pisanie.
+- 2026-10-05 — status RQ5 uzgodniony: codebook zaakceptowany 2026-10-04 (wpis wyżej z tego dnia mówił jeszcze
+  „do akceptacji”); czeka tylko na drugą osobę do kodowania. Wiersz 9 tabeli otwartych spraw — priorytety pod
+  limit stron wybranego venue zamiast 4 stron.
+- 2026-10-05 — RQ5: kodowanie przeniesione na stronę dla dwóch niezależnych osób (artifact claude.ai; każda widzi
+  tylko własne kody, właściciel widzi postęp). Teksty po polsku (tłumaczenie pomocnicze, oryginał EN rozstrzyga),
+  zapis w `rq5_coding_sheet_pl.json`; adnotacja w codebooku przed rozpoczęciem kodowania. Kategorie i reguły bez zmian.
+- 2026-10-08 — **RQ5: plan analizy zarejestrowany** przed kodowaniem drugiej osoby (codebook, sekcja „Plan analizy”;
+  `rq5_maybe_taxonomy.py analyze`). Bramka κ ≥ 0.40; test główny: udział „treści” (A–C) wśród jednomyślnych −
+  wśród negocjowanych, permutacyjnie. Kody kamila zebrane wcześniej — do potwierdzenia, że nie zestawiał ich z warstwami.
+- 2026-10-08 — **zarejestrowane odtworzenie protokołu annotacji przez LLM-y** (`annotation_protocol.py`, prompt
+  `negotiate@1`): dwóch agentów `qwen3:30b` z różną informacją, negocjacja do 3 rund, usuwanie nieuzgodnionych; testy
+  P1 (`maybe` z negocjacji wobec 0.791), P2 (wygrana strony z konkluzją wobec 0.729), P3 (zysk F1 `maybe` wobec samego
+  agenta z konkluzją). Pilot na 5 pytaniach.
+- 2026-10-08 — **odtworzenie protokołu policzone:** P1, P2, P3 nierozstrzygnięte. Kształt procesu częściowo się odtwarza
+  (strona z konkluzją wygrywa 2/3 sporów, brak kompromisu yes/no → `maybe`), ilość `maybe` nie: agent z konkluzją mówi
+  `maybe` 29 razy wobec 110 u człowieka — konkluzja działa na model odwrotnie niż na annotatora (eksploracyjnie).

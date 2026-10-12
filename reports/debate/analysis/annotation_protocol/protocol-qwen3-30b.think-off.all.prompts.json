@@ -1,0 +1,113 @@
+{
+  "prompt_version": "a77d933653a8",
+  "prompt_sha256": "a77d933653a81c197f030400303a3c0f73dc6c14d410898fd51c4df40bdc3fc2",
+  "prompts_py_sha256": "e3cee472a3970be68bfeb494e269cb6b721d0b1849a2ceb31ad9ce999843b6e7",
+  "captured_at": "2026-10-08T08:16:50.769344+00:00",
+  "run_label": "protocol-qwen3-30b.think-off.all",
+  "script": "scripts/agents/run_annotation_protocol.py",
+  "source_file": "scripts/agents/probe_prompts.py",
+  "prompts": {
+    "label-defined@1": {
+      "id": "label-defined@1",
+      "sha": "37742969f023",
+      "status": "candidate",
+      "purpose": "Yes/no/maybe with PubMedQA's definition of maybe (Jin et al. 2019); main probe prompt.",
+      "notes": "The last line of the definition follows H1: hedging is not what makes an answer maybe.",
+      "system": "You answer biomedical research questions from the text of one study abstract. Use only the text you are given, not outside knowledge.",
+      "user": "Research question: {question}\n\n{evidence}\n\nAnswer:\n- yes: the findings support \"yes\" to the question as asked;\n- no: the findings support \"no\" to the question as asked;\n- maybe: the answer holds for some subgroups, outcomes or conditions but not for others, or\n  the findings are mixed and do not settle the question.\nDo not answer maybe only because the study has limitations or the wording is cautious.\n\nFirst give a short rationale (at most 40 words), then the answer, then your\nconfidence from 0 to 100 that the answer is correct.\nReturn JSON: {{\"rationale\": \"...\", \"label\": \"yes\" | \"no\" | \"maybe\", \"confidence\": 0-100}}",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "maybe"
+            ]
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "rationale",
+          "label",
+          "confidence"
+        ]
+      },
+      "options": {
+        "temperature": 0,
+        "num_ctx": 4096,
+        "num_predict": 200
+      }
+    },
+    "negotiate@1": {
+      "id": "negotiate@1",
+      "sha": "e7df0ce563dd",
+      "status": "candidate",
+      "purpose": "Protocol replay: one discussion turn between two labellers who disagree on yes/no/maybe.",
+      "notes": "Mirrors Jin et al. 2019, Alg. 1: the two labellers discuss until they agree; items they cannot settle are removed. Each side is told what the other side could see. Same label definition as label-defined@1. Says 'reviewers' so that no prompt contains the word the leak guard in tests/test_probe_prompts.py blocks.",
+      "system": "You are one of two reviewers labelling a biomedical research question as yes, no or maybe from a study abstract. You labelled it independently, and your colleague chose a different label. You now discuss it to reach a shared label. Use only the text you are given. Change your label only if your colleague's reasons convince you; keeping it is allowed.",
+      "user": "Research question: {question}\n\nWhat you can see:\n{evidence}\n\nWhat your colleague can see: {partner_view}\n\nAnswer:\n- yes: the findings support \"yes\" to the question as asked;\n- no: the findings support \"no\" to the question as asked;\n- maybe: the answer holds for some subgroups, outcomes or conditions but not for others, or\n  the findings are mixed and do not settle the question.\nDo not answer maybe only because the study has limitations or the wording is cautious.\n\nDiscussion round {round}.\nYour current label: {own_label}. Your reason: {own_rationale}\nYour colleague's current label: {partner_label}. Their reason: {partner_rationale}\n\nReply to your colleague and give the label you now hold.\nFirst give a short rationale (at most 40 words), then the answer, then your\nconfidence from 0 to 100 that the answer is correct.\nReturn JSON: {{\"rationale\": \"...\", \"label\": \"yes\" | \"no\" | \"maybe\", \"confidence\": 0-100}}",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "maybe"
+            ]
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "rationale",
+          "label",
+          "confidence"
+        ]
+      },
+      "options": {
+        "temperature": 0,
+        "num_ctx": 4096,
+        "num_predict": 200
+      }
+    }
+  },
+  "meta": {
+    "model": "qwen3:30b",
+    "prompt_ids": [
+      "label-defined@1",
+      "negotiate@1"
+    ],
+    "argv": [
+      "scripts/agents/run_annotation_protocol.py"
+    ],
+    "git": {
+      "commit": "27e544140d3a7aa7737590849c1af3990cbabf13",
+      "dirty": false
+    },
+    "think": "off",
+    "max_rounds": 3,
+    "split": "all",
+    "limit": null,
+    "temperature": 0.0,
+    "num_predict": 600,
+    "num_ctx": 4096,
+    "questions_to_do": 1000
+  }
+}
