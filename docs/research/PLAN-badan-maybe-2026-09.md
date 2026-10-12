@@ -914,6 +914,45 @@ pilota (3 spory, tylko QM — w pilocie MQ sporów nie było), 0 błędów, cyta
 **Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_negotiation_replay.sh > logs/negotiation_replay.log 2>&1 < /dev/null &`
 (QM na serwerze GPU0, MQ na GPU2, równolegle; potem zwolnienie modeli i analiza).
 
+#### Wynik: kto wygrywa spór (2026-10-12; rejestracja `607e0e4`, `reports/debate/analysis/negotiation_dominance.json`)
+
+Runy wystartowały z czystego drzewa na `607e0e4` (QM na GPU0, MQ na GPU2), skończyły 17:22 UTC; 4 × (191 lub 171) sporów,
+0 błędów.
+
+**Testy główne** (przedziały 97.5%):
+
+| Test | evidence − old | Werdykt |
+|---|---|---|
+| N1 mniejsza przewaga modelu (D) | +0.038 [−0.020, +0.095] | nierozstrzygnięte (estymata w złą stronę) |
+| N2 większa przewaga informacji (I) | +0.029 [−0.028, +0.087] | nierozstrzygnięte |
+
+**Wtórne (bez korekty):**
+
+| | runy źródłowe | old (powtórka) | evidence | ludzie |
+|---|---|---|---|---|
+| strona z konkluzją wygrywa, gdy trzyma ją `qwen3` (w_QM) | 0.874 | 0.890 | 0.956 | — |
+| strona z konkluzją wygrywa, gdy trzyma ją `mistral` (w_MQ) | 0.344 | 0.338 | 0.329 | — |
+| przewaga modelu D | 0.265 | 0.276 [0.233, 0.318] | 0.314 [0.272, 0.354] | — |
+| przewaga informacji I | 0.109 | 0.114 [0.070, 0.158] | 0.143 [0.102, 0.184] | 0.228 |
+
+- Powtórka starym promptem daje tę samą etykietę końcową co run źródłowy w 87% (QM) i 82% (MQ) sporów.
+- Cytaty: 77–81% dosłownie obecnych we własnym tekście; strona z konkluzją cytuje konkluzję w 41% przypadków, gdy to
+  `qwen3`, i w 26%, gdy `mistral`.
+- Końcowe `maybe` w sporach: QM 12 → 20, MQ 22 → 26; na wszystkich 995 pytaniach F1 `maybe` wzgl. gold 0.12–0.17,
+  accuracy 0.79–0.81 w obu ramionach.
+- **Po fakcie (eksploracyjne):** w rundzie 0 `qwen3` deklaruje wyższą pewność (90–93) niż `mistral` (84–87). W QM `mistral`
+  ustępuje w 154 ze 173 rozstrzygniętych sporów (evidence: 175 ze 183); w MQ, mając konkluzję, nadal ustępuje dwa razy
+  częściej niż `qwen3` (100 wobec 51).
+
+**Co z tego wynika:**
+1. **Cytowanie dowodów nie przenosi wygranych na stronę z informacją.** Przewaga `qwen3` jest stabilna we wszystkich
+   trzech wersjach (D 0.27–0.31), a z cytatami raczej rośnie: `qwen3` z konkluzją wygrywa 96% sporów.
+2. **`mistral` nie wykorzystuje swojej przewagi informacyjnej:** mając konkluzję, cytuje ją rzadko (26%) i ustępuje.
+   Wynik negocjacji agentów zależy od tego, który model łatwiej ustępuje, a nie od tego, kto wie więcej.
+3. **Dla tezy:** negocjacja LLM-ów nie jest dobrym modelem ludzkiej negocjacji etykiet — u ludzi wygrywa strona
+   z informacją (I = 0.228), u agentów strona z bardziej „upartym” modelem.
+4. **Ograniczenia:** dwa modele; jeden prompt cytowania; „uległość” `mistral` to obserwacja po fakcie.
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1333,3 +1372,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-12 — **zarejestrowane: kto wygrywa spór** (powtórka negocjacji sporów QM i MQ od tych samych etykiet rundy 0;
   ramiona `negotiate@1` i cytowane dowody `justify@1` + `negotiate-evidence@1`): N1 (mniejsza przewaga modelu D) i N2
   (większa przewaga informacji I), przedziały 97.5%. Protokół przyjmuje teraz cytaty i krok uzasadnienia.
+- 2026-10-12 — **kto wygrywa spór — policzone:** N1 i N2 nierozstrzygnięte; cytowanie dowodów nie przenosi wygranych na
+  stronę z konkluzją, przewaga `qwen3` stabilna (D 0.27–0.31). Po fakcie: `mistral` deklaruje niższą pewność i ustępuje
+  także wtedy, gdy ma konkluzję.

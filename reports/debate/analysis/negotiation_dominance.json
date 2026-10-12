@@ -1,0 +1,149 @@
+{
+  "n_disputes": {
+    "QM": 191,
+    "MQ": 171
+  },
+  "human_I": 0.2279,
+  "N1_model_advantage_evidence_minus_old": {
+    "value": 0.0376,
+    "ci_low": -0.0202,
+    "ci_high": 0.095,
+    "ci_level": 0.975,
+    "verdict": "inconclusive"
+  },
+  "N2_information_advantage_evidence_minus_old": {
+    "value": 0.0285,
+    "ci_low": -0.0278,
+    "ci_high": 0.0869,
+    "ci_level": 0.975,
+    "verdict": "inconclusive"
+  },
+  "by_arm": {
+    "old": {
+      "D_model_advantage": {
+        "value": 0.2762,
+        "ci_low": 0.2329,
+        "ci_high": 0.3182,
+        "ci_level": 0.95
+      },
+      "I_information_advantage": {
+        "value": 0.114,
+        "ci_low": 0.0702,
+        "ci_high": 0.1577,
+        "ci_level": 0.95
+      },
+      "w_with_QM": 0.8902,
+      "w_with_MQ": 0.3377
+    },
+    "evidence": {
+      "D_model_advantage": {
+        "value": 0.3138,
+        "ci_low": 0.2723,
+        "ci_high": 0.3541,
+        "ci_level": 0.95
+      },
+      "I_information_advantage": {
+        "value": 0.1425,
+        "ci_low": 0.1022,
+        "ci_high": 0.1843,
+        "ci_level": 0.95
+      },
+      "w_with_QM": 0.9563,
+      "w_with_MQ": 0.3287
+    },
+    "source": {
+      "D_model_advantage": {
+        "value": 0.2646,
+        "ci_low": 0.2197,
+        "ci_high": 0.3084,
+        "ci_level": 0.95
+      },
+      "I_information_advantage": {
+        "value": 0.109,
+        "ci_low": 0.0641,
+        "ci_high": 0.1534,
+        "ci_level": 0.95
+      },
+      "w_with_QM": 0.8736,
+      "w_with_MQ": 0.3444
+    }
+  },
+  "old_rerun_same_final_as_source": {
+    "QM": 0.8743,
+    "MQ": 0.8187
+  },
+  "disputes": {
+    "QM|old": {
+      "status_counts": {
+        "negotiated": 174,
+        "removed": 17
+      },
+      "mean_rounds": 1.429,
+      "final_maybe": 12
+    },
+    "QM|evidence": {
+      "status_counts": {
+        "negotiated": 185,
+        "removed": 6
+      },
+      "mean_rounds": 1.372,
+      "final_maybe": 20
+    },
+    "MQ|old": {
+      "status_counts": {
+        "negotiated": 156,
+        "removed": 15
+      },
+      "mean_rounds": 1.567,
+      "final_maybe": 22
+    },
+    "MQ|evidence": {
+      "status_counts": {
+        "negotiated": 149,
+        "removed": 22
+      },
+      "mean_rounds": 1.643,
+      "final_maybe": 26
+    }
+  },
+  "quotes": {
+    "QM|evidence": {
+      "quotes": 906,
+      "verbatim_share": 0.7704,
+      "conclusion_side_quotes": 453,
+      "conclusion_side_from_conclusion_share": 0.4062
+    },
+    "MQ|evidence": {
+      "quotes": 904,
+      "verbatim_share": 0.8119,
+      "conclusion_side_quotes": 452,
+      "conclusion_side_from_conclusion_share": 0.2588
+    }
+  },
+  "all_questions": {
+    "old": {
+      "QM": {
+        "accuracy_vs_gold": 0.801,
+        "maybe_f1_vs_gold": 0.1212,
+        "final_maybe": 23
+      },
+      "MQ": {
+        "accuracy_vs_gold": 0.793,
+        "maybe_f1_vs_gold": 0.1678,
+        "final_maybe": 34
+      }
+    },
+    "evidence": {
+      "QM": {
+        "accuracy_vs_gold": 0.808,
+        "maybe_f1_vs_gold": 0.1571,
+        "final_maybe": 31
+      },
+      "MQ": {
+        "accuracy_vs_gold": 0.7859,
+        "maybe_f1_vs_gold": 0.1633,
+        "final_maybe": 38
+      }
+    }
+  }
+}
