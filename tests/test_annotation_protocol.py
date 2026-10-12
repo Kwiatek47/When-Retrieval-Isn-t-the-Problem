@@ -67,6 +67,31 @@ class ProtocolTests(unittest.TestCase):
         self.assertTrue(any("which you have not seen" in c for c in negotiation))
         self.assertTrue(all("Your colleague's current label" in c for c in negotiation))
 
+    def test_each_seat_uses_its_own_backend(self) -> None:
+        from app.agents.annotation_protocol import AnnotationProtocol
+        from scripts.agents.probe_prompts import PROMPTS
+
+        with_backend = ScriptedBackend({"with_conclusion": ["maybe", "maybe"], "context_only": []})
+        without_backend = ScriptedBackend({"with_conclusion": [], "context_only": ["yes", "maybe"]})
+        protocol = AnnotationProtocol(
+            backends={"with_conclusion": with_backend, "context_only": without_backend},
+            label_spec=PROMPTS["label-defined@1"],
+            negotiate_spec=PROMPTS["negotiate@1"],
+        )
+        result = asyncio.run(protocol.run("1", "Does X help?", _evidence()))
+        self.assertEqual((result.status, result.final), ("negotiated", "maybe"))
+        self.assertEqual((len(with_backend.calls), len(without_backend.calls)), (2, 2))
+
+    def test_one_backend_or_one_per_seat(self) -> None:
+        from app.agents.annotation_protocol import AnnotationProtocol
+        from scripts.agents.probe_prompts import PROMPTS
+
+        specs = {"label_spec": PROMPTS["label-defined@1"], "negotiate_spec": PROMPTS["negotiate@1"]}
+        with self.assertRaises(ValueError):
+            AnnotationProtocol(**specs)
+        with self.assertRaises(ValueError):
+            AnnotationProtocol(backends={"with_conclusion": ScriptedBackend({})}, **specs)
+
     def test_unparseable_reply_marks_the_question_failed(self) -> None:
         result, _ = self._run({"with_conclusion": ["broken", "broken"], "context_only": ["yes"]})
         self.assertEqual(result.status, "failed")
