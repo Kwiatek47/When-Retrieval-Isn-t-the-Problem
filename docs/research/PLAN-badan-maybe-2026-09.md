@@ -688,6 +688,53 @@ Run wystartował 08:16:50 z czystego drzewa na `27e5441` (zapis w migawce runu).
 3. Negocjacja nie poprawia trafiania w `maybe` (P3), bo do negocjacji rzadko dochodzi — agenci zgadzają się w 85%.
 4. **Ograniczenia:** jeden model w obu rolach, jedna odpowiedź na turę, myślenie wyłączone, 3 rundy (nasz wybór).
 
+#### Rejestracja: odtworzenie protokołu przez dwa różne modele (2026-10-12)
+
+**Pytanie.** Czy agenci z dwóch różnych rodzin modeli spierają się częściej i lepiej odtwarzają gold `maybe` niż ten sam
+model w obu rolach? Motywacja: w odtworzeniu `qwen3:30b` × 2 agenci zgadzali się w 85% (ludzie 70%), a końcowych `maybe`
+było 24 wobec 109 gold na tych samych 995 pytaniach. Jeden model w obu rolach ma te same „ślepe plamki”, więc może się
+spierać rzadziej niż dwie różne osoby.
+
+**Układ.** Ten sam protokół, te same prompty (`label-defined@1`, `negotiate@1`), temperatura 0, myślenie wyłączone dla
+`qwen3:30b`, 3 rundy, te same 995 pytań (5 pytań pilota wyłączone). Drugi model: `mistral-small3.2:24b` (gęsta architektura
+Mistrala, inne dane treningowe, podobny rozmiar; `deepseek-r1:32b` odrzucony, bo to destylacja na bazie Qwen2.5).
+Trzy runy, w tym dwa nowe w obu kolejnościach, żeby nie mylić efektu modelu z efektem miejsca:
+
+| Run | Z konkluzją | Bez konkluzji | Stan |
+|---|---|---|---|
+| QQ | `qwen3:30b` | `qwen3:30b` | istnieje (`27e5441`) |
+| QM | `qwen3:30b` | `mistral-small3.2:24b` | nowy |
+| MQ | `mistral-small3.2:24b` | `qwen3:30b` | nowy |
+
+„Mieszane” = średnia z QM i MQ. Wszystkie porównania sparowane po pytaniach, na pytaniach ukończonych we wszystkich trzech
+runach.
+
+**Testy** (`scripts/agents/analyze_mixed_protocol.py`; dwa równorzędne, korekta Bonferroniego: przedziały 97.5%, bootstrap
+po pytaniach, 5000 losowań, seed 47):
+- **M1 — więcej sporów:** odsetek pytań, na których agenci różnią się w rundzie 0, mieszane − QQ. Potwierdzone, jeśli
+  przedział w całości powyżej 0; obalone, jeśli w całości ≤ 0; inaczej nierozstrzygnięte.
+- **M2 — lepsze `maybe`:** F1 `maybe` końcowej etykiety względem gold, mieszane − QQ. Usunięte pytania liczą się jako
+  odpowiedź „nie `maybe`”. Ta sama reguła.
+
+**Wtórne (bez korekty):** M1 i M2 osobno dla QM i MQ; odsetek sporów każdego runu obok ludzkiego (0.298); testy P1–P3
+z pierwszego odtworzenia dla QM i MQ, z tymi samymi regułami i wartościami ludzkimi; liczby statusów i końcowych etykiet;
+`maybe` w rundzie 0 według modelu i miejsca (`qwen3` i `mistral`, z konkluzją i bez) obok ludzkich 110 i 84; zgodność
+w rundzie 0 wirtualnej pary `mistral` × 2 (etykiety `mistral` z MQ i QM); F1 `maybe` końcowej etykiety względem każdego
+annotatora; końcowe `maybe` na gold `maybe` jednomyślnych i negocjowanych; accuracy względem gold.
+
+**Znane przed rejestracją:** całe QQ i etykiety ludzi; pilot obu kolejności na 5 pytaniach pilota (10/10 ukończonych,
+0 nieczytelnych odpowiedzi — sprawdzenie, że odpowiedzi `mistral` się parsują). Etykiet `mistral` na analizowanych
+pytaniach nie oglądaliśmy.
+
+**Uruchomienie po commicie rejestracji:** QM i MQ równolegle, każdy na osobnym serwerze Ollama (A40, oba modele mieszczą
+się na jednej karcie):
+
+```
+python scripts/agents/run_annotation_protocol.py --model-with qwen3:30b --model-without mistral-small3.2:24b
+python scripts/agents/run_annotation_protocol.py --model-with mistral-small3.2:24b --model-without qwen3:30b
+python scripts/agents/analyze_mixed_protocol.py
+```
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1092,3 +1139,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-08 — **odtworzenie protokołu policzone:** P1, P2, P3 nierozstrzygnięte. Kształt procesu częściowo się odtwarza
   (strona z konkluzją wygrywa 2/3 sporów, brak kompromisu yes/no → `maybe`), ilość `maybe` nie: agent z konkluzją mówi
   `maybe` 29 razy wobec 110 u człowieka — konkluzja działa na model odwrotnie niż na annotatora (eksploracyjnie).
+- 2026-10-12 — **zarejestrowane odtworzenie protokołu przez dwa różne modele** (`qwen3:30b` i `mistral-small3.2:24b`,
+  obie kolejności): M1 (więcej sporów niż `qwen3` × 2) i M2 (lepsze F1 `maybe` względem gold), przedziały 97.5%.
+  Protokół przyjmuje teraz osobny model dla każdej strony. Pilot na 5 pytaniach: 0 błędów.

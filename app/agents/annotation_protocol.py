@@ -5,7 +5,8 @@ the abstract and the authors' conclusion; annotator 2 read only the question and
 When their labels matched, that was the label. When they did not, the same two people discussed
 until they agreed, and questions they could not settle were removed from the dataset.
 
-``AnnotationProtocol`` plays that procedure with two agents on one inference backend:
+``AnnotationProtocol`` plays that procedure with two agents, on one inference backend or on one
+backend per annotator (``backends``), so the two seats can be different models:
 
   round 0   both agents label independently, each from its own text;
   agreement the shared label is final (status ``agreed``);
@@ -113,15 +114,20 @@ def parse_answer(content: str) -> tuple[str | None, int | None, str]:
 class AnnotationProtocol:
     def __init__(
         self,
-        backend: Backend,
+        backend: Backend | None = None,
         *,
+        backends: dict[str, Backend] | None = None,
         label_spec: PromptSpecLike,
         negotiate_spec: PromptSpecLike,
         max_rounds: int = 3,
         num_predict: int = 600,
         attempts: int = 2,
     ) -> None:
-        self.backend = backend
+        if (backend is None) == (backends is None):
+            raise ValueError("pass either one backend for both annotators or backends for each")
+        self.backends = backends if backends is not None else {a: backend for a in ANNOTATORS}
+        if set(self.backends) != set(ANNOTATORS):
+            raise ValueError(f"backends must cover exactly {ANNOTATORS}")
         self.label_spec = label_spec
         self.negotiate_spec = negotiate_spec
         self.max_rounds = max_rounds
@@ -133,7 +139,7 @@ class AnnotationProtocol:
         error = ""
         for _ in range(self.attempts):
             try:
-                content = await self.backend.complete(
+                content = await self.backends[annotator].complete(
                     messages, temperature=0.0, num_predict=self.num_predict, response_format=spec.schema
                 )
             except Exception as exc:  # backend already retried; record and try once more

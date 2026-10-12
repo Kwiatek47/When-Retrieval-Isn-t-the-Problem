@@ -68,8 +68,19 @@ def claim_values(claim: dict, doc: dict) -> tuple[float, tuple[float, float] | N
     return value, ci
 
 
+def file_verdict(claim: dict, doc: dict) -> str | None:
+    if "verdict_path" in claim:
+        return lookup(doc, claim["verdict_path"])
+    node = lookup(doc, claim["path"]) if "path" in claim else None
+    return node.get("verdict") if isinstance(node, dict) else None
+
+
 def check_claim(claim: dict, doc: dict) -> list[str]:
-    """Problems with one claim; empty if the number and interval match the file."""
+    """Problems with one claim; empty if number, interval and verdict match the file.
+
+    An interval or verdict the file has but the claim leaves out is a problem too, so a tested
+    result cannot be quoted without its uncertainty or its outcome.
+    """
     value, ci = claim_values(claim, doc)
     problems = []
     if not same(value, claim["value"]):
@@ -81,10 +92,13 @@ def check_claim(claim: dict, doc: dict) -> list[str]:
             for side, want, got in zip(("low", "high"), claim["ci"], ci):
                 if not same(got, want):
                     problems.append(f"ci_{side} {want} but file has {got}")
-    if "verdict" in claim and isinstance(lookup(doc, claim.get("path", "/")), dict):
-        got = lookup(doc, claim["path"]).get("verdict")
-        if got is not None and got != claim["verdict"]:
-            problems.append(f"verdict {claim['verdict']!r} but file has {got!r}")
+    elif ci is not None:
+        problems.append(f"file has an interval [{ci[0]}, {ci[1]}] the claim leaves out")
+    verdict = file_verdict(claim, doc)
+    if verdict is not None and verdict != claim.get("verdict"):
+        problems.append(f"verdict {claim.get('verdict')!r} but file has {verdict!r}")
+    elif verdict is None and "verdict" in claim:
+        problems.append("claim gives a verdict the file does not record (set verdict_path)")
     return problems
 
 
@@ -143,6 +157,10 @@ def manifest(spec: dict, results: Path = RESULTS) -> str:
         "otherwise. Status: *registered* = criterion committed before the run; *exploratory* = not",
         "registered or on questions already inspected; *descriptive* = a count, not a test.",
         "",
+        "Verdict is the outcome the analysis script recorded for a tested quantity, under the rule fixed",
+        "in its registration. A dash means the row is not a test: a count, a component of a test (for",
+        "example A and B of H4's D = A - B) or a human reference value.",
+        "",
     ]
     for section in spec["sections"]:
         lines += [f"## {section['id']}. {section['title']}", "",
@@ -151,7 +169,7 @@ def manifest(spec: dict, results: Path = RESULTS) -> str:
             src = sources[claim["source"]]
             key = claim.get("path") or " + ".join(claim["sum"])
             lines.append(
-                f"| {claim['id']} | {claim['text']} | {fmt(claim)} | {claim.get('verdict', '')} "
+                f"| {claim['id']} | {claim['text']} | {fmt(claim)} | {claim.get('verdict', '—')} "
                 f"| `data/{copy_name(src)}` `{key}` | {src['status']} |"
             )
         lines.append("")
