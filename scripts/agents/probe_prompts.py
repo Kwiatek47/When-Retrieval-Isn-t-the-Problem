@@ -255,6 +255,71 @@ In this collection about 55% of questions are answered yes, 34% no and 11% maybe
     options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
 )
 
+# --- Caveat rule and maybe threshold (2026-10-12) -------------------------------------------
+# Both prompts keep label-defined@1's definition and add probabilities for the three answers,
+# so a maybe threshold can be set on the non-test half. label-caveat-probs@1 adds one rule:
+# an answer the text itself restricts or leaves open is maybe. It comes from two results: the
+# annotator who saw the conclusion said maybe more often when the conclusion was conditional
+# (H1b, secondary), while qwen3 and mistral said maybe less often once they saw the conclusion.
+
+_PROBS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "rationale": {"type": "string"},
+        "label": {"type": "string", "enum": ["yes", "no", "maybe"]},
+        "p_yes": {"type": "integer", "minimum": 0, "maximum": 100},
+        "p_no": {"type": "integer", "minimum": 0, "maximum": 100},
+        "p_maybe": {"type": "integer", "minimum": 0, "maximum": 100},
+    },
+    "required": ["rationale", "label", "p_yes", "p_no", "p_maybe"],
+}
+
+_PROBS_OUTPUT = """First give a short rationale (at most 40 words), then the answer, then how likely
+each of the three answers is, as whole percentages that add up to 100.
+Return JSON: {{"rationale": "...", "label": "yes" | "no" | "maybe", "p_yes": 0-100, "p_no": 0-100, "p_maybe": 0-100}}"""
+
+_CAVEAT_RULE = """Before you answer, check whether the text limits its own answer to the question:
+- the answer is said to hold only for some patients, subgroups, outcomes, doses or settings;
+- the text reports findings that point in different directions for this question; or
+- the authors' conclusion, if the text includes it, restricts its answer or leaves the question open.
+If the text limits its answer in one of these ways, answer maybe, even when one direction seems
+more likely. A conclusion that states a direction but limits it is a reason for maybe, not for a
+confident yes or no."""
+
+LABEL_PROBS_V1 = PromptSpec(
+    name="label-probs",
+    version=1,
+    status="registered",
+    purpose="As label-defined@1, plus a probability for each answer (maybe threshold, point 2).",
+    notes="Pre-registered 2026-10-12 with the caveat/threshold probe (PLAN, 'Reguła zastrzeżenia i próg maybe').",
+    system=_LABEL_SYSTEM,
+    user="""Research question: {question}
+
+{evidence}
+
+""" + _MAYBE_DEFINITION + "\n\n" + _PROBS_OUTPUT,
+    schema=_PROBS_SCHEMA,
+    fields=("question", "evidence"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
+LABEL_CAVEAT_PROBS_V1 = PromptSpec(
+    name="label-caveat-probs",
+    version=1,
+    status="registered",
+    purpose="As label-probs@1, plus the rule that an answer the text itself limits is maybe (point 1).",
+    notes="Pre-registered 2026-10-12 with the caveat/threshold probe (PLAN, 'Reguła zastrzeżenia i próg maybe').",
+    system=_LABEL_SYSTEM,
+    user="""Research question: {question}
+
+{evidence}
+
+""" + _MAYBE_DEFINITION + "\n\n" + _CAVEAT_RULE + "\n\n" + _PROBS_OUTPUT,
+    schema=_PROBS_SCHEMA,
+    fields=("question", "evidence"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
 # --- Protocol replay: two LLM annotators negotiate as PQA-L's annotators did ------------------
 # Round 0 of the replay uses label-defined@1 unchanged (with and without the conclusion). This
 # prompt is only for the discussion rounds that follow a disagreement.
@@ -303,6 +368,8 @@ PROMPTS: dict[str, PromptSpec] = {
         LABEL_MINIMAL_V1,
         LABEL_DEFINED_V1,
         LABEL_DEFINED_PRIOR_V1,
+        LABEL_PROBS_V1,
+        LABEL_CAVEAT_PROBS_V1,
         NEGOTIATE_V1,
     )
 }

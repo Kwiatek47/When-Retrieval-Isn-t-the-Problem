@@ -780,6 +780,54 @@ z runów mieszanych ma 0.139 sporów — tyle co QQ (0.148), więc szum nie tłu
    wygrywa `qwen3` niezależnie od miejsca: 152/174 (0.874), gdy widzi konkluzję, i 99/151 (0.656), gdy jej nie widzi.
    Negocjacja agentów mierzy więc ich wzajemną „siłę przekonywania”, a nie przewagę informacyjną (po fakcie).
 
+#### Rejestracja: reguła zastrzeżenia i próg `maybe` (2026-10-12)
+
+**Pytanie.** Dwie poprawki tego, co pokazały odtworzenia protokołu. (1) Modele mówią `maybe` rzadziej, gdy widzą
+konkluzję, a annotator z konkluzją częściej (110 wobec 84), i to tym częściej, im bardziej warunkowa jest konkluzja
+(H1b, wtórnie +0.170). Czy jawna reguła „odpowiedź, którą tekst sam ogranicza, to `maybe`” odwraca kierunek efektu
+konkluzji i zbliża model do annotatora z konkluzją? (2) Modele mówią `maybe` 2–4 razy za rzadko. Czy próg na
+prawdopodobieństwie `maybe`, ustawiony tak, by częstość `maybe` była ludzka, poprawia trafianie w `maybe` człowieka?
+
+**Prompty** (`scripts/agents/probe_prompts.py`, hashe przypięte w `tests/test_probe_prompts.py`):
+- `label-probs@1` (`ca366f2dcb94`): definicja z `label-defined@1` plus prawdopodobieństwa trzech odpowiedzi (p_yes, p_no,
+  p_maybe, w procentach);
+- `label-caveat-probs@1` (`6f14991578dc`): to samo plus reguła: jeśli tekst sam ogranicza odpowiedź (tylko niektóre
+  podgrupy, wyniki, dawki lub warunki; wyniki w różnych kierunkach; konkluzja autorów zawęża odpowiedź albo zostawia
+  pytanie otwarte), odpowiedz `maybe`, nawet jeśli jeden kierunek wydaje się bardziej prawdopodobny.
+
+**Runy** (`run_label_probe.py`, tylko runda 0, wszystkie 1000 pytań PQA-L, temperatura 0, myślenie wyłączone dla `qwen3`):
+2 modele (`qwen3:30b`, `mistral-small3.2:24b`) × 2 prompty × 2 wejścia (`context`, `context+conclusion`) = 8 runów.
+Odpowiednik ludzki: wejście z konkluzją — annotator 1 (`reasoning_free_pred`), bez — annotator 2 (`reasoning_required_pred`).
+Pytania pilota (`PILOT_PMIDS`, 5 z testu) wyłączone.
+
+**Testy** (`scripts/agents/analyze_caveat_threshold.py`; trzy równorzędne, korekta Bonferroniego: przedziały 98.33%,
+bootstrap po pytaniach, 5000 losowań, seed 47; każda statystyka to średnia z dwóch modeli; potwierdzone, jeśli przedział
+w całości powyżej 0, obalone, jeśli w całości ≤ 0, inaczej nierozstrzygnięte):
+- **C1 — kierunek efektu konkluzji (punkt 1):** efekt konkluzji = odsetek `maybe` z konkluzją − bez niej (deklarowane
+  etykiety). C1 = efekt przy `label-caveat-probs@1` − efekt przy `label-probs@1`. Wszystkie pytania.
+- **C2 — `maybe` jak u annotatora z konkluzją (punkt 1):** F1 `maybe` wejścia z konkluzją względem annotatora 1,
+  `label-caveat-probs@1` − `label-probs@1`. Wszystkie pytania.
+- **T1 — próg (punkt 2), `label-probs@1`:** F1 `maybe` względem ludzkiego odpowiednika, etykiety z progiem − deklarowane,
+  średnio po 2 modelach × 2 wejściach. **Tylko pytania testowe.** Próg ustalany na 500 pytaniach spoza testu, osobno dla
+  modelu i wejścia: wartość p_maybe (znormalizowanego do sumy 1), przy której odsetek pytań z p_maybe ≥ progu jest
+  najbliższy odsetkowi `maybe` ludzkiego odpowiednika na tych pytaniach (remis → wyższy próg). Etykieta z progiem:
+  `maybe`, jeśli p_maybe ≥ próg; inaczej deklarowana etykieta, jeśli to yes lub no; inaczej większe z p_yes i p_no
+  (remis → yes). W bootstrapie próg jest stały.
+
+**Wtórne (bez korekty):** wszystko osobno dla każdego modelu; efekt konkluzji dla każdego promptu z przedziałem 95%
+obok ludzkiego (+0.026); liczby `maybe` według modelu, promptu i wejścia; F1 `maybe` względem gold i każdego annotatora,
+etykiety deklarowane i z progiem, oba prompty; próg zastosowany do `label-caveat-probs@1`; AP i AUROC p_maybe dla `maybe`
+odpowiednika i gold (test); accuracy względem gold, deklarowane wobec z progiem (test); wybrane progi i odsetki `maybe`,
+jakie dają poza testem i na teście.
+
+**Znane przed rejestracją:** etykiety `label-defined@1` z rundy 0 obu modeli z konkluzją i bez (odtworzenia protokołu;
+dla `qwen3` także sondy etykiet); pilot obu nowych promptów na 5 pytaniach pilota (40/40 odpowiedzi, wszystkie
+z poprawnymi prawdopodobieństwami). Treść reguły zastrzeżenia wynika z H1b i odtworzeń; nie była dobierana na wynikach
+nowych promptów.
+
+**Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_caveat_threshold.sh > logs/caveat_threshold.log 2>&1 < /dev/null &`
+(`qwen3` na serwerze GPU0, `mistral` na GPU2, równolegle; potem zwolnienie modeli i analiza).
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1190,3 +1238,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-12 — **odtworzenie z dwoma różnymi modelami policzone:** M1 potwierdzone (+0.034 [+0.010, +0.058] sporów, ale to
   ok. 1/4 luki do ludzi), M2 nierozstrzygnięte. `mistral` też mówi rzadziej `maybe` z konkluzją (42 wobec 63); spory
   wygrywa `qwen3` niezależnie od tego, czy widzi konkluzję (0.874 i 0.656).
+- 2026-10-12 — **zarejestrowana reguła zastrzeżenia i próg `maybe`** (prompty `label-probs@1`, `label-caveat-probs@1`;
+  `qwen3:30b` i `mistral-small3.2:24b`, runda 0 na 1000 pytaniach): C1 (reguła odwraca efekt konkluzji), C2 (zbliża do
+  annotatora z konkluzją), T1 (próg z połowy spoza testu poprawia F1 `maybe` na teście), przedziały 98.33%.

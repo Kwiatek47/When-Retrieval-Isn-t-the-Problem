@@ -68,6 +68,28 @@ def parse_label(content: str) -> tuple[str | None, int | None, str]:
     return data["label"], confidence, rationale if isinstance(rationale, str) else ""
 
 
+def parse_probs(content: str) -> dict[str, float] | None:
+    """``p_yes``, ``p_no``, ``p_maybe`` scaled to sum to 1; ``None`` if absent or all zero."""
+    try:
+        data = json.loads(content)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    raw = {}
+    for label in LABELS:
+        value = data.get(f"p_{label}")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
+            return None
+        raw[label] = float(value)
+    total = sum(raw.values())
+    return {k: round(v / total, 4) for k, v in raw.items()} if total > 0 else None
+
+
+def wants_probs(spec: PromptSpec) -> bool:
+    return "p_maybe" in spec.schema.get("properties", {})
+
+
 def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9.]+", "-", text).strip("-")
 
@@ -115,24 +137,24 @@ def ask_one(
     task: dict, spec: PromptSpec, base_url: str, model: str, timeout: float, think: str = "default", attempts: int = 3
 ) -> dict:
     messages = spec.messages(question=task["question"], evidence=task["evidence"])
-    label, confidence, rationale, error = None, None, "", ""
+    label, confidence, rationale, probs, error = None, None, "", None, ""
     for attempt in range(attempts):
         try:
-            label, confidence, rationale = parse_label(
-                ollama_chat_json(
-                    base_url,
-                    model,
-                    spec,
-                    messages,
-                    seed=task["repeat"] + 1,
-                    timeout=timeout,
-                    think=THINK[think],
-                    options=DECODING[think],
-                )
+            content = ollama_chat_json(
+                base_url,
+                model,
+                spec,
+                messages,
+                seed=task["repeat"] + 1,
+                timeout=timeout,
+                think=THINK[think],
+                options=DECODING[think],
             )
-            if label is not None:
+            label, confidence, rationale = parse_label(content)
+            probs = parse_probs(content) if wants_probs(spec) else None
+            if label is not None and (probs is not None or not wants_probs(spec)):
                 break
-            error = "unparseable reply"
+            label, error = None, "unparseable reply" if label is None else "missing probabilities"
         except Exception as exc:  # network or server error: retry, then record the failure
             error = f"{type(exc).__name__}: {exc}"
             time.sleep(2 * (attempt + 1))
@@ -142,6 +164,7 @@ def ask_one(
         "repeat": task["repeat"],
         "label": label,
         "confidence": confidence,
+        "probs": probs,
         "rationale": rationale,
         "error": "" if label is not None else error,
         "model": model,
