@@ -238,7 +238,31 @@ code { font-family: var(--font-mono); font-size: 0.88em; }
     <ul>
       <li>Różnica w liczbie sporów zamyka tylko około jednej czwartej luki do ludzi. Nadmierna zgoda agentów w większości nie wynika z tego, że to ten sam model.</li>
       <li>Konkluzja usztywnia oba modele: każdy mówi <code>maybe</code> rzadziej, gdy ją widzi. U ludzi jest odwrotnie (110 wobec 84). Ta obserwacja z pierwszego odtworzenia powtórzyła się na drugiej rodzinie modeli.</li>
-      <li>Spór wygrywa <code>qwen3</code>, niezależnie od tego, czy widzi konkluzję (87% i 66%). U ludzi wygrywa strona, która wie więcej. Negocjacja agentów mierzy więc siłę przekonywania modelu, a nie przewagę informacyjną. To wniosek po fakcie.</li>
+      <li>Spór wygrywa <code>qwen3</code>, niezależnie od tego, czy widzi konkluzję (87% i 66%). U ludzi wygrywa strona, która wie więcej.</li>
+    </ul>
+    <h3>Czy cytowanie dowodów zmienia, kto wygrywa?</h3>
+    <p>Wszystkie spory z par mieszanych przegadaliśmy od nowa, od tych samych etykiet początkowych. W nowej wersji każda strona musiała zacytować fragment swojego tekstu, a prompt kazał oceniać dowody zamiast pewności siebie rozmówcy.</p>
+    <div class="finding-head">
+      <span>Mniejsza przewaga silniejszego modelu: <span class="num">+0,038 [−0,020; 0,095]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="finding-head">
+      <span>Większa przewaga strony z konkluzją: <span class="num">+0,029 [−0,028; 0,087]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Strona z konkluzją wygrywa spór</th><th class="n">bez cytatów</th><th class="n">z cytatami</th></tr></thead>
+        <tbody>
+          <tr><td>gdy konkluzję ma <code>qwen3</code></td><td class="n">89%</td><td class="n">96%</td></tr>
+          <tr><td>gdy konkluzję ma <code>mistral</code></td><td class="n">34%</td><td class="n">33%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Cytaty nie przenoszą wygranych na stronę, która wie więcej. Przewaga <code>qwen3</code> zostaje, a z cytatami nawet rośnie.</li>
+      <li><code>mistral</code> z konkluzją cytuje ją rzadko (26%) i ustępuje. Deklaruje też niższą pewność niż <code>qwen3</code>. O wyniku dyskusji agentów decyduje więc, który model łatwiej ustępuje, a nie kto wie więcej. To obserwacja po fakcie.</li>
+      <li>Dla tezy: negocjacja modeli nie odtwarza ludzkiej, w której wygrywa strona z informacją.</li>
     </ul>
   </section>
 
@@ -297,7 +321,7 @@ code { font-family: var(--font-mono); font-size: 0.88em; }
 
   <footer>
     <p>Przedziały to 95% CI z bootstrapu po pytaniach (5000 losowań, seed 47). Wyjątkiem są testy odtworzenia protokołu, które mają przedziały z poprawką Bonferroniego (97,5% albo 98,33%). „Zarejestrowane” oznacza, że kryterium zostało zacommitowane przed uruchomieniem testu.</p>
-    <p>Źródło liczb: <code>paper/results/MANIFEST.md</code> w repozytorium. Wszystkie 91 liczb jest sprawdzanych z plikami wyników przez <code>make paper-results-check</code>.</p>
+    <p>Źródło liczb: <code>paper/results/MANIFEST.md</code> w repozytorium. Wszystkie 102 liczby są sprawdzane z plikami wyników przez <code>make paper-results-check</code>.</p>
   </footer>
 </main>
 </body>

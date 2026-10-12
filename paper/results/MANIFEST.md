@@ -136,16 +136,32 @@ example A and B of H4's D = A - B) or a human reference value.
 | G12 | qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), no rule | 0.617 | — | `data/caveat_threshold.json` `/test_cells/qwen3|probs|with/p_maybe_auroc/counterpart` | registered |
 | G13 | qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), caveat rule | 0.708 | — | `data/caveat_threshold.json` `/test_cells/qwen3|caveat|with/p_maybe_auroc/counterpart` | registered |
 
-## H. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+## H. Who wins a dispute: the stronger model, not the better-informed side (negotiation on quoted evidence)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
-| H1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
-| H2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
-| H3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
-| H4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
-| H5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
-| H6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
+| H1 | N1: model advantage D, quoted-evidence arm minus old prompt | 0.038 [-0.020, 0.095] | inconclusive | `data/negotiation_dominance.json` `/N1_model_advantage_evidence_minus_old` | registered |
+| H2 | N2: information advantage I, quoted-evidence arm minus old prompt | 0.029 [-0.028, 0.087] | inconclusive | `data/negotiation_dominance.json` `/N2_information_advantage_evidence_minus_old` | registered |
+| H3 | Model advantage D (qwen3's share of settled wins minus 0.5), old prompt rerun | 0.276 [0.233, 0.318] | — | `data/negotiation_dominance.json` `/by_arm/old/D_model_advantage` | registered |
+| H4 | Model advantage D, quoted-evidence arm | 0.314 [0.272, 0.354] | — | `data/negotiation_dominance.json` `/by_arm/evidence/D_model_advantage` | registered |
+| H5 | Information advantage I, quoted-evidence arm | 0.143 [0.102, 0.184] | — | `data/negotiation_dominance.json` `/by_arm/evidence/I_information_advantage` | registered |
+| H6 | Information advantage I of the two human annotators (995 questions) | 0.228 | — | `data/negotiation_dominance.json` `/human_I` | registered |
+| H7 | Side with the conclusion wins, qwen3 holds it, quoted-evidence arm | 0.956 | — | `data/negotiation_dominance.json` `/by_arm/evidence/w_with_QM` | registered |
+| H8 | Side with the conclusion wins, mistral holds it, quoted-evidence arm | 0.329 | — | `data/negotiation_dominance.json` `/by_arm/evidence/w_with_MQ` | registered |
+| H9 | Old-prompt rerun gives the source run's final label (QM disputes) | 0.874 | — | `data/negotiation_dominance.json` `/old_rerun_same_final_as_source/QM` | registered |
+| H10 | Share of mistral's quotes as the conclusion side taken from the conclusion | 0.259 | — | `data/negotiation_dominance.json` `/quotes/MQ|evidence/conclusion_side_from_conclusion_share` | registered |
+| H11 | Share of qwen3's quotes as the conclusion side taken from the conclusion | 0.406 | — | `data/negotiation_dominance.json` `/quotes/QM|evidence/conclusion_side_from_conclusion_share` | registered |
+
+## I. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+
+| ID | Claim | Number | Verdict | Source | Status |
+|---|---|---|---|---|---|
+| I1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
+| I2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
+| I3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
+| I4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
+| I5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
+| I6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
 
 ## Sources
 
@@ -161,6 +177,7 @@ example A and B of H4's D = A - B) or a human reference value.
 | `data/annotation_protocol.json` | `scripts/agents/analyze_annotation_protocol.py` | registered | `27e5441` | 995 PQA-L questions (5 pilot questions left out); 98.33% Bonferroni intervals | `886a8b35014b` |
 | `data/mixed_protocol.json` | `scripts/agents/analyze_mixed_protocol.py` | registered | `b0b71b7` | 995 PQA-L questions (5 pilot questions left out); M1/M2 with 97.5% Bonferroni intervals, the rest 95% | `2f03be7494dd` |
 | `data/caveat_threshold.json` | `scripts/agents/analyze_caveat_threshold.py` | registered | `91876fa` | 995 PQA-L questions (495 test, 500 non-test for the threshold); C1/C2/T1 with 98.33% Bonferroni intervals, the rest 95% | `2aca021fc38d` |
+| `data/negotiation_dominance.json` | `scripts/agents/analyze_negotiation_dominance.py` | registered | `607e0e4` | 191 QM and 171 MQ disputes replayed from their round-0 labels; N1/N2 with 97.5% Bonferroni intervals, the rest 95% | `c587c030c9c2` |
 | `data/h1_hedging.json` | `scripts/agents/analyze_h1_hedging.py` | registered | PLAN 2026-09-23, no separate commit | 971 PQA-L questions with a results section | `33bf566b6d5f` |
 | `data/h1b_conditionality.json` | `scripts/agents/analyze_h1b_conditionality.py` | registered | `73cd9bf` | 971 PQA-L questions with a results section | `14d7fedc37ff` |
 

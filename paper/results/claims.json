@@ -72,6 +72,13 @@
       "registration": "91876fa",
       "n": "995 PQA-L questions (495 test, 500 non-test for the threshold); C1/C2/T1 with 98.33% Bonferroni intervals, the rest 95%"
     },
+    "negotiation_dominance": {
+      "from": "reports/debate/analysis/negotiation_dominance.json",
+      "script": "scripts/agents/analyze_negotiation_dominance.py",
+      "status": "registered",
+      "registration": "607e0e4",
+      "n": "191 QM and 171 MQ disputes replayed from their round-0 labels; N1/N2 with 97.5% Bonferroni intervals, the rest 95%"
+    },
     "h1": {
       "from": "reports/debate/analysis/h1_hedging.json",
       "script": "scripts/agents/analyze_h1_hedging.py",
@@ -224,14 +231,31 @@
     },
     {
       "id": "H",
+      "title": "Who wins a dispute: the stronger model, not the better-informed side (negotiation on quoted evidence)",
+      "claims": [
+        {"id": "H1", "text": "N1: model advantage D, quoted-evidence arm minus old prompt", "source": "negotiation_dominance", "path": "/N1_model_advantage_evidence_minus_old", "value": "0.038", "ci": ["-0.020", "0.095"], "verdict": "inconclusive"},
+        {"id": "H2", "text": "N2: information advantage I, quoted-evidence arm minus old prompt", "source": "negotiation_dominance", "path": "/N2_information_advantage_evidence_minus_old", "value": "0.029", "ci": ["-0.028", "0.087"], "verdict": "inconclusive"},
+        {"id": "H3", "text": "Model advantage D (qwen3's share of settled wins minus 0.5), old prompt rerun", "source": "negotiation_dominance", "path": "/by_arm/old/D_model_advantage", "value": "0.276", "ci": ["0.233", "0.318"]},
+        {"id": "H4", "text": "Model advantage D, quoted-evidence arm", "source": "negotiation_dominance", "path": "/by_arm/evidence/D_model_advantage", "value": "0.314", "ci": ["0.272", "0.354"]},
+        {"id": "H5", "text": "Information advantage I, quoted-evidence arm", "source": "negotiation_dominance", "path": "/by_arm/evidence/I_information_advantage", "value": "0.143", "ci": ["0.102", "0.184"]},
+        {"id": "H6", "text": "Information advantage I of the two human annotators (995 questions)", "source": "negotiation_dominance", "path": "/human_I", "value": "0.228"},
+        {"id": "H7", "text": "Side with the conclusion wins, qwen3 holds it, quoted-evidence arm", "source": "negotiation_dominance", "path": "/by_arm/evidence/w_with_QM", "value": "0.956"},
+        {"id": "H8", "text": "Side with the conclusion wins, mistral holds it, quoted-evidence arm", "source": "negotiation_dominance", "path": "/by_arm/evidence/w_with_MQ", "value": "0.329"},
+        {"id": "H9", "text": "Old-prompt rerun gives the source run's final label (QM disputes)", "source": "negotiation_dominance", "path": "/old_rerun_same_final_as_source/QM", "value": "0.874"},
+        {"id": "H10", "text": "Share of mistral's quotes as the conclusion side taken from the conclusion", "source": "negotiation_dominance", "path": "/quotes/MQ|evidence/conclusion_side_from_conclusion_share", "value": "0.259"},
+        {"id": "H11", "text": "Share of qwen3's quotes as the conclusion side taken from the conclusion", "source": "negotiation_dominance", "path": "/quotes/QM|evidence/conclusion_side_from_conclusion_share", "value": "0.406"}
+      ]
+    },
+    {
+      "id": "I",
       "title": "What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)",
       "claims": [
-        {"id": "H1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "H2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "H3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
-        {"id": "H4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
-        {"id": "H5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
-        {"id": "H6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
+        {"id": "I1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "I2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "I3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
+        {"id": "I4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
+        {"id": "I5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
+        {"id": "I6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
       ]
     }
   ],
