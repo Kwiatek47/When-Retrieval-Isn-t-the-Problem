@@ -65,6 +65,13 @@
       "registration": "b0b71b7",
       "n": "995 PQA-L questions (5 pilot questions left out); M1/M2 with 97.5% Bonferroni intervals, the rest 95%"
     },
+    "caveat_threshold": {
+      "from": "reports/debate/analysis/caveat_threshold.json",
+      "script": "scripts/agents/analyze_caveat_threshold.py",
+      "status": "registered",
+      "registration": "91876fa",
+      "n": "995 PQA-L questions (495 test, 500 non-test for the threshold); C1/C2/T1 with 98.33% Bonferroni intervals, the rest 95%"
+    },
     "h1": {
       "from": "reports/debate/analysis/h1_hedging.json",
       "script": "scripts/agents/analyze_h1_hedging.py",
@@ -198,14 +205,33 @@
     },
     {
       "id": "G",
+      "title": "A stated caveat rule and a maybe threshold (qwen3:30b and mistral-small3.2:24b, round 0 only)",
+      "claims": [
+        {"id": "G1", "text": "C2: maybe F1 of the with-conclusion seat against the annotator with the conclusion, caveat rule minus without", "source": "caveat_threshold", "path": "/C2_maybe_f1_vs_annotator_with_conclusion_caveat_minus_probs", "value": "0.110", "ci": ["0.029", "0.193"], "verdict": "supported"},
+        {"id": "G2", "text": "C1: conclusion effect on the maybe rate, caveat rule minus without", "source": "caveat_threshold", "path": "/C1_conclusion_effect_caveat_minus_probs", "value": "-0.015", "ci": ["-0.037", "0.006"], "verdict": "inconclusive"},
+        {"id": "G3", "text": "T1: maybe F1 against the human counterpart, threshold minus stated labels (test)", "source": "caveat_threshold", "path": "/T1_maybe_f1_vs_counterpart_threshold_minus_stated", "value": "0.010", "ci": ["-0.041", "0.065"], "verdict": "inconclusive"},
+        {"id": "G4", "text": "Human conclusion effect on the maybe rate (110 vs 84 of 995)", "source": "caveat_threshold", "path": "/human/conclusion_effect", "value": "0.026"},
+        {"id": "G5", "text": "qwen3 conclusion effect with the caveat rule", "source": "caveat_threshold", "path": "/per_model/qwen3/conclusion_effect/caveat", "value": "-0.046", "ci": ["-0.069", "-0.023"]},
+        {"id": "G6", "text": "mistral conclusion effect with the caveat rule", "source": "caveat_threshold", "path": "/per_model/mistral/conclusion_effect/caveat", "value": "-0.028", "ci": ["-0.052", "-0.005"]},
+        {"id": "G7", "text": "qwen3 maybe count with the conclusion, caveat rule", "source": "caveat_threshold", "path": "/per_model/qwen3/maybe_count_all/caveat|with", "value": "124"},
+        {"id": "G8", "text": "qwen3 maybe count without the conclusion, caveat rule", "source": "caveat_threshold", "path": "/per_model/qwen3/maybe_count_all/caveat|without", "value": "170"},
+        {"id": "G9", "text": "qwen3 with conclusion: maybe F1 against the annotator with the conclusion, no rule", "source": "caveat_threshold", "path": "/per_model/qwen3/maybe_f1_all_stated/probs|with/vs_counterpart", "value": "0.282"},
+        {"id": "G10", "text": "qwen3 with conclusion: maybe F1 against the annotator with the conclusion, caveat rule", "source": "caveat_threshold", "path": "/per_model/qwen3/maybe_f1_all_stated/caveat|with/vs_counterpart", "value": "0.410"},
+        {"id": "G11", "text": "qwen3 with conclusion and caveat rule: maybe F1 against gold on the test half", "source": "caveat_threshold", "path": "/test_cells/qwen3|caveat|with/maybe_f1_vs_gold/stated", "value": "0.385"},
+        {"id": "G12", "text": "qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), no rule", "source": "caveat_threshold", "path": "/test_cells/qwen3|probs|with/p_maybe_auroc/counterpart", "value": "0.617"},
+        {"id": "G13", "text": "qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), caveat rule", "source": "caveat_threshold", "path": "/test_cells/qwen3|caveat|with/p_maybe_auroc/counterpart", "value": "0.708"}
+      ]
+    },
+    {
+      "id": "H",
       "title": "What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)",
       "claims": [
-        {"id": "G1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "G2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "G3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
-        {"id": "G4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
-        {"id": "G5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
-        {"id": "G6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
+        {"id": "H1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "H2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "H3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
+        {"id": "H4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
+        {"id": "H5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
+        {"id": "H6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
       ]
     }
   ],

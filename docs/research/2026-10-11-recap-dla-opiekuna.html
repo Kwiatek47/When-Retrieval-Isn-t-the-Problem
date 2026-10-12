@@ -243,6 +243,38 @@ code { font-family: var(--font-mono); font-size: 0.88em; }
   </section>
 
   <section>
+    <h2>Czy da się nauczyć model ludzkiego maybe?</h2>
+    <p>Dwie poprawki sprawdzone na obu modelach, na 1000 pytaniach, bez dyskusji (tylko pierwsza etykieta). Pierwsza to jawna reguła: jeśli tekst sam ogranicza swoją odpowiedź, na przykład do podgrupy albo warunku, odpowiedz <code>maybe</code>. Druga to próg na prawdopodobieństwie <code>maybe</code>, ustawiony tak, żeby model mówił <code>maybe</code> równie często jak człowiek.</p>
+    <div class="finding-head">
+      <span>Reguła zbliża model z konkluzją do człowieka z konkluzją: <span class="num">+0,110 [0,029; 0,193]</span></span>
+      <span class="chip ok">potwierdzone · zarejestrowane</span>
+    </div>
+    <div class="finding-head">
+      <span>Reguła odwraca efekt konkluzji: <span class="num">−0,015 [−0,037; 0,006]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="finding-head">
+      <span>Sam próg poprawia trafianie w <code>maybe</code>: <span class="num">+0,010 [−0,041; 0,065]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>qwen3:30b, strona z konkluzją</th><th class="n">bez reguły</th><th class="n">z regułą</th></tr></thead>
+        <tbody>
+          <tr><td>F1 <code>maybe</code> względem człowieka z konkluzją</td><td class="n">0,28</td><td class="n">0,41</td></tr>
+          <tr><td>Liczba <code>maybe</code> z konkluzją / bez (ludzie 110 / 84)</td><td class="n">46 / 73</td><td class="n">124 / 170</td></tr>
+          <tr><td>F1 <code>maybe</code> względem złotej etykiety, test</td><td class="n">0,22</td><td class="n">0,39</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Reguła działa lepiej niż samo dopasowanie częstości <code>maybe</code> i poprawia ranking (AUROC z 0,62 do 0,71). To wspiera odczytanie, że człowiek z konkluzją mówił <code>maybe</code>, gdy konkluzja ograniczała odpowiedź.</li>
+      <li>Konkluzja nadal usztywnia oba modele, nawet przy jawnej regule. To już trzecia obserwacja tego efektu.</li>
+      <li>Koszt reguły to około 2–3 punktów procentowych accuracy.</li>
+    </ul>
+  </section>
+
+  <section>
     <h2>Ograniczenia</h2>
     <ul>
       <li>„Nieodróżnialni” nie znaczy „równi”. Przedział dla luki człowiek − model ma szerokość około ±0,17.</li>
@@ -264,8 +296,8 @@ code { font-family: var(--font-mono); font-size: 0.88em; }
   </section>
 
   <footer>
-    <p>Przedziały to 95% CI z bootstrapu po pytaniach (5000 losowań, seed 47). Wyjątkiem są testy odtworzenia protokołu, które mają przedziały z poprawką Bonferroniego (98,33% i 97,5%). „Zarejestrowane” oznacza, że kryterium zostało zacommitowane przed uruchomieniem testu.</p>
-    <p>Źródło liczb: <code>paper/results/MANIFEST.md</code> w repozytorium. Wszystkie 78 liczb jest sprawdzanych z plikami wyników przez <code>make paper-results-check</code>.</p>
+    <p>Przedziały to 95% CI z bootstrapu po pytaniach (5000 losowań, seed 47). Wyjątkiem są testy odtworzenia protokołu, które mają przedziały z poprawką Bonferroniego (97,5% albo 98,33%). „Zarejestrowane” oznacza, że kryterium zostało zacommitowane przed uruchomieniem testu.</p>
+    <p>Źródło liczb: <code>paper/results/MANIFEST.md</code> w repozytorium. Wszystkie 91 liczb jest sprawdzanych z plikami wyników przez <code>make paper-results-check</code>.</p>
   </footer>
 </main>
 </body>

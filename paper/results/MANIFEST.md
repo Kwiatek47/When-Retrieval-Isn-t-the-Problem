@@ -118,16 +118,34 @@ example A and B of H4's D = A - B) or a human reference value.
 | F11 | Share of settled disputes won by the side with the conclusion, qwen3 holds it (humans 0.728) | 0.874 [0.824, 0.922] | inconclusive | `data/mixed_protocol.json` `/replay_tests/QM/P2_conclusion_wins` | registered |
 | F12 | Share of settled disputes won by the side with the conclusion, mistral holds it (humans 0.728) | 0.344 [0.270, 0.420] | not reproduced | `data/mixed_protocol.json` `/replay_tests/MQ/P2_conclusion_wins` | registered |
 
-## G. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+## G. A stated caveat rule and a maybe threshold (qwen3:30b and mistral-small3.2:24b, round 0 only)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
-| G1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
-| G2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
-| G3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
-| G4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
-| G5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
-| G6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
+| G1 | C2: maybe F1 of the with-conclusion seat against the annotator with the conclusion, caveat rule minus without | 0.110 [0.029, 0.193] | supported | `data/caveat_threshold.json` `/C2_maybe_f1_vs_annotator_with_conclusion_caveat_minus_probs` | registered |
+| G2 | C1: conclusion effect on the maybe rate, caveat rule minus without | -0.015 [-0.037, 0.006] | inconclusive | `data/caveat_threshold.json` `/C1_conclusion_effect_caveat_minus_probs` | registered |
+| G3 | T1: maybe F1 against the human counterpart, threshold minus stated labels (test) | 0.010 [-0.041, 0.065] | inconclusive | `data/caveat_threshold.json` `/T1_maybe_f1_vs_counterpart_threshold_minus_stated` | registered |
+| G4 | Human conclusion effect on the maybe rate (110 vs 84 of 995) | 0.026 | — | `data/caveat_threshold.json` `/human/conclusion_effect` | registered |
+| G5 | qwen3 conclusion effect with the caveat rule | -0.046 [-0.069, -0.023] | — | `data/caveat_threshold.json` `/per_model/qwen3/conclusion_effect/caveat` | registered |
+| G6 | mistral conclusion effect with the caveat rule | -0.028 [-0.052, -0.005] | — | `data/caveat_threshold.json` `/per_model/mistral/conclusion_effect/caveat` | registered |
+| G7 | qwen3 maybe count with the conclusion, caveat rule | 124 | — | `data/caveat_threshold.json` `/per_model/qwen3/maybe_count_all/caveat|with` | registered |
+| G8 | qwen3 maybe count without the conclusion, caveat rule | 170 | — | `data/caveat_threshold.json` `/per_model/qwen3/maybe_count_all/caveat|without` | registered |
+| G9 | qwen3 with conclusion: maybe F1 against the annotator with the conclusion, no rule | 0.282 | — | `data/caveat_threshold.json` `/per_model/qwen3/maybe_f1_all_stated/probs|with/vs_counterpart` | registered |
+| G10 | qwen3 with conclusion: maybe F1 against the annotator with the conclusion, caveat rule | 0.410 | — | `data/caveat_threshold.json` `/per_model/qwen3/maybe_f1_all_stated/caveat|with/vs_counterpart` | registered |
+| G11 | qwen3 with conclusion and caveat rule: maybe F1 against gold on the test half | 0.385 | — | `data/caveat_threshold.json` `/test_cells/qwen3|caveat|with/maybe_f1_vs_gold/stated` | registered |
+| G12 | qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), no rule | 0.617 | — | `data/caveat_threshold.json` `/test_cells/qwen3|probs|with/p_maybe_auroc/counterpart` | registered |
+| G13 | qwen3 with conclusion: AUROC of p_maybe for the annotator's maybe (test), caveat rule | 0.708 | — | `data/caveat_threshold.json` `/test_cells/qwen3|caveat|with/p_maybe_auroc/counterpart` | registered |
+
+## H. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+
+| ID | Claim | Number | Verdict | Source | Status |
+|---|---|---|---|---|---|
+| H1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
+| H2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
+| H3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
+| H4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
+| H5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
+| H6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
 
 ## Sources
 
@@ -142,6 +160,7 @@ example A and B of H4's D = A - B) or a human reference value.
 | `data/b1_selective_prediction.json` | `scripts/agents/analyze_b1_selective_prediction.py` | descriptive | — | 500 official test questions; threshold chosen out of fold; abstention costs 0.25 of an error | `a797fcadc461` |
 | `data/annotation_protocol.json` | `scripts/agents/analyze_annotation_protocol.py` | registered | `27e5441` | 995 PQA-L questions (5 pilot questions left out); 98.33% Bonferroni intervals | `886a8b35014b` |
 | `data/mixed_protocol.json` | `scripts/agents/analyze_mixed_protocol.py` | registered | `b0b71b7` | 995 PQA-L questions (5 pilot questions left out); M1/M2 with 97.5% Bonferroni intervals, the rest 95% | `2f03be7494dd` |
+| `data/caveat_threshold.json` | `scripts/agents/analyze_caveat_threshold.py` | registered | `91876fa` | 995 PQA-L questions (495 test, 500 non-test for the threshold); C1/C2/T1 with 98.33% Bonferroni intervals, the rest 95% | `2aca021fc38d` |
 | `data/h1_hedging.json` | `scripts/agents/analyze_h1_hedging.py` | registered | PLAN 2026-09-23, no separate commit | 971 PQA-L questions with a results section | `33bf566b6d5f` |
 | `data/h1b_conditionality.json` | `scripts/agents/analyze_h1b_conditionality.py` | registered | `73cd9bf` | 971 PQA-L questions with a results section | `14d7fedc37ff` |
 
