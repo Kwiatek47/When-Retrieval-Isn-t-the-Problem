@@ -58,6 +58,13 @@
       "registration": "27e5441",
       "n": "995 PQA-L questions (5 pilot questions left out); 98.33% Bonferroni intervals"
     },
+    "mixed_protocol": {
+      "from": "reports/debate/analysis/mixed_protocol.json",
+      "script": "scripts/agents/analyze_mixed_protocol.py",
+      "status": "registered",
+      "registration": "b0b71b7",
+      "n": "995 PQA-L questions (5 pilot questions left out); M1/M2 with 97.5% Bonferroni intervals, the rest 95%"
+    },
     "h1": {
       "from": "reports/debate/analysis/h1_hedging.json",
       "script": "scripts/agents/analyze_h1_hedging.py",
@@ -173,14 +180,32 @@
     },
     {
       "id": "F",
+      "title": "Replay with two different models (qwen3:30b and mistral-small3.2:24b, both seat orders)",
+      "claims": [
+        {"id": "F1", "text": "M1: round-0 dispute rate, mixed pairs minus qwen3 x 2", "source": "mixed_protocol", "path": "/M1_dispute_rate_mixed_minus_QQ", "value": "0.034", "ci": ["0.010", "0.058"], "verdict": "supported"},
+        {"id": "F2", "text": "M2: maybe F1 of the final label against gold, mixed pairs minus qwen3 x 2", "source": "mixed_protocol", "path": "/M2_maybe_f1_mixed_minus_QQ", "value": "-0.003", "ci": ["-0.098", "0.093"], "verdict": "inconclusive"},
+        {"id": "F3", "text": "Round-0 dispute rate, qwen3 x 2", "source": "mixed_protocol", "path": "/runs/QQ/dispute_rate", "value": "0.148"},
+        {"id": "F4", "text": "Round-0 dispute rate, qwen3 with conclusion + mistral without", "source": "mixed_protocol", "path": "/runs/QM/dispute_rate", "value": "0.192"},
+        {"id": "F5", "text": "Round-0 dispute rate, mistral with conclusion + qwen3 without", "source": "mixed_protocol", "path": "/runs/MQ/dispute_rate", "value": "0.172"},
+        {"id": "F6", "text": "Dispute rate of the two human annotators on the same 995 questions", "source": "mixed_protocol", "path": "/human/dispute_rate", "value": "0.298"},
+        {"id": "F7", "text": "Final `maybe`, qwen3 with conclusion + mistral without (gold 109)", "source": "mixed_protocol", "path": "/runs/QM/final_label_counts/maybe", "value": "28"},
+        {"id": "F8", "text": "Final `maybe`, mistral with conclusion + qwen3 without (gold 109)", "source": "mixed_protocol", "path": "/runs/MQ/final_label_counts/maybe", "value": "35"},
+        {"id": "F9", "text": "Round-0 `maybe` from mistral with the conclusion (humans: 110)", "source": "mixed_protocol", "path": "/round0_maybe_by_model_and_seat/mistral_with_conclusion", "value": "42"},
+        {"id": "F10", "text": "Round-0 `maybe` from mistral without the conclusion (humans: 84)", "source": "mixed_protocol", "path": "/round0_maybe_by_model_and_seat/mistral_context_only", "value": "63"},
+        {"id": "F11", "text": "Share of settled disputes won by the side with the conclusion, qwen3 holds it (humans 0.728)", "source": "mixed_protocol", "path": "/replay_tests/QM/P2_conclusion_wins", "value": "0.874", "ci": ["0.824", "0.922"], "verdict": "inconclusive"},
+        {"id": "F12", "text": "Share of settled disputes won by the side with the conclusion, mistral holds it (humans 0.728)", "source": "mixed_protocol", "path": "/replay_tests/MQ/P2_conclusion_wins", "value": "0.344", "ci": ["0.270", "0.420"], "verdict": "not reproduced"}
+      ]
+    },
+    {
+      "id": "G",
       "title": "What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)",
       "claims": [
-        {"id": "F1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "F2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
-        {"id": "F3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
-        {"id": "F4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
-        {"id": "F5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
-        {"id": "F6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
+        {"id": "G1", "text": "H1: hedging AUROC for gold `maybe`, conclusion minus results section", "source": "h1", "path": "/primary/difference", "value": "0.011", "ci": ["-0.054", "0.074"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "G2", "text": "H1b: conditionality AUROC for gold `maybe`, conclusion minus results section", "source": "h1b", "path": "/primary/difference", "value": "0.030", "ci": ["-0.019", "0.080"], "verdict": "inconclusive", "verdict_path": "/primary/verdict"},
+        {"id": "G3", "text": "H1b: conditionality AUROC in the results section the model sees", "source": "h1b", "path": "/primary/results_section/auroc", "value": "0.632"},
+        {"id": "G4", "text": "T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions", "source": "label_probe_independent", "path": "/think/on/T2_conclusion_effect_pooled_with_test", "value": "0.013", "ci": ["-0.083", "0.108"], "verdict": "inconclusive"},
+        {"id": "G5", "text": "qwen3:30b accuracy without the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context/accuracy_vs_gold", "value": "0.776"},
+        {"id": "G6", "text": "qwen3:30b accuracy with the conclusion (test)", "source": "label_probe_test", "path": "/think/on/context+conclusion/accuracy_vs_gold", "value": "0.822"}
       ]
     }
   ],
@@ -188,6 +213,6 @@
     "H3 soft labels, RQ8/RQ9a maybe detector, RQ6 abstract format, RQ3 debate conclusiveness flag: nulls or side results that do not bear on the thesis.",
     "RQ5 maybe taxonomy: waiting for the second coder; no results may be shown before the coding is done.",
     "RQ2 literature review of NEI datasets: not a computed result (docs/research/2026-09-26-rq2-przeglad-literatury-nei.md).",
-    "Raw LLM runs (reports/debate/analysis/annotation_protocol/, label_probe/): inputs to the files above; they stay where they are."
+    "Raw LLM runs (reports/debate/analysis/annotation_protocol/, label_probe/), including the two mixed-model runs: inputs to the files above; they stay where they are."
   ]
 }

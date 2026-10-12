@@ -101,16 +101,33 @@ example A and B of H4's D = A - B) or a human reference value.
 | E13 | Agent with the conclusion vs its human counterpart, round-0 accuracy | 0.806 | — | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/with_conclusion_vs_rf/accuracy` | registered |
 | E14 | Agent without the conclusion vs its human counterpart, round-0 accuracy | 0.726 | — | `data/annotation_protocol.json` `/round0_agreement_with_human_counterpart/context_only_vs_rr/accuracy` | registered |
 
-## F. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+## F. Replay with two different models (qwen3:30b and mistral-small3.2:24b, both seat orders)
 
 | ID | Claim | Number | Verdict | Source | Status |
 |---|---|---|---|---|---|
-| F1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
-| F2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
-| F3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
-| F4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
-| F5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
-| F6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
+| F1 | M1: round-0 dispute rate, mixed pairs minus qwen3 x 2 | 0.034 [0.010, 0.058] | supported | `data/mixed_protocol.json` `/M1_dispute_rate_mixed_minus_QQ` | registered |
+| F2 | M2: maybe F1 of the final label against gold, mixed pairs minus qwen3 x 2 | -0.003 [-0.098, 0.093] | inconclusive | `data/mixed_protocol.json` `/M2_maybe_f1_mixed_minus_QQ` | registered |
+| F3 | Round-0 dispute rate, qwen3 x 2 | 0.148 | — | `data/mixed_protocol.json` `/runs/QQ/dispute_rate` | registered |
+| F4 | Round-0 dispute rate, qwen3 with conclusion + mistral without | 0.192 | — | `data/mixed_protocol.json` `/runs/QM/dispute_rate` | registered |
+| F5 | Round-0 dispute rate, mistral with conclusion + qwen3 without | 0.172 | — | `data/mixed_protocol.json` `/runs/MQ/dispute_rate` | registered |
+| F6 | Dispute rate of the two human annotators on the same 995 questions | 0.298 | — | `data/mixed_protocol.json` `/human/dispute_rate` | registered |
+| F7 | Final `maybe`, qwen3 with conclusion + mistral without (gold 109) | 28 | — | `data/mixed_protocol.json` `/runs/QM/final_label_counts/maybe` | registered |
+| F8 | Final `maybe`, mistral with conclusion + qwen3 without (gold 109) | 35 | — | `data/mixed_protocol.json` `/runs/MQ/final_label_counts/maybe` | registered |
+| F9 | Round-0 `maybe` from mistral with the conclusion (humans: 110) | 42 | — | `data/mixed_protocol.json` `/round0_maybe_by_model_and_seat/mistral_with_conclusion` | registered |
+| F10 | Round-0 `maybe` from mistral without the conclusion (humans: 84) | 63 | — | `data/mixed_protocol.json` `/round0_maybe_by_model_and_seat/mistral_context_only` | registered |
+| F11 | Share of settled disputes won by the side with the conclusion, qwen3 holds it (humans 0.728) | 0.874 [0.824, 0.922] | inconclusive | `data/mixed_protocol.json` `/replay_tests/QM/P2_conclusion_wins` | registered |
+| F12 | Share of settled disputes won by the side with the conclusion, mistral holds it (humans 0.728) | 0.344 [0.270, 0.420] | not reproduced | `data/mixed_protocol.json` `/replay_tests/MQ/P2_conclusion_wins` | registered |
+
+## G. What `maybe` is not: nulls that narrow the thesis (the label is not hidden in the conclusion)
+
+| ID | Claim | Number | Verdict | Source | Status |
+|---|---|---|---|---|---|
+| G1 | H1: hedging AUROC for gold `maybe`, conclusion minus results section | 0.011 [-0.054, 0.074] | inconclusive | `data/h1_hedging.json` `/primary/difference` | registered |
+| G2 | H1b: conditionality AUROC for gold `maybe`, conclusion minus results section | 0.030 [-0.019, 0.080] | inconclusive | `data/h1b_conditionality.json` `/primary/difference` | registered |
+| G3 | H1b: conditionality AUROC in the results section the model sees | 0.632 | — | `data/h1b_conditionality.json` `/primary/results_section/auroc` | registered |
+| G4 | T2: maybe F1 gain from showing the model the conclusion, pooled over 984 questions | 0.013 [-0.083, 0.108] | inconclusive | `data/label_probe_qwen3_30b_independent.json` `/think/on/T2_conclusion_effect_pooled_with_test` | registered |
+| G5 | qwen3:30b accuracy without the conclusion (test) | 0.776 | — | `data/label_probe_qwen3_30b.json` `/think/on/context/accuracy_vs_gold` | registered |
+| G6 | qwen3:30b accuracy with the conclusion (test) | 0.822 | — | `data/label_probe_qwen3_30b.json` `/think/on/context+conclusion/accuracy_vs_gold` | registered |
 
 ## Sources
 
@@ -124,6 +141,7 @@ example A and B of H4's D = A - B) or a human reference value.
 | `data/h4_abstention.json` | `scripts/agents/analyze_h4_abstention.py` | registered | `a622b87` | 500 official test questions | `1c306f8e88f9` |
 | `data/b1_selective_prediction.json` | `scripts/agents/analyze_b1_selective_prediction.py` | descriptive | — | 500 official test questions; threshold chosen out of fold; abstention costs 0.25 of an error | `a797fcadc461` |
 | `data/annotation_protocol.json` | `scripts/agents/analyze_annotation_protocol.py` | registered | `27e5441` | 995 PQA-L questions (5 pilot questions left out); 98.33% Bonferroni intervals | `886a8b35014b` |
+| `data/mixed_protocol.json` | `scripts/agents/analyze_mixed_protocol.py` | registered | `b0b71b7` | 995 PQA-L questions (5 pilot questions left out); M1/M2 with 97.5% Bonferroni intervals, the rest 95% | `2f03be7494dd` |
 | `data/h1_hedging.json` | `scripts/agents/analyze_h1_hedging.py` | registered | PLAN 2026-09-23, no separate commit | 971 PQA-L questions with a results section | `33bf566b6d5f` |
 | `data/h1b_conditionality.json` | `scripts/agents/analyze_h1b_conditionality.py` | registered | `73cd9bf` | 971 PQA-L questions with a results section | `14d7fedc37ff` |
 
@@ -142,4 +160,4 @@ example A and B of H4's D = A - B) or a human reference value.
 - H3 soft labels, RQ8/RQ9a maybe detector, RQ6 abstract format, RQ3 debate conclusiveness flag: nulls or side results that do not bear on the thesis.
 - RQ5 maybe taxonomy: waiting for the second coder; no results may be shown before the coding is done.
 - RQ2 literature review of NEI datasets: not a computed result (docs/research/2026-09-26-rq2-przeglad-literatury-nei.md).
-- Raw LLM runs (reports/debate/analysis/annotation_protocol/, label_probe/): inputs to the files above; they stay where they are.
+- Raw LLM runs (reports/debate/analysis/annotation_protocol/, label_probe/), including the two mixed-model runs: inputs to the files above; they stay where they are.

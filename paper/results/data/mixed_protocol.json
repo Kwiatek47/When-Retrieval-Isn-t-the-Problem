@@ -1,0 +1,240 @@
+{
+  "n_questions": 995,
+  "n_completed": {
+    "QQ": 995,
+    "QM": 995,
+    "MQ": 995
+  },
+  "human": {
+    "dispute_rate": 0.2985,
+    "round0_maybe": {
+      "with_conclusion": 110,
+      "context_only": 84
+    },
+    "gold_maybe": 109,
+    "maybe_through_negotiation": 0.789,
+    "maybe_through_negotiation_counts": [
+      86,
+      109
+    ],
+    "conclusion_wins": 0.7279,
+    "conclusion_wins_counts": [
+      214,
+      294
+    ],
+    "yes_no_dispute_to_maybe": [
+      1,
+      149
+    ]
+  },
+  "M1_dispute_rate_mixed_minus_QQ": {
+    "value": 0.0342,
+    "ci_low": 0.0101,
+    "ci_high": 0.0578,
+    "ci_level": 0.975,
+    "verdict": "supported"
+  },
+  "M2_maybe_f1_mixed_minus_QQ": {
+    "value": -0.0029,
+    "ci_low": -0.0978,
+    "ci_high": 0.0926,
+    "ci_level": 0.975,
+    "verdict": "inconclusive"
+  },
+  "per_order": {
+    "QM": {
+      "M1_dispute_rate_minus_QQ": {
+        "value": 0.0442,
+        "ci_low": 0.0181,
+        "ci_high": 0.0693,
+        "ci_level": 0.95
+      },
+      "M2_maybe_f1_minus_QQ": {
+        "value": -0.0486,
+        "ci_low": -0.1379,
+        "ci_high": 0.0402,
+        "ci_level": 0.95
+      }
+    },
+    "MQ": {
+      "M1_dispute_rate_minus_QQ": {
+        "value": 0.0241,
+        "ci_low": 0.002,
+        "ci_high": 0.0462,
+        "ci_level": 0.95
+      },
+      "M2_maybe_f1_minus_QQ": {
+        "value": 0.0429,
+        "ci_low": -0.0623,
+        "ci_high": 0.1481,
+        "ci_level": 0.95
+      }
+    }
+  },
+  "runs": {
+    "QQ": {
+      "dispute_rate": 0.1477,
+      "status_counts": {
+        "agreed": 848,
+        "negotiated": 126,
+        "removed": 21
+      },
+      "final_label_counts": {
+        "yes": 591,
+        "no": 359,
+        "removed": 21,
+        "maybe": 24
+      },
+      "round0_maybe": {
+        "with_conclusion": 29,
+        "context_only": 54
+      },
+      "accuracy_vs_gold": 0.795,
+      "maybe_f1_of_final": {
+        "vs_gold": 0.1654,
+        "vs_annotator_with_conclusion": 0.209,
+        "vs_annotator_without_conclusion": 0.0741
+      },
+      "final_maybe_on_gold_maybe": {
+        "human_unanimous": [
+          3,
+          23
+        ],
+        "human_negotiated": [
+          8,
+          86
+        ]
+      }
+    },
+    "QM": {
+      "dispute_rate": 0.192,
+      "status_counts": {
+        "agreed": 804,
+        "negotiated": 177,
+        "removed": 14
+      },
+      "final_label_counts": {
+        "yes": 610,
+        "no": 343,
+        "removed": 14,
+        "maybe": 28
+      },
+      "round0_maybe": {
+        "with_conclusion": 34,
+        "context_only": 63
+      },
+      "accuracy_vs_gold": 0.801,
+      "maybe_f1_of_final": {
+        "vs_gold": 0.1168,
+        "vs_annotator_with_conclusion": 0.1594,
+        "vs_annotator_without_conclusion": 0.0714
+      },
+      "final_maybe_on_gold_maybe": {
+        "human_unanimous": [
+          1,
+          23
+        ],
+        "human_negotiated": [
+          7,
+          86
+        ]
+      }
+    },
+    "MQ": {
+      "dispute_rate": 0.1719,
+      "status_counts": {
+        "negotiated": 155,
+        "agreed": 824,
+        "removed": 16
+      },
+      "final_label_counts": {
+        "yes": 591,
+        "no": 353,
+        "removed": 16,
+        "maybe": 35
+      },
+      "round0_maybe": {
+        "with_conclusion": 42,
+        "context_only": 53
+      },
+      "accuracy_vs_gold": 0.802,
+      "maybe_f1_of_final": {
+        "vs_gold": 0.2083,
+        "vs_annotator_with_conclusion": 0.1931,
+        "vs_annotator_without_conclusion": 0.1345
+      },
+      "final_maybe_on_gold_maybe": {
+        "human_unanimous": [
+          3,
+          23
+        ],
+        "human_negotiated": [
+          12,
+          86
+        ]
+      }
+    }
+  },
+  "replay_tests": {
+    "QM": {
+      "P1_maybe_through_negotiation": {
+        "value": 0.6071,
+        "ci_low": 0.4167,
+        "ci_high": 0.7826,
+        "ci_level": 0.95,
+        "human": 0.789,
+        "verdict": "inconclusive"
+      },
+      "P2_conclusion_wins": {
+        "value": 0.8736,
+        "ci_low": 0.8239,
+        "ci_high": 0.9216,
+        "ci_level": 0.95,
+        "human": 0.7279,
+        "verdict": "inconclusive"
+      },
+      "P3_protocol_gain_maybe_f1": {
+        "value": -0.065,
+        "ci_low": -0.1243,
+        "ci_high": -0.0142,
+        "ci_level": 0.95,
+        "verdict": "refuted"
+      }
+    },
+    "MQ": {
+      "P1_maybe_through_negotiation": {
+        "value": 0.6571,
+        "ci_low": 0.4857,
+        "ci_high": 0.8125,
+        "ci_level": 0.95,
+        "human": 0.789,
+        "verdict": "inconclusive"
+      },
+      "P2_conclusion_wins": {
+        "value": 0.3444,
+        "ci_low": 0.2699,
+        "ci_high": 0.4199,
+        "ci_level": 0.95,
+        "human": 0.7279,
+        "verdict": "not reproduced"
+      },
+      "P3_protocol_gain_maybe_f1": {
+        "value": -0.0433,
+        "ci_low": -0.1385,
+        "ci_high": 0.0487,
+        "ci_level": 0.95,
+        "verdict": "inconclusive"
+      }
+    }
+  },
+  "round0_maybe_by_model_and_seat": {
+    "qwen3_with_conclusion": 34,
+    "qwen3_context_only": 53,
+    "mistral_with_conclusion": 42,
+    "mistral_context_only": 63
+  },
+  "virtual_mistral_pair_round0": {
+    "dispute_rate": 0.1256,
+    "both_maybe": 21
+  }
+}
