@@ -875,6 +875,45 @@ pytaniach (495 testowych, 500 spoza testu).
 5. **Ograniczenia:** treść reguły powstała z wiedzą o H1b (zachowanie annotatora z konkluzją na tych samych pytaniach);
    porównanie reguły z progiem w punkcie 1 jest po fakcie.
 
+#### Rejestracja: kto wygrywa spór — model czy informacja (2026-10-12)
+
+**Pytanie.** W parach mieszanych spór wygrywa `qwen3:30b` niezależnie od strony: strona z konkluzją wygrywa 0.874
+rozstrzygniętych sporów, gdy trzyma ją `qwen3` (QM), i 0.344, gdy `mistral` (MQ). U ludzi wygrywa strona z konkluzją
+(0.728). Czy dyskusja oparta na cytowanych dowodach przesuwa wygrane od silniejszego modelu do strony z większą
+informacją?
+
+**Układ.** Wszystkie spory z QM (191) i MQ (171), bez pytań pilota, dyskutowane od nowa przez te same modele na tych
+samych miejscach, od tych samych etykiet i uzasadnień z rundy 0 (`scripts/agents/run_negotiation_replay.py`), w dwóch
+ramionach:
+- **old:** `negotiate@1`, prompt z runów źródłowych (powtórka; pokazuje, ile wynik zmienia się sam);
+- **evidence:** `justify@1` (`a9b7d2a04c9a`) — przed dyskusją każda strona cytuje dosłownie fragment swojego tekstu na
+  poparcie etykiety; potem `negotiate-evidence@1` (`176ebf33ac66`) — obie strony widzą cytaty, cytat z tekstu, którego
+  się nie widzi, też jest dowodem, oceniać dowody, a nie pewność rozmówcy; każda odpowiedź podaje nowy cytat.
+Temperatura 0, myślenie wyłączone dla `qwen3`, do 3 rund, nieuzgodnione usuwane.
+
+**Miary.** w_QM i w_MQ = odsetek rozstrzygniętych sporów (etykieta końcowa = etykieta z rundy 0 jednej strony), które
+wygrała strona z konkluzją.
+- **przewaga modelu** D = (w_QM − w_MQ) / 2 — udział wygranych `qwen3` w obu runach minus 0.5; dziś 0.265;
+- **przewaga informacji** I = (w_QM + w_MQ) / 2 − 0.5; dziś 0.109, u ludzi 0.228.
+
+**Testy** (`scripts/agents/analyze_negotiation_dominance.py`; dwa równorzędne, korekta Bonferroniego: przedziały 97.5%,
+bootstrap sporów osobno w QM i MQ, sparowany między ramionami, 5000 losowań, seed 47):
+- **N1 — mniejsza przewaga modelu:** D(evidence) − D(old). Potwierdzone, jeśli przedział w całości poniżej 0; obalone,
+  jeśli w całości ≥ 0; inaczej nierozstrzygnięte.
+- **N2 — większa przewaga informacji:** I(evidence) − I(old). Potwierdzone, jeśli przedział w całości powyżej 0; obalone,
+  jeśli w całości ≤ 0; inaczej nierozstrzygnięte.
+
+**Wtórne (bez korekty):** D, I i w dla każdego ramienia i runów źródłowych z przedziałami 95%; zgodność etykiety końcowej
+ramienia old z runem źródłowym; I ludzi; statusy, średnia liczba rund i końcowe `maybe` w sporach; cytaty: odsetek
+dosłownie obecnych we własnym tekście strony i odsetek cytatów strony z konkluzją wziętych z konkluzji; accuracy i F1
+`maybe` względem gold na wszystkich 995 pytaniach (zgodne z runu źródłowego plus powtórzone spory).
+
+**Znane przed rejestracją:** runy źródłowe QQ, QM, MQ i wszystkie ich statystyki; pilot obu ramion na sporach z pytań
+pilota (3 spory, tylko QM — w pilocie MQ sporów nie było), 0 błędów, cytaty generowane przez oba modele.
+
+**Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_negotiation_replay.sh > logs/negotiation_replay.log 2>&1 < /dev/null &`
+(QM na serwerze GPU0, MQ na GPU2, równolegle; potem zwolnienie modeli i analiza).
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1291,3 +1330,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-12 — **reguła zastrzeżenia i próg policzone:** C2 potwierdzone (+0.110 [+0.029, +0.193]; strona z konkluzją
   bliżej annotatora z konkluzją, `qwen3` F1 wzgl. gold na teście 0.385), C1 i T1 nierozstrzygnięte. Konkluzja dalej
   usztywnia oba modele, nawet z jawną regułą; sam próg nie pomaga, bo ranking p_maybe jest słaby.
+- 2026-10-12 — **zarejestrowane: kto wygrywa spór** (powtórka negocjacji sporów QM i MQ od tych samych etykiet rundy 0;
+  ramiona `negotiate@1` i cytowane dowody `justify@1` + `negotiate-evidence@1`): N1 (mniejsza przewaga modelu D) i N2
+  (większa przewaga informacji I), przedziały 97.5%. Protokół przyjmuje teraz cytaty i krok uzasadnienia.

@@ -360,6 +360,87 @@ Reply to your colleague and give the label you now hold.
     options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
 )
 
+# --- Negotiation on quoted evidence (2026-10-12) ---------------------------------------------
+# In the mixed-model replays the dispute went to qwen3 whichever side it played, while among the
+# annotators the side with more information (the conclusion) won. These two prompts make each
+# side show the passage behind its label before and during the discussion, and ask both to weigh
+# quoted evidence rather than how certain the colleague sounds.
+
+_REVIEWER_SYSTEM = (
+    "You are one of two reviewers labelling a biomedical research question as yes, no or maybe from a study "
+    "abstract. You labelled it independently, and your colleague chose a different label. Use only the text "
+    "you are given."
+)
+
+JUSTIFY_V1 = PromptSpec(
+    name="justify",
+    version=1,
+    status="registered",
+    purpose="Negotiation on evidence: before the discussion, each side quotes the passage behind its label.",
+    notes="Pre-registered 2026-10-12 with the model-dominance replay (PLAN, 'Kto wygrywa spór').",
+    system=_REVIEWER_SYSTEM,
+    user="""Research question: {question}
+
+What you can see:
+{evidence}
+
+Your label: {own_label}. Your reason: {own_rationale}
+
+Before you discuss, quote word for word the passage from the text above that most supports your
+label (at most 40 words). Your colleague will see this quote.
+Return JSON: {{"quote": "..."}}""",
+    schema={"type": "object", "properties": {"quote": {"type": "string"}}, "required": ["quote"]},
+    fields=("question", "evidence", "own_label", "own_rationale"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
+NEGOTIATE_EVIDENCE_V1 = PromptSpec(
+    name="negotiate-evidence",
+    version=1,
+    status="registered",
+    purpose="Negotiation on evidence: one discussion turn in which both sides see each other's quoted passage.",
+    notes=(
+        "Pre-registered 2026-10-12 with the model-dominance replay (PLAN, 'Kto wygrywa spór'). Same structure and "
+        "label definition as negotiate@1, plus quoted evidence and the instruction to weigh it."
+    ),
+    system=_REVIEWER_SYSTEM + (
+        " You now discuss it to reach a shared label. Weigh your colleague's reasons by the evidence they quote, "
+        "not by how certain they sound; a passage your colleague quotes from text you cannot see is evidence too. "
+        "Change your label only if the evidence convinces you; keeping it is allowed."
+    ),
+    user="""Research question: {question}
+
+What you can see:
+{evidence}
+
+What your colleague can see: {partner_view}
+
+""" + _MAYBE_DEFINITION + """
+
+Discussion round {round}.
+Your current label: {own_label}. Your reason: {own_rationale}
+Your quoted evidence: "{own_quote}"
+Your colleague's current label: {partner_label}. Their reason: {partner_rationale}
+Their quoted evidence, from what they can see: "{partner_quote}"
+
+Reply to your colleague and give the label you now hold, then quote word for word the passage from
+your text that best supports it (at most 40 words).
+Return JSON: {{"rationale": "...", "label": "yes" | "no" | "maybe", "confidence": 0-100, "quote": "..."}}""",
+    schema={
+        "type": "object",
+        "properties": {
+            "rationale": {"type": "string"},
+            "label": {"type": "string", "enum": ["yes", "no", "maybe"]},
+            "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+            "quote": {"type": "string"},
+        },
+        "required": ["rationale", "label", "confidence", "quote"],
+    },
+    fields=("question", "evidence", "partner_view", "round", "own_label", "own_rationale", "own_quote",
+            "partner_label", "partner_rationale", "partner_quote"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 300},
+)
+
 PROMPTS: dict[str, PromptSpec] = {
     spec.id: spec
     for spec in (
@@ -371,6 +452,8 @@ PROMPTS: dict[str, PromptSpec] = {
         LABEL_PROBS_V1,
         LABEL_CAVEAT_PROBS_V1,
         NEGOTIATE_V1,
+        JUSTIFY_V1,
+        NEGOTIATE_EVIDENCE_V1,
     )
 }
 

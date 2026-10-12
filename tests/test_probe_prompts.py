@@ -18,6 +18,9 @@ class PromptRegistryTests(unittest.TestCase):
         # The caveat / threshold probe (2026-10-12) was pre-registered with these two prompts.
         self.assertEqual(PROMPTS["label-probs@1"].sha, "ca366f2dcb94")
         self.assertEqual(PROMPTS["label-caveat-probs@1"].sha, "6f14991578dc")
+        # The model-dominance replay (2026-10-12) was pre-registered with these two prompts.
+        self.assertEqual(PROMPTS["justify@1"].sha, "a9b7d2a04c9a")
+        self.assertEqual(PROMPTS["negotiate-evidence@1"].sha, "176ebf33ac66")
 
     def test_every_prompt_renders_with_exactly_its_fields(self) -> None:
         from scripts.agents.probe_prompts import PROMPTS
