@@ -828,6 +828,53 @@ nowych promptów.
 **Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_caveat_threshold.sh > logs/caveat_threshold.log 2>&1 < /dev/null &`
 (`qwen3` na serwerze GPU0, `mistral` na GPU2, równolegle; potem zwolnienie modeli i analiza).
 
+#### Wynik: reguła zastrzeżenia i próg `maybe` (2026-10-12; rejestracja `91876fa`, `reports/debate/analysis/caveat_threshold.json`)
+
+Runy wystartowały z czystego drzewa na `91876fa`, skończyły 16:15 UTC; 8 × 1000 odpowiedzi, 0 błędów. Analiza na 995
+pytaniach (495 testowych, 500 spoza testu).
+
+**Testy główne** (przedziały 98.33%, średnia z dwóch modeli):
+
+| Test | Wynik | Werdykt |
+|---|---|---|
+| C1 reguła zmienia kierunek efektu konkluzji | −0.015 [−0.037, +0.006] | nierozstrzygnięte |
+| C2 reguła zbliża stronę z konkluzją do annotatora z konkluzją (F1 `maybe`) | **+0.110 [+0.029, +0.193]** | **potwierdzone** |
+| T1 próg poprawia F1 `maybe` względem człowieka (test) | +0.010 [−0.041, +0.065] | nierozstrzygnięte |
+
+**Liczby `maybe`** (995 pytań; ludzie: 110 z konkluzją, 84 bez):
+
+| | `label-probs@1` z / bez konkluzji | `label-caveat-probs@1` z / bez konkluzji |
+|---|---|---|
+| `qwen3:30b` | 46 / 73 | 124 / 170 |
+| `mistral-small3.2:24b` | 66 / 83 | 132 / 160 |
+
+**Wtórne (bez korekty):**
+- C1 i C2 osobno: `qwen3` −0.019 [−0.043, +0.005] i +0.128 [+0.030, +0.229]; `mistral` −0.011 [−0.035, +0.014]
+  i +0.092 [+0.015, +0.167]. Efekt konkluzji przy regule nadal ujemny w obu modelach: `qwen3` −0.046 [−0.069, −0.023],
+  `mistral` −0.028 [−0.052, −0.005] (ludzie +0.026).
+- F1 `maybe` strony z konkluzją, deklarowane etykiety, 995 pytań: wzgl. annotatora z konkluzją `qwen3` 0.282 → 0.410,
+  `mistral` 0.239 → 0.331; wzgl. gold `qwen3` 0.258 → 0.343, `mistral` 0.217 → 0.307.
+- Na teście (495): `qwen3` z regułą i konkluzją ma F1 `maybe` wzgl. gold **0.385** (55 `maybe` wobec 54 gold),
+  przy accuracy 0.804 (bez reguły 0.828).
+- Próg: pomaga stronie z konkluzją (`qwen3` 0.269 → 0.324, `mistral` 0.276 → 0.328 wzgl. odpowiednika), szkodzi stronie bez
+  konkluzji (0.191 → 0.188, 0.207 → 0.143) i obniża accuracy strony z konkluzją (`qwen3` 0.828 → 0.782).
+- Ranking p_maybe dla `maybe` annotatora z konkluzją (test): `qwen3` AP 0.220 → 0.303 i AUROC 0.617 → 0.708 z regułą;
+  `mistral` AP 0.217 → 0.213, AUROC 0.673 → 0.715. Strona bez konkluzji: AP ok. 0.14 z regułą i bez.
+- Progi wypadły na wartościach p_maybe 0.05–0.6; model podaje prawdopodobieństwa zgrubnie (co 5–10 punktów).
+
+**Co z tego wynika:**
+1. **Reguła zastrzeżenia działa tam, gdzie miała działać:** strona z konkluzją trafia w `maybe` annotatora z konkluzją
+   wyraźnie lepiej (C2), w obu modelach. Nie jest to sam efekt „więcej `maybe`”: dopasowanie samej częstości progiem
+   na `label-probs@1` daje 0.32–0.33, a reguła 0.41 (`qwen3`) — i reguła poprawia ranking (AUROC 0.62 → 0.71). To
+   wspiera odczytanie, że annotator z konkluzją mówił `maybe`, gdy konkluzja ograniczała odpowiedź (por. H1b).
+2. **Kierunek efektu konkluzji się nie odwraca:** reguła podnosi `maybe` także bez konkluzji, i to bardziej (170 wobec 124).
+   Konkluzja nadal czyni oba modele bardziej zdecydowanymi — trzeci raz, teraz nawet przy jawnej regule.
+3. **Sam próg nie pomaga:** dopasowanie częstości `maybe` do ludzkiej nie poprawia średnio F1 (T1), bo ranking p_maybe
+   jest słaby (AP 0.14–0.22, przy losowym ok. 0.10) — problemem nie jest tylko zbyt wysoki próg modelu.
+4. **Koszt:** reguła obniża accuracy o 2–3 pp (więcej `maybe` na pytaniach z gold yes/no).
+5. **Ograniczenia:** treść reguły powstała z wiedzą o H1b (zachowanie annotatora z konkluzją na tych samych pytaniach);
+   porównanie reguły z progiem w punkcie 1 jest po fakcie.
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1241,3 +1288,6 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-12 — **zarejestrowana reguła zastrzeżenia i próg `maybe`** (prompty `label-probs@1`, `label-caveat-probs@1`;
   `qwen3:30b` i `mistral-small3.2:24b`, runda 0 na 1000 pytaniach): C1 (reguła odwraca efekt konkluzji), C2 (zbliża do
   annotatora z konkluzją), T1 (próg z połowy spoza testu poprawia F1 `maybe` na teście), przedziały 98.33%.
+- 2026-10-12 — **reguła zastrzeżenia i próg policzone:** C2 potwierdzone (+0.110 [+0.029, +0.193]; strona z konkluzją
+  bliżej annotatora z konkluzją, `qwen3` F1 wzgl. gold na teście 0.385), C1 i T1 nierozstrzygnięte. Konkluzja dalej
+  usztywnia oba modele, nawet z jawną regułą; sam próg nie pomaga, bo ranking p_maybe jest słaby.
