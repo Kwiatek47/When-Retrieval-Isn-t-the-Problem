@@ -67,6 +67,58 @@ class ProtocolTests(unittest.TestCase):
         self.assertTrue(any("which you have not seen" in c for c in negotiation))
         self.assertTrue(all("Your colleague's current label" in c for c in negotiation))
 
+    def test_each_seat_uses_its_own_backend(self) -> None:
+        from app.agents.annotation_protocol import AnnotationProtocol
+        from scripts.agents.probe_prompts import PROMPTS
+
+        with_backend = ScriptedBackend({"with_conclusion": ["maybe", "maybe"], "context_only": []})
+        without_backend = ScriptedBackend({"with_conclusion": [], "context_only": ["yes", "maybe"]})
+        protocol = AnnotationProtocol(
+            backends={"with_conclusion": with_backend, "context_only": without_backend},
+            label_spec=PROMPTS["label-defined@1"],
+            negotiate_spec=PROMPTS["negotiate@1"],
+        )
+        result = asyncio.run(protocol.run("1", "Does X help?", _evidence()))
+        self.assertEqual((result.status, result.final), ("negotiated", "maybe"))
+        self.assertEqual((len(with_backend.calls), len(without_backend.calls)), (2, 2))
+
+    def test_one_backend_or_one_per_seat(self) -> None:
+        from app.agents.annotation_protocol import AnnotationProtocol
+        from scripts.agents.probe_prompts import PROMPTS
+
+        specs = {"label_spec": PROMPTS["label-defined@1"], "negotiate_spec": PROMPTS["negotiate@1"]}
+        with self.assertRaises(ValueError):
+            AnnotationProtocol(**specs)
+        with self.assertRaises(ValueError):
+            AnnotationProtocol(backends={"with_conclusion": ScriptedBackend({})}, **specs)
+
+    def test_quotes_reach_the_colleague_and_replay_starts_from_given_turns(self) -> None:
+        from app.agents.annotation_protocol import AnnotationProtocol, Turn
+        from scripts.agents.probe_prompts import PROMPTS
+
+        class QuotingBackend(ScriptedBackend):
+            async def complete(self, messages, **kwargs) -> str:
+                text = messages[-1].content
+                if "Before you discuss" in text:
+                    self.calls.append(text)
+                    who = "with_conclusion" if "Authors' conclusion" in text else "context_only"
+                    return json.dumps({"quote": f"{who} passage"})
+                reply = json.loads(await super().complete(messages, **kwargs))
+                return json.dumps({**reply, "quote": f"{reply['label']} passage"})
+
+        backend = QuotingBackend({"with_conclusion": ["maybe"], "context_only": ["maybe"]})
+        protocol = AnnotationProtocol(
+            backend, label_spec=PROMPTS["label-defined@1"], negotiate_spec=PROMPTS["negotiate-evidence@1"],
+            justify_spec=PROMPTS["justify@1"],
+        )
+        first = [Turn("with_conclusion", 0, "maybe", 80, "limited"), Turn("context_only", 0, "yes", 70, "works")]
+        result = asyncio.run(protocol.negotiate("1", "Does X help?", _evidence(), first))
+        self.assertEqual((result.status, result.final, result.final_follows), ("negotiated", "maybe", "with_conclusion"))
+        self.assertEqual([t.kind for t in result.turns].count("justify"), 2)
+        self.assertEqual(len(backend.calls), 4)  # 2 quotes + 1 discussion round, no round-0 calls
+        discussion = [c for c in backend.calls if "Discussion round 1" in c]
+        self.assertTrue(any('Their quoted evidence, from what they can see: "with_conclusion passage"' in c for c in discussion))
+
     def test_unparseable_reply_marks_the_question_failed(self) -> None:
         result, _ = self._run({"with_conclusion": ["broken", "broken"], "context_only": ["yes"]})
         self.assertEqual(result.status, "failed")

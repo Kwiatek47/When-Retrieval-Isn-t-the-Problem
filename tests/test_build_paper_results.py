@@ -34,6 +34,16 @@ class CheckClaimTests(unittest.TestCase):
         problems = check_claim(claim, self.doc)
         self.assertEqual(len(problems), 3)
 
+    def test_interval_or_verdict_left_out_of_the_claim_is_reported(self) -> None:
+        problems = check_claim({"id": "X", "path": "/gap", "value": "0.275"}, self.doc)
+        self.assertEqual(len(problems), 2)
+
+    def test_verdict_read_from_a_separate_path(self) -> None:
+        doc = {"primary": {"difference": {"d_auroc": 0.0109}, "verdict": "inconclusive"}}
+        claim = {"id": "X", "path": "/primary/difference", "value": "0.011", "verdict": "inconclusive"}
+        self.assertEqual(len(check_claim(claim, doc)), 1)
+        self.assertEqual(check_claim({**claim, "verdict_path": "/primary/verdict"}, doc), [])
+
     def test_sum_of_paths(self) -> None:
         self.assertEqual(check_claim({"id": "X", "sum": ["/cells/a", "/cells/b"], "value": "7"}, self.doc), [])
 

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maybe w PubMedQA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, a short verdict strip per finding, tables and one chart set off from the text. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --fg: #1b2330;
+  --muted: #5a6577;
+  --rule: #d9dee6;
+  --accent: #1f5f8b;
+  --accent-soft: #e3eef6;
+  --ok: #1d7a4f;
+  --ok-soft: #e1f2e8;
+  --warn: #8a5a00;
+  --warn-soft: #f8edd6;
+  --null: #5a6577;
+  --null-soft: #eceff3;
+  --font-display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --surface: #1a2029; --fg: #e4e8ee; --muted: #9aa5b5; --rule: #2e3643;
+    --accent: #7db7e0; --accent-soft: #1d3446; --ok: #6fcf9c; --ok-soft: #173326;
+    --warn: #e6b65c; --warn-soft: #3a2e14; --null: #a5afbd; --null-soft: #262d38; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --surface: #1a2029; --fg: #e4e8ee; --muted: #9aa5b5; --rule: #2e3643;
+  --accent: #7db7e0; --accent-soft: #1d3446; --ok: #6fcf9c; --ok-soft: #173326;
+  --warn: #e6b65c; --warn-soft: #3a2e14; --null: #a5afbd; --null-soft: #262d38; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.page { max-width: 46rem; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; line-height: 1.25; margin: 0; }
+h1 { font-size: 2.1rem; }
+h2 { font-size: 1.4rem; padding-top: 8px; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.1rem; }
+p { margin: 0; }
+section { display: grid; gap: 16px; min-width: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.05rem; color: var(--muted); }
+header { display: grid; gap: 12px; }
+.thesis { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 18px 20px; font-size: 1.08rem; line-height: 1.55; }
+.thesis strong { font-weight: 600; }
+.finding { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 20px; display: grid; gap: 12px; min-width: 0; }
+.finding-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.big { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 500; }
+.chip { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+.chip.ok { color: var(--ok); background: var(--ok-soft); }
+.chip.warn { color: var(--warn); background: var(--warn-soft); }
+.chip.null { color: var(--null); background: var(--null-soft); }
+.chip.fact { color: var(--accent); background: var(--accent-soft); }
+.meaning { color: var(--muted); }
+ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 6px; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+td.n, th.n { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+td.diag { font-weight: 600; }
+.sub { color: var(--muted); font-size: 0.82rem; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: 0.85rem; color: var(--muted); }
+svg text { font-family: var(--font-mono); }
+.chart-wrap { overflow-x: auto; }
+.questions { counter-reset: q; display: grid; gap: 12px; padding: 0; list-style: none; }
+.questions li { counter-increment: q; display: grid; grid-template-columns: 2rem 1fr; gap: 4px; }
+.questions li::before { content: counter(q) "."; font-family: var(--font-mono); color: var(--accent); }
+footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 16px; display: grid; gap: 6px; }
+code { font-family: var(--font-mono); font-size: 0.88em; }
+</style>
+<style>*,*::before,*::after{box-sizing:border-box} body{margin:0}</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <div class="eyebrow">Stan wyników · 12 października 2026</div>
+    <h1>Maybe w PubMedQA</h1>
+    <p class="lede">Podsumowanie wyników pod aktualną tezę projektu, przygotowane na spotkanie z opiekunem. Każda liczba pochodzi z pliku wyników w repozytorium i jest automatycznie sprawdzana.</p>
+  </header>
+
+  <section>
+    <h2>Teza</h2>
+    <p class="thesis">W PubMedQA etykieta <code>maybe</code> to w dużej mierze <strong>zapis rozstrzygniętego sporu dwóch annotatorów</strong>, z których tylko jeden widział konkluzję autorów. Nie jest to cecha samego abstraktu. Podawany dla tego zbioru wynik ludzi jest przez to <strong>kolisty</strong>, bo annotator współtworzył etykietę, z którą się go porównuje.</p>
+    <p>Projekt zaczynał od debaty wielu agentów LLM. Debata wypadła na równi z douczonym klasyfikatorem (74,0% wobec 72,6%, różnica nieistotna), a oba systemy najgorzej radziły sobie z klasą <code>maybe</code>. Zapytaliśmy więc, czym ta etykieta właściwie jest.</p>
+  </section>
+
+  <section>
+    <h2>Co pokazują dane</h2>
+
+    <article class="finding">
+      <div class="finding-head">
+        <h3>1. Maybe powstaje głównie w sporze</h3>
+        <span class="chip fact">fakt z danych</span>
+      </div>
+      <p>Annotator 1 czytał pytanie, abstrakt i konkluzję autorów. Annotator 2 czytał tylko pytanie i abstrakt, czyli to samo co model. Gdy się nie zgadzali, ci sami dwaj negocjowali, a pytania nieuzgodnione usunięto ze zbioru.</p>
+      <ul>
+        <li>Tylko <span class="num">23</span> ze <span class="num">110</span> etykiet <code>maybe</code> dali obaj annotatorzy. Pozostałe <span class="num">87</span> powstało w negocjacji.</li>
+        <li>Spór dotyczył <span class="num">299</span> z <span class="num">1000</span> pytań. W <span class="num">215</span> z nich wygrał annotator, który widział konkluzję.</li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Annotator 2 (bez konkluzji) ↓ · Annotator 1 (z konkluzją) →</th><th class="n">yes</th><th class="n">no</th><th class="n">maybe</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>yes</th><td class="n diag">454</td><td class="n">98</td><td class="n">62 <span class="sub">(→ maybe 39)</span></td></tr>
+            <tr><th>no</th><td class="n">53</td><td class="n diag">224</td><td class="n">25 <span class="sub">(→ maybe 17)</span></td></tr>
+            <tr><th>maybe</th><td class="n">43 <span class="sub">(→ maybe 20)</span></td><td class="n">18 <span class="sub">(→ maybe 9)</span></td><td class="n diag">23</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="meaning">Pogrubione komórki to zgoda. W nawiasach: ile sporów skończyło się etykietą <code>maybe</code>. 1000 pytań PQA-L.</p>
+    </article>
+
+    <article class="finding">
+      <div class="finding-head">
+        <h3>2. Ludzki punkt odniesienia jest kolisty</h3>
+        <span class="chip ok">potwierdzone · zarejestrowane</span>
+      </div>
+      <p>Porównaliśmy człowieka (annotator 2) i model <code>qwen3:30b</code>, który dostał ten sam tekst. Zrobiliśmy to dwa razy: względem etykiety końcowej, którą annotator 2 współtworzył, i względem annotatora 1, na którego żaden z nich nie miał wpływu.</p>
+      <figure>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 640 190" width="100%" role="img" aria-label="F1 dla maybe: człowiek 0,489 względem etykiety końcowej i 0,247 względem niezależnego annotatora; model 0,203 i 0,237.">
+            <g stroke="var(--rule)" stroke-width="1">
+              <line x1="150" y1="30" x2="150" y2="150"/><line x1="226.7" y1="30" x2="226.7" y2="150"/>
+              <line x1="303.3" y1="30" x2="303.3" y2="150"/><line x1="380" y1="30" x2="380" y2="150"/>
+              <line x1="456.7" y1="30" x2="456.7" y2="150"/><line x1="533.3" y1="30" x2="533.3" y2="150"/>
+              <line x1="610" y1="30" x2="610" y2="150"/>
+            </g>
+            <g fill="var(--muted)" font-size="11" text-anchor="middle">
+              <text x="150" y="168">0</text><text x="226.7" y="168">0,1</text><text x="303.3" y="168">0,2</text>
+              <text x="380" y="168">0,3</text><text x="456.7" y="168">0,4</text><text x="533.3" y="168">0,5</text>
+              <text x="610" y="168">0,6</text>
+              <text x="380" y="186">F1 dla klasy maybe</text>
+            </g>
+            <g fill="var(--fg)" font-size="12.5" text-anchor="end">
+              <text x="136" y="74">człowiek</text>
+              <text x="136" y="124">qwen3:30b</text>
+            </g>
+            <line x1="339.4" y1="70" x2="524.9" y2="70" stroke="var(--accent)" stroke-width="2"/>
+            <circle cx="524.9" cy="70" r="6" fill="var(--accent)"/>
+            <circle cx="339.4" cy="70" r="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+            <g fill="var(--fg)" font-size="11.5" text-anchor="middle">
+              <text x="524.9" y="56">0,489</text><text x="339.4" y="56">0,247</text>
+            </g>
+            <line x1="305.6" y1="120" x2="331.7" y2="120" stroke="var(--muted)" stroke-width="2"/>
+            <circle cx="305.6" cy="120" r="6" fill="var(--muted)"/>
+            <circle cx="331.7" cy="120" r="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="2"/>
+            <g fill="var(--fg)" font-size="11.5" text-anchor="middle">
+              <text x="290" y="106">0,203</text><text x="347" y="106">0,237</text>
+            </g>
+            <g font-size="11" fill="var(--muted)">
+              <circle cx="156" cy="14" r="5" fill="var(--muted)"/><text x="166" y="18">względem etykiety końcowej</text>
+              <circle cx="386" cy="14" r="5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/><text x="396" y="18">względem niezależnego annotatora</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>484 pytania PQA-L spoza oficjalnego testu, 53 złote <code>maybe</code>. Przewaga człowieka znika, gdy punkt odniesienia jest niezależny.</figcaption>
+      </figure>
+      <ul>
+        <li>Część przewagi człowieka wynikająca ze współtworzenia etykiety: <span class="num big">+0,275</span> <span class="num">[0,142; 0,427]</span>.</li>
+        <li>Luka człowiek − model względem niezależnego annotatora: <span class="num big">+0,011</span> <span class="num">[−0,156; 0,178]</span>, czyli nieodróżnialni.</li>
+        <li>To samo w accuracy, na 500 pytaniach testowych: annotator 2 ma 78,0% względem etykiety końcowej i 69,0% względem annotatora 1. Te 78% to wynik ludzi podawany dla PubMedQA.</li>
+        <li>Wynik powtarza się dla BioLinkBERT, self-consistency i obu wariantów debaty (+0,37 do +0,39; eksploracyjnie, na 500 pytaniach testowych).</li>
+      </ul>
+    </article>
+
+    <article class="finding">
+      <div class="finding-head">
+        <h3>3. Modele mylą się tam, gdzie spierali się ludzie</h3>
+        <span class="chip ok">potwierdzone · zarejestrowane</span>
+      </div>
+      <p>BioLinkBERT myli się w <span class="num">49,1%</span> pytań, na których annotator 2 odszedł od etykiety końcowej, i w <span class="num">21,3%</span> pozostałych. Różnica wynosi <span class="num big">+0,278</span> <span class="num">[0,174; 0,380]</span>. Ten sam wzór widać w trzech pozostałych systemach (+0,23 do +0,36).</p>
+      <p class="meaning">Część tego, co wygląda na błąd modelu, przypada na pytania sporne także dla ludzi.</p>
+    </article>
+
+    <article class="finding">
+      <div class="finding-head">
+        <h3>4. Odmowa odpowiedzi pomaga, ale nie przez rozpoznawanie maybe</h3>
+        <span class="chip ok">potwierdzone · zarejestrowane</span>
+      </div>
+      <p>Niska pewność BioLinkBERT dobrze wskazuje zwykłe błędy na pytaniach yes/no, ale wśród błędów nie wyróżnia <code>maybe</code>. Różnica między tymi dwiema zdolnościami wynosi <span class="num big">+0,185</span> <span class="num">[0,028; 0,347]</span> i jest dodatnia dla wszystkich czterech sygnałów niepewności.</p>
+      <p>W praktyce: gdy system odmawia na 25,6% najmniej pewnych pytań, oczekiwany koszt błędów spada z <span class="num">0,274</span> do <span class="num">0,206</span>, czyli o jedną czwartą. Accuracy na pytaniach z odpowiedzią rośnie do <span class="num">80,9%</span>.</p>
+    </article>
+  </section>
+
+  <section>
+    <h2>Co wykluczyliśmy</h2>
+    <p>Pierwotna wersja tezy zakładała, że <code>maybe</code> jest ukryte w konkluzji autorów, której model nie widzi. Trzy zarejestrowane testy tego nie potwierdziły.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Test</th><th>Pytanie</th><th class="n">Wynik [95% CI]</th><th>Werdykt</th></tr></thead>
+        <tbody>
+          <tr><td>H1</td><td>Czy ostrożne słowa w konkluzji wskazują <code>maybe</code> lepiej niż w wynikach?</td><td class="n">+0,011 [−0,054; 0,074]</td><td><span class="chip null">nie wykazano</span></td></tr>
+          <tr><td>H1b</td><td>Czy odpowiedź warunkowa w konkluzji wskazuje <code>maybe</code> lepiej niż w wynikach?</td><td class="n">+0,030 [−0,019; 0,080]</td><td><span class="chip null">nie wykazano</span></td></tr>
+          <tr><td>T2</td><td>Czy pokazanie modelowi konkluzji poprawia jego <code>maybe</code>?</td><td class="n">+0,013 [−0,083; 0,108]</td><td><span class="chip null">nie wykazano</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="meaning">Bez efektu były też: miękkie etykiety (H3), osobny detektor <code>maybe</code> i balans klas (RQ8, RQ9a) oraz format abstraktu (RQ6).</p>
+  </section>
+
+  <section>
+    <h2>Czy LLM-y odtworzą sposób powstawania maybe?</h2>
+    <p>Dwóch agentów odegrało role annotatorów: jeden z konkluzją, drugi bez. Każdy najpierw etykietował sam, a przy niezgodzie prowadzili do trzech rund dyskusji. Najpierw obie role grał <code>qwen3:30b</code>. Potem, żeby sprawdzić, czy chodzi o to, że to ten sam model, połączyliśmy go z <code>mistral-small3.2:24b</code> w obu kolejnościach. Za każdym razem 995 pytań i zero błędów wykonania.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th class="n">qwen × 2</th><th class="n">qwen z konkluzją + mistral bez</th><th class="n">mistral z konkluzją + qwen bez</th><th class="n">Ludzie</th></tr></thead>
+        <tbody>
+          <tr><td>Spory przed dyskusją</td><td class="n">15%</td><td class="n">19%</td><td class="n">17%</td><td class="n">30%</td></tr>
+          <tr><td>Końcowe <code>maybe</code></td><td class="n">24</td><td class="n">28</td><td class="n">35</td><td class="n">109</td></tr>
+          <tr><td><code>maybe</code> od strony z konkluzją</td><td class="n">29</td><td class="n">34</td><td class="n">42</td><td class="n">110</td></tr>
+          <tr><td><code>maybe</code> od strony bez konkluzji</td><td class="n">54</td><td class="n">63</td><td class="n">53</td><td class="n">84</td></tr>
+          <tr><td>Spory wygrywa strona z konkluzją</td><td class="n">66%</td><td class="n">87%</td><td class="n">34%</td><td class="n">73%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="finding-head">
+      <span>Różne modele spierają się częściej: <span class="num">+0,034 [0,010; 0,058]</span></span>
+      <span class="chip ok">potwierdzone · zarejestrowane</span>
+    </div>
+    <div class="finding-head">
+      <span>Lepsze trafianie w złote <code>maybe</code>: <span class="num">−0,003 [−0,098; 0,093]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <ul>
+      <li>Różnica w liczbie sporów zamyka tylko około jednej czwartej luki do ludzi. Nadmierna zgoda agentów w większości nie wynika z tego, że to ten sam model.</li>
+      <li>Konkluzja usztywnia oba modele: każdy mówi <code>maybe</code> rzadziej, gdy ją widzi. U ludzi jest odwrotnie (110 wobec 84). Ta obserwacja z pierwszego odtworzenia powtórzyła się na drugiej rodzinie modeli.</li>
+      <li>Spór wygrywa <code>qwen3</code>, niezależnie od tego, czy widzi konkluzję (87% i 66%). U ludzi wygrywa strona, która wie więcej.</li>
+    </ul>
+    <h3>Czy cytowanie dowodów zmienia, kto wygrywa?</h3>
+    <p>Wszystkie spory z par mieszanych przegadaliśmy od nowa, od tych samych etykiet początkowych. W nowej wersji każda strona musiała zacytować fragment swojego tekstu, a prompt kazał oceniać dowody zamiast pewności siebie rozmówcy.</p>
+    <div class="finding-head">
+      <span>Mniejsza przewaga silniejszego modelu: <span class="num">+0,038 [−0,020; 0,095]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="finding-head">
+      <span>Większa przewaga strony z konkluzją: <span class="num">+0,029 [−0,028; 0,087]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Strona z konkluzją wygrywa spór</th><th class="n">bez cytatów</th><th class="n">z cytatami</th></tr></thead>
+        <tbody>
+          <tr><td>gdy konkluzję ma <code>qwen3</code></td><td class="n">89%</td><td class="n">96%</td></tr>
+          <tr><td>gdy konkluzję ma <code>mistral</code></td><td class="n">34%</td><td class="n">33%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Cytaty nie przenoszą wygranych na stronę, która wie więcej. Przewaga <code>qwen3</code> zostaje, a z cytatami nawet rośnie.</li>
+      <li><code>mistral</code> z konkluzją cytuje ją rzadko (26%) i ustępuje. Deklaruje też niższą pewność niż <code>qwen3</code>. O wyniku dyskusji agentów decyduje więc, który model łatwiej ustępuje, a nie kto wie więcej. To obserwacja po fakcie.</li>
+      <li>Dla tezy: negocjacja modeli nie odtwarza ludzkiej, w której wygrywa strona z informacją.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Czy da się nauczyć model ludzkiego maybe?</h2>
+    <p>Dwie poprawki sprawdzone na obu modelach, na 1000 pytaniach, bez dyskusji (tylko pierwsza etykieta). Pierwsza to jawna reguła: jeśli tekst sam ogranicza swoją odpowiedź, na przykład do podgrupy albo warunku, odpowiedz <code>maybe</code>. Druga to próg na prawdopodobieństwie <code>maybe</code>, ustawiony tak, żeby model mówił <code>maybe</code> równie często jak człowiek.</p>
+    <div class="finding-head">
+      <span>Reguła zbliża model z konkluzją do człowieka z konkluzją: <span class="num">+0,110 [0,029; 0,193]</span></span>
+      <span class="chip ok">potwierdzone · zarejestrowane</span>
+    </div>
+    <div class="finding-head">
+      <span>Reguła odwraca efekt konkluzji: <span class="num">−0,015 [−0,037; 0,006]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="finding-head">
+      <span>Sam próg poprawia trafianie w <code>maybe</code>: <span class="num">+0,010 [−0,041; 0,065]</span></span>
+      <span class="chip warn">nierozstrzygnięte</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>qwen3:30b, strona z konkluzją</th><th class="n">bez reguły</th><th class="n">z regułą</th></tr></thead>
+        <tbody>
+          <tr><td>F1 <code>maybe</code> względem człowieka z konkluzją</td><td class="n">0,28</td><td class="n">0,41</td></tr>
+          <tr><td>Liczba <code>maybe</code> z konkluzją / bez (ludzie 110 / 84)</td><td class="n">46 / 73</td><td class="n">124 / 170</td></tr>
+          <tr><td>F1 <code>maybe</code> względem złotej etykiety, test</td><td class="n">0,22</td><td class="n">0,39</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>Reguła działa lepiej niż samo dopasowanie częstości <code>maybe</code> i poprawia ranking (AUROC z 0,62 do 0,71). To wspiera odczytanie, że człowiek z konkluzją mówił <code>maybe</code>, gdy konkluzja ograniczała odpowiedź.</li>
+      <li>Konkluzja nadal usztywnia oba modele, nawet przy jawnej regule. To już trzecia obserwacja tego efektu.</li>
+      <li>Koszt reguły to około 2–3 punktów procentowych accuracy.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Ograniczenia</h2>
+    <ul>
+      <li>„Nieodróżnialni” nie znaczy „równi”. Przedział dla luki człowiek − model ma szerokość około ±0,17.</li>
+      <li>Test potwierdzający to jeden model i jeden prompt. Replikacje na innych systemach są eksploracyjne.</li>
+      <li>Annotator 1 widział konkluzję, więc nie jest idealnym niezależnym odniesieniem. Zgodność dwóch osób z tą samą informacją może być wyższa.</li>
+      <li>Wszystkie wyniki pochodzą z jednego zbioru danych.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>W toku i do decyzji</h2>
+    <p>RQ5, czyli jakościowa taksonomia przyczyn <code>maybe</code> na 40 pytaniach, czeka na drugą osobę kodującą. Wyniki pokażemy dopiero po jej kodowaniu, żeby nie wpłynąć na jej oceny.</p>
+    <ol class="questions">
+      <li><span><strong>Venue i rama pracy.</strong> Proponujemy pracę o trafności benchmarku. Od venue zależy limit stron i termin.</span></li>
+      <li><span><strong>Drugi zbiór danych.</strong> Na przykład SciFact z klasą „za mało informacji”. To najmocniejsze wzmocnienie pracy, ale znacznie zwiększa jej zakres.</span></li>
+      <li><span><strong>Replikacja głównego testu.</strong> Czy powtórzyć porównanie z niezależnym annotatorem na drugim modelu albo prompcie przed pisaniem?</span></li>
+      <li><span><strong>Wyniki zerowe.</strong> Czy raportować je w jednej zbiorczej tabeli w tekście głównym, czy w suplemencie?</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    <p>Przedziały to 95% CI z bootstrapu po pytaniach (5000 losowań, seed 47). Wyjątkiem są testy odtworzenia protokołu, które mają przedziały z poprawką Bonferroniego (97,5% albo 98,33%). „Zarejestrowane” oznacza, że kryterium zostało zacommitowane przed uruchomieniem testu.</p>
+    <p>Źródło liczb: <code>paper/results/MANIFEST.md</code> w repozytorium. Wszystkie 102 liczby są sprawdzane z plikami wyników przez <code>make paper-results-check</code>.</p>
+  </footer>
+</main>
+</body>
+</html>

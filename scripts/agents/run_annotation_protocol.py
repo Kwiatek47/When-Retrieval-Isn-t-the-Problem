@@ -6,12 +6,16 @@ authors' conclusion, the other only the question and the abstract. They label in
 they discuss (``negotiate@1``) for up to ``--max-rounds`` rounds; unsettled questions are
 removed, as Jin et al. (2019) did.
 
+The two seats can be different models (``--model-with`` / ``--model-without``, both default to
+``--model``). ``--think`` is sent only to qwen3 models; other models get no thinking switch.
+
 Needs the app's dependencies (pydantic, httpx): run with ``llm_env``. Resumable; every row is
 one question; every invocation snapshots both prompts next to the output.
 
 Usage:
   python scripts/agents/run_annotation_protocol.py --limit 5 --out /tmp/pilot.jsonl   # pilot
   python scripts/agents/run_annotation_protocol.py                                    # all 1000
+  python scripts/agents/run_annotation_protocol.py --model-with qwen3:30b --model-without mistral-small3.2:24b
 """
 
 from __future__ import annotations
@@ -34,9 +38,23 @@ from scripts.agents.probe_prompts import get_prompt, snapshot_run  # noqa: E402
 from scripts.agents.run_label_probe import evidence_text, select_pmids  # noqa: E402
 
 PQAL = PROJECT_ROOT / "data/raw/pubmedqa_official/data/ori_pqal.json"
-OUT = PROJECT_ROOT / "reports/debate/analysis/annotation_protocol/protocol-qwen3-30b.think-off.all.jsonl"
+OUT_DIR = PROJECT_ROOT / "reports/debate/analysis/annotation_protocol"
 LABEL_PROMPT = "label-defined@1"
 NEGOTIATE_PROMPT = "negotiate@1"
+
+
+def model_tag(model: str) -> str:
+    return model.replace(":", "-").replace("/", "-")
+
+
+def default_out(model_with: str, model_without: str, think: str, split: str) -> Path:
+    """One model in both seats keeps the original name; a mixed pair names both, with-conclusion first."""
+    pair = model_tag(model_with) if model_with == model_without else f"{model_tag(model_with)}+{model_tag(model_without)}"
+    return OUT_DIR / f"protocol-{pair}.think-{think}.{split}.jsonl"
+
+
+def think_for(model: str, think: str) -> bool | None:
+    return {"on": True, "off": False}[think] if model.startswith("qwen3") else None
 
 
 def done_pmids(path: Path) -> set[str]:
@@ -63,8 +81,10 @@ async def run_all(args: argparse.Namespace) -> None:
         args.out,
         [label_spec, negotiate_spec],
         script="scripts/agents/run_annotation_protocol.py",
-        model=args.model,
+        model=f"{args.model_with}|{args.model_without}",
         meta={
+            "model_with_conclusion": args.model_with,
+            "model_context_only": args.model_without,
             "think": args.think,
             "max_rounds": args.max_rounds,
             "split": args.split,
@@ -78,11 +98,14 @@ async def run_all(args: argparse.Namespace) -> None:
     print(f"{len(pmids)} questions to do -> {args.out}", flush=True)
 
     provider = OllamaProvider(base_url=args.base_url, timeout=args.timeout, keep_alive="60m", num_ctx=args.num_ctx)
-    backend = OllamaInferenceBackend(
-        provider, model=args.model, temperature=0.0, max_retries=2, think={"on": True, "off": False}[args.think]
-    )
+    backends = {
+        seat: OllamaInferenceBackend(
+            provider, model=model, temperature=0.0, max_retries=2, think=think_for(model, args.think)
+        )
+        for seat, model in ((WITH_CONCLUSION, args.model_with), (CONTEXT_ONLY, args.model_without))
+    }
     protocol = AnnotationProtocol(
-        backend,
+        backends=backends,
         label_spec=label_spec,
         negotiate_spec=negotiate_spec,
         max_rounds=args.max_rounds,
@@ -100,7 +123,8 @@ async def run_all(args: argparse.Namespace) -> None:
         }
         async with gate:
             result = await protocol.run(pmid, item["QUESTION"], evidence)
-        return {**result.to_json(), "model": args.model, "think": args.think, "max_rounds": args.max_rounds,
+        return {**result.to_json(), "model": args.model_with if args.model_with == args.model_without else None,
+                "models": {WITH_CONCLUSION: args.model_with, CONTEXT_ONLY: args.model_without}, "think": args.think, "max_rounds": args.max_rounds,
                 "label_prompt_sha": label_spec.sha, "negotiate_prompt_sha": negotiate_spec.sha}
 
     with args.out.open("a", encoding="utf-8") as fh:
@@ -115,7 +139,9 @@ async def run_all(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", default="qwen3:30b")
+    parser.add_argument("--model", default="qwen3:30b", help="model for both seats unless overridden")
+    parser.add_argument("--model-with", default=None, help="model of the annotator who sees the conclusion")
+    parser.add_argument("--model-without", default=None, help="model of the annotator who sees only the context")
     parser.add_argument("--think", choices=("on", "off"), default="off")
     parser.add_argument("--max-rounds", type=int, default=3)
     parser.add_argument("--split", choices=("test", "cv", "all"), default="all")
@@ -125,8 +151,12 @@ def main() -> None:
     parser.add_argument("--num-ctx", type=int, default=4096)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--base-url", default="http://localhost:11434")
-    parser.add_argument("--out", type=Path, default=OUT)
-    asyncio.run(run_all(parser.parse_args()))
+    parser.add_argument("--out", type=Path, default=None)
+    args = parser.parse_args()
+    args.model_with = args.model_with or args.model
+    args.model_without = args.model_without or args.model
+    args.out = args.out or default_out(args.model_with, args.model_without, args.think, args.split)
+    asyncio.run(run_all(args))
 
 
 if __name__ == "__main__":

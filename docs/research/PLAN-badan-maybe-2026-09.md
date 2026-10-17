@@ -688,6 +688,271 @@ Run wystartował 08:16:50 z czystego drzewa na `27e5441` (zapis w migawce runu).
 3. Negocjacja nie poprawia trafiania w `maybe` (P3), bo do negocjacji rzadko dochodzi — agenci zgadzają się w 85%.
 4. **Ograniczenia:** jeden model w obu rolach, jedna odpowiedź na turę, myślenie wyłączone, 3 rundy (nasz wybór).
 
+#### Rejestracja: odtworzenie protokołu przez dwa różne modele (2026-10-12)
+
+**Pytanie.** Czy agenci z dwóch różnych rodzin modeli spierają się częściej i lepiej odtwarzają gold `maybe` niż ten sam
+model w obu rolach? Motywacja: w odtworzeniu `qwen3:30b` × 2 agenci zgadzali się w 85% (ludzie 70%), a końcowych `maybe`
+było 24 wobec 109 gold na tych samych 995 pytaniach. Jeden model w obu rolach ma te same „ślepe plamki”, więc może się
+spierać rzadziej niż dwie różne osoby.
+
+**Układ.** Ten sam protokół, te same prompty (`label-defined@1`, `negotiate@1`), temperatura 0, myślenie wyłączone dla
+`qwen3:30b`, 3 rundy, te same 995 pytań (5 pytań pilota wyłączone). Drugi model: `mistral-small3.2:24b` (gęsta architektura
+Mistrala, inne dane treningowe, podobny rozmiar; `deepseek-r1:32b` odrzucony, bo to destylacja na bazie Qwen2.5).
+Trzy runy, w tym dwa nowe w obu kolejnościach, żeby nie mylić efektu modelu z efektem miejsca:
+
+| Run | Z konkluzją | Bez konkluzji | Stan |
+|---|---|---|---|
+| QQ | `qwen3:30b` | `qwen3:30b` | istnieje (`27e5441`) |
+| QM | `qwen3:30b` | `mistral-small3.2:24b` | nowy |
+| MQ | `mistral-small3.2:24b` | `qwen3:30b` | nowy |
+
+„Mieszane” = średnia z QM i MQ. Wszystkie porównania sparowane po pytaniach, na pytaniach ukończonych we wszystkich trzech
+runach.
+
+**Testy** (`scripts/agents/analyze_mixed_protocol.py`; dwa równorzędne, korekta Bonferroniego: przedziały 97.5%, bootstrap
+po pytaniach, 5000 losowań, seed 47):
+- **M1 — więcej sporów:** odsetek pytań, na których agenci różnią się w rundzie 0, mieszane − QQ. Potwierdzone, jeśli
+  przedział w całości powyżej 0; obalone, jeśli w całości ≤ 0; inaczej nierozstrzygnięte.
+- **M2 — lepsze `maybe`:** F1 `maybe` końcowej etykiety względem gold, mieszane − QQ. Usunięte pytania liczą się jako
+  odpowiedź „nie `maybe`”. Ta sama reguła.
+
+**Wtórne (bez korekty):** M1 i M2 osobno dla QM i MQ; odsetek sporów każdego runu obok ludzkiego (0.298); testy P1–P3
+z pierwszego odtworzenia dla QM i MQ, z tymi samymi regułami i wartościami ludzkimi; liczby statusów i końcowych etykiet;
+`maybe` w rundzie 0 według modelu i miejsca (`qwen3` i `mistral`, z konkluzją i bez) obok ludzkich 110 i 84; zgodność
+w rundzie 0 wirtualnej pary `mistral` × 2 (etykiety `mistral` z MQ i QM); F1 `maybe` końcowej etykiety względem każdego
+annotatora; końcowe `maybe` na gold `maybe` jednomyślnych i negocjowanych; accuracy względem gold.
+
+**Znane przed rejestracją:** całe QQ i etykiety ludzi; pilot obu kolejności na 5 pytaniach pilota (10/10 ukończonych,
+0 nieczytelnych odpowiedzi — sprawdzenie, że odpowiedzi `mistral` się parsują). Etykiet `mistral` na analizowanych
+pytaniach nie oglądaliśmy.
+
+**Uruchomienie po commicie rejestracji:** QM i MQ równolegle, każdy na osobnym serwerze Ollama (A40, oba modele mieszczą
+się na jednej karcie):
+
+```
+python scripts/agents/run_annotation_protocol.py --model-with qwen3:30b --model-without mistral-small3.2:24b
+python scripts/agents/run_annotation_protocol.py --model-with mistral-small3.2:24b --model-without qwen3:30b
+python scripts/agents/analyze_mixed_protocol.py
+```
+
+#### Wynik: dwa różne modele (2026-10-12; rejestracja `b0b71b7`, `reports/debate/analysis/mixed_protocol.json`)
+
+Oba runy wystartowały 11:34 UTC z `66b7c44` (merge rejestracji do `feat/benchmarks`), skończyły 12:38. 1000/1000 pytań
+w każdym, 0 błędów; analiza na 995. Migawka MQ ma `dirty: True` tylko dlatego, że QM sekundę wcześniej dopisał swój
+wiersz do śledzonego `prompt_versions.jsonl`; kod obu runów ten sam.
+
+**Testy główne** (przedziały 97.5%):
+
+| Test | Mieszane − QQ | Werdykt |
+|---|---|---|
+| M1 więcej sporów w rundzie 0 | +0.034 [+0.010, +0.058] | **potwierdzone** |
+| M2 F1 `maybe` końcowej etykiety wzgl. gold | −0.003 [−0.098, +0.093] | nierozstrzygnięte |
+
+**Wtórne (bez korekty):**
+
+| | QQ | QM | MQ | Ludzie (te same 995) |
+|---|---|---|---|---|
+| odsetek sporów w rundzie 0 | 0.148 | 0.192 | 0.172 | 0.298 |
+| końcowe `maybe` | 24 | 28 | 35 | 109 |
+| usunięte po 3 rundach | 21 | 14 | 16 | nieznane |
+| F1 `maybe` końcowej wzgl. gold | 0.165 | 0.117 | 0.208 | — |
+| accuracy wzgl. gold | 0.795 | 0.801 | 0.802 | — |
+| spory wygrywa strona z konkluzją (P2) | 0.656 | 0.874 | **0.344** | 0.728 |
+
+- M1 i M2 osobno: QM +0.044 [+0.018, +0.069] i −0.049 [−0.138, +0.040]; MQ +0.024 [+0.002, +0.046] i +0.043 [−0.062, +0.148].
+- `maybe` w rundzie 0 według modelu i miejsca: `qwen3` z konkluzją 34, bez 53; `mistral` z konkluzją 42, bez 63; ludzie 110
+  i 84.
+- Wirtualna para `mistral` × 2 (etykiety z MQ i QM): spory 0.126 — mniej niż `qwen3` × 2.
+- P1 nierozstrzygnięte w obu (0.607, 0.657 wobec 0.789); P3 w QM obalone (−0.065 [−0.124, −0.014]), w MQ nierozstrzygnięte.
+
+**Kontrola szumu (dodana po analizie, eksploracyjna):** `qwen3:30b` przy temperaturze 0 zmienia między runami ok. 4% etykiet
+rundy 0 (40 i 45 z 995; Ollama przy równoległych zapytaniach nie jest w pełni deterministyczna). Para `qwen3` × 2 złożona
+z runów mieszanych ma 0.139 sporów — tyle co QQ (0.148), więc szum nie tłumaczy M1.
+
+**Co z tego wynika:**
+1. **Różne modele spierają się częściej, ale niewiele:** różnica +0.034 zamyka ok. jednej czwartej luki do ludzi
+   (0.148 → 0.182 wobec 0.298). Większość „nadmiernej zgody” agentów nie wynika z tego, że to ten sam model.
+2. **`maybe` dalej się nie odtwarza:** 28–35 końcowych `maybe` wobec 109; F1 bez poprawy (M2).
+3. **Konkluzja usztywnia oba modele:** `mistral`, tak jak `qwen3`, mówi `maybe` rzadziej, gdy widzi konkluzję (42 wobec 63),
+   odwrotnie niż ludzie (110 wobec 84). Obserwacja z pierwszego odtworzenia powtarza się na drugiej rodzinie modeli
+   (zarejestrowane jako liczby wtórne, bez testu).
+4. **O wyniku sporu decyduje model, nie informacja:** u ludzi wygrywa strona z konkluzją (0.728). W parach mieszanych
+   wygrywa `qwen3` niezależnie od miejsca: 152/174 (0.874), gdy widzi konkluzję, i 99/151 (0.656), gdy jej nie widzi.
+   Negocjacja agentów mierzy więc ich wzajemną „siłę przekonywania”, a nie przewagę informacyjną (po fakcie).
+
+#### Rejestracja: reguła zastrzeżenia i próg `maybe` (2026-10-12)
+
+**Pytanie.** Dwie poprawki tego, co pokazały odtworzenia protokołu. (1) Modele mówią `maybe` rzadziej, gdy widzą
+konkluzję, a annotator z konkluzją częściej (110 wobec 84), i to tym częściej, im bardziej warunkowa jest konkluzja
+(H1b, wtórnie +0.170). Czy jawna reguła „odpowiedź, którą tekst sam ogranicza, to `maybe`” odwraca kierunek efektu
+konkluzji i zbliża model do annotatora z konkluzją? (2) Modele mówią `maybe` 2–4 razy za rzadko. Czy próg na
+prawdopodobieństwie `maybe`, ustawiony tak, by częstość `maybe` była ludzka, poprawia trafianie w `maybe` człowieka?
+
+**Prompty** (`scripts/agents/probe_prompts.py`, hashe przypięte w `tests/test_probe_prompts.py`):
+- `label-probs@1` (`ca366f2dcb94`): definicja z `label-defined@1` plus prawdopodobieństwa trzech odpowiedzi (p_yes, p_no,
+  p_maybe, w procentach);
+- `label-caveat-probs@1` (`6f14991578dc`): to samo plus reguła: jeśli tekst sam ogranicza odpowiedź (tylko niektóre
+  podgrupy, wyniki, dawki lub warunki; wyniki w różnych kierunkach; konkluzja autorów zawęża odpowiedź albo zostawia
+  pytanie otwarte), odpowiedz `maybe`, nawet jeśli jeden kierunek wydaje się bardziej prawdopodobny.
+
+**Runy** (`run_label_probe.py`, tylko runda 0, wszystkie 1000 pytań PQA-L, temperatura 0, myślenie wyłączone dla `qwen3`):
+2 modele (`qwen3:30b`, `mistral-small3.2:24b`) × 2 prompty × 2 wejścia (`context`, `context+conclusion`) = 8 runów.
+Odpowiednik ludzki: wejście z konkluzją — annotator 1 (`reasoning_free_pred`), bez — annotator 2 (`reasoning_required_pred`).
+Pytania pilota (`PILOT_PMIDS`, 5 z testu) wyłączone.
+
+**Testy** (`scripts/agents/analyze_caveat_threshold.py`; trzy równorzędne, korekta Bonferroniego: przedziały 98.33%,
+bootstrap po pytaniach, 5000 losowań, seed 47; każda statystyka to średnia z dwóch modeli; potwierdzone, jeśli przedział
+w całości powyżej 0, obalone, jeśli w całości ≤ 0, inaczej nierozstrzygnięte):
+- **C1 — kierunek efektu konkluzji (punkt 1):** efekt konkluzji = odsetek `maybe` z konkluzją − bez niej (deklarowane
+  etykiety). C1 = efekt przy `label-caveat-probs@1` − efekt przy `label-probs@1`. Wszystkie pytania.
+- **C2 — `maybe` jak u annotatora z konkluzją (punkt 1):** F1 `maybe` wejścia z konkluzją względem annotatora 1,
+  `label-caveat-probs@1` − `label-probs@1`. Wszystkie pytania.
+- **T1 — próg (punkt 2), `label-probs@1`:** F1 `maybe` względem ludzkiego odpowiednika, etykiety z progiem − deklarowane,
+  średnio po 2 modelach × 2 wejściach. **Tylko pytania testowe.** Próg ustalany na 500 pytaniach spoza testu, osobno dla
+  modelu i wejścia: wartość p_maybe (znormalizowanego do sumy 1), przy której odsetek pytań z p_maybe ≥ progu jest
+  najbliższy odsetkowi `maybe` ludzkiego odpowiednika na tych pytaniach (remis → wyższy próg). Etykieta z progiem:
+  `maybe`, jeśli p_maybe ≥ próg; inaczej deklarowana etykieta, jeśli to yes lub no; inaczej większe z p_yes i p_no
+  (remis → yes). W bootstrapie próg jest stały.
+
+**Wtórne (bez korekty):** wszystko osobno dla każdego modelu; efekt konkluzji dla każdego promptu z przedziałem 95%
+obok ludzkiego (+0.026); liczby `maybe` według modelu, promptu i wejścia; F1 `maybe` względem gold i każdego annotatora,
+etykiety deklarowane i z progiem, oba prompty; próg zastosowany do `label-caveat-probs@1`; AP i AUROC p_maybe dla `maybe`
+odpowiednika i gold (test); accuracy względem gold, deklarowane wobec z progiem (test); wybrane progi i odsetki `maybe`,
+jakie dają poza testem i na teście.
+
+**Znane przed rejestracją:** etykiety `label-defined@1` z rundy 0 obu modeli z konkluzją i bez (odtworzenia protokołu;
+dla `qwen3` także sondy etykiet); pilot obu nowych promptów na 5 pytaniach pilota (40/40 odpowiedzi, wszystkie
+z poprawnymi prawdopodobieństwami). Treść reguły zastrzeżenia wynika z H1b i odtworzeń; nie była dobierana na wynikach
+nowych promptów.
+
+**Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_caveat_threshold.sh > logs/caveat_threshold.log 2>&1 < /dev/null &`
+(`qwen3` na serwerze GPU0, `mistral` na GPU2, równolegle; potem zwolnienie modeli i analiza).
+
+#### Wynik: reguła zastrzeżenia i próg `maybe` (2026-10-12; rejestracja `91876fa`, `reports/debate/analysis/caveat_threshold.json`)
+
+Runy wystartowały z czystego drzewa na `91876fa`, skończyły 16:15 UTC; 8 × 1000 odpowiedzi, 0 błędów. Analiza na 995
+pytaniach (495 testowych, 500 spoza testu).
+
+**Testy główne** (przedziały 98.33%, średnia z dwóch modeli):
+
+| Test | Wynik | Werdykt |
+|---|---|---|
+| C1 reguła zmienia kierunek efektu konkluzji | −0.015 [−0.037, +0.006] | nierozstrzygnięte |
+| C2 reguła zbliża stronę z konkluzją do annotatora z konkluzją (F1 `maybe`) | **+0.110 [+0.029, +0.193]** | **potwierdzone** |
+| T1 próg poprawia F1 `maybe` względem człowieka (test) | +0.010 [−0.041, +0.065] | nierozstrzygnięte |
+
+**Liczby `maybe`** (995 pytań; ludzie: 110 z konkluzją, 84 bez):
+
+| | `label-probs@1` z / bez konkluzji | `label-caveat-probs@1` z / bez konkluzji |
+|---|---|---|
+| `qwen3:30b` | 46 / 73 | 124 / 170 |
+| `mistral-small3.2:24b` | 66 / 83 | 132 / 160 |
+
+**Wtórne (bez korekty):**
+- C1 i C2 osobno: `qwen3` −0.019 [−0.043, +0.005] i +0.128 [+0.030, +0.229]; `mistral` −0.011 [−0.035, +0.014]
+  i +0.092 [+0.015, +0.167]. Efekt konkluzji przy regule nadal ujemny w obu modelach: `qwen3` −0.046 [−0.069, −0.023],
+  `mistral` −0.028 [−0.052, −0.005] (ludzie +0.026).
+- F1 `maybe` strony z konkluzją, deklarowane etykiety, 995 pytań: wzgl. annotatora z konkluzją `qwen3` 0.282 → 0.410,
+  `mistral` 0.239 → 0.331; wzgl. gold `qwen3` 0.258 → 0.343, `mistral` 0.217 → 0.307.
+- Na teście (495): `qwen3` z regułą i konkluzją ma F1 `maybe` wzgl. gold **0.385** (55 `maybe` wobec 54 gold),
+  przy accuracy 0.804 (bez reguły 0.828).
+- Próg: pomaga stronie z konkluzją (`qwen3` 0.269 → 0.324, `mistral` 0.276 → 0.328 wzgl. odpowiednika), szkodzi stronie bez
+  konkluzji (0.191 → 0.188, 0.207 → 0.143) i obniża accuracy strony z konkluzją (`qwen3` 0.828 → 0.782).
+- Ranking p_maybe dla `maybe` annotatora z konkluzją (test): `qwen3` AP 0.220 → 0.303 i AUROC 0.617 → 0.708 z regułą;
+  `mistral` AP 0.217 → 0.213, AUROC 0.673 → 0.715. Strona bez konkluzji: AP ok. 0.14 z regułą i bez.
+- Progi wypadły na wartościach p_maybe 0.05–0.6; model podaje prawdopodobieństwa zgrubnie (co 5–10 punktów).
+
+**Co z tego wynika:**
+1. **Reguła zastrzeżenia działa tam, gdzie miała działać:** strona z konkluzją trafia w `maybe` annotatora z konkluzją
+   wyraźnie lepiej (C2), w obu modelach. Nie jest to sam efekt „więcej `maybe`”: dopasowanie samej częstości progiem
+   na `label-probs@1` daje 0.32–0.33, a reguła 0.41 (`qwen3`) — i reguła poprawia ranking (AUROC 0.62 → 0.71). To
+   wspiera odczytanie, że annotator z konkluzją mówił `maybe`, gdy konkluzja ograniczała odpowiedź (por. H1b).
+2. **Kierunek efektu konkluzji się nie odwraca:** reguła podnosi `maybe` także bez konkluzji, i to bardziej (170 wobec 124).
+   Konkluzja nadal czyni oba modele bardziej zdecydowanymi — trzeci raz, teraz nawet przy jawnej regule.
+3. **Sam próg nie pomaga:** dopasowanie częstości `maybe` do ludzkiej nie poprawia średnio F1 (T1), bo ranking p_maybe
+   jest słaby (AP 0.14–0.22, przy losowym ok. 0.10) — problemem nie jest tylko zbyt wysoki próg modelu.
+4. **Koszt:** reguła obniża accuracy o 2–3 pp (więcej `maybe` na pytaniach z gold yes/no).
+5. **Ograniczenia:** treść reguły powstała z wiedzą o H1b (zachowanie annotatora z konkluzją na tych samych pytaniach);
+   porównanie reguły z progiem w punkcie 1 jest po fakcie.
+
+#### Rejestracja: kto wygrywa spór — model czy informacja (2026-10-12)
+
+**Pytanie.** W parach mieszanych spór wygrywa `qwen3:30b` niezależnie od strony: strona z konkluzją wygrywa 0.874
+rozstrzygniętych sporów, gdy trzyma ją `qwen3` (QM), i 0.344, gdy `mistral` (MQ). U ludzi wygrywa strona z konkluzją
+(0.728). Czy dyskusja oparta na cytowanych dowodach przesuwa wygrane od silniejszego modelu do strony z większą
+informacją?
+
+**Układ.** Wszystkie spory z QM (191) i MQ (171), bez pytań pilota, dyskutowane od nowa przez te same modele na tych
+samych miejscach, od tych samych etykiet i uzasadnień z rundy 0 (`scripts/agents/run_negotiation_replay.py`), w dwóch
+ramionach:
+- **old:** `negotiate@1`, prompt z runów źródłowych (powtórka; pokazuje, ile wynik zmienia się sam);
+- **evidence:** `justify@1` (`a9b7d2a04c9a`) — przed dyskusją każda strona cytuje dosłownie fragment swojego tekstu na
+  poparcie etykiety; potem `negotiate-evidence@1` (`176ebf33ac66`) — obie strony widzą cytaty, cytat z tekstu, którego
+  się nie widzi, też jest dowodem, oceniać dowody, a nie pewność rozmówcy; każda odpowiedź podaje nowy cytat.
+Temperatura 0, myślenie wyłączone dla `qwen3`, do 3 rund, nieuzgodnione usuwane.
+
+**Miary.** w_QM i w_MQ = odsetek rozstrzygniętych sporów (etykieta końcowa = etykieta z rundy 0 jednej strony), które
+wygrała strona z konkluzją.
+- **przewaga modelu** D = (w_QM − w_MQ) / 2 — udział wygranych `qwen3` w obu runach minus 0.5; dziś 0.265;
+- **przewaga informacji** I = (w_QM + w_MQ) / 2 − 0.5; dziś 0.109, u ludzi 0.228.
+
+**Testy** (`scripts/agents/analyze_negotiation_dominance.py`; dwa równorzędne, korekta Bonferroniego: przedziały 97.5%,
+bootstrap sporów osobno w QM i MQ, sparowany między ramionami, 5000 losowań, seed 47):
+- **N1 — mniejsza przewaga modelu:** D(evidence) − D(old). Potwierdzone, jeśli przedział w całości poniżej 0; obalone,
+  jeśli w całości ≥ 0; inaczej nierozstrzygnięte.
+- **N2 — większa przewaga informacji:** I(evidence) − I(old). Potwierdzone, jeśli przedział w całości powyżej 0; obalone,
+  jeśli w całości ≤ 0; inaczej nierozstrzygnięte.
+
+**Wtórne (bez korekty):** D, I i w dla każdego ramienia i runów źródłowych z przedziałami 95%; zgodność etykiety końcowej
+ramienia old z runem źródłowym; I ludzi; statusy, średnia liczba rund i końcowe `maybe` w sporach; cytaty: odsetek
+dosłownie obecnych we własnym tekście strony i odsetek cytatów strony z konkluzją wziętych z konkluzji; accuracy i F1
+`maybe` względem gold na wszystkich 995 pytaniach (zgodne z runu źródłowego plus powtórzone spory).
+
+**Znane przed rejestracją:** runy źródłowe QQ, QM, MQ i wszystkie ich statystyki; pilot obu ramion na sporach z pytań
+pilota (3 spory, tylko QM — w pilocie MQ sporów nie było), 0 błędów, cytaty generowane przez oba modele.
+
+**Uruchomienie po commicie rejestracji:** `setsid nohup logs/run_negotiation_replay.sh > logs/negotiation_replay.log 2>&1 < /dev/null &`
+(QM na serwerze GPU0, MQ na GPU2, równolegle; potem zwolnienie modeli i analiza).
+
+#### Wynik: kto wygrywa spór (2026-10-12; rejestracja `607e0e4`, `reports/debate/analysis/negotiation_dominance.json`)
+
+Runy wystartowały z czystego drzewa na `607e0e4` (QM na GPU0, MQ na GPU2), skończyły 17:22 UTC; 4 × (191 lub 171) sporów,
+0 błędów.
+
+**Testy główne** (przedziały 97.5%):
+
+| Test | evidence − old | Werdykt |
+|---|---|---|
+| N1 mniejsza przewaga modelu (D) | +0.038 [−0.020, +0.095] | nierozstrzygnięte (estymata w złą stronę) |
+| N2 większa przewaga informacji (I) | +0.029 [−0.028, +0.087] | nierozstrzygnięte |
+
+**Wtórne (bez korekty):**
+
+| | runy źródłowe | old (powtórka) | evidence | ludzie |
+|---|---|---|---|---|
+| strona z konkluzją wygrywa, gdy trzyma ją `qwen3` (w_QM) | 0.874 | 0.890 | 0.956 | — |
+| strona z konkluzją wygrywa, gdy trzyma ją `mistral` (w_MQ) | 0.344 | 0.338 | 0.329 | — |
+| przewaga modelu D | 0.265 | 0.276 [0.233, 0.318] | 0.314 [0.272, 0.354] | — |
+| przewaga informacji I | 0.109 | 0.114 [0.070, 0.158] | 0.143 [0.102, 0.184] | 0.228 |
+
+- Powtórka starym promptem daje tę samą etykietę końcową co run źródłowy w 87% (QM) i 82% (MQ) sporów.
+- Cytaty: 77–81% dosłownie obecnych we własnym tekście; strona z konkluzją cytuje konkluzję w 41% przypadków, gdy to
+  `qwen3`, i w 26%, gdy `mistral`.
+- Końcowe `maybe` w sporach: QM 12 → 20, MQ 22 → 26; na wszystkich 995 pytaniach F1 `maybe` wzgl. gold 0.12–0.17,
+  accuracy 0.79–0.81 w obu ramionach.
+- **Po fakcie (eksploracyjne):** w rundzie 0 `qwen3` deklaruje wyższą pewność (90–93) niż `mistral` (84–87). W QM `mistral`
+  ustępuje w 154 ze 173 rozstrzygniętych sporów (evidence: 175 ze 183); w MQ, mając konkluzję, nadal ustępuje dwa razy
+  częściej niż `qwen3` (100 wobec 51).
+
+**Co z tego wynika:**
+1. **Cytowanie dowodów nie przenosi wygranych na stronę z informacją.** Przewaga `qwen3` jest stabilna we wszystkich
+   trzech wersjach (D 0.27–0.31), a z cytatami raczej rośnie: `qwen3` z konkluzją wygrywa 96% sporów.
+2. **`mistral` nie wykorzystuje swojej przewagi informacyjnej:** mając konkluzję, cytuje ją rzadko (26%) i ustępuje.
+   Wynik negocjacji agentów zależy od tego, który model łatwiej ustępuje, a nie od tego, kto wie więcej.
+3. **Dla tezy:** negocjacja LLM-ów nie jest dobrym modelem ludzkiej negocjacji etykiet — u ludzi wygrywa strona
+   z informacją (I = 0.228), u agentów strona z bardziej „upartym” modelem.
+4. **Ograniczenia:** dwa modele; jeden prompt cytowania; „uległość” `mistral` to obserwacja po fakcie.
+
 ### Czy teza z 2026-10-02 się z czymś pokrywa? (sprawdzone 2026-10-02)
 
 **Zakres sprawdzenia:** (1) 1974 prace cytujące PubMedQA w Semantic Scholar (1769 z abstraktem), słowa kluczowe
@@ -1092,3 +1357,21 @@ oraz odłożonymi RQ7, RQ10, RQ11.
 - 2026-10-08 — **odtworzenie protokołu policzone:** P1, P2, P3 nierozstrzygnięte. Kształt procesu częściowo się odtwarza
   (strona z konkluzją wygrywa 2/3 sporów, brak kompromisu yes/no → `maybe`), ilość `maybe` nie: agent z konkluzją mówi
   `maybe` 29 razy wobec 110 u człowieka — konkluzja działa na model odwrotnie niż na annotatora (eksploracyjnie).
+- 2026-10-12 — **zarejestrowane odtworzenie protokołu przez dwa różne modele** (`qwen3:30b` i `mistral-small3.2:24b`,
+  obie kolejności): M1 (więcej sporów niż `qwen3` × 2) i M2 (lepsze F1 `maybe` względem gold), przedziały 97.5%.
+  Protokół przyjmuje teraz osobny model dla każdej strony. Pilot na 5 pytaniach: 0 błędów.
+- 2026-10-12 — **odtworzenie z dwoma różnymi modelami policzone:** M1 potwierdzone (+0.034 [+0.010, +0.058] sporów, ale to
+  ok. 1/4 luki do ludzi), M2 nierozstrzygnięte. `mistral` też mówi rzadziej `maybe` z konkluzją (42 wobec 63); spory
+  wygrywa `qwen3` niezależnie od tego, czy widzi konkluzję (0.874 i 0.656).
+- 2026-10-12 — **zarejestrowana reguła zastrzeżenia i próg `maybe`** (prompty `label-probs@1`, `label-caveat-probs@1`;
+  `qwen3:30b` i `mistral-small3.2:24b`, runda 0 na 1000 pytaniach): C1 (reguła odwraca efekt konkluzji), C2 (zbliża do
+  annotatora z konkluzją), T1 (próg z połowy spoza testu poprawia F1 `maybe` na teście), przedziały 98.33%.
+- 2026-10-12 — **reguła zastrzeżenia i próg policzone:** C2 potwierdzone (+0.110 [+0.029, +0.193]; strona z konkluzją
+  bliżej annotatora z konkluzją, `qwen3` F1 wzgl. gold na teście 0.385), C1 i T1 nierozstrzygnięte. Konkluzja dalej
+  usztywnia oba modele, nawet z jawną regułą; sam próg nie pomaga, bo ranking p_maybe jest słaby.
+- 2026-10-12 — **zarejestrowane: kto wygrywa spór** (powtórka negocjacji sporów QM i MQ od tych samych etykiet rundy 0;
+  ramiona `negotiate@1` i cytowane dowody `justify@1` + `negotiate-evidence@1`): N1 (mniejsza przewaga modelu D) i N2
+  (większa przewaga informacji I), przedziały 97.5%. Protokół przyjmuje teraz cytaty i krok uzasadnienia.
+- 2026-10-12 — **kto wygrywa spór — policzone:** N1 i N2 nierozstrzygnięte; cytowanie dowodów nie przenosi wygranych na
+  stronę z konkluzją, przewaga `qwen3` stabilna (D 0.27–0.31). Po fakcie: `mistral` deklaruje niższą pewność i ustępuje
+  także wtedy, gdy ma konkluzję.

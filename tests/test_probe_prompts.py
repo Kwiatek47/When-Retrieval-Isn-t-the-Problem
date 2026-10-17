@@ -15,6 +15,12 @@ class PromptRegistryTests(unittest.TestCase):
 
         self.assertEqual(PROMPTS["conditionality@1"].sha, "77e624205b2a")
         self.assertEqual(PROMPTS["conditionality@1"].status, "registered")
+        # The caveat / threshold probe (2026-10-12) was pre-registered with these two prompts.
+        self.assertEqual(PROMPTS["label-probs@1"].sha, "ca366f2dcb94")
+        self.assertEqual(PROMPTS["label-caveat-probs@1"].sha, "6f14991578dc")
+        # The model-dominance replay (2026-10-12) was pre-registered with these two prompts.
+        self.assertEqual(PROMPTS["justify@1"].sha, "a9b7d2a04c9a")
+        self.assertEqual(PROMPTS["negotiate-evidence@1"].sha, "176ebf33ac66")
 
     def test_every_prompt_renders_with_exactly_its_fields(self) -> None:
         from scripts.agents.probe_prompts import PROMPTS
@@ -91,6 +97,16 @@ class LabelProbeTests(unittest.TestCase):
         self.assertEqual(parse_label('{"rationale": "r", "label": "maybe", "confidence": 60}'), ("maybe", 60, "r"))
         self.assertEqual(parse_label('{"rationale": "r", "label": "maybe", "confidence": 900}'), ("maybe", None, "r"))
         self.assertEqual(parse_label('{"label": "unsure"}'), (None, None, ""))
+
+    def test_parse_probs(self) -> None:
+        from scripts.agents.run_label_probe import parse_probs
+
+        self.assertEqual(parse_probs('{"p_yes": 60, "p_no": 20, "p_maybe": 20}'), {"yes": 0.6, "no": 0.2, "maybe": 0.2})
+        self.assertEqual(parse_probs('{"p_yes": 30, "p_no": 30, "p_maybe": 40}')["maybe"], 0.4)
+        self.assertEqual(parse_probs('{"p_yes": 50, "p_no": 50, "p_maybe": 50}')["maybe"], round(1 / 3, 4))
+        self.assertIsNone(parse_probs('{"p_yes": 0, "p_no": 0, "p_maybe": 0}'))
+        self.assertIsNone(parse_probs('{"p_yes": 60, "p_no": 40}'))
+        self.assertIsNone(parse_probs('{"p_yes": 160, "p_no": 0, "p_maybe": 0}'))
 
 
 class ConditionalityRaterTests(unittest.TestCase):

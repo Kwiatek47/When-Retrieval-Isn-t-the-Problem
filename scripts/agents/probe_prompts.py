@@ -255,6 +255,71 @@ In this collection about 55% of questions are answered yes, 34% no and 11% maybe
     options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
 )
 
+# --- Caveat rule and maybe threshold (2026-10-12) -------------------------------------------
+# Both prompts keep label-defined@1's definition and add probabilities for the three answers,
+# so a maybe threshold can be set on the non-test half. label-caveat-probs@1 adds one rule:
+# an answer the text itself restricts or leaves open is maybe. It comes from two results: the
+# annotator who saw the conclusion said maybe more often when the conclusion was conditional
+# (H1b, secondary), while qwen3 and mistral said maybe less often once they saw the conclusion.
+
+_PROBS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "rationale": {"type": "string"},
+        "label": {"type": "string", "enum": ["yes", "no", "maybe"]},
+        "p_yes": {"type": "integer", "minimum": 0, "maximum": 100},
+        "p_no": {"type": "integer", "minimum": 0, "maximum": 100},
+        "p_maybe": {"type": "integer", "minimum": 0, "maximum": 100},
+    },
+    "required": ["rationale", "label", "p_yes", "p_no", "p_maybe"],
+}
+
+_PROBS_OUTPUT = """First give a short rationale (at most 40 words), then the answer, then how likely
+each of the three answers is, as whole percentages that add up to 100.
+Return JSON: {{"rationale": "...", "label": "yes" | "no" | "maybe", "p_yes": 0-100, "p_no": 0-100, "p_maybe": 0-100}}"""
+
+_CAVEAT_RULE = """Before you answer, check whether the text limits its own answer to the question:
+- the answer is said to hold only for some patients, subgroups, outcomes, doses or settings;
+- the text reports findings that point in different directions for this question; or
+- the authors' conclusion, if the text includes it, restricts its answer or leaves the question open.
+If the text limits its answer in one of these ways, answer maybe, even when one direction seems
+more likely. A conclusion that states a direction but limits it is a reason for maybe, not for a
+confident yes or no."""
+
+LABEL_PROBS_V1 = PromptSpec(
+    name="label-probs",
+    version=1,
+    status="registered",
+    purpose="As label-defined@1, plus a probability for each answer (maybe threshold, point 2).",
+    notes="Pre-registered 2026-10-12 with the caveat/threshold probe (PLAN, 'Reguła zastrzeżenia i próg maybe').",
+    system=_LABEL_SYSTEM,
+    user="""Research question: {question}
+
+{evidence}
+
+""" + _MAYBE_DEFINITION + "\n\n" + _PROBS_OUTPUT,
+    schema=_PROBS_SCHEMA,
+    fields=("question", "evidence"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
+LABEL_CAVEAT_PROBS_V1 = PromptSpec(
+    name="label-caveat-probs",
+    version=1,
+    status="registered",
+    purpose="As label-probs@1, plus the rule that an answer the text itself limits is maybe (point 1).",
+    notes="Pre-registered 2026-10-12 with the caveat/threshold probe (PLAN, 'Reguła zastrzeżenia i próg maybe').",
+    system=_LABEL_SYSTEM,
+    user="""Research question: {question}
+
+{evidence}
+
+""" + _MAYBE_DEFINITION + "\n\n" + _CAVEAT_RULE + "\n\n" + _PROBS_OUTPUT,
+    schema=_PROBS_SCHEMA,
+    fields=("question", "evidence"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
 # --- Protocol replay: two LLM annotators negotiate as PQA-L's annotators did ------------------
 # Round 0 of the replay uses label-defined@1 unchanged (with and without the conclusion). This
 # prompt is only for the discussion rounds that follow a disagreement.
@@ -295,6 +360,87 @@ Reply to your colleague and give the label you now hold.
     options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
 )
 
+# --- Negotiation on quoted evidence (2026-10-12) ---------------------------------------------
+# In the mixed-model replays the dispute went to qwen3 whichever side it played, while among the
+# annotators the side with more information (the conclusion) won. These two prompts make each
+# side show the passage behind its label before and during the discussion, and ask both to weigh
+# quoted evidence rather than how certain the colleague sounds.
+
+_REVIEWER_SYSTEM = (
+    "You are one of two reviewers labelling a biomedical research question as yes, no or maybe from a study "
+    "abstract. You labelled it independently, and your colleague chose a different label. Use only the text "
+    "you are given."
+)
+
+JUSTIFY_V1 = PromptSpec(
+    name="justify",
+    version=1,
+    status="registered",
+    purpose="Negotiation on evidence: before the discussion, each side quotes the passage behind its label.",
+    notes="Pre-registered 2026-10-12 with the model-dominance replay (PLAN, 'Kto wygrywa spór').",
+    system=_REVIEWER_SYSTEM,
+    user="""Research question: {question}
+
+What you can see:
+{evidence}
+
+Your label: {own_label}. Your reason: {own_rationale}
+
+Before you discuss, quote word for word the passage from the text above that most supports your
+label (at most 40 words). Your colleague will see this quote.
+Return JSON: {{"quote": "..."}}""",
+    schema={"type": "object", "properties": {"quote": {"type": "string"}}, "required": ["quote"]},
+    fields=("question", "evidence", "own_label", "own_rationale"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 200},
+)
+
+NEGOTIATE_EVIDENCE_V1 = PromptSpec(
+    name="negotiate-evidence",
+    version=1,
+    status="registered",
+    purpose="Negotiation on evidence: one discussion turn in which both sides see each other's quoted passage.",
+    notes=(
+        "Pre-registered 2026-10-12 with the model-dominance replay (PLAN, 'Kto wygrywa spór'). Same structure and "
+        "label definition as negotiate@1, plus quoted evidence and the instruction to weigh it."
+    ),
+    system=_REVIEWER_SYSTEM + (
+        " You now discuss it to reach a shared label. Weigh your colleague's reasons by the evidence they quote, "
+        "not by how certain they sound; a passage your colleague quotes from text you cannot see is evidence too. "
+        "Change your label only if the evidence convinces you; keeping it is allowed."
+    ),
+    user="""Research question: {question}
+
+What you can see:
+{evidence}
+
+What your colleague can see: {partner_view}
+
+""" + _MAYBE_DEFINITION + """
+
+Discussion round {round}.
+Your current label: {own_label}. Your reason: {own_rationale}
+Your quoted evidence: "{own_quote}"
+Your colleague's current label: {partner_label}. Their reason: {partner_rationale}
+Their quoted evidence, from what they can see: "{partner_quote}"
+
+Reply to your colleague and give the label you now hold, then quote word for word the passage from
+your text that best supports it (at most 40 words).
+Return JSON: {{"rationale": "...", "label": "yes" | "no" | "maybe", "confidence": 0-100, "quote": "..."}}""",
+    schema={
+        "type": "object",
+        "properties": {
+            "rationale": {"type": "string"},
+            "label": {"type": "string", "enum": ["yes", "no", "maybe"]},
+            "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+            "quote": {"type": "string"},
+        },
+        "required": ["rationale", "label", "confidence", "quote"],
+    },
+    fields=("question", "evidence", "partner_view", "round", "own_label", "own_rationale", "own_quote",
+            "partner_label", "partner_rationale", "partner_quote"),
+    options={"temperature": 0, "num_ctx": 4096, "num_predict": 300},
+)
+
 PROMPTS: dict[str, PromptSpec] = {
     spec.id: spec
     for spec in (
@@ -303,7 +449,11 @@ PROMPTS: dict[str, PromptSpec] = {
         LABEL_MINIMAL_V1,
         LABEL_DEFINED_V1,
         LABEL_DEFINED_PRIOR_V1,
+        LABEL_PROBS_V1,
+        LABEL_CAVEAT_PROBS_V1,
         NEGOTIATE_V1,
+        JUSTIFY_V1,
+        NEGOTIATE_EVIDENCE_V1,
     )
 }
 

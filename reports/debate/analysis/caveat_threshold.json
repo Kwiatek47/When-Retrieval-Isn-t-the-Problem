@@ -1,0 +1,414 @@
+{
+  "n_questions": 995,
+  "n_test": 495,
+  "n_nontest": 500,
+  "human": {
+    "maybe_with_conclusion": 110,
+    "maybe_without": 84,
+    "conclusion_effect": 0.0261,
+    "gold_maybe": 109
+  },
+  "C1_conclusion_effect_caveat_minus_probs": {
+    "value": -0.0151,
+    "ci_low": -0.0372,
+    "ci_high": 0.006,
+    "ci_level": 0.9833,
+    "verdict": "inconclusive"
+  },
+  "C2_maybe_f1_vs_annotator_with_conclusion_caveat_minus_probs": {
+    "value": 0.1101,
+    "ci_low": 0.0287,
+    "ci_high": 0.1933,
+    "ci_level": 0.9833,
+    "verdict": "supported"
+  },
+  "T1_maybe_f1_vs_counterpart_threshold_minus_stated": {
+    "value": 0.0103,
+    "ci_low": -0.0413,
+    "ci_high": 0.0648,
+    "ci_level": 0.9833,
+    "verdict": "inconclusive"
+  },
+  "per_model": {
+    "qwen3": {
+      "C1": {
+        "value": -0.0191,
+        "ci_low": -0.0432,
+        "ci_high": 0.005,
+        "ci_level": 0.95
+      },
+      "C2": {
+        "value": 0.1282,
+        "ci_low": 0.0302,
+        "ci_high": 0.2293,
+        "ci_level": 0.95
+      },
+      "conclusion_effect": {
+        "probs": {
+          "value": -0.0271,
+          "ci_low": -0.0432,
+          "ci_high": -0.0101,
+          "ci_level": 0.95
+        },
+        "caveat": {
+          "value": -0.0462,
+          "ci_low": -0.0693,
+          "ci_high": -0.0231,
+          "ci_level": 0.95
+        }
+      },
+      "maybe_count_all": {
+        "probs|with": 46,
+        "probs|without": 73,
+        "caveat|with": 124,
+        "caveat|without": 170
+      },
+      "maybe_f1_all_stated": {
+        "probs|with": {
+          "vs_gold": 0.2581,
+          "vs_counterpart": 0.2821
+        },
+        "probs|without": {
+          "vs_gold": 0.1758,
+          "vs_counterpart": 0.1274
+        },
+        "caveat|with": {
+          "vs_gold": 0.3433,
+          "vs_counterpart": 0.4103
+        },
+        "caveat|without": {
+          "vs_gold": 0.2724,
+          "vs_counterpart": 0.1811
+        }
+      }
+    },
+    "mistral": {
+      "C1": {
+        "value": -0.0111,
+        "ci_low": -0.0352,
+        "ci_high": 0.0141,
+        "ci_level": 0.95
+      },
+      "C2": {
+        "value": 0.0919,
+        "ci_low": 0.0153,
+        "ci_high": 0.167,
+        "ci_level": 0.95
+      },
+      "conclusion_effect": {
+        "probs": {
+          "value": -0.0171,
+          "ci_low": -0.0342,
+          "ci_high": 0.0,
+          "ci_level": 0.95
+        },
+        "caveat": {
+          "value": -0.0281,
+          "ci_low": -0.0523,
+          "ci_high": -0.005,
+          "ci_level": 0.95
+        }
+      },
+      "maybe_count_all": {
+        "probs|with": 66,
+        "probs|without": 83,
+        "caveat|with": 132,
+        "caveat|without": 160
+      },
+      "maybe_f1_all_stated": {
+        "probs|with": {
+          "vs_gold": 0.2171,
+          "vs_counterpart": 0.2386
+        },
+        "probs|without": {
+          "vs_gold": 0.1979,
+          "vs_counterpart": 0.1557
+        },
+        "caveat|with": {
+          "vs_gold": 0.3071,
+          "vs_counterpart": 0.3306
+        },
+        "caveat|without": {
+          "vs_gold": 0.2379,
+          "vs_counterpart": 0.2049
+        }
+      }
+    }
+  },
+  "thresholds": {
+    "qwen3|probs|with": {
+      "threshold": 0.05,
+      "target_share_nontest": 0.124,
+      "share_nontest": 0.144,
+      "share_test": 0.1152
+    },
+    "qwen3|probs|without": {
+      "threshold": 0.1,
+      "target_share_nontest": 0.074,
+      "share_nontest": 0.072,
+      "share_test": 0.0768
+    },
+    "mistral|probs|with": {
+      "threshold": 0.2,
+      "target_share_nontest": 0.124,
+      "share_nontest": 0.176,
+      "share_test": 0.1616
+    },
+    "mistral|probs|without": {
+      "threshold": 0.35,
+      "target_share_nontest": 0.074,
+      "share_nontest": 0.072,
+      "share_test": 0.0747
+    },
+    "qwen3|caveat|with": {
+      "threshold": 0.5,
+      "target_share_nontest": 0.124,
+      "share_nontest": 0.12,
+      "share_test": 0.097
+    },
+    "qwen3|caveat|without": {
+      "threshold": 0.6,
+      "target_share_nontest": 0.074,
+      "share_nontest": 0.09,
+      "share_test": 0.0889
+    },
+    "mistral|caveat|with": {
+      "threshold": 0.3,
+      "target_share_nontest": 0.124,
+      "share_nontest": 0.118,
+      "share_test": 0.1434
+    },
+    "mistral|caveat|without": {
+      "threshold": 0.5,
+      "target_share_nontest": 0.074,
+      "share_nontest": 0.08,
+      "share_test": 0.0626
+    }
+  },
+  "test_cells": {
+    "qwen3|probs|with": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.2687,
+        "threshold": 0.3238
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.2192,
+        "threshold": 0.2523
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.8283,
+        "threshold": 0.7818
+      },
+      "maybe_count": {
+        "stated": 19,
+        "threshold": 57,
+        "counterpart": 48,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.2202,
+        "gold": 0.1924
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.6166,
+        "gold": 0.5831
+      }
+    },
+    "qwen3|probs|without": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.1905,
+        "threshold": 0.1882
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.1978,
+        "threshold": 0.1957
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.7717,
+        "threshold": 0.7697
+      },
+      "maybe_count": {
+        "stated": 37,
+        "threshold": 38,
+        "counterpart": 47,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.1355,
+        "gold": 0.1401
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.5525,
+        "gold": 0.5308
+      }
+    },
+    "mistral|probs|with": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.2759,
+        "threshold": 0.3281
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.2151,
+        "threshold": 0.2985
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.8,
+        "threshold": 0.7596
+      },
+      "maybe_count": {
+        "stated": 39,
+        "threshold": 80,
+        "counterpart": 48,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.2168,
+        "gold": 0.1977
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.6728,
+        "gold": 0.6381
+      }
+    },
+    "mistral|probs|without": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.2069,
+        "threshold": 0.1429
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.234,
+        "threshold": 0.1978
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.7717,
+        "threshold": 0.7697
+      },
+      "maybe_count": {
+        "stated": 40,
+        "threshold": 37,
+        "counterpart": 47,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.1449,
+        "gold": 0.1668
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.6344,
+        "gold": 0.6366
+      }
+    },
+    "qwen3|caveat|with": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.466,
+        "threshold": 0.4375
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.3853,
+        "threshold": 0.3529
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.804,
+        "threshold": 0.804
+      },
+      "maybe_count": {
+        "stated": 55,
+        "threshold": 48,
+        "counterpart": 48,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.3031,
+        "gold": 0.2297
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.7078,
+        "gold": 0.6601
+      }
+    },
+    "qwen3|caveat|without": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.2326,
+        "threshold": 0.1978
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.25,
+        "threshold": 0.2449
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.7131,
+        "threshold": 0.7475
+      },
+      "maybe_count": {
+        "stated": 82,
+        "threshold": 44,
+        "counterpart": 47,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.1375,
+        "gold": 0.1686
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.5763,
+        "gold": 0.6027
+      }
+    },
+    "mistral|caveat|with": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.3333,
+        "threshold": 0.3361
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.3016,
+        "threshold": 0.304
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.7798,
+        "threshold": 0.7798
+      },
+      "maybe_count": {
+        "stated": 72,
+        "threshold": 71,
+        "counterpart": 48,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.2129,
+        "gold": 0.2037
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.7148,
+        "gold": 0.6942
+      }
+    },
+    "mistral|caveat|without": {
+      "maybe_f1_vs_counterpart": {
+        "stated": 0.2419,
+        "threshold": 0.1026
+      },
+      "maybe_f1_vs_gold": {
+        "stated": 0.2595,
+        "threshold": 0.0706
+      },
+      "accuracy_vs_gold": {
+        "stated": 0.7313,
+        "threshold": 0.7475
+      },
+      "maybe_count": {
+        "stated": 77,
+        "threshold": 31,
+        "counterpart": 47,
+        "gold": 54
+      },
+      "p_maybe_ap": {
+        "counterpart": 0.1429,
+        "gold": 0.1803
+      },
+      "p_maybe_auroc": {
+        "counterpart": 0.6501,
+        "gold": 0.6847
+      }
+    }
+  }
+}
